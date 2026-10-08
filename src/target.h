@@ -46,50 +46,9 @@ enum object_type
 };
 
 
-enum target
-{
-    TARGET_GCC_LINUX_X64,
-    TARGET_MSVC_WIN_X86,
-    TARGET_MSVC_WIN_X64,
-    TARGET_CCU8,
-    TARGET_LCCU16,
-    TARGET_CATALINA,
-    TARGET_CLANG_MACOS_ARM64,
-    TARGET_TCC_WIN_X64,
-    TARGET_TCC_LINUX_X64,
-    TARGET_TCC_MACOS_ARM64,
-    TARGET_GCC_LINUX_ARM64,
-    TARGET_GCC_LINUX_ARM32,
-
-    /* alias: the platform cake itself was built for */
-#if defined(_WIN32) && defined(_WIN64) && defined(__TINYC__)
-    TARGET_DEFAULT = TARGET_TCC_WIN_X64
-#elif defined(__linux__) && defined(__x86_64__) && defined(__TINYC__)
-    TARGET_DEFAULT = TARGET_TCC_LINUX_X64
-#elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__)) && defined(__TINYC__)
-    TARGET_DEFAULT = TARGET_TCC_MACOS_ARM64
-#elif defined(_WIN32) && defined(_WIN64)
-    TARGET_DEFAULT = TARGET_MSVC_WIN_X64
-#elif defined(_WIN32) && !defined(_WIN64)
-    TARGET_DEFAULT = TARGET_MSVC_WIN_X86
-#elif !defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64) || defined(__EMSCRIPTEN__))
-    TARGET_DEFAULT = TARGET_GCC_LINUX_X64
-#elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
-    TARGET_DEFAULT = TARGET_CLANG_MACOS_ARM64
-#elif defined(__linux__) && defined(__aarch64__)
-    TARGET_DEFAULT = TARGET_GCC_LINUX_ARM64
-#elif defined(__linux__) && defined(__arm__)
-    TARGET_DEFAULT = TARGET_GCC_LINUX_ARM32
-#else
-#error "unknown host platform"
-#endif
-};
-
-#define NUMBER_OF_TARGETS  12
-
 struct platform
 {
-    const char* name;
+    const char* _Opt name;   /* a zeroed struct options has none until fill_options */
 
     /* __CAKE_TARGET_COMPILER_<compiler>, __CAKE_TARGET_OS_<os>, __CAKE_TARGET_ARCH_<arch>;
        NULL defines nothing */
@@ -97,8 +56,30 @@ struct platform
     const char* _Opt os;
     const char* _Opt arch;
 
-    const char* thread_local_attr;
-    const char* alignas_fmt_must_have_one_percent_d;
+    const char* _Opt predefined_macros;
+    const char* _Opt builtins;
+
+    /* code gen flags; false is the GCC behavior */
+    const char* _Opt code_thread_local_spelling;
+    const char* _Opt code_alignas_spelling_fmt;  /* must have one %d */
+    const char* _Opt code_alloca_spelling;
+    bool code_msvc_like_atomics;               /* atomics use _Interlocked* */
+    bool code_tcc_like_atomics;                /* atomics use tcc's lock; neither = __atomic_* */
+    bool code_msvc_like_no_member_packed;      /* no __attribute__((packed)) on a member */
+    bool code_tcc_like_no_builtin_inf;         /* no __builtin_inf / __builtin_fabs */
+    bool code_tcc_like_alloca_declaration;     /* alloca needs a prototype */
+
+    /*
+      Behaviors of a compiler that differ from C/GCC; false is the C/GCC behavior.
+      Named by the compiler that has it, but any target can imitate it.
+    */
+    bool msvc_like_bitfield_layout;       /* bit-field units and unnamed bit-field alignment as MSVC */
+    bool msvc_like_object_size_limit;     /* one object cannot exceed 0x7FFFFFFF bytes */
+    bool msvc_like_decimal_literal_type;  /* unsuffixed decimal literal can be unsigned long (C90) */
+    bool msvc_like_keywords;              /* __ptr32, __ptr64 ... */
+    bool msvc_like_asm_statement;         /* __asm { ... } instead of asm("...") */
+    bool gcc_like_asm_label;              /* int x __asm("name"); */
+    bool tcc_like_static_redeclaration;   /* block scope static after a non-static declaration */
 
     int bool_n_bits;
     int bool_alignment;
@@ -144,18 +125,15 @@ struct platform
 };
 
 
-int parse_target(const char* targetstr, enum target* target);
+/* fills *p_platform with the platform named targetstr ("default" is the host) */
+int parse_target(const char* targetstr, struct platform* p_platform);
 void print_target_options();
-struct platform* get_platform(enum  target target);
-int target_get_num_of_bits(enum target target, enum object_type type);
-int parse_target(const char* targetstr, enum target* target);
-void print_target_options();
-const char* target_get_predefined_macros(enum target e);
-const char* target_get_builtins(enum target e);
-const char* target_get_alloca(enum target e);
+void platform_default(_Out struct platform* p);
 
+bool platform_os_is(const struct platform* p_platform, const char* os);
+bool platform_arch_is(const struct platform* p_platform, const char* arch);
 
-long long target_signed_max(enum  target target, enum object_type type);
-long long target_signed_min(enum  target target, enum object_type type);
-
-unsigned long long target_unsigned_max(enum  target target, enum object_type type);
+int target_get_num_of_bits(const struct platform* target, enum object_type type);
+long long target_signed_max(const struct platform* target, enum object_type type);
+long long target_signed_min(const struct platform* target, enum object_type type);
+unsigned long long target_unsigned_max(const struct platform* target, enum object_type type);

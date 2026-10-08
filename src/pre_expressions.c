@@ -129,13 +129,13 @@ static struct token* _Opt pre_match(struct preprocessor_ctx* ctx)
 }
 
 //TODO share this with parser
-static struct object char_constant_to_value(const char* s, char error_message[ /*sz*/ ], int error_message_sz_bytes, enum target target)
+static struct object char_constant_to_value(const char* s, char error_message[ /*sz*/ ], int error_message_sz_bytes, const struct platform* target)
 {
     error_message[0] = '\0';
 
     const unsigned char* _Opt p = (const unsigned char*)s;
     const unsigned long long
-    wchar_max_value = target_unsigned_max(target, get_platform(target)->wchar_t_type);
+    wchar_max_value = target_unsigned_max(target, target->wchar_t_type);
 
     try
     {
@@ -377,7 +377,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx, struct pre_expr
         {
             const char* p = ctx->current->lexeme;
             char errmsg[200] = { 0 };
-            struct object v = char_constant_to_value(p, errmsg, sizeof errmsg, ctx->options.target);
+            struct object v = char_constant_to_value(p, errmsg, sizeof errmsg, &ctx->options.platform);
             if (errmsg[0] != '\0')
             {
                 preprocessor_diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, "%s", errmsg);

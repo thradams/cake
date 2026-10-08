@@ -241,7 +241,7 @@ int fill_options(struct options* options,
     options->use_cake_headers = true;
 #endif
 
-    options->target = TARGET_DEFAULT;
+    platform_default(&options->platform);
 
     options_set_all_warnings(options);
     options_set_warning(options, W_FLOW_NULL_DEREFERENCE, false);
@@ -645,7 +645,7 @@ int fill_options(struct options* options,
 
         if (has_prefix(argv[i], "-target="))
         {
-            int r = parse_target(argv[i] + (sizeof("-target=") - 1), &options->target);
+            int r = parse_target(argv[i] + (sizeof("-target=") - 1), &options->platform);
             if (r != 0)
             {
                 printf("Invalid target. Options: ");

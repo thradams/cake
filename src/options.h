@@ -472,7 +472,7 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack);
 struct options
 {
     enum standard_version input; /* check code againt this standard */
-    enum target target;          /* output target (gcc, msvc...)    */
+    struct platform platform;    /* output target (gcc, msvc...), filled by -target= */
 
     /*
       #pragma CAKE diagnostic push

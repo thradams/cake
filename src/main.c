@@ -44,7 +44,9 @@ int main(int argc, char** argv)
     return;
 #endif
 
-    printf("Cake " CAKE_VERSION " (%s)\n", get_platform(TARGET_DEFAULT)->name);
+    struct platform host;
+    platform_default(&host);
+    printf("Cake " CAKE_VERSION " (%s)\n", host.name);
 
     if (argc < 2)
     {

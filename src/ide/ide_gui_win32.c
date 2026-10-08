@@ -838,6 +838,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     switch (msg)
     {
     case WM_SIZE:
+        if (wp == SIZE_MINIMIZED)
+            return 0;   /* not a new size: restoring brings the same one back */
         ensure_back_buffer(win);
         if (win->surface)
             gui_surface_resize(win->app, win->surface, win->canvas.w, win->canvas.h);

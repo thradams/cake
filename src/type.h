@@ -306,8 +306,8 @@ struct param
     struct param* _Owner _Opt next;
 };
 
-void print_type(struct osstream* ss, const  struct type* type, enum target target);
-void print_type_no_names(struct osstream* ss, const struct type* p_type, enum target target);
+void print_type(struct osstream* ss, const  struct type* type, const struct platform* target);
+void print_type_no_names(struct osstream* ss, const struct type* p_type, const struct platform* target);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags, int bitint_width);
 
 void print_item(struct osstream* ss, bool* first, const char* item);
@@ -315,7 +315,7 @@ struct type type_dup(const struct type* p_type);
 
 void type_destroy(_Opt _Dtor struct type* p_type);
 
-struct type type_common(const struct type* p_type1, const struct type* p_type2, enum target target);
+struct type type_common(const struct type* p_type1, const struct type* p_type2, const struct platform* target);
 struct type get_array_item_type(const struct type* p_type);
 struct type type_remove_pointer(const struct type* p_type);
 
@@ -362,13 +362,13 @@ bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
 bool type_is_char(const struct type* p_type);
-bool type_is_wchar(const struct type* p_type, enum target target);
+bool type_is_wchar(const struct type* p_type, const struct platform* target);
 bool type_is_array_of_char(const struct type* p_type);
 bool type_is_unsigned_integer(const struct type* p_type);
 bool type_is_signed_integer(const struct type* p_type);
 bool type_is_signed(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
-int type_get_integer_rank(const struct type* p_type1, enum target target);
+int type_get_integer_rank(const struct type* p_type1, const struct platform* target);
 
 bool type_is_arithmetic(const struct type* p_type);
 
@@ -412,7 +412,7 @@ int  type_get_bitfield_width(const struct type* p_type);
 
 bool type_is_bitint(const struct type* p_type);
 /* the smallest standard integer type that holds N bits, used to lower _BitInt(N) */
-enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is_unsigned, enum target target);
+enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is_unsigned, const struct platform* target);
 bool type_is_unnamed_bitfield(const struct type* p_type);
 
 
@@ -434,8 +434,8 @@ struct type type_param_array_to_pointer(const struct type* p_type);
 
 struct type type_make_literal_string(int size, enum type_specifier_flags chartype, enum type_qualifier_flags qualifiers);
 struct type type_make_int_bool_like();
-struct type type_make_size_t(enum target target);
-struct type type_make_ptrdiff_t(enum target target);
+struct type type_make_size_t(const struct platform* target);
+struct type type_make_ptrdiff_t(const struct platform* target);
 
 struct type type_make_long_double();
 struct type type_make_double();
@@ -445,7 +445,7 @@ struct enumerator;
 struct type type_make_enumerator(const struct enumerator* enumerator);
 struct type make_void_type();
 struct type make_void_ptr_type();
-struct type make_size_t_type(enum target target);
+struct type make_size_t_type(const struct platform* target);
 struct type make_with_type_specifier_flags(enum type_specifier_flags f);
 
 struct specifier_qualifier_list;
@@ -465,16 +465,16 @@ enum sizeof_result
     SIZEOF_RESULT_BITFIELD   /* sizeof applied to a bitfield member — ill-formed in C */
 };
 
-enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target);
+enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, const struct platform* target);
 
-enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, struct type* _Opt p_member_type_out, enum target target);
+enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, struct type* _Opt p_member_type_out, const struct platform* target);
 
-void type_get_integer_range(const struct type* p_type, enum target target, long long* min, unsigned long long* max);
+void type_get_integer_range(const struct type* p_type, const struct platform* target, long long* min, unsigned long long* max);
 
-size_t type_get_alignof(const struct type* p_type, enum target target);
+size_t type_get_alignof(const struct type* p_type, const struct platform* target);
 
 struct type type_add_pointer(const struct type* p_type);
-void type_print(const struct type* a, enum target target);
+void type_print(const struct type* a, const struct platform* target);
 
 enum type_category type_get_category(const struct type* p_type);
 

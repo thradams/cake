@@ -792,9 +792,9 @@ static void build_cake89(const char* test_flag)
 #if defined COMPILER_MSVC
 
 #ifdef _WIN64
-    echo_chdir("./msvc-win-x64/");
+    echo_chdir("./x86_64-pc-windows-msvc/");
 #else
-    echo_chdir("./msvc-win-x86/");
+    echo_chdir("./i686-pc-windows-msvc/");
 #endif
 
     char* cmd = calloc(2000, sizeof(char));
@@ -819,11 +819,11 @@ static void build_cake89(const char* test_flag)
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
 
 #if defined ARCH_ARM64
-    echo_chdir("./gcc-linux-arm64/");
+    echo_chdir("./aarch64-linux-gnu-gcc/");
 #elif defined ARCH_ARM32
-    echo_chdir("./gcc-linux-arm32/");
+    echo_chdir("./arm-linux-gnueabihf-gcc/");
 #else
-    echo_chdir("./gcc-linux-x64/");
+    echo_chdir("./x86_64-linux-gnu-gcc/");
 #endif
     {
     char* cmd = calloc(2000, sizeof(char));
@@ -841,11 +841,11 @@ static void build_cake89(const char* test_flag)
 
     /* the generated code is in the folder of cake's default target */
 #if defined PLATFORM_WINDOWS
-    echo_chdir("./tcc-win-x64/");
+    echo_chdir("./x86_64-w64-mingw32-tcc/");
 #elif defined PLATFORM_MACOS
-    echo_chdir("./tcc-macos-arm64/");
+    echo_chdir("./aarch64-apple-darwin-tcc/");
 #else
-    echo_chdir("./tcc-linux-x64/");
+    echo_chdir("./x86_64-linux-gnu-tcc/");
 #endif
     char* cmd = calloc(2000, sizeof(char));
     snprintf(cmd, 2000, "tcc %s -o " EXE(CKC89_NAME) " " CAKE_SOURCE_FILES, test_flag);

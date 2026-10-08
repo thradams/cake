@@ -562,6 +562,23 @@ void gui_set_separator(struct gui_node* n, int separator)
     n->separator = separator != 0;
 }
 
+void gui_set_mark(struct gui_node* item, int marked)
+{
+    item->markable = 1;
+    item->marked = marked != 0;
+}
+
+/* Some item of `menu` has a mark column (gui_set_mark): every label moves right. */
+static int menu_has_marks(const struct gui_node* menu)
+{
+    for (int i = 0; i < menu->child_count; i++)
+    {
+        if (menu->children[i]->markable)
+            return 1;
+    }
+    return 0;
+}
+
 void gui_set_hint(struct gui_node* n, const char* utf8)
 {
     char* copy = core_strdup(utf8);
@@ -1863,6 +1880,8 @@ static struct gui_rect layout_dropdown(const struct gui_app* app, struct gui_nod
         if (w > max_w)
             max_w = w;
     }
+    if (menu_has_marks(menu))
+        max_w += 2 * cw;   /* the dot column */
     int inner_w = max_w + 2 * cw;
     struct gui_rect box = { x, y, inner_w + 2 * cw, menu->child_count * item_h + 2 * ch };
 
@@ -2406,6 +2425,20 @@ void core_draw_shadow(const struct paint* p, const struct gui_rect* r)
     gui_shade_rect(p->frame, r->x + cw, r->y + r->h, r->w - cw, half, alpha);
 }
 
+/* A filled dot of diameter `d` centered at (cx, cy), row by row - no font has to have it. */
+static void fill_dot(struct frame_recorder* c, int cx, int cy, int d, uint32_t rgb)
+{
+    for (int y = 0; y < d; y++)
+    {
+        int dy = 2 * y + 1 - d;   /* half-pixels from the center */
+        int w = 0;
+        while ((2 * w + 1) * (2 * w + 1) + dy * dy <= d * d)
+            w++;
+        if (w > 0)
+            gui_fill_rect(c, cx - w, cy - d / 2 + y, 2 * w, 1, rgb);
+    }
+}
+
 static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
                            const struct gui_rect* box)
 {
@@ -2414,6 +2447,7 @@ static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
     int cw = p->app->ui_metrics.cell_w;
     struct paint q = *p;   /* the items: the "other fonts" font */
     q.font = GUI_FONT_UI;
+    int label_x = menu_has_marks(menu) ? 3 * cw : cw;   /* past the dot column */
 
     core_draw_shadow(p, box);
     core_draw_frame(p, box, t->menu_border_style, t->menu_border_fg, t->menu_border_bg);
@@ -2436,7 +2470,9 @@ static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
         gui_fill_rect(p->frame, r->x, r->y, r->w, r->h, bg);
         /* the font's cell can be taller than the item; its bg must not spill out */
         gui_set_clip(p->frame, r->x, r->y, r->w, r->h);
-        core_draw_utf8(&q, r->x + cw, r->y, it->label, -1, fg, bg);
+        if (it->marked)
+            fill_dot(p->frame, r->x + 2 * cw, r->y + r->h / 2, r->h / 3, fg);
+        core_draw_utf8(&q, r->x + label_x, r->y, it->label, -1, fg, bg);
 
         if (item_is_submenu(it))
         {
@@ -2588,6 +2624,8 @@ static void paint_statusbar(const struct paint* p, const struct gui_node* bar)
     gui_fill_rect(p->frame, bar->rect.x, bar->rect.y, bar->rect.w, bar->rect.h, t->hotkey_bg);
 
     const struct gui_node* hot = p->app->menu.hot;
+    if (hot && hot->parent == bar)
+        hot = NULL;   /* a hovered statusbar hotkey is not a menu item */
     if (hot && !hot->hint[0])
         return;   /* a menu item without help: the bar stays blank */
     if (!hot)
@@ -2824,6 +2862,8 @@ void gui_app_resize(struct gui_app* app, int w, int h)
     frame_invalidate(app->frame);   /* a new size: a new back buffer */
     if (w == app->w && h == app->h)
         return;
+    if (w <= 0 || h <= 0)
+        return;   /* minimized: keep the layout for when it comes back */
     struct gui_rect old_desktop = desktop_rect(app);
     app->w = w;
     app->h = h;

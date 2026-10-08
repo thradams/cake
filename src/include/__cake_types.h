@@ -54,7 +54,7 @@
 
 #else
 
-    /* small targets (ccu8, catalina) */
+    /* small targets (catalina) */
     #define __cake_size_t      unsigned int
     #define __cake_ptrdiff_t   int
     #define __cake_intptr_t    long

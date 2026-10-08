@@ -5,10 +5,10 @@ int main(void)
     printf("value=%ld", 2147483647L + 10);
 
     #ifdef _WIN32
-    //use option : -target=msvc-win-x86
+    //use option : -target=i686-pc-windows-msvc
     static_assert(-2147483639 == 2147483647L + 10, "");
     #else
-    //use option : -target=gcc-linux-x64
+    //use option : -target=x86_64-linux-gnu-gcc
     static_assert(2147483657LL == 2147483647L + 10, "");
     #endif
 

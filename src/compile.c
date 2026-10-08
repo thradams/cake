@@ -377,7 +377,7 @@ int compile_one_file(const char* file_name,
     prectx.options = *options;
     prectx.macros.capacity = 5000;
 
-    add_standard_macros(&prectx, options->target);
+    add_standard_macros(&prectx, &options->platform);
 
     if (preprocessor_load_config(&prectx) != 0)
     {
@@ -458,7 +458,7 @@ int compile_one_file(const char* file_name,
         if (tctx.n_errors > 0)
             throw;
 
-        const char* builtin = target_get_builtins(ctx.options.target);
+        const char* builtin = ctx.options.platform.builtins;
         if (builtin[0] != '\0')
         {
             struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 1, TK_FLAG_NONE);
@@ -1319,7 +1319,7 @@ int compile(int argc, const char** argv, struct report* report)
 
     if (!options_is_report_mode(&options))
     {
-        printf("target: %s\n", get_platform(options.target)->name);
+        printf("target: %s\n", options.platform.name);
     }
 
     char executable_path[FS_MAX_PATH - sizeof(CAKE_CONFIG_FILE_NAME)] = { 0 };
@@ -1429,7 +1429,7 @@ int compile(int argc, const char** argv, struct report* report)
 
                 strcpy(output_file, file_root);
                 strcat(output_file, "/");
-                strcat(output_file, get_platform(options.target)->name);
+                strcat(output_file, options.platform.name);
 
                 strcat(output_file, fullpath + strlen(file_root));
 
@@ -1576,7 +1576,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
         }
 
         prectx.options = options;
-        add_standard_macros(&prectx, options.target);
+        add_standard_macros(&prectx, &options.platform);
 
         if (options.preprocess_only || options.copy_headers[0] != '\0')
         {
@@ -1670,7 +1670,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         if (tctx.n_errors > 0)
             throw;
 
-        const char* builtin = target_get_builtins(options.target);
+        const char* builtin = options.platform.builtins;
         if (builtin[0] != '\0')
         {
             /* level 1 - see the identical comment in compile_one_file() above. */
@@ -1681,7 +1681,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
 
         prectx.options = options;
         prectx.macros.capacity = 5000;
-        add_standard_macros(&prectx, options.target);
+        add_standard_macros(&prectx, &options.platform);
 
         if (preprocessor_load_config(&prectx) != 0)
         {

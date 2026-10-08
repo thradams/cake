@@ -400,6 +400,7 @@ void gui_set_shortcut(struct gui_node* n, const char* shortcut);
 
 void gui_set_enabled(struct gui_node* n, int enabled);  /* default 1 */
 void gui_set_separator(struct gui_node* n, int separator);  /* a menu item drawn as a line */
+void gui_set_mark(struct gui_node* item, int marked);  /* a menu item with a dot column: its menu's labels stay aligned; marked: the dot */
 
 /* One line shown in the statusbar while the node is under the mouse. */
 void gui_set_hint(struct gui_node* n, const char* utf8);

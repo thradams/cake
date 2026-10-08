@@ -100,7 +100,7 @@ static long long flow_cast_integer_value(const struct flow_ctx* ctx, long long v
         if (!type_is_integer(target_type)) return value;
 
         size_t width = 1;
-        enum sizeof_result r = type_get_sizeof(target_type, &width, ctx->ctx->options.target);
+        enum sizeof_result r = type_get_sizeof(target_type, &width, &ctx->ctx->options.platform);
         if (r != SIZEOF_RESULT_OK)
             throw;
 
@@ -204,8 +204,9 @@ static bool flow_scalar_relation_holds(long long x, enum expression_type op, lon
         case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
             return x <= rhs;
         default:
-            return false;
+            break;
     }
+    return false;
 }
 
 #define FLOW_BRANCH_PATH_MAX_CHAIN 128
@@ -793,7 +794,7 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
                     : type_remove_pointer(p_type);
                 pointee_is_opt = type_is_nullable(&pointed_type, nullable_enabled);
                 /* arrays are made at their first constant index, see EXPR_POSTFIX_ARRAY */
-                make_object(&pointed_type, p_pointed, type_is_pointed_out(p_type) ? MAKE_STATE_ANY : MAKE_STATE_ANY_LAZY_ARRAYS, ctx->ctx->options.target);
+                make_object(&pointed_type, p_pointed, type_is_pointed_out(p_type) ? MAKE_STATE_ANY : MAKE_STATE_ANY_LAZY_ARRAYS, &ctx->ctx->options.platform);
                 type_destroy(&pointed_type);
             }
 
@@ -936,7 +937,7 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
             if (p_pointed != NULL)
             {
                 struct type pointed_type = type_remove_pointer(p_type);
-                make_object(&pointed_type, p_pointed, MAKE_STATE_ANY_LAZY_ARRAYS, ctx->ctx->options.target);
+                make_object(&pointed_type, p_pointed, MAKE_STATE_ANY_LAZY_ARRAYS, &ctx->ctx->options.platform);
                 type_destroy(&pointed_type);
             }
 
@@ -2734,7 +2735,7 @@ static void flow_make_lazy_array(struct flow_ctx* ctx, struct object* _Opt p_arr
         }
         char designator[200] = { 0 };
         snprintf(designator, sizeof designator, "%s[%llu]", p_array->member_designator ? p_array->member_designator : "", k);
-        make_object_with_member_designator(&item_type, p_new_element, designator, MAKE_STATE_ANY_LAZY_ARRAYS, ctx->ctx->options.target);
+        make_object_with_member_designator(&item_type, p_new_element, designator, MAKE_STATE_ANY_LAZY_ARRAYS, &ctx->ctx->options.platform);
         p_new_element->parent = p_array;
         flow_parameter_object_init_r(ctx, p_new_element, &p_new_element->type, p_token, 1, false);
         object_list_push(&p_array->members, p_new_element);
@@ -3665,7 +3666,7 @@ static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
         if (p_pointed != NULL)
         {
             const struct token* p_token = p_src_expression->first_token;
-            make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
+            make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, &ctx->ctx->options.platform);
             if (want_zero)
                 flow_branch_set_object_zero(ctx->p_current_flow_branch, p_pointed, p_token);
             else
@@ -3896,7 +3897,7 @@ static const struct flow_key_alternatives* _Opt flow_pointer_pointee_on_demand(s
                                 p_new_shared = flow_allocated_object_arena_new(&ctx->allocated_object_arena);
                                 if (p_new_shared != NULL)
                                 {
-                                    make_object(&pointed_type, p_new_shared, MAKE_STATE_ANY, ctx->ctx->options.target);
+                                    make_object(&pointed_type, p_new_shared, MAKE_STATE_ANY, &ctx->ctx->options.platform);
                                 }
                             }
 
@@ -3962,7 +3963,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
             const struct type* p_param_type = &p_current_parameter_type->type;
 
             struct object param_object = { 0 };
-            make_object(p_param_type, &param_object, MAKE_STATE_UNITIALIZED, ctx->ctx->options.target);
+            make_object(p_param_type, &param_object, MAKE_STATE_UNITIALIZED, &ctx->ctx->options.platform);
 
             flow_visit_full_expression(ctx, p_arg_expr);
 
@@ -4559,8 +4560,9 @@ static enum expression_type flow_swap_relational(enum expression_type op)
         case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
             return EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN;
         default:
-            return op;
+            break;
     }
+    return op;
 }
 
 /* Narrow `src` (a variable's alternatives) for the condition `var OP c`,
@@ -5133,8 +5135,9 @@ static bool flow_alt_concrete_int(const struct flow_alternative* alt, long long*
             *out = (long long)(uintptr_t)alt->value.p;
             return true;
         default:
-            return false;
+            break;
     }
+    return false;
 }
 
 static int flow_pair_equality(const struct flow_alternative* lval,
@@ -6200,7 +6203,7 @@ static void flow_seed_member_default(struct flow_ctx* ctx, const struct object* 
                     {
                         p_pointed = flow_allocated_object_arena_new(&ctx->allocated_object_arena);
                         if (p_pointed != NULL)
-                            make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
+                            make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, &ctx->ctx->options.platform);
                     }
                     type_destroy(&pointed_type);
                 }
@@ -6278,7 +6281,7 @@ static bool flow_cast_one_value(struct flow_ctx* ctx,
                 struct object* _Opt p_new = flow_allocated_object_arena_new(&ctx->allocated_object_arena);
                 if (p_new != NULL)
                 {
-                    make_object(&target_pointee, p_new, MAKE_STATE_ANY, ctx->ctx->options.target);
+                    make_object(&target_pointee, p_new, MAKE_STATE_ANY, &ctx->ctx->options.platform);
                     tagged.value.p = p_new;
                 }
             }
@@ -7190,7 +7193,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             throw;
 
                         struct type pointed_type = type_remove_pointer(p_ret_type);
-                        make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
+                        make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, &ctx->ctx->options.platform);
 
                         struct flow_branch* old = ctx->p_current_flow_branch;
                         ctx->p_current_flow_branch = p_nonnull_map;
@@ -7242,7 +7245,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         if (p_pointed != NULL)
                         {
                             struct type pointed_type = type_remove_pointer(p_ret_type);
-                            make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, ctx->ctx->options.target);
+                            make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, &ctx->ctx->options.platform);
                             if (ret_zero)
                                 flow_branch_set_object_zero(ctx->p_current_flow_branch, p_pointed, p_call_token);
                             else
@@ -7834,7 +7837,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 if (p_fresh != NULL)
                                 {
                                     struct type pointed_type = type_remove_pointer(&p_operand->object.type);
-                                    make_object(&pointed_type, p_fresh, MAKE_STATE_ANY, ctx->ctx->options.target);
+                                    make_object(&pointed_type, p_fresh, MAKE_STATE_ANY, &ctx->ctx->options.platform);
                                     type_destroy(&pointed_type);
                                     a.value.p = p_fresh;
                                 }
@@ -11063,7 +11066,7 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
                 }
 
                 struct object param_object = { 0 };
-                make_object(ctx->p_return_type, &param_object, MAKE_STATE_UNITIALIZED, ctx->ctx->options.target);
+                make_object(ctx->p_return_type, &param_object, MAKE_STATE_UNITIALIZED, &ctx->ctx->options.platform);
                 flow_check_object_init_assigment(ctx, p_jump_statement->expression_opt, &param_object, &p_jump_statement->expression_opt->object, INIT_RETURN, false, false);
                 object_destroy(&param_object);
             }
@@ -11325,7 +11328,7 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
 }
 
 /* 'name', or the type when the object has no name (a pointee, a temporary). */
-static void flow_print_object_name_or_type(struct osstream* ss, const struct object* _Opt p, enum target target)
+static void flow_print_object_name_or_type(struct osstream* ss, const struct object* _Opt p, const struct platform* target)
 {
     if (p == NULL)
         ss_fprintf(ss, "?");
@@ -11369,7 +11372,7 @@ static void flow_check_limits(struct flow_ctx* ctx, const struct token* p_token)
             }
         }
         struct osstream name = { 0 };
-        flow_print_object_name_or_type(&name, p_largest, ctx->ctx->options.target);
+        flow_print_object_name_or_type(&name, p_largest, &ctx->ctx->options.platform);
 
         const struct marker m = { .p_token_begin = p_token, .p_token_end = p_token };
         diagnostic(W_FLOW_NOT_DONE, ctx->ctx, NULL, &m,
@@ -11419,7 +11422,7 @@ static void flow_check_limits(struct flow_ctx* ctx, const struct token* p_token)
     }
 
     struct osstream name = { 0 };
-    flow_print_object_name_or_type(&name, roots[top].p_root, ctx->ctx->options.target);
+    flow_print_object_name_or_type(&name, roots[top].p_root, &ctx->ctx->options.platform);
 
     const struct marker m = { .p_token_begin = p_token, .p_token_end = p_token };
     diagnostic(W_FLOW_NOT_DONE, ctx->ctx, NULL, &m,

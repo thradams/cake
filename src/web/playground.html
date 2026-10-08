@@ -96,16 +96,15 @@
         </select>
 
         <select id="target" onchange="OnCompileButton()">
-            <option value="msvc-win-x86">x86 msvc</option>
-            <option value="msvc-win-x64">x64 msvc</option>
-            <option value="tcc-win-x64">tcc win x64</option>
-            <option value="tcc-linux-x64">tcc linux x64</option>
-            <option value="tcc-macos-arm64">tcc macOS ARM64</option>
-            <option value="gcc-linux-x64">x86-64 gcc</option>
-            <option value="clang-macos-arm64">MacOs ARM64</option>
-            <option value="gcc-linux-arm64">ARM64 gcc (Linux)</option>
-            <option value="ccu8">ccu8</option>
-            <option value="catalina">catalina</option>
+            <option value="i686-pc-windows-msvc">x86 msvc</option>
+            <option value="x86_64-pc-windows-msvc">x64 msvc</option>
+            <option value="x86_64-w64-mingw32-tcc">tcc win x64</option>
+            <option value="x86_64-linux-gnu-tcc">tcc linux x64</option>
+            <option value="aarch64-apple-darwin-tcc">tcc macOS ARM64</option>
+            <option value="x86_64-linux-gnu-gcc">x86-64 gcc</option>
+            <option value="aarch64-apple-darwin-clang">MacOs ARM64</option>
+            <option value="aarch64-linux-gnu-gcc">ARM64 gcc (Linux)</option>
+            <option value="propeller-catalina">catalina</option>
         </select>
 
         <!--<button onclick="OnCompileButton()">Compile</button>-->

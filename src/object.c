@@ -539,66 +539,66 @@ bool object_has_known_value(const struct object* a)
         a->state == CONSTANT_VALUE_EQUAL;
 }
 
-struct object object_make_size_t(enum target target, unsigned long long value)
+struct object object_make_size_t(const struct platform* target, unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = get_platform(target)->size_t_type;
+    r.value_type = target->size_t_type;
     const int bits = target_get_num_of_bits(target, r.value_type);
     r.value.host_u_long_long = wrap_unsigned_integer(value, bits);
     return r;
 }
 
-struct object object_make_nullptr(enum target target)
+struct object object_make_nullptr(const struct platform* target)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = get_platform(target)->size_t_type;
+    r.value_type = target->size_t_type;
     const int bits = target_get_num_of_bits(target, r.value_type);
     r.value.host_u_long_long = wrap_unsigned_integer(0, bits);
     return r;
 }
 
-struct object object_make_char(enum target target, int value)
+struct object object_make_char(const struct platform* target, int value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = get_platform(target)->char_t_type;
+    r.value_type = target->char_t_type;
 
     if (object_type_is_signed_integer(r.value_type))
     {
-        r.value.host_long_long = wrap_signed_integer(value, get_platform(target)->char_n_bits);
+        r.value.host_long_long = wrap_signed_integer(value, target->char_n_bits);
     }
     else
     {
-        r.value.host_u_long_long = wrap_unsigned_integer(value, get_platform(target)->char_n_bits);
+        r.value.host_u_long_long = wrap_unsigned_integer(value, target->char_n_bits);
     }
 
     return r;
 }
 
-struct object object_make_wchar_t(enum target target, int value)
+struct object object_make_wchar_t(const struct platform* target, int value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = get_platform(target)->wchar_t_type;
+    r.value_type = target->wchar_t_type;
     const int bits = target_get_num_of_bits(target, r.value_type);
     r.value.host_u_long_long = wrap_unsigned_integer(value, bits);
     return r;
 }
 
-struct object object_make_bool(enum target target, bool value)
+struct object object_make_bool(const struct platform* target, bool value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = get_platform(target)->bool_type;
+    r.value_type = target->bool_type;
     if (object_type_is_signed_integer(r.value_type))
     {
-        r.value.host_long_long = wrap_signed_integer(value, get_platform(target)->bool_n_bits);
+        r.value.host_long_long = wrap_signed_integer(value, target->bool_n_bits);
     }
     else
     {
-        r.value.host_u_long_long = wrap_unsigned_integer(value, get_platform(target)->bool_n_bits);
+        r.value.host_u_long_long = wrap_unsigned_integer(value, target->bool_n_bits);
     }
     return r;
 }
@@ -710,11 +710,11 @@ struct object object_make_signed_char(signed char value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_CHAR;
-    r.value.host_long_long = wrap_signed_integer(value, get_platform(TARGET_MSVC_WIN_X86)->char_n_bits);
+    r.value.host_long_long = wrap_signed_integer(value, 8);
     return r;
 }
 
-bool object_increment_value(enum target target, struct object* a)
+bool object_increment_value(const struct platform* target, struct object* a)
 {
     if (object_type_is_signed_bitsized(a->value_type))
     {
@@ -767,12 +767,12 @@ bool object_increment_value(enum target target, struct object* a)
     return false;
 }
 
-struct object object_make_unsigned_char(enum target target, unsigned char value)
+struct object object_make_unsigned_char(const struct platform* target, unsigned char value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_CHAR;
-    r.value.host_u_long_long = wrap_unsigned_integer(value, get_platform(target)->char_n_bits);
+    r.value.host_u_long_long = wrap_unsigned_integer(value, target->char_n_bits);
 
     return r;
 }
@@ -787,74 +787,74 @@ struct object object_make_signed_short(signed short value)
     return r;
 }
 
-struct object object_make_uint8(enum target target, uint8_t value)
+struct object object_make_uint8(const struct platform* target, uint8_t value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = to_unsigned(get_platform(target)->int8_type);
+    r.value_type = to_unsigned(target->int8_type);
     r.value.host_u_long_long = wrap_unsigned_integer(value, 8);
     return r;
 }
-struct object object_make_uint16(enum target target, uint16_t value)
+struct object object_make_uint16(const struct platform* target, uint16_t value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = to_unsigned(get_platform(target)->int16_type);
+    r.value_type = to_unsigned(target->int16_type);
     r.value.host_u_long_long = wrap_unsigned_integer(value, 16);
     return r;
 }
-struct object object_make_uint32(enum target target, uint32_t value)
+struct object object_make_uint32(const struct platform* target, uint32_t value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    r.value_type = to_unsigned(get_platform(target)->int32_type);
+    r.value_type = to_unsigned(target->int32_type);
     r.value.host_u_long_long = wrap_unsigned_integer(value, 32);
     return r;
 }
 
-struct object object_make_signed_int(enum target target, long long value)
+struct object object_make_signed_int(const struct platform* target, long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_INT;
-    r.value.host_long_long = wrap_signed_integer(value, get_platform(target)->int_n_bits);
+    r.value.host_long_long = wrap_signed_integer(value, target->int_n_bits);
     return r;
 }
 
-struct object object_make_unsigned_int(enum target target, unsigned long long value)
+struct object object_make_unsigned_int(const struct platform* target, unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_INT;
-    r.value.host_u_long_long = wrap_unsigned_integer(value, get_platform(target)->int_n_bits);
+    r.value.host_u_long_long = wrap_unsigned_integer(value, target->int_n_bits);
     return r;
 }
 
-struct object object_make_signed_long(enum target target, signed long long value)
+struct object object_make_signed_long(const struct platform* target, signed long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG;
-    r.value.host_long_long = wrap_signed_integer(value, get_platform(target)->long_n_bits);
+    r.value.host_long_long = wrap_signed_integer(value, target->long_n_bits);
     return r;
 }
 
-struct object object_make_unsigned_long(enum target target, unsigned long long value)
+struct object object_make_unsigned_long(const struct platform* target, unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG;
-    r.value.host_u_long_long = wrap_unsigned_integer(value, get_platform(target)->long_n_bits);
+    r.value.host_u_long_long = wrap_unsigned_integer(value, target->long_n_bits);
     return r;
 }
 
-struct object object_make_signed_long_long(enum target target, signed long long value)
+struct object object_make_signed_long_long(const struct platform* target, signed long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG_LONG;
 
-    r.value.host_long_long = wrap_signed_integer(value, get_platform(target)->long_long_n_bits);
+    r.value.host_long_long = wrap_signed_integer(value, target->long_long_n_bits);
     return r;
 }
 
@@ -940,7 +940,7 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
     return 0;
 }
 
-struct object object_make_float(enum target target, long double value)
+struct object object_make_float(const struct platform* target, long double value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -949,7 +949,7 @@ struct object object_make_float(enum target target, long double value)
     return r;
 }
 
-struct object object_make_double(enum target target, long double value)
+struct object object_make_double(const struct platform* target, long double value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -958,7 +958,7 @@ struct object object_make_double(enum target target, long double value)
     return r;
 }
 
-struct object object_make_long_double(enum target target, long double value)
+struct object object_make_long_double(const struct platform* target, long double value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
@@ -1031,7 +1031,7 @@ struct object object_make_reference(struct object* object)
     return r;
 }
 
-struct object object_cast(enum target target, enum object_type dest_type, const struct object* v)
+struct object object_cast(const struct platform* target, enum object_type dest_type, const struct object* v)
 {
     v = object_get_referenced(v);
 
@@ -1251,7 +1251,7 @@ static int get_rank(enum object_type t)
     return 0;
 }
 
-int target_sizeof(enum target target, enum object_type t)
+int target_sizeof(const struct platform* target, enum object_type t)
 {
     return target_get_num_of_bits(target, t) / 8;
 }
@@ -1470,7 +1470,7 @@ int object_set(
             to->state = from->state;
 
             {
-                struct object temp = object_cast(ctx->options.target, to->value_type, from);
+                struct object temp = object_cast(&ctx->options.platform, to->value_type, from);
                 to->value = temp.value;
                 object_destroy(&temp);
             }
@@ -1489,7 +1489,7 @@ int object_set(
                   wrapped-around value can cast back to the original bit
                   pattern even though the value was not representable)
                 */
-                const int dest_n_bits = target_get_num_of_bits(ctx->options.target, to->value_type);
+                const int dest_n_bits = target_get_num_of_bits(&ctx->options.platform, to->value_type);
                 const bool dest_is_signed = object_type_is_signed_integer(to->value_type);
 
                 const long long dest_min =
@@ -1528,7 +1528,7 @@ int object_set(
                         char value_buf[64] = { 0 };
                         object_to_str(from, sizeof value_buf, value_buf);
                         struct osstream ss = { 0 };
-                        print_type_no_names(&ss, &to->type, ctx->options.target);
+                        print_type_no_names(&ss, &to->type, &ctx->options.platform);
                         if (type_is_bitfield(&to->type))
                             ss_fprintf(&ss, " : %d", type_get_bitfield_width(&to->type));
                         const struct token* p_first = p_init_expression->first_token;
@@ -1551,7 +1551,7 @@ int object_set(
                 (from->value_type == TYPE_FLOAT || from->value_type == TYPE_DOUBLE || from->value_type == TYPE_LONG_DOUBLE) &&
                 (to->value_type == TYPE_FLOAT || to->value_type == TYPE_DOUBLE || to->value_type == TYPE_LONG_DOUBLE))
             {
-                const int dest_n_bits = target_get_num_of_bits(ctx->options.target, to->value_type);
+                const int dest_n_bits = target_get_num_of_bits(&ctx->options.platform, to->value_type);
                 const long double narrowed = resize_floating_point(from->value.host_long_double, dest_n_bits);
 
                 /* NaN compares unequal to itself, but converting it keeps it a NaN */
@@ -1641,7 +1641,7 @@ int object_set(
 struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
     const char* member_designator,
     enum make_state make_state,
-    enum target target)
+    const struct platform* target)
 {
     struct object* _Owner _Opt p_object = NULL;
 
@@ -1854,7 +1854,7 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
 
 }
 
-struct object* _Owner _Opt make_object_ptr(const struct type* p_type, enum make_state make_state, enum target target)
+struct object* _Owner _Opt make_object_ptr(const struct type* p_type, enum make_state make_state, const struct platform* target)
 {
     return make_object_ptr_core(p_type, "", make_state, target);
 }
@@ -1863,7 +1863,7 @@ int make_object_with_member_designator(const struct type* p_type,
     struct object* obj,
     const char* name,
     enum make_state make_state,
-    enum target target)
+    const struct platform* target)
 {
     /*
       p_type may alias &obj->type (this is common now that a declarator's
@@ -1937,7 +1937,7 @@ struct object object_dup(const struct object* src)
     return result;
 }
 
-int make_object(const struct type* p_type, struct object* obj, enum make_state make_state, enum target target)
+int make_object(const struct type* p_type, struct object* obj, enum make_state make_state, const struct platform* target)
 {
     return make_object_with_member_designator(p_type, obj, "", make_state, target);
 }
@@ -1986,11 +1986,11 @@ enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
     return TYPE_SPECIFIER_NONE;
 }
 
-enum object_type type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags, enum target target)
+enum object_type type_specifier_to_object_type(const enum type_specifier_flags type_specifier_flags, const struct platform* target)
 {
 
     if (type_specifier_flags & TYPE_SPECIFIER_BOOL)
-        return get_platform(target)->bool_type;
+        return target->bool_type;
 
     if (type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         return TYPE_FLOAT;
@@ -2031,7 +2031,7 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
             /* plain char has the signedness of the target */
             if (type_specifier_flags & TYPE_SPECIFIER_SIGNED)
                 return TYPE_SIGNED_CHAR;
-            return get_platform(target)->char_t_type;
+            return target->char_t_type;
         }
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
             return TYPE_SIGNED_SHORT;
@@ -2047,11 +2047,11 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
     return TYPE_SIGNED_INT;
 }
 
-enum object_type type_to_object_type(const struct type* type, enum target target)
+enum object_type type_to_object_type(const struct type* type, const struct platform* target)
 {
     if (type_is_pointer(type))
     {
-        return get_platform(target)->size_t_type;
+        return target->size_t_type;
     }
 
     /*
@@ -2180,7 +2180,7 @@ void object_print_value_debug(const struct object* a)
 
 }
 
-void object_print_to_debug_core(const struct object* object, int n, enum target target)
+void object_print_to_debug_core(const struct object* object, int n, const struct platform* target)
 {
 
     if (object_is_reference(object))
@@ -2231,7 +2231,7 @@ void object_print_to_debug_core(const struct object* object, int n, enum target 
 
 }
 
-void object_print_to_debug(const struct object* object, enum target target)
+void object_print_to_debug(const struct object* object, const struct platform* target)
 {
     int n = 0;
     object_print_to_debug_core(object, n, target);
@@ -2240,7 +2240,7 @@ void object_print_to_debug(const struct object* object, enum target target)
 /*
    extends the array to the max_index returning the added item.
 */
-struct object* _Opt object_extend_array_to_index(const struct type* p_type, struct object* a, size_t max_index, bool is_constant, enum target target)
+struct object* _Opt object_extend_array_to_index(const struct type* p_type, struct object* a, size_t max_index, bool is_constant, const struct platform* target)
 {
     try
     {
@@ -2295,7 +2295,7 @@ bool object_is_promoted(const struct object* a)
     return false;
 }
 
-enum object_type object_common(enum target target, const struct object* a, const struct object* b)
+enum object_type object_common(const struct platform* target, const struct object* a, const struct object* b)
 {
 
     enum object_type a_type = a->value_type;
@@ -2427,7 +2427,7 @@ enum object_type object_common(enum target target, const struct object* a, const
 
 }
 
-void object_print_value(enum target target, struct osstream* ss, const struct object* a)
+void object_print_value(const struct platform* target, struct osstream* ss, const struct object* a)
 {
     a = object_get_referenced(a);
 
@@ -2579,7 +2579,7 @@ void object_print_value(enum target target, struct osstream* ss, const struct ob
                 float_to_string((float)a->value.host_long_double, temp, sizeof temp);
             else if (a->value_type == TYPE_DOUBLE)
                 double_to_string((double)a->value.host_long_double, temp, sizeof temp);
-            else if (get_platform(target)->long_double_n_bits == 64)
+            else if (target->long_double_n_bits == 64)
             {
                 /*
                   On this target long double is just a double (every msvc
@@ -2613,7 +2613,7 @@ void object_print_value(enum target target, struct osstream* ss, const struct ob
 
 }
 
-struct object object_equal(enum target target,
+struct object object_equal(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -2668,7 +2668,7 @@ struct object object_equal(enum target target,
     return r;
 }
 
-struct object object_not_equal(enum target target,
+struct object object_not_equal(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -2724,7 +2724,7 @@ struct object object_not_equal(enum target target,
     return r;
 }
 
-struct object object_greater_than_or_equal(enum target target,
+struct object object_greater_than_or_equal(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -2778,7 +2778,7 @@ struct object object_greater_than_or_equal(enum target target,
     return r;
 }
 
-struct object object_greater_than(enum target target,
+struct object object_greater_than(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -2832,7 +2832,7 @@ struct object object_greater_than(enum target target,
     return r;
 }
 
-struct object object_smaller_than_or_equal(enum target target,
+struct object object_smaller_than_or_equal(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -2886,7 +2886,7 @@ struct object object_smaller_than_or_equal(enum target target,
     return r;
 }
 
-struct object object_smaller_than(enum target target,
+struct object object_smaller_than(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -2940,7 +2940,7 @@ struct object object_smaller_than(enum target target,
     return r;
 }
 
-struct object object_add(enum target target,
+struct object object_add(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -3029,7 +3029,7 @@ struct object object_add(enum target target,
     return r;
 }
 
-struct object object_sub(enum target target,
+struct object object_sub(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -3119,7 +3119,7 @@ struct object object_sub(enum target target,
     return r;
 }
 
-struct object object_mul(enum target target,
+struct object object_mul(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -3209,7 +3209,7 @@ struct object object_mul(enum target target,
     return r;
 }
 
-struct object object_div(enum target target,
+struct object object_div(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -3291,7 +3291,7 @@ struct object object_div(enum target target,
     return r;
 }
 
-struct object object_mod(enum target target,
+struct object object_mod(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -3364,7 +3364,7 @@ struct object object_mod(enum target target,
     return r;
 }
 
-int object_is_equal(enum target target, const struct object* a, const struct object* b)
+int object_is_equal(const struct platform* target, const struct object* a, const struct object* b)
 {
     char message[200] = { 0 };
     struct object r = object_equal(target, a, b, message);
@@ -3373,7 +3373,7 @@ int object_is_equal(enum target target, const struct object* a, const struct obj
     return i;
 }
 
-int object_is_not_equal(enum target target, const struct object* a, const struct object* b)
+int object_is_not_equal(const struct platform* target, const struct object* a, const struct object* b)
 {
     char message[200] = { 0 };
     struct object r = object_not_equal(target, a, b, message);
@@ -3383,7 +3383,7 @@ int object_is_not_equal(enum target target, const struct object* a, const struct
     return i;
 }
 
-int object_is_greater_than_or_equal(enum target target, const struct object* a, const struct object* b)
+int object_is_greater_than_or_equal(const struct platform* target, const struct object* a, const struct object* b)
 {
     char message[200] = { 0 };
     struct object r = object_greater_than_or_equal(target, a, b, message);
@@ -3392,7 +3392,7 @@ int object_is_greater_than_or_equal(enum target target, const struct object* a, 
     return i;
 }
 
-int object_is_smaller_than_or_equal(enum target target, const struct object* a, const struct object* b)
+int object_is_smaller_than_or_equal(const struct platform* target, const struct object* a, const struct object* b)
 {
     char message[200] = { 0 };
     struct object r = object_smaller_than_or_equal(target, a, b, message);
@@ -3401,7 +3401,7 @@ int object_is_smaller_than_or_equal(enum target target, const struct object* a, 
     return i;
 }
 
-struct object object_logical_not(enum target target, const struct object* a, char warning_message[200])
+struct object object_logical_not(const struct platform* target, const struct object* a, char warning_message[200])
 {
     warning_message[0] = '\0';
     a = object_get_referenced(a);
@@ -3448,7 +3448,7 @@ struct object object_logical_not(enum target target, const struct object* a, cha
     return r;
 }
 
-struct object object_bitwise_not(enum target target, const struct object* a, char warning_message[200])
+struct object object_bitwise_not(const struct platform* target, const struct object* a, char warning_message[200])
 {
     warning_message[0] = '\0';
     a = object_get_referenced(a);
@@ -3499,7 +3499,7 @@ struct object object_bitwise_not(enum target target, const struct object* a, cha
     return r;
 }
 
-struct object object_unary_minus(enum target target, const struct object* a, char warning_message[200])
+struct object object_unary_minus(const struct platform* target, const struct object* a, char warning_message[200])
 {
     warning_message[0] = '\0';
     a = object_get_referenced(a);
@@ -3552,7 +3552,7 @@ struct object object_unary_minus(enum target target, const struct object* a, cha
     return r;
 }
 
-struct object object_unary_plus(enum target target, const struct object* a, char warning_message[200])
+struct object object_unary_plus(const struct platform* target, const struct object* a, char warning_message[200])
 {
     warning_message[0] = '\0';
     /*
@@ -3609,7 +3609,7 @@ struct object object_unary_plus(enum target target, const struct object* a, char
     return r;
 }
 
-struct object object_bitwise_xor(enum target target,
+struct object object_bitwise_xor(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -3666,7 +3666,7 @@ struct object object_bitwise_xor(enum target target,
     return r;
 }
 
-struct object object_bitwise_or(enum target target,
+struct object object_bitwise_or(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -3723,7 +3723,7 @@ struct object object_bitwise_or(enum target target,
     return r;
 }
 
-struct object object_bitwise_and(enum target target,
+struct object object_bitwise_and(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -3780,7 +3780,7 @@ struct object object_bitwise_and(enum target target,
     return r;
 }
 
-struct object object_shift_left(enum target target,
+struct object object_shift_left(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -3836,7 +3836,7 @@ struct object object_shift_left(enum target target,
     return r;
 }
 
-struct object object_shift_right(enum target target,
+struct object object_shift_right(const struct platform* target,
     const struct object* a,
     const struct object* b,
     char warning_message[200])

@@ -72,9 +72,10 @@ enum ide_event
     EV_NEWFOLDER_OK, EV_NEWFOLDER_CANCEL,
     EV_CLONE_OK, EV_CLONE_CANCEL, EV_CLONE_BROWSE, EV_CLONE_URL_CHANGED, EV_CLONE_PATH_CHANGED,
     EV_NEWPROJ_OK, EV_NEWPROJ_CANCEL, EV_NEWPROJ_BROWSE,
-    EV_COPTS_OK, EV_COPTS_CANCEL, EV_COPTS_HELP, EV_COPTS_TARGET,
+    EV_COPTS_OK, EV_COPTS_CANCEL, EV_COPTS_HELP, EV_COPTS_CONFIG,
     EV_COPTS_AUTO_CONFIG, EV_COPTS_INC_ADD, EV_COPTS_INC_REMOVE, EV_COPTS_INC_UP, EV_COPTS_INC_DOWN,
     EV_DBG_BROWSE, EV_POST_BUILD_BROWSE, EV_COPTS_PAGE,
+    EV_COPTS_CONFIG_NEW, EV_COPTS_CONFIG_RENAME, EV_COPTS_CONFIG_DELETE, EV_COPTS_CONFIG_DELETE_YES, EV_CONFIG_NAME_OK, EV_CONFIG_NAME_CANCEL,
     EV_EXT_LIST, EV_EXT_ADD, EV_EXT_DELETE, EV_EXT_UP, EV_EXT_DOWN, EV_EXT_OK, EV_EXT_CANCEL,
     EV_EXT_BROWSE,
     EV_HELP_CLOSE, EV_HELP_BACK,
@@ -97,7 +98,7 @@ enum ide_event
     EV_CMDLINE, EV_COPTS_KEEP_INVALID,
     EV_GIT_LIST, EV_GIT_REFRESH, EV_GIT_COMMIT, EV_GIT_COMMIT_PUSH, EV_GIT_COMMIT_FILE,
     EV_GIT_COMMIT_STAGED, EV_GIT_COMMIT_STAGED_PUSH, EV_GIT_STAGE, EV_GIT_UNSTAGE, EV_GIT_DISCARD, EV_GIT_DISCARD_OK,
-    EV_GIT_DISCARD_ALL, EV_GIT_DISCARD_ALL_OK, EV_GIT_PULL, EV_GIT_PUSH, EV_GIT_SYNC,
+    EV_GIT_DISCARD_ALL, EV_GIT_DISCARD_ALL_OK, EV_GIT_IGNORE_FILE, EV_GIT_IGNORE_EXT, EV_GIT_IGNORE_FOLDER, EV_GIT_PULL, EV_GIT_PUSH, EV_GIT_SYNC,
     EV_GIT_BRANCH, EV_GITCOMMIT_OK, EV_GITCOMMIT_CANCEL,
     EV_GITBRANCH_CHECKOUT, EV_GITBRANCH_NEW, EV_GITBRANCH_CANCEL,
     EV_GITDIFF_PREV, EV_GITDIFF_NEXT, EV_GITDIFF_EDIT, EV_GITDIFF_COPY_PATH, EV_GITDIFF_SHOW_FOLDER,
@@ -115,9 +116,8 @@ enum ide_event
     EV_MACRO,                             /* + the button's index in macro_buttons */
     EV_MACRO_ITEM = EV_MACRO + 16,        /* + the macro's index in macros[] */
     EV_TOOL_RUN = EV_MACRO_ITEM + 32,     /* + the tool's index (MAX_EXT_TOOLS) */
-    EV_TARGET_ITEM = EV_TOOL_RUN + 32,    /* + the target's row in target_slugs */
-    EV_CONFIG_ITEM = EV_TARGET_ITEM + COMPILE_TARGETS,   /* + 0 Debug, 1 Release */
-    EV_RECENT_ITEM = EV_CONFIG_ITEM + COMPILE_CONFIGS,   /* + the row in the recent projects */
+    EV_CONFIG_ITEM = EV_TOOL_RUN + 32,    /* + the configuration's row */
+    EV_RECENT_ITEM = EV_CONFIG_ITEM + MAX_CONFIGURATIONS,   /* + the row in the recent projects */
     EV_COUNT = EV_RECENT_ITEM + 10
 };
 
@@ -552,13 +552,15 @@ struct new_project_dialog
 struct copts_dialog
 {
     struct gui_node* window;
-    struct gui_node* target;   /* the target being edited, not the one in use */
+    struct gui_node* configs;   /* the configuration being edited, not the one in use */
+    struct gui_node* config_buttons[3];   /* New, Rename, Delete */
     struct gui_node* pages;
     /* each page's nodes: only the selected page's are in the window */
     struct gui_node* page_nodes[COPTS_PAGES][24];
     int page_node_count[COPTS_PAGES];
     struct gui_node* buttons[4];   /* OK, Cancel, Help, Auto Config: kept after the page, for the Tab order */
     int page;
+    struct gui_node* cake_target;
     struct gui_node* headers;
     struct gui_node* style;
     struct gui_node* diag;
@@ -572,9 +574,10 @@ struct copts_dialog
     struct include_dirs include_dirs;   /* the Includes page's list, being edited */
     struct compiler_settings* settings;   /* the global ones or the project's */
     struct compiler_settings edit;        /* what OK saves to settings */
-    struct gui_node* config;              /* the configuration being edited */
-    int shown_target, shown_config;       /* whose options are shown, -1 [All] */
-    struct target_settings shown_values;  /* what [All] showed: a field changed from it goes to every target */
+    int shown;                            /* the configuration whose options are shown, -1 none */
+    struct gui_node* name_window;         /* New and Rename: the configuration's name */
+    struct gui_node* name_input;
+    int name_new;                         /* New, else Rename */
 };
 
 /* A Build (F7) or F5 in steps: the Pre-Build Event, the Build, the
@@ -697,7 +700,7 @@ static const struct macro
     { "$(TargetExt)", "The binary's extension, including the dot" },
     { "$(ProjectDir)", "The open project's folder, without a trailing slash" },
     { "$(ProjectName)", "The open project's name" },
-    { "$(Platform)", "The compilation target's name, e.g. msvc-win-x64" },
+    { "$(Platform)", "The compilation target's name, e.g. x86_64-pc-windows-msvc" },
     { "$(IncludeDirs)", "The open project's include directories, as -I options" },
 };
 
@@ -926,8 +929,7 @@ struct ide
     struct gui_node* about_ok;
     struct macro_buttons macro;
     struct gui_node* tools_menu;
-    struct gui_node* target_menu;   /* Build > Target: the target the Build uses */
-    struct gui_node* config_menu;   /* Build > Configuration: Debug or Release */
+    struct gui_node* config_menu;   /* Build > Configuration: the configuration the Build uses */
     struct gui_node* recent_menu;   /* File > Recent Projects */
     struct ide_compile_job* job;
     struct gui_node* pending_close;   /* the window the Close prompt is about */
@@ -1384,24 +1386,9 @@ static void build_menus(struct ide* ide)
             struct gui_node* sep = create(ide, GUI_ITEM, NULL);
             gui_set_separator(sep, 1);
             gui_append(menu, sep);
-            ide->target_menu = create(ide, GUI_ITEM, "Target");
-            gui_set_hint(ide->target_menu, "The target Build, Compile and Start Debugging use");
-            for (int t = 0; t < COMPILE_TARGETS; t++)
-            {
-                struct gui_node* item = create(ide, GUI_ITEM, NULL);
-                gui_set_id(item, EV_TARGET_ITEM + t);
-                gui_append(ide->target_menu, item);
-            }
-            gui_append(menu, ide->target_menu);
             ide->config_menu = create(ide, GUI_ITEM, "Configuration");
-            gui_set_hint(ide->config_menu, "Debug or Release: the configuration Build, Compile and Start Debugging use");
-            for (int k = 0; k < COMPILE_CONFIGS; k++)
-            {
-                struct gui_node* item = create(ide, GUI_ITEM, NULL);
-                gui_set_id(item, EV_CONFIG_ITEM + k);
-                gui_append(ide->config_menu, item);
-            }
-            gui_append(menu, ide->config_menu);
+            gui_set_hint(ide->config_menu, "The configuration Build, Compile and Start Debugging use");
+            gui_append(menu, ide->config_menu);   /* filled by config_menu_refresh */
         }
         gui_append(menubar, menu);
     }
@@ -1573,6 +1560,10 @@ static void build_panels(struct ide* ide)
     add_popup_item(ide, g->menu, EV_GIT_UNSTAGE, "Unstage", NULL);
     add_popup_item(ide, g->menu, EV_GIT_DISCARD, "Discard", NULL);
     add_popup_item(ide, g->menu, EV_GIT_DISCARD_ALL, "Discard All", NULL);
+    add_popup_item(ide, g->menu, EV_NONE, "", NULL);
+    add_popup_item(ide, g->menu, EV_GIT_IGNORE_FILE, "Ignore This Item", NULL);
+    add_popup_item(ide, g->menu, EV_GIT_IGNORE_EXT, "Ignore This Extension", NULL);
+    add_popup_item(ide, g->menu, EV_GIT_IGNORE_FOLDER, "Ignore This Folder", NULL);
     add_popup_item(ide, g->menu, EV_NONE, "", NULL);
     add_popup_item(ide, g->menu, EV_GIT_COMMIT, "Commit All...", NULL);
     add_popup_item(ide, g->menu, EV_GIT_COMMIT_PUSH, "Commit All && Push...", NULL);
@@ -1755,6 +1746,8 @@ static void apply_theme(struct ide* ide, int index)
         else if (ends_with(ide->docs[i].path, ".md"))
             gui_editor_set_highlighter(ide->docs[i].editor, &ide->md_highlighter);
     }
+    if (ide->estr.editor)   /* the editor keeps a copy of the highlighter, with the old theme */
+        gui_editor_set_highlighter(ide->estr.editor, &ide->string_highlighter);
 }
 
 /* --- Open a File / Save As: the old IDE's open dialog, 61 x 21 --- */
@@ -1775,6 +1768,11 @@ static const struct open_filter
 
 #define C_SOURCES_FILTER 2   /* *.c;*.h */
 #define PROJECT_FILTER 4     /* *.cakeproj */
+#ifdef _WIN32
+#define PROGRAMS_FILTER 5    /* *.exe;*.bat;*.cmd */
+#else
+#define PROGRAMS_FILTER 6    /* All Files: programs have no extension */
+#endif
 
 static int matches_filter(const char* name, const char* patterns)
 {
@@ -3188,19 +3186,6 @@ static void build_new_project(struct ide* ide)
 
 /* --- Properties: the project's options, or the Playground project's --- */
 
-/* The Target combo: [All], then the targets in target_slugs' order. */
-static const char* const target_slugs[] = {
-    "clang-macos-arm64", "gcc-linux-arm32", "gcc-linux-arm64", "gcc-linux-x64",
-    "msvc-win-x64", "msvc-win-x86", "tcc-linux-x64", "tcc-macos-arm64", "tcc-win-x64",
-};
-/* The Configuration combo: [All], Debug, Release. */
-static const char* const copts_configs[] = { "[All]", "Debug", "Release" };
-static const char* const config_slugs[COMPILE_CONFIGS] = { "debug", "release" };
-
-static const char* const copts_targets[] = {
-    "[All]", "Clang macOS ARM64", "GCC Linux ARM32", "GCC Linux ARM64", "GCC Linux x64",
-    "MSVC Windows x64", "MSVC Windows x86", "TCC Linux x64", "TCC macOS ARM64", "TCC Windows x64",
-};
 static const char* const copts_headers[] = { "System Headers", "Cake Headers" };
 static const char* const copts_styles[] = { "disabled", "cake", "gnu", "microsoft" };
 static const char* const copts_diags[] = { "cake ide", "gcc", "msvc" };
@@ -3260,16 +3245,20 @@ static void build_compiler_options(struct ide* ide)
     c->window = new_dialog(ide, "Properties");
     gui_window_set_resizable(c->window, 1);
     gui_window_set_min_size(c->window, COPTS_COLS, COPTS_ROWS);
-    struct gui_node* target_label = add_label(ide, c->window, 2, 2, "Target");
-    c->target = add_select_of(ide, c->window, 10, 2, 28, copts_targets, COUNT(copts_targets));
-    gui_set_after_label(c->target, target_label);
-    for (int i = 0; i < COUNT(copts_targets); i++)
-        gui_set_id(gui_child_at(c->target, i), EV_COPTS_TARGET);
-    struct gui_node* config_label = add_label(ide, c->window, 41, 2, "Configuration");
-    c->config = add_select_of(ide, c->window, 56, 2, 16, copts_configs, COUNT(copts_configs));
-    gui_set_after_label(c->config, config_label);
-    for (int i = 0; i < COUNT(copts_configs); i++)
-        gui_set_id(gui_child_at(c->config, i), EV_COPTS_TARGET);
+    struct gui_node* configs_label = add_label(ide, c->window, 2, 2, "Configuration");
+    c->configs = add_at(ide, c->window, GUI_SELECT, 16, 2, 25, 1, NULL);   /* filled by copts_fill_configs */
+    stretch_right(c->configs, 16, 2, 34, 1);
+    gui_set_after_label(c->configs, configs_label);
+    /* on the right, Delete ending where the fields below end */
+    static const char* const config_labels[] = { "New...", "Rename...", "Delete" };
+    static const int config_ids[] = { EV_COPTS_CONFIG_NEW, EV_COPTS_CONFIG_RENAME, EV_COPTS_CONFIG_DELETE };
+    static const int config_right[][2] = { { 24, 8 }, { 12, 11 }, { 3, 8 } };   /* cells from the edge, width */
+    for (int i = 0; i < 3; i++)
+    {
+        c->config_buttons[i] = add_at(ide, c->window, GUI_BUTTON, 0, 2, config_right[i][1], 1, config_labels[i]);
+        pin_right(c->config_buttons[i], 2, config_right[i][0], config_right[i][1]);
+        gui_set_id(c->config_buttons[i], config_ids[i]);
+    }
     c->pages = add_at(ide, c->window, GUI_LISTBOX, 2, 4, 14, 15, NULL);
     {
         struct gui_layout l = { GUI_ANCHOR_LEFT | GUI_ANCHOR_TOP | GUI_ANCHOR_BOTTOM };
@@ -3288,10 +3277,10 @@ static void build_compiler_options(struct ide* ide)
     gui_set_selected(c->pages, 0);
     int first = gui_child_count(c->window);
     /* the Compiler page */
-    struct gui_node* headers_label = add_label(ide, c->window, 18, 4, "Headers");
-    c->headers = add_select_of(ide, c->window, 30, 4, 28, copts_headers, COUNT(copts_headers));
-    stretch_right(c->headers, 30, 4, 3, 1);
-    gui_set_after_label(c->headers, headers_label);
+    struct gui_node* cake_target_label = add_label(ide, c->window, 18, 4, "Target");
+    c->cake_target = add_at(ide, c->window, GUI_INPUT, 30, 4, 28, 1, NULL);
+    stretch_right(c->cake_target, 30, 4, 3, 1);
+    gui_set_after_label(c->cake_target, cake_target_label);
     struct gui_node* style_label = add_label(ide, c->window, 18, 6, "Style");
     c->style = add_select_of(ide, c->window, 30, 6, 28, copts_styles, COUNT(copts_styles));
     stretch_right(c->style, 30, 6, 3, 1);
@@ -3310,15 +3299,19 @@ static void build_compiler_options(struct ide* ide)
     copts_page_take(c, 0, first);
     /* the Includes page: the target's #include search path */
     first = gui_child_count(c->window);
-    add_label(ide, c->window, 18, 4, "Include Directories");
-    c->includes = add_at(ide, c->window, GUI_LISTBOX, 18, 6, 25, 13, NULL);
-    fill_margins(c->includes, 18, 6, 17, 4);
+    struct gui_node* headers_label = add_label(ide, c->window, 18, 4, "Headers");
+    c->headers = add_select_of(ide, c->window, 30, 4, 28, copts_headers, COUNT(copts_headers));
+    stretch_right(c->headers, 30, 4, 3, 1);
+    gui_set_after_label(c->headers, headers_label);
+    add_label(ide, c->window, 18, 6, "Include Directories");
+    c->includes = add_at(ide, c->window, GUI_LISTBOX, 18, 7, 25, 12, NULL);
+    fill_margins(c->includes, 18, 7, 17, 4);
     static const char* const inc_labels[] = { "Add...", "Remove", "Move Up", "Move Down" };
     static const int inc_ids[] = { EV_COPTS_INC_ADD, EV_COPTS_INC_REMOVE, EV_COPTS_INC_UP, EV_COPTS_INC_DOWN };
     for (int i = 0; i < 4; i++)
     {
-        struct gui_node* b = add_at(ide, c->window, GUI_BUTTON, 0, 6 + 2 * i, 13, 1, inc_labels[i]);
-        pin_right(b, 6 + 2 * i, 3, 13);
+        struct gui_node* b = add_at(ide, c->window, GUI_BUTTON, 0, 7 + 2 * i, 13, 1, inc_labels[i]);
+        pin_right(b, 7 + 2 * i, 3, 13);
         gui_set_id(b, inc_ids[i]);
     }
     copts_page_take(c, 1, first);
@@ -3377,6 +3370,12 @@ static void build_compiler_options(struct ide* ide)
     gui_set_id(add_at(ide, c->window, GUI_BUTTON, 36, 20, 10, 1, "Cancel"), EV_COPTS_CANCEL);
     gui_set_id(add_at(ide, c->window, GUI_BUTTON, 48, 20, 10, 1, "Help"), EV_COPTS_HELP);
     /* Auto Config, bottom left: kept with the buttons, on every page */
+    c->name_window = new_dialog(ide, "Configuration");
+    add_label(ide, c->name_window, 2, 2, "Name");
+    c->name_input = add_at(ide, c->name_window, GUI_INPUT, 12, 2, 36, 1, NULL);
+    gui_set_id(c->name_input, EV_CONFIG_NAME_OK);
+    gui_set_id(add_at(ide, c->name_window, GUI_BUTTON, 14, 5, 10, 1, "OK"), EV_CONFIG_NAME_OK);
+    gui_set_id(add_at(ide, c->name_window, GUI_BUTTON, 26, 5, 10, 1, "Cancel"), EV_CONFIG_NAME_CANCEL);
     struct gui_node* auto_config = add_at(ide, c->window, GUI_BUTTON, 2, 20, 14, 1, "Auto Config");
     gui_set_id(auto_config, EV_COPTS_AUTO_CONFIG);
     {
@@ -3423,100 +3422,158 @@ static void copts_select_page(struct copts_dialog* c, int page)
     c->page = page;
 }
 
-/* The dialog shows the options of the selected target; each target keeps its own. */
+/* The dialog shows the options of the selected configuration; each keeps its own. */
 static void copts_show(struct ide* ide)
 {
     struct copts_dialog* c = &ide->copts;
-    c->shown_target = gui_get_selected(c->target) - 1;
-    c->shown_config = gui_get_selected(c->config) - 1;
-    /* [All] shows the one in use */
-    int t = c->shown_target >= 0 ? c->shown_target : c->edit.target;
-    int k = c->shown_config >= 0 ? c->shown_config : c->edit.config;
-    const struct target_settings* s = &c->edit.targets[t * COMPILE_CONFIGS + k];
-    c->shown_values = *s;
+    static const struct target_settings none = { 0 };
+    int i = gui_get_selected(c->configs);
+    c->shown = c->edit.count > 0 && i >= 0 && i < c->edit.count ? i : -1;
+    const struct target_settings* s = c->shown >= 0 ? &c->edit.configurations[c->shown] : &none;
+    gui_set_value(c->cake_target, s->cake_target);
     gui_set_selected(c->headers, s->headers);
     gui_set_selected(c->style, s->style);
     gui_set_selected(c->diag, s->diag);
-    for (int i = 0; i < COUNT(copts_flags); i++)
-        gui_set_checked(c->flags, i, s->flags[i]);
+    for (int k = 0; k < COUNT(copts_flags); k++)
+        gui_set_checked(c->flags, k, s->flags[k]);
     gui_set_value(c->output, s->output);
     gui_set_value(c->options, s->options);
     c->include_dirs = s->include_dirs;
     dirs_refresh(ide, c->includes, &c->include_dirs, 0);
-    for (int i = 0; i < 3; i++)
+    for (int k = 0; k < 3; k++)
     {
-        gui_set_value(c->post_build[i], s->post_build[i]);
-        gui_set_value(c->debug[i], s->debug[i]);
+        gui_set_value(c->post_build[k], s->post_build[k]);
+        gui_set_value(c->debug[k], s->debug[k]);
     }
-}
-
-static int dirs_equal(const struct include_dirs* a, const struct include_dirs* b)
-{
-    if (a->count != b->count)
-        return 0;
-    for (int i = 0; i < a->count; i++)
-    {
-        if (strcmp(a->dirs[i], b->dirs[i]) != 0)
-            return 0;
-    }
-    return 1;
 }
 
 static void copts_store(struct ide* ide)
 {
     struct copts_dialog* c = &ide->copts;
-    static struct target_settings v;   /* too big for the stack */
-    memset(&v, 0, sizeof v);
-    v.headers = gui_get_selected(c->headers);
-    v.style = gui_get_selected(c->style);
-    v.diag = gui_get_selected(c->diag);
+    if (c->shown < 0 || c->shown >= c->edit.count)
+        return;
+    struct target_settings* s = &c->edit.configurations[c->shown];
+    snprintf(s->cake_target, sizeof s->cake_target, "%s", gui_get_value(c->cake_target));
+    s->headers = gui_get_selected(c->headers);
+    s->style = gui_get_selected(c->style);
+    s->diag = gui_get_selected(c->diag);
     for (int i = 0; i < COUNT(copts_flags); i++)
-        v.flags[i] = gui_get_checked(c->flags, i);
-    snprintf(v.output, sizeof v.output, "%s", gui_get_value(c->output));
-    snprintf(v.options, sizeof v.options, "%s", gui_get_value(c->options));
-    v.include_dirs = c->include_dirs;
-    for (int i = 0; i < 3; i++)
+        s->flags[i] = gui_get_checked(c->flags, i);
+    snprintf(s->output, sizeof s->output, "%s", gui_get_value(c->output));
+    snprintf(s->options, sizeof s->options, "%s", gui_get_value(c->options));
+    s->include_dirs = c->include_dirs;
+    for (int i = 0; i < 3; i++)   /* pre_build is not shown: it stays */
     {
-        snprintf(v.pre_build[i], sizeof v.pre_build[i], "%s", c->shown_values.pre_build[i]);   /* not shown */
-        snprintf(v.post_build[i], sizeof v.post_build[i], "%s", gui_get_value(c->post_build[i]));
-        snprintf(v.debug[i], sizeof v.debug[i], "%s", gui_get_value(c->debug[i]));
+        snprintf(s->post_build[i], sizeof s->post_build[i], "%s", gui_get_value(c->post_build[i]));
+        snprintf(s->debug[i], sizeof s->debug[i], "%s", gui_get_value(c->debug[i]));
     }
-    /* the fields that were changed, to the shown target and configuration -
-     * to every one where the combo is [All] */
-    const struct target_settings* was = &c->shown_values;
-    for (int t = 0; t < COUNT(c->edit.targets); t++)
+}
+
+/* A new configuration: every field empty but -line-directives. */
+static void config_default(struct target_settings* s)
+{
+    memset(s, 0, sizeof *s);
+    s->flags[0] = 1;   /* -line-directives on by default: the debugger needs it */
+}
+
+/* The row of the configuration named `name`, -1 none. */
+static int config_find(const struct compiler_settings* cs, const char* name)
+{
+    for (int i = 0; i < cs->count; i++)
     {
-        if ((c->shown_target >= 0 && t / COMPILE_CONFIGS != c->shown_target) ||
-            (c->shown_config >= 0 && t % COMPILE_CONFIGS != c->shown_config))
-            continue;
-        struct target_settings* s = &c->edit.targets[t];
-        if (v.headers != was->headers)
-            s->headers = v.headers;
-        if (v.style != was->style)
-            s->style = v.style;
-        if (v.diag != was->diag)
-            s->diag = v.diag;
-        for (int i = 0; i < COUNT(copts_flags); i++)
-        {
-            if (v.flags[i] != was->flags[i])
-                s->flags[i] = v.flags[i];
-        }
-        if (strcmp(v.output, was->output) != 0)
-            snprintf(s->output, sizeof s->output, "%s", v.output);
-        if (strcmp(v.options, was->options) != 0)
-            snprintf(s->options, sizeof s->options, "%s", v.options);
-        if (!dirs_equal(&v.include_dirs, &was->include_dirs))
-            s->include_dirs = v.include_dirs;
-        for (int i = 0; i < 3; i++)
-        {
-            if (strcmp(v.pre_build[i], was->pre_build[i]) != 0)
-                snprintf(s->pre_build[i], sizeof s->pre_build[i], "%s", v.pre_build[i]);
-            if (strcmp(v.post_build[i], was->post_build[i]) != 0)
-                snprintf(s->post_build[i], sizeof s->post_build[i], "%s", v.post_build[i]);
-            if (strcmp(v.debug[i], was->debug[i]) != 0)
-                snprintf(s->debug[i], sizeof s->debug[i], "%s", v.debug[i]);
-        }
+        if (strcmp(cs->configurations[i].name, name) == 0)
+            return i;
     }
+    return -1;
+}
+
+/* The combo's rows: the configurations being edited, `selected` shown. */
+static void copts_fill_configs(struct ide* ide, int selected)
+{
+    struct copts_dialog* c = &ide->copts;
+    gui_clear_children(c->configs);
+    for (int i = 0; i < c->edit.count; i++)
+    {
+        struct gui_node* it = create(ide, GUI_ITEM, c->edit.configurations[i].name);
+        gui_set_id(it, EV_COPTS_CONFIG);
+        gui_append(c->configs, it);
+    }
+    if (c->edit.count > 0)
+        gui_set_selected(c->configs, selected >= 0 && selected < c->edit.count ? selected : 0);
+}
+
+/* New... and Rename...: the name dialog. New copies the shown configuration. */
+static void config_name_open(struct ide* ide, int is_new)
+{
+    struct copts_dialog* c = &ide->copts;
+    if ((!is_new && c->shown < 0) || (is_new && c->edit.count == MAX_CONFIGURATIONS))
+        return;
+    c->name_new = is_new;
+    gui_set_label(c->name_window, is_new ? "New Configuration" : "Rename Configuration");
+    gui_set_value(c->name_input, c->shown >= 0 ? c->edit.configurations[c->shown].name : "");
+    show_dialog(ide, c->name_window, 50, 8, c->name_input);
+}
+
+static void config_name_accept(struct ide* ide)
+{
+    struct copts_dialog* c = &ide->copts;
+    char name[64] = { 0 };
+    snprintf(name, sizeof name, "%s", gui_get_value(c->name_input));
+    gui_window_close(ide->app, c->name_window);
+    int same = config_find(&c->edit, name);
+    if (!name[0] || (same >= 0 && (c->name_new || same != c->shown)))
+    {
+        static const char* const ok[] = { "OK" };
+        static const int ok_id[] = { 0 };
+        gui_message_box(ide->app, "Configuration", name[0] ? "There is a configuration with this name." : "The name is empty.", ok, ok_id, 1);
+        return;
+    }
+    copts_store(ide);
+    int i = c->shown;
+    if (c->name_new)
+    {
+        i = c->edit.count++;
+        if (c->shown >= 0)
+            c->edit.configurations[i] = c->edit.configurations[c->shown];
+        else
+            config_default(&c->edit.configurations[i]);
+        if (c->edit.current < 0)
+            c->edit.current = i;
+    }
+    snprintf(c->edit.configurations[i].name, sizeof c->edit.configurations[i].name, "%s", name);
+    copts_fill_configs(ide, i);
+    copts_show(ide);
+}
+
+/* Delete: asks first. */
+static void config_delete_ask(struct ide* ide)
+{
+    struct copts_dialog* c = &ide->copts;
+    if (c->shown < 0)
+        return;
+    char msg[200] = { 0 };
+    snprintf(msg, sizeof msg, "Delete the configuration \"%s\"?", c->edit.configurations[c->shown].name);
+    static const char* const labels[] = { "Delete", "Cancel" };
+    static const int ids[] = { EV_COPTS_CONFIG_DELETE_YES, 0 };
+    gui_message_box(ide->app, "Configuration", msg, labels, ids, 2);
+}
+
+/* Its Delete: the shown configuration; the Properties' Cancel brings it back. */
+static void config_delete(struct ide* ide)
+{
+    struct copts_dialog* c = &ide->copts;
+    int i = c->shown;
+    if (i < 0)
+        return;
+    memmove(&c->edit.configurations[i], &c->edit.configurations[i + 1],
+            (size_t)(c->edit.count - i - 1) * sizeof c->edit.configurations[0]);
+    c->edit.count--;
+    if (c->edit.current == i)
+        c->edit.current = c->edit.count > 0 ? 0 : -1;
+    else if (c->edit.current > i)
+        c->edit.current--;
+    copts_fill_configs(ide, i < c->edit.count ? i : c->edit.count - 1);
+    copts_show(ide);
 }
 
 /* What Auto Config found on this machine, read once per click. */
@@ -3537,25 +3594,43 @@ static void set3(char (*f)[512], const char* a, const char* b, const char* c)
     snprintf(f[2], sizeof f[2], "%s", c);
 }
 
-/* Target `t`'s compiler as the Post-Build Event, its headers as the
- * include directories, the built program as the Debugger's command - for
- * configuration `config`. 0 when the compiler is not on this machine. */
-static int auto_config_one(const struct auto_config_found* f, int t, int config, struct target_settings* s)
+/* The compilers Auto Config knows: the name of their configurations and
+ * the target Cake is given. */
+struct auto_config_target
 {
-    const char* slug = target_slugs[t];
-    int debug = config == 0;
+    const char* name;
+    const char* cake_target;
+};
+
+static const struct auto_config_target auto_config_targets[] = {
+    { "MSVC x64", "x86_64-pc-windows-msvc" },
+    { "MSVC x86", "i686-pc-windows-msvc" },
+    { "TCC Windows x64", "x86_64-w64-mingw32-tcc" },
+    { "TCC Linux x64", "x86_64-linux-gnu-tcc" },
+    { "TCC macOS ARM64", "aarch64-apple-darwin-tcc" },
+    { "GCC Linux x64", "x86_64-linux-gnu-gcc" },
+    { "GCC Linux ARM64", "aarch64-linux-gnu-gcc" },
+    { "GCC Linux ARM32", "arm-linux-gnueabihf-gcc" },
+    { "Clang macOS ARM64", "aarch64-apple-darwin-clang" },
+};
+
+/* The compiler of Cake target `slug` as the Post-Build Event, its headers
+ * as the include directories, the built program as the Debugger's command -
+ * Debug or Release. 0 when the compiler is not on this machine. */
+static int auto_config_one(const struct auto_config_found* f, const char* slug, int debug, struct target_settings* s)
+{
     char args[2048] = { 0 };
-    if (strncmp(slug, "msvc-win-", 9) == 0)
+    if (ends_with(slug, "-msvc"))
     {
 #ifdef _WIN32
         const struct ide_msvc_toolchain* tc = &f->msvc;
         if (!tc->vs_dir[0] || !tc->version[0] || !tc->sdk_root[0] || !tc->sdk_version[0])
             return 0;
-        const char* arch = slug + 9;   /* x64 or x86: the x64-hosted cl for it, with its libraries */
+        const char* arch = strncmp(slug, "x86_64-", 7) == 0 ? "x64" : "x86";   /* the x64-hosted cl for it, with its libraries */
         char command[700] = { 0 };
         snprintf(command, sizeof command, "%s\\VC\\Tools\\MSVC\\%s\\bin\\Hostx64\\%s\\cl.exe", tc->vs_dir, tc->version, arch);
         snprintf(args, sizeof args,
-                 "/nologo %s $(CakeOutput) $(IncludeDirs) /Fe$(TargetPath) /link"
+                 "/nologo %s $(CakeOutput) /Fe$(TargetPath) /link"
                  " /LIBPATH:\"%s\\VC\\Tools\\MSVC\\%s\\lib\\%s\""
                  " /LIBPATH:\"%sLib\\%s\\ucrt\\%s\""
                  " /LIBPATH:\"%sLib\\%s\\um\\%s\""
@@ -3568,21 +3643,21 @@ static int auto_config_one(const struct auto_config_found* f, int t, int config,
         return 0;
 #endif
     }
-    else if (strncmp(slug, "tcc-", 4) == 0)
+    else if (ends_with(slug, "-tcc"))
     {
 #if defined(_WIN32)
-        const char* os = "tcc-win-";
+        const char* host = "x86_64-w64-mingw32-tcc";
 #elif defined(__APPLE__)
-        const char* os = "tcc-macos-";
+        const char* host = "aarch64-apple-darwin-tcc";
 #else
-        const char* os = "tcc-linux-";
+        const char* host = "x86_64-linux-gnu-tcc";
 #endif
-        if (!f->tcc[0] || strncmp(slug, os, strlen(os)) != 0)
+        if (!f->tcc[0] || strcmp(slug, host) != 0)
             return 0;
 #ifdef _WIN32
         /* one way only: its debug info is not the PDB cdb reads */
-        set3(s->post_build, f->tcc, debug ? "$(CakeOutput) $(IncludeDirs) -o $(TargetPath)"
-                                          : "-DNDEBUG $(CakeOutput) $(IncludeDirs) -o $(TargetPath)", "$(TargetDir)");
+        set3(s->post_build, f->tcc, debug ? "$(CakeOutput) -o $(TargetPath)"
+                                          : "-DNDEBUG $(CakeOutput) -o $(TargetPath)", "$(TargetDir)");
 #else
         if (debug)
         {
@@ -3590,23 +3665,23 @@ static int auto_config_one(const struct auto_config_found* f, int t, int config,
              * tcc run: tcc gives every unit of a multi-file run the same low_pc */
             char command[1100] = { 0 };
             snprintf(command, sizeof command, "rm -f *.o && %s", f->tcc);
-            snprintf(args, sizeof args, "-gdwarf -c $(CakeOutput) $(IncludeDirs) && %s -gdwarf *.o -o $(TargetFileName)", f->tcc);
+            snprintf(args, sizeof args, "-gdwarf -c $(CakeOutput) && %s -gdwarf *.o -o $(TargetFileName)", f->tcc);
             set3(s->post_build, command, args, "$(TargetDir)");
         }
         else
         {
             /* bare name, run in $(TargetDir): tcc's own codesign on macOS does not quote a path with spaces */
-            set3(s->post_build, f->tcc, "-DNDEBUG $(CakeOutput) $(IncludeDirs) -o $(TargetFileName)", "$(TargetDir)");
+            set3(s->post_build, f->tcc, "-DNDEBUG $(CakeOutput) -o $(TargetFileName)", "$(TargetDir)");
         }
 #endif
         s->include_dirs = f->tcc_dirs;
     }
-    else if (strncmp(slug, "gcc-linux-", 10) == 0)
+    else if (ends_with(slug, "-gcc"))
     {
 #if defined(__linux__)
         if (!f->gcc)
             return 0;
-        snprintf(args, sizeof args, "%s -Wno-builtin-declaration-mismatch $(CakeOutput) $(IncludeDirs) -o $(TargetPath)",
+        snprintf(args, sizeof args, "%s -Wno-builtin-declaration-mismatch $(CakeOutput) -o $(TargetPath)",
                  debug ? "-g -O0" : "-O2 -DNDEBUG");
         set3(s->post_build, "gcc", args, "$(TargetDir)");
         s->include_dirs = f->cc_dirs;
@@ -3614,13 +3689,13 @@ static int auto_config_one(const struct auto_config_found* f, int t, int config,
         return 0;
 #endif
     }
-    else if (strncmp(slug, "clang-macos-", 12) == 0)
+    else if (ends_with(slug, "-clang"))
     {
 #if defined(__APPLE__)
         if (!f->clang)
             return 0;
         snprintf(args, sizeof args, "%s -Wno-builtin-requires-header -Wno-incompatible-library-redeclaration"
-                 " $(CakeOutput) $(IncludeDirs) -o $(TargetPath)", debug ? "-g -O0" : "-O2 -DNDEBUG");
+                 " $(CakeOutput) -o $(TargetPath)", debug ? "-g -O0" : "-O2 -DNDEBUG");
         set3(s->post_build, "clang", args, "$(TargetDir)");
         s->include_dirs = f->cc_dirs;
 #else
@@ -3633,9 +3708,9 @@ static int auto_config_one(const struct auto_config_found* f, int t, int config,
     return 1;
 }
 
-/* Auto Config: every target and configuration whose compiler is on this
- * machine, whatever the combos show; the others are left as they are, so
- * Auto Config on Windows and then on a Mac sets both. A report says which. */
+/* Auto Config: a Debug and a Release configuration for every compiler on
+ * this machine - created, or updated when one has the same name; the other
+ * configurations are left as they are. A report says which. */
 static void copts_auto_config(struct ide* ide)
 {
     struct copts_dialog* c = &ide->copts;
@@ -3657,29 +3732,45 @@ static void copts_auto_config(struct ide* ide)
     if (f.clang)
         ide_detect_cc_include_dirs("clang", includes_add_detected, &f.cc_dirs, problems, sizeof problems);
 #endif
-    struct ide_text configured = { 0 }, missing = { 0 };
-    for (int t = 0; t < COMPILE_TARGETS; t++)
+    struct ide_text configured = { 0 };
+    for (int t = 0; t < COUNT(auto_config_targets); t++)
     {
-        int ok = 0;
-        for (int k = 0; k < COMPILE_CONFIGS; k++)
+        for (int k = 0; k < 2; k++)
+        {
+            static struct target_settings found;   /* too big for the stack */
+            config_default(&found);
+            snprintf(found.name, sizeof found.name, "%s %s", auto_config_targets[t].name, k == 0 ? "Debug" : "Release");
+            snprintf(found.cake_target, sizeof found.cake_target, "%s", auto_config_targets[t].cake_target);
+            if (!auto_config_one(&f, found.cake_target, k == 0, &found))
+                continue;
+            int i = config_find(&c->edit, found.name);
+            if (i >= 0)
             {
-            /* a target with no compiler here is left as it is: another machine's Auto Config set it */
-            struct target_settings* ts = &c->edit.targets[t * COMPILE_CONFIGS + k];
-            static struct target_settings before;   /* too big for the stack */
-            before = *ts;
-            ok = auto_config_one(&f, t, k, ts);
-            if (!ok)
-                *ts = before;
+                /* what Auto Config sets; the other fields stay */
+                struct target_settings* s = &c->edit.configurations[i];
+                snprintf(s->cake_target, sizeof s->cake_target, "%s", found.cake_target);
+                s->include_dirs = found.include_dirs;
+                memcpy(s->post_build, found.post_build, sizeof s->post_build);
+                memcpy(s->debug, found.debug, sizeof s->debug);
+            }
+            else if (c->edit.count < MAX_CONFIGURATIONS)
+            {
+                c->edit.configurations[c->edit.count++] = found;
+            }
+            else
+            {
+                continue;
+            }
+            ide_text_printf(&configured, "  %s\n", found.name);
         }
-        ide_text_printf(ok ? &configured : &missing, "  %s\n", copts_targets[t + 1]);
     }
+    if (c->edit.current < 0 && c->edit.count > 0)
+        c->edit.current = 0;
     struct ide_text report = { 0 };
-    ide_text_printf(&report, "Compiler, include directories and debugger set, Debug and Release:\n%s",
-                    configured.data ? configured.data : "  none\n");
-    if (missing.data)
-        ide_text_printf(&report, "\nNo compiler on this machine - left as they are:\n%s", missing.data);
+    ide_text_printf(&report, "Configurations created or updated:\n%s",
+                    configured.data ? configured.data : "  none - no compiler found on this machine\n");
     free(configured.data);
-    free(missing.data);
+    copts_fill_configs(ide, c->shown);
     copts_show(ide);
     if (problems[0])
         ide_text_printf(&report, "\n%s", problems);
@@ -3696,13 +3787,12 @@ static void copts_open(struct ide* ide, struct compiler_settings* s, const char*
     c->settings = s;
     c->edit = *s;
     gui_set_label(c->window, title);
-    gui_set_selected(c->target, s->target + 1);
-    gui_set_selected(c->config, s->config + 1);
+    copts_fill_configs(ide, s->current);
     copts_show(ide);
     show_resizable_dialog(ide, c->window, COPTS_COLS, COPTS_ROWS, c->pages);
 }
 
-static void copts_target_changed(struct ide* ide)
+static void copts_config_changed(struct ide* ide)
 {
     copts_store(ide);
     copts_show(ide);
@@ -3712,7 +3802,7 @@ static void copts_accept(struct ide* ide)
 {
     struct copts_dialog* c = &ide->copts;
     copts_store(ide);
-    *c->settings = c->edit;   /* the target in use stays: the combo only picks what to edit */
+    *c->settings = c->edit;   /* the configuration in use stays: the combo only picks what to edit */
     gui_window_close(ide->app, c->window);
 }
 
@@ -3936,48 +4026,44 @@ static void ext_event(struct ide* ide, int id)
 
 /* The Tools menu: one item per external tool, then - when there are any -
  * a line, then its own items. */
-/* The settings whose target Build > Target picks: the open project's, else the global ones. */
-static struct compiler_settings* target_settings_in_use(struct ide* ide)
+/* The settings whose configuration Build > Configuration picks: the open project's, else the global ones. */
+static struct compiler_settings* config_settings_in_use(struct ide* ide)
 {
     return ide_project_is_open(&ide->project) ? &ide->project.compile : &ide->global_options;
 }
 
-/* Build > Target's rows, the one in use marked. */
-static void target_menu_refresh(struct ide* ide)
+/* Build > Configuration's rows, the one in use marked. */
+static void config_menu_refresh(struct ide* ide)
 {
-    const struct compiler_settings* cs = target_settings_in_use(ide);
-    for (int t = 0; t < COMPILE_TARGETS; t++)
+    const struct compiler_settings* cs = config_settings_in_use(ide);
+    gui_clear_children(ide->config_menu);
+    for (int i = 0; i < cs->count; i++)
     {
-        char label[100] = { 0 };
-        snprintf(label, sizeof label, "%s %s", t == cs->target ? "*" : " ", copts_targets[t + 1]);   /* [All] is the combo's only */
-        gui_set_label(gui_child_at(ide->target_menu, t), label);
+        struct gui_node* it = create(ide, GUI_ITEM, cs->configurations[i].name);
+        gui_set_mark(it, i == cs->current);
+        gui_set_id(it, EV_CONFIG_ITEM + i);
+        gui_append(ide->config_menu, it);
     }
-    for (int k = 0; k < COMPILE_CONFIGS; k++)
-    {
-        char label[100] = { 0 };
-        snprintf(label, sizeof label, "%s %s", k == cs->config ? "*" : " ", copts_configs[k + 1]);
-        gui_set_label(gui_child_at(ide->config_menu, k), label);
-    }
-    char right[100] = { 0 };   /* the statusbar's right: the target and configuration in use */
-    snprintf(right, sizeof right, "%s | %s   Cake " CAKE_VERSION, copts_targets[cs->target + 1], copts_configs[cs->config + 1]);
+    char right[120] = { 0 };   /* the statusbar's right: the configuration in use */
+    snprintf(right, sizeof right, "%s   Cake " CAKE_VERSION,
+             cs->current >= 0 && cs->current < cs->count ? cs->configurations[cs->current].name : "no configuration");
     gui_set_label(ide->statusbar, right);
 }
 
 static void project_save(struct ide* ide);
 static void settings_save(struct ide* ide);
 
-static void target_pick(struct ide* ide, int t, int config)
+static void config_pick(struct ide* ide, int i)
 {
-    struct compiler_settings* cs = target_settings_in_use(ide);
-    if (t >= 0)
-        cs->target = t;
-    if (config >= 0)
-        cs->config = config;
+    struct compiler_settings* cs = config_settings_in_use(ide);
+    if (i < 0 || i >= cs->count)
+        return;
+    cs->current = i;
     if (cs == &ide->project.compile)
         project_save(ide);
     else
         settings_save(ide);
-    target_menu_refresh(ide);
+    config_menu_refresh(ide);
 }
 
 static void tools_menu_refresh(struct ide* ide)
@@ -4662,7 +4748,7 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "\n"
         "Example: active document `C:/work/hello/src/main.c`, project `hello` "
         "in\n"
-        "`C:/work/hello`, target `msvc-win-x64`.\n"
+        "`C:/work/hello`, target `x86_64-pc-windows-msvc`.\n"
         "\n"
         "| Macro | Example |\n"
         "|---|---|\n"
@@ -4676,14 +4762,14 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| `$(CakeInputFiles)` | `\"C:/work/hello/src/main.c\"` - every `.c` "
         "of the project |\n"
         "| `$(CakeInputChanged)` | the `.c` files the last Build compiled |\n"
-        "| `$(TargetPath)` | `C:/work/hello/msvc-win-x64/hello.exe` |\n"
-        "| `$(TargetDir)` | `C:/work/hello/msvc-win-x64` |\n"
+        "| `$(TargetPath)` | `C:/work/hello/x86_64-pc-windows-msvc/hello.exe` |\n"
+        "| `$(TargetDir)` | `C:/work/hello/x86_64-pc-windows-msvc` |\n"
         "| `$(TargetFileName)` | `hello.exe` |\n"
         "| `$(TargetName)` | `hello` |\n"
         "| `$(TargetExt)` | `.exe` |\n"
         "| `$(ProjectDir)` | `C:/work/hello` |\n"
         "| `$(ProjectName)` | `hello` |\n"
-        "| `$(Platform)` | `msvc-win-x64` |\n"
+        "| `$(Platform)` | `x86_64-pc-windows-msvc` |\n"
         "\n"
         "Every `...Dir` macro ends without a slash: write "
         "`$(ProjectDir)/name`.\n"
@@ -4819,17 +4905,17 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "and the style of the output. Pick the platform whose compiler will build "
         "the generated code - it does not have to be the one Cake is running on.\n"
         "\n"
-        "Each target has its own options. The combo picks the one being edited; "
-        "**Build > Target** picks the one Build uses. **[All]** edits every target."
+        "Each configuration has its own, passed to cake as `-target=` followed by "
+        "this text. Empty: the target Cake was built for. `cake -target=x` lists them."
         "\n\n## See also\n\n"
-        "- [msvc-win-x64](help:target-msvc-win-x64)\n"
-        "- [gcc-linux-x64](help:target-gcc-linux-x64)\n"
+        "- [x86_64-pc-windows-msvc](help:target-x86_64-pc-windows-msvc)\n"
+        "- [x86_64-linux-gnu-gcc](help:target-x86_64-linux-gnu-gcc)\n"
         "- [Properties](help:copts)\n" },
     [HELP_AUTO_CONFIG] = { "auto-config",
         "# Auto Config\n\nsets the compilers found on this machine\n"
         "\n"
-        "For every target and configuration whose compiler is here - whatever the "
-        "combos show:\n"
+        "For every compiler here, a Debug and a Release configuration - created, "
+        "or updated when one has the same name (e.g. \"MSVC x64 Debug\"):\n"
         "\n"
         "- **Build** - the compiler as the command run after Cake: `cl.exe` "
         "(Visual Studio) for msvc, `tcc`, `gcc` on Linux, `clang` on macOS - with "
@@ -4838,14 +4924,14 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "SDK, or tcc's).\n"
         "- **Debugger** - `$(TargetPath)`, run in `$(TargetDir)`, no arguments.\n"
         "\n"
-        "A target with no compiler here is left as it is - so Auto Config on "
+        "The other configurations are left as they are - so Auto Config on "
         "Windows and then on a Mac sets both. A report lists which.\n"
         "\n"
         "Nothing is saved until **OK**."
         "\n\n## See also\n\n"
         "- [Properties](help:copts)\n" },
-    [HELP_TARGET_CLANG_MACOS_ARM64] = { "target-clang-macos-arm64",
-        "## `-target=clang-macos-arm64`\n\nmacOS arm64 (Apple Silicon)\n"
+    [HELP_TARGET_CLANG_MACOS_ARM64] = { "target-aarch64-apple-darwin-clang",
+        "## `-target=aarch64-apple-darwin-clang`\n\nmacOS arm64 (Apple Silicon)\n"
         "\n"
         "Data model **LP64**. Output compiler: Clang.\n"
         "\n"
@@ -4863,14 +4949,14 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "\n"
         "Thread-local storage is emitted as `__thread`.\n"
         "\n"
-        "The generated C89 goes to a `clang-macos-arm64` folder next to the "
+        "The generated C89 goes to an `aarch64-apple-darwin-clang` folder next to the "
         "sources; compile it with the target compiler:\n"
         "\n"
         "```\n"
-        "clang -w clang-macos-arm64/file1.c -o file1\n"
+        "clang -w aarch64-apple-darwin-clang/file1.c -o file1\n"
         "```" },
-    [HELP_TARGET_GCC_LINUX_ARM64] = { "target-gcc-linux-arm64",
-        "## `-target=gcc-linux-arm64`\n\nLinux aarch64 (e.g. Raspberry Pi)\n"
+    [HELP_TARGET_GCC_LINUX_ARM64] = { "target-aarch64-linux-gnu-gcc",
+        "## `-target=aarch64-linux-gnu-gcc`\n\nLinux aarch64 (e.g. Raspberry Pi)\n"
         "\n"
         "Data model **LP64**. Output compiler: GCC. Plain `char` is unsigned.\n"
         "\n"
@@ -4886,14 +4972,14 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| `wchar_t` | 4 (`unsigned int`) |\n"
         "| `size_t` | 8 (`unsigned long`) |\n"
         "\n"
-        "The generated C89 goes to a `gcc-linux-arm64` folder next to the "
+        "The generated C89 goes to an `aarch64-linux-gnu-gcc` folder next to the "
         "sources; compile it with the target compiler:\n"
         "\n"
         "```\n"
-        "gcc -w gcc-linux-arm64/file1.c -o file1\n"
+        "gcc -w aarch64-linux-gnu-gcc/file1.c -o file1\n"
         "```" },
-    [HELP_TARGET_GCC_LINUX_X64] = { "target-gcc-linux-x64",
-        "## `-target=gcc-linux-x64`\n\nLinux x86-64\n"
+    [HELP_TARGET_GCC_LINUX_X64] = { "target-x86_64-linux-gnu-gcc",
+        "## `-target=x86_64-linux-gnu-gcc`\n\nLinux x86-64\n"
         "\n"
         "Data model **LP64**. Output compiler: GCC.\n"
         "\n"
@@ -4911,14 +4997,14 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "\n"
         "Thread-local storage is emitted as `__thread`.\n"
         "\n"
-        "The generated C89 goes to a `gcc-linux-x64` folder next to the "
+        "The generated C89 goes to an `x86_64-linux-gnu-gcc` folder next to the "
         "sources; compile it with the target compiler:\n"
         "\n"
         "```\n"
-        "gcc -w gcc-linux-x64/file1.c -o file1\n"
+        "gcc -w x86_64-linux-gnu-gcc/file1.c -o file1\n"
         "```" },
-    [HELP_TARGET_MSVC_WIN_X64] = { "target-msvc-win-x64",
-        "## `-target=msvc-win-x64`\n\nWindows x64\n"
+    [HELP_TARGET_MSVC_WIN_X64] = { "target-x86_64-pc-windows-msvc",
+        "## `-target=x86_64-pc-windows-msvc`\n\nWindows x64\n"
         "\n"
         "Data model **LLP64**. Output compiler: MSVC.\n"
         "\n"
@@ -4936,14 +5022,14 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "\n"
         "Thread-local storage is emitted as `__declspec(thread)`.\n"
         "\n"
-        "The generated C89 goes to a `msvc-win-x64` folder next to the "
+        "The generated C89 goes to an `x86_64-pc-windows-msvc` folder next to the "
         "sources; compile it with the target compiler:\n"
         "\n"
         "```\n"
-        "cl msvc-win-x64\\file1.c\n"
+        "cl x86_64-pc-windows-msvc\\file1.c\n"
         "```" },
-    [HELP_TARGET_MSVC_WIN_X86] = { "target-msvc-win-x86",
-        "## `-target=msvc-win-x86`\n\nWindows x86 (32-bit)\n"
+    [HELP_TARGET_MSVC_WIN_X86] = { "target-i686-pc-windows-msvc",
+        "## `-target=i686-pc-windows-msvc`\n\nWindows x86 (32-bit)\n"
         "\n"
         "Data model **ILP32**. Output compiler: MSVC.\n"
         "\n"
@@ -4961,16 +5047,16 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "\n"
         "Thread-local storage is emitted as `__declspec(thread)`.\n"
         "\n"
-        "The generated C89 goes to a `msvc-win-x86` folder next to the "
+        "The generated C89 goes to an `i686-pc-windows-msvc` folder next to the "
         "sources; compile it with the target compiler:\n"
         "\n"
         "```\n"
-        "cl msvc-win-x86\\file1.c\n"
+        "cl i686-pc-windows-msvc\\file1.c\n"
         "```" },
-    [HELP_TARGET_TCC_LINUX_X64] = { "target-tcc-linux-x64",
-        "## `-target=tcc-linux-x64`\n\nLinux x86-64 with the Tiny C Compiler\n"
+    [HELP_TARGET_TCC_LINUX_X64] = { "target-x86_64-linux-gnu-tcc",
+        "## `-target=x86_64-linux-gnu-tcc`\n\nLinux x86-64 with the Tiny C Compiler\n"
         "\n"
-        "Data model **LP64** (the sizes of `gcc-linux-x64`), TCC's predefined "
+        "Data model **LP64** (the sizes of `x86_64-linux-gnu-gcc`), TCC's predefined "
         "macros.\n"
         "\n"
         "| Type | Size (bytes) |\n"
@@ -4985,16 +5071,16 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| `wchar_t` | 4 (`int`) |\n"
         "| `size_t` | 8 (`unsigned long`) |\n"
         "\n"
-        "The generated C89 goes to a `tcc-linux-x64` folder next to the "
+        "The generated C89 goes to an `x86_64-linux-gnu-tcc` folder next to the "
         "sources; compile it with TCC:\n"
         "\n"
         "```\n"
-        "tcc tcc-linux-x64/file1.c -o file1\n"
+        "tcc x86_64-linux-gnu-tcc/file1.c -o file1\n"
         "```" },
-    [HELP_TARGET_TCC_MACOS_ARM64] = { "target-tcc-macos-arm64",
-        "## `-target=tcc-macos-arm64`\n\nmacOS arm64 with the Tiny C Compiler\n"
+    [HELP_TARGET_TCC_MACOS_ARM64] = { "target-aarch64-apple-darwin-tcc",
+        "## `-target=aarch64-apple-darwin-tcc`\n\nmacOS arm64 with the Tiny C Compiler\n"
         "\n"
-        "Data model **LP64** (the sizes of `clang-macos-arm64`), TCC's "
+        "Data model **LP64** (the sizes of `aarch64-apple-darwin-clang`), TCC's "
         "predefined macros. `__builtin_inf` and `__builtin_fabs` are written "
         "as plain C.\n"
         "\n"
@@ -5010,16 +5096,16 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| `wchar_t` | 4 (`int`) |\n"
         "| `size_t` | 8 (`unsigned long`) |\n"
         "\n"
-        "The generated C89 goes to a `tcc-macos-arm64` folder next to the "
+        "The generated C89 goes to an `aarch64-apple-darwin-tcc` folder next to the "
         "sources; compile it with TCC:\n"
         "\n"
         "```\n"
-        "tcc tcc-macos-arm64/file1.c -o file1\n"
+        "tcc aarch64-apple-darwin-tcc/file1.c -o file1\n"
         "```" },
-    [HELP_TARGET_TCC_WIN_X64] = { "target-tcc-win-x64",
-        "## `-target=tcc-win-x64`\n\nWindows x64 with the Tiny C Compiler\n"
+    [HELP_TARGET_TCC_WIN_X64] = { "target-x86_64-w64-mingw32-tcc",
+        "## `-target=x86_64-w64-mingw32-tcc`\n\nWindows x64 with the Tiny C Compiler\n"
         "\n"
-        "Data model **LLP64** (the sizes of `msvc-win-x64`), GCC syntax, TCC's "
+        "Data model **LLP64** (the sizes of `x86_64-pc-windows-msvc`), GCC syntax, TCC's "
         "predefined macros (`__TINYC__`, `__WINT_TYPE__`, ...) and no "
         "`_MSC_VER`. Use it with TCC's own headers - Detect in the System "
         "Directories dialog offers them.\n"
@@ -5036,14 +5122,14 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| `wchar_t` | 2 (`unsigned short`) |\n"
         "| `size_t` | 8 (`unsigned long long`) |\n"
         "\n"
-        "The generated C89 goes to a `tcc-win-x64` folder next to the sources; "
+        "The generated C89 goes to an `x86_64-w64-mingw32-tcc` folder next to the sources; "
         "compile it with TCC:\n"
         "\n"
         "```\n"
-        "tcc tcc-win-x64\\file1.c -o file1.exe\n"
+        "tcc x86_64-w64-mingw32-tcc\\file1.c -o file1.exe\n"
         "```" },
-    [HELP_TARGET_GCC_LINUX_ARM32] = { "target-gcc-linux-arm32",
-        "## `-target=gcc-linux-arm32`\n\nLinux 32-bit ARM, EABI hard-float "
+    [HELP_TARGET_GCC_LINUX_ARM32] = { "target-arm-linux-gnueabihf-gcc",
+        "## `-target=arm-linux-gnueabihf-gcc`\n\nLinux 32-bit ARM, EABI hard-float "
         "(e.g. Raspberry Pi 1/2 with a 32-bit OS)\n"
         "\n"
         "Data model **ILP32**. Output compiler: GCC. Plain `char` is "
@@ -5061,26 +5147,36 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| `wchar_t` | 4 (`unsigned int`) |\n"
         "| `size_t` | 4 (`unsigned int`) |\n"
         "\n"
-        "The generated C89 goes to a `gcc-linux-arm32` folder next to the "
+        "The generated C89 goes to an `arm-linux-gnueabihf-gcc` folder next to the "
         "sources; compile it with the target compiler:\n"
         "\n"
         "```\n"
-        "gcc -w gcc-linux-arm32/file1.c -o file1\n"
+        "gcc -w arm-linux-gnueabihf-gcc/file1.c -o file1\n"
         "```" },
     [HELP_COPTS_HEADERS] = { "copts-headers",
         "# Which headers `#include <...>` finds (`-cake-headers`)\n\n"
-        "System Headers uses the compiler's own headers; Cake Headers "
-        "passes `-cake-headers`." },
+        "Cake has its own copy of some standard headers (`stdio.h`, `string.h`, "
+        "...). In both modes `#include <...>` takes Cake's header when it has one; "
+        "the modes differ in what that header does next.\n\n"
+        "- **System Headers** - Cake's header adds its annotations, then includes "
+        "the system header with `#include_next`.\n"
+        "- **Cake Headers** - Cake's header declares everything itself; the system "
+        "header is not included (`-cake-headers`).\n\n"
+        "A header Cake has no copy of is found in the include directories, in both "
+        "modes." },
     [HELP_HEADERS_SYSTEM] = { "headers-system",
-        "## System headers\n\nNo `-cake-headers` is passed; `#include "
-        "<...>` finds the target compiler's headers." },
+        "## System Headers\n\nCake's header, if it has one, then the system one\n\n"
+        "`#include <...>` takes Cake's own header when it exists; it adds Cake's "
+        "annotations and includes the system header with `#include_next`. Headers "
+        "Cake has no copy of come straight from the include directories. "
+        "No `-cake-headers` is passed." },
     [HELP_HEADERS_CAKE] = { "headers-cake",
-        "## `-cake-headers`\n\nuse only Cake's own headers, never the system "
-        "ones\n\n"
-        "Cake's headers declare everything themselves instead "
-        "of deferring to `#include_next`, so the real system headers are never "
-        "consulted. Used to compile Cake itself and run its tests portably; "
-        "not meant for ordinary programs." },
+        "## Cake Headers (`-cake-headers`)\n\nCake's header, if it has one, alone\n\n"
+        "`#include <...>` takes Cake's own header when it exists, and that header "
+        "declares everything itself: the system header is not included. Headers "
+        "Cake has no copy of still come from the include directories.\n\n"
+        "Gives the same declarations on every platform - used to compile Cake "
+        "itself and run its tests portably." },
     [HELP_COPTS_STYLE] = { "copts-style",
         "# Coding style checked by diagnostic 11 (`-style=<name>`)\n\n"
         "Passing `-style` turns diagnostic 11 (style) on as a note." },
@@ -5218,12 +5314,16 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| `-auto-config` | generate `cake.json` with the include "
         "directories of the current system |" },
     [HELP_COPTS_CONFIG] = { "copts-configuration",
-        "# Configuration\n\nDebug or Release\n"
+        "# Configuration\n\nA named set of options\n"
         "\n"
-        "Each target has two sets of options, one per configuration - Debug "
-        "builds with debug information, Release optimized. The combo picks the "
-        "one being edited; **Build > Configuration** picks the one Build uses. "
-        "**[All]** edits both."
+        "A project has a list of configurations, each with its own options: "
+        "target, headers, include directories, the build command, the debugger. "
+        "The combo picks the one being edited; **Build > Configuration** picks "
+        "the one Build uses.\n"
+        "\n"
+        "**New...** copies the configuration shown under a new name, **Rename...** "
+        "renames it, **Delete** removes it. **Auto Config** creates a Debug and a "
+        "Release configuration for every compiler on this machine."
         "\n\n## See also\n\n"
         "- [Target](help:copts-target)\n"
         "- [Properties](help:copts)\n" },
@@ -5374,11 +5474,11 @@ static const struct help_topic help_topics[HELP_COUNT] = {
     [HELP_INCLUDE_DIRS] = { "include-dirs",
         "# Include Directories\n\nthe `#include` search path\n"
         "\n"
-        "A page of [Properties](help:copts), for each target and configuration. "
+        "A page of [Properties](help:copts), for each configuration. "
         "Every directory goes to Cake as `-I`, with `-no-includes`: `cake.json` "
         "is not read, so this list must have the system headers too - "
         "[Auto Config](help:auto-config) puts the compiler's there. The C compiler "
-        "after Cake gets the same list from `$(IncludeDirs)`.\n"
+        "after Cake does not need them: Cake's output has no `#include`.\n"
         "\n"
         "Directories are searched in list order - **Move Up** / **Move Down** "
         "change it. A project's are stored relative to the project folder; the "
@@ -5897,11 +5997,20 @@ static void build_help_texts(struct ide* ide)
     set_help(ide, c->window,
              "Properties: how the project - or the Playground - is built and debugged",
              HELP_COPTS);
-    set_help(ide, c->config,
-             "The configuration being edited: Debug, Release, or [All]",
+    set_help(ide, c->configs,
+             "The configuration being edited",
+             HELP_COPTS_CONFIG);
+    set_help(ide, c->config_buttons[0],
+             "New: a copy of the configuration shown, with a new name",
+             HELP_COPTS_CONFIG);
+    set_help(ide, c->config_buttons[1],
+             "Rename the configuration shown",
+             HELP_COPTS_CONFIG);
+    set_help(ide, c->config_buttons[2],
+             "Delete the configuration shown",
              HELP_COPTS_CONFIG);
     set_help(ide, c->buttons[3],
-             "Auto Config: set the compilers found on this machine, for every target and configuration",
+             "Auto Config: a Debug and a Release configuration for every compiler found on this machine",
              HELP_AUTO_CONFIG);
     set_help(ide, c->includes,
              "The #include search path, passed as -I; Auto Config adds the compiler's headers",
@@ -5913,47 +6022,14 @@ static void build_help_texts(struct ide* ide)
     static const enum help_id page_topics[COPTS_PAGES] = { HELP_COPTS, HELP_INCLUDE_DIRS, HELP_BUILD_OPTIONS, HELP_DEBUG_OPTIONS };
     for (int i = 0; i < COPTS_PAGES; i++)
         set_help(ide, gui_child_at(c->pages, i), page_hints[i], page_topics[i]);
-    set_help(ide, c->target,
-             "Compilation target platform (`-target=<name>`)",
-             HELP_COPTS_TARGET);
-    set_help(ide, gui_child_at(c->target, 0),
-             "[All]: a field changed here goes to every target",
-             HELP_COPTS_TARGET);
-    set_help(ide, gui_child_at(c->target, 1),
-             "`-target=clang-macos-arm64`: macOS arm64 (Apple Silicon)",
-             HELP_TARGET_CLANG_MACOS_ARM64);
-    set_help(ide, gui_child_at(c->target, 3),
-             "`-target=gcc-linux-arm64`: Linux aarch64 (e.g. Raspberry Pi)",
-             HELP_TARGET_GCC_LINUX_ARM64);
-    set_help(ide, gui_child_at(c->target, 4),
-             "`-target=gcc-linux-x64`: Linux x86-64",
-             HELP_TARGET_GCC_LINUX_X64);
-    set_help(ide, gui_child_at(c->target, 5),
-             "`-target=msvc-win-x64`: Windows x64",
-             HELP_TARGET_MSVC_WIN_X64);
-    set_help(ide, gui_child_at(c->target, 6),
-             "`-target=msvc-win-x86`: Windows x86 (32-bit)",
-             HELP_TARGET_MSVC_WIN_X86);
-    set_help(ide, gui_child_at(c->target, 7),
-             "`-target=tcc-linux-x64`: Linux x86-64 with the Tiny C Compiler",
-             HELP_TARGET_TCC_LINUX_X64);
-    set_help(ide, gui_child_at(c->target, 8),
-             "`-target=tcc-macos-arm64`: macOS arm64 with the Tiny C Compiler",
-             HELP_TARGET_TCC_MACOS_ARM64);
-    set_help(ide, gui_child_at(c->target, 9),
-             "`-target=tcc-win-x64`: Windows x64 with the Tiny C Compiler",
-             HELP_TARGET_TCC_WIN_X64);
-    set_help(ide, gui_child_at(c->target, 2),
-             "`-target=gcc-linux-arm32`: Linux 32-bit ARM (e.g. Raspberry Pi 1/2)",
-             HELP_TARGET_GCC_LINUX_ARM32);
     set_help(ide, c->headers,
              "Which headers `#include <...>` finds (`-cake-headers`)",
              HELP_COPTS_HEADERS);
     set_help(ide, gui_child_at(c->headers, 0),
-             "System headers: the target compiler's own headers",
+             "System Headers: Cake's header if it has one, then the system header",
              HELP_HEADERS_SYSTEM);
     set_help(ide, gui_child_at(c->headers, 1),
-             "`-cake-headers`: use only Cake's own headers, never the system ones",
+             "`-cake-headers`: Cake's header if it has one, without the system header",
              HELP_HEADERS_CAKE);
     set_help(ide, c->style,
              "Coding style checked by diagnostic 11 (`-style=<name>`)",
@@ -5997,6 +6073,9 @@ static void build_help_texts(struct ide* ide)
     set_help(ide, c->output,
              "Name of the built executable (empty: derived from the source/project)",
              HELP_COPTS_OUTPUT);
+    set_help(ide, c->cake_target,
+             "Passed to cake as `-target=`",
+             HELP_COPTS_TARGET);
     set_help(ide, c->options,
              "Other command-line options, passed to cake as typed",
              HELP_COPTS_OPTIONS);
@@ -6124,28 +6203,18 @@ static const char* const diag_slugs[] = { "ide", "gcc", "msvc" };
 /* The options Build, Compile and Start Debugging use: the target's and configuration's in use. */
 static const struct target_settings* settings_in_use(const struct compiler_settings* cs)
 {
-    return &cs->targets[cs->target * COMPILE_CONFIGS + cs->config];
+    static const struct target_settings none = { 0 };
+    return cs->current >= 0 && cs->current < cs->count ? &cs->configurations[cs->current] : &none;
 }
 
-/* The row of the platform Cake was built for - the target of new settings. */
-static int host_target(void)
-{
-    const char* name = get_platform(TARGET_DEFAULT)->name;
-    for (int i = 0; i < COUNT(target_slugs); i++)
-    {
-        if (strcmp(name, target_slugs[i]) == 0)
-            return i;
-    }
-    return 0;
-}
-
-/* New settings: the host's target, every field empty but -line-directives. */
+/* New settings: one configuration, every field empty but -line-directives. */
 static void compiler_settings_default(struct compiler_settings* s)
 {
     memset(s, 0, sizeof *s);
-    s->target = host_target();
-    for (int i = 0; i < COUNT(s->targets); i++)
-        s->targets[i].flags[0] = 1;   /* -line-directives on by default: the debugger needs it */
+    s->count = 1;
+    s->current = 0;
+    config_default(&s->configurations[0]);
+    snprintf(s->configurations[0].name, sizeof s->configurations[0].name, "Default");
 }
 
 /* The command line the Properties of the target and configuration in use
@@ -6163,9 +6232,9 @@ static void compile_args(struct ide* ide, const struct compiler_settings* cs)
         snprintf(flag, sizeof flag, "-fdiagnostics-format=%s", diag_slugs[s->diag]);
         ide_compile_arg(job, flag);
     }
-    if (cs->target >= 0 && cs->target < COUNT(target_slugs))
+    if (s->cake_target[0])
     {
-        snprintf(flag, sizeof flag, "-target=%s", target_slugs[cs->target]);
+        snprintf(flag, sizeof flag, "-target=%s", s->cake_target);
         ide_compile_arg(job, flag);
     }
     if (s->style > 0 && s->style < COUNT(style_slugs))
@@ -7910,14 +7979,15 @@ static int file_uses_project(struct ide* ide, const char* path)
     return ide_project_is_open(&ide->project) && (!path[0] || ide_project_contains(&ide->project, path));
 }
 
-/* The platform `path` is compiled for: its project's target, or the global one. */
+/* The platform `path` is compiled for: the target of its project's configuration, or the global one. */
 static const char* platform_for(struct ide* ide, const char* path)
 {
-    enum target target = TARGET_DEFAULT;
-    int t = file_uses_project(ide, path) ? ide->project.compile.target : ide->global_options.target;
-    if (t >= 0 && t < COUNT(target_slugs))
-        parse_target(target_slugs[t], &target);
-    return get_platform(target)->name;
+    const struct target_settings* s = settings_in_use(file_uses_project(ide, path) ? &ide->project.compile : &ide->global_options);
+    if (s->cake_target[0])
+        return s->cake_target;
+    static struct platform host;
+    platform_default(&host);
+    return host.name;
 }
 
 static const char* platform_name(struct ide* ide)
@@ -8506,6 +8576,7 @@ static void target_to_json(struct json_value* c, const struct target_settings* s
 {
     if (!c)
         return;
+    json_set_string(c, "target", s->cake_target);
     json_set_string(c, "options", s->options);
     json_set_string(c, "output", s->output);
     json_set_string(c, "style", style_slugs[clamp_index(s->style, COUNT(style_slugs))]);
@@ -8580,6 +8651,7 @@ static void target_from_json(const struct json_value* c, struct target_settings*
 {
     if (!c || c->type != JSON_OBJECT)
         return;
+    get_string(c, "target", s->cake_target, sizeof s->cake_target);
     get_string(c, "options", s->options, sizeof s->options);
     get_string(c, "output", s->output, sizeof s->output);
     char slug[64] = "";
@@ -8597,47 +8669,49 @@ static void target_from_json(const struct json_value* c, struct target_settings*
     dirs_from_json(json_find_member(c, "include_dirs"), &s->include_dirs);
 }
 
-/* "compile": the target and configuration in use and, in "targets", the
- * options of each target by its slug - "debug" and "release". */
+/* "compile": the configuration in use, by its name, and "configurations",
+ * each with its name and options. */
 static void compile_to_json(struct json_value* c, const struct compiler_settings* s)
 {
     if (!c)
         return;
-    json_set_string(c, "target", target_slugs[clamp_index(s->target, COUNT(target_slugs))]);
-    json_set_string(c, "configuration", config_slugs[clamp_index(s->config, COMPILE_CONFIGS)]);
-    struct json_value* targets = json_set_object(c, "targets");
-    for (int i = 0; targets && i < COUNT(target_slugs); i++)
+    json_set_string(c, "configuration", s->current >= 0 && s->current < s->count ? s->configurations[s->current].name : "");
+    struct json_value* list = json_set_array(c, "configurations");
+    for (int i = 0; list && i < s->count; i++)
     {
-        struct json_value* t = json_set_object(targets, target_slugs[i]);
-        for (int k = 0; t && k < COMPILE_CONFIGS; k++)
-            target_to_json(json_set_object(t, config_slugs[k]), &s->targets[i * COMPILE_CONFIGS + k]);
+        struct json_value* o = json_add_object(list);
+        if (!o)
+            continue;
+        json_set_string(o, "name", s->configurations[i].name);
+        target_to_json(o, &s->configurations[i]);
     }
 }
 
+/* Without "configurations" - nothing, or the old format - the defaults stay. */
 static void compile_from_json(const struct json_value* c, struct compiler_settings* s)
 {
     if (!c || c->type != JSON_OBJECT)
         return;
-    char slug[64] = "";
-    get_string(c, "target", slug, sizeof slug);
-    s->target = host_target();
-    for (int i = 0; i < COUNT(target_slugs); i++)
+    const struct json_value* list = json_find_member(c, "configurations");
+    if (!list || list->type != JSON_ARRAY)
+        return;
+    s->count = 0;
+    size_t n = json_count(list);
+    for (size_t i = 0; i < n && s->count < MAX_CONFIGURATIONS; i++)
     {
-        if (strcmp(slug, target_slugs[i]) == 0)
-            s->target = i;
+        const struct json_value* o = json_item(list, i);
+        if (!o || o->type != JSON_OBJECT)
+            continue;
+        struct target_settings* t = &s->configurations[s->count++];
+        config_default(t);
+        get_string(o, "name", t->name, sizeof t->name);
+        target_from_json(o, t);
     }
-    get_string(c, "configuration", slug, sizeof slug);
-    s->config = strcmp(slug, "release") == 0 ? 1 : 0;
-    const struct json_value* targets = json_find_member(c, "targets");
-    for (int i = 0; i < COUNT(target_slugs); i++)
-    {
-        /* a file without "targets" has one set of options, used for every
-         * target; a target without "release", one for both configurations */
-        const struct json_value* t = targets ? json_find_member(targets, target_slugs[i]) : c;
-        int split = t && json_find_member(t, "release");
-        for (int k = 0; k < COMPILE_CONFIGS; k++)
-            target_from_json(split ? json_find_member(t, config_slugs[k]) : t, &s->targets[i * COMPILE_CONFIGS + k]);
-    }
+    char name[64] = "";
+    get_string(c, "configuration", name, sizeof name);
+    s->current = config_find(s, name);
+    if (s->current < 0 && s->count > 0)
+        s->current = 0;
 }
 
 /* --- Projects: the old IDE's - a .cakeproj (JSON) with the name, the
@@ -8669,7 +8743,7 @@ static void project_refresh(struct ide* ide, int selected)
     if (selected >= 0)
         gui_set_selected(ide->project_list, selected);
     gui_set_label(ide->project_window, p->name[0] ? p->name : "Project");
-    target_menu_refresh(ide);
+    config_menu_refresh(ide);
     for (int i = 0; i < COUNT(ide->project_items); i++)
     {
         if (ide->project_items[i])
@@ -8816,12 +8890,6 @@ static int project_load(struct ide* ide, const char* path, char* why, size_t why
         const struct json_value* f = json_item(files, i);
         if (f && f->type == JSON_STRING && f->string)
             ide_strings_add(&p->files, f->string);
-    }
-    if (!json_find_member(c, "targets"))
-    {
-        /* the old .cakeproj: one "include_dirs", outside "compile", for every target */
-        for (int i = 0; i < COUNT(p->compile.targets); i++)
-            dirs_from_json(json_find_member(root, "include_dirs"), &p->compile.targets[i].include_dirs);
     }
     json_delete(root);
 
@@ -9991,6 +10059,68 @@ static void git_discard_all(struct ide* ide)
     git_refresh(ide);
 }
 
+/* Add to Ignore List: one line appended to the repository's .gitignore -
+ * the selected path, "*.ext" or its folder ("dir/"). */
+static void git_ignore(struct ide* ide, int id)
+{
+    const char* path = git_selected(ide, NULL);
+    if (!path)
+        return;
+    char line[1100] = { 0 };
+    if (id == EV_GIT_IGNORE_FILE)
+    {
+        snprintf(line, sizeof line, "/%s", path);
+    }
+    else if (id == EV_GIT_IGNORE_EXT)
+    {
+        const char* name = file_name(path);
+        const char* dot = strrchr(name, '.');
+        if (!dot || dot == name)
+        {
+            status(ide, "Ignore: the file has no extension");
+            return;
+        }
+        snprintf(line, sizeof line, "*%s", dot);
+    }
+    else
+    {
+        snprintf(line, sizeof line, "/%s", path);
+        size_t n = strlen(line);
+        if (n > 0 && line[n - 1] == '/')
+            line[--n] = '\0';   /* an untracked folder comes as "dir/" */
+        char* slash = strrchr(line, '/');
+        if (slash == line)
+        {
+            status(ide, "Ignore: the item is at the repository root");
+            return;
+        }
+        slash[1] = '\0';
+    }
+    char gitignore[1100] = { 0 };
+    join_path(gitignore, sizeof gitignore, git_dir(ide), ".gitignore");
+    int crlf = 0;
+    char* old = ide_read_file(gitignore, &crlf);
+    size_t old_len = old ? strlen(old) : 0;
+    size_t size = old_len + strlen(line) + 3;
+    char* text = malloc(size);
+    if (!text)
+    {
+        free(old);
+        return;
+    }
+    snprintf(text, size, "%s%s%s\n", old ? old : "",
+             old_len > 0 && old[old_len - 1] != '\n' ? "\n" : "", line);
+    char msg[1300] = { 0 };
+    if (ide_write_file(gitignore, text, crlf) == 0)
+        snprintf(msg, sizeof msg, "Added %s to .gitignore", line);
+    else
+        snprintf(msg, sizeof msg, "Cannot write %s", gitignore);
+    status(ide, msg);
+    free(text);
+    free(old);
+    git_refresh(ide);
+}
+
 static void git_commit_open(struct ide* ide, int mode, int push)
 {
     struct git_panel* g = &ide->git;
@@ -10224,6 +10354,9 @@ static void git_event(struct ide* ide, int id)
         git_ask(ide, "Discard every change, untracked files included?\n\nThis cannot be undone.", EV_GIT_DISCARD_ALL_OK);
         break;
     case EV_GIT_DISCARD_ALL_OK: git_discard_all(ide); break;
+    case EV_GIT_IGNORE_FILE:
+    case EV_GIT_IGNORE_EXT:
+    case EV_GIT_IGNORE_FOLDER: git_ignore(ide, id); break;
     case EV_GIT_COMMIT: git_commit_open(ide, GIT_COMMIT_ALL, 0); break;
     case EV_GIT_COMMIT_PUSH: git_commit_open(ide, GIT_COMMIT_ALL, 1); break;
     case EV_GIT_COMMIT_STAGED: git_commit_open(ide, GIT_COMMIT_STAGED, 0); break;
@@ -10915,7 +11048,15 @@ static void on_event(void* ctx, int id)
         }
         break;
     case EV_OPEN_OK: open_ok(ide); break;
-    case EV_RENAME: rename_open(ide); break;
+    case EV_RENAME:
+    {
+        int lo = 0, hi = 0;
+        if (ed && string_at_caret(ed, &lo, &hi))
+            edit_string_open(ide, ed);   /* F2 on a string literal edits it */
+        else
+            rename_open(ide);
+        break;
+    }
     case EV_RENAME_OK: rename_run(ide); break;
     case EV_RENAME_CANCEL: gui_window_close(ide->app, ide->rename.window); break;
     case EV_EDIT_STRING: if (ed) edit_string_open(ide, ed); break;
@@ -11180,8 +11321,15 @@ static void on_event(void* ctx, int id)
             project_save(ide);
         else
             settings_save(ide);
+        config_menu_refresh(ide);
         break;
-    case EV_COPTS_TARGET: copts_target_changed(ide); break;
+    case EV_COPTS_CONFIG: copts_config_changed(ide); break;
+    case EV_COPTS_CONFIG_NEW: config_name_open(ide, 1); break;
+    case EV_COPTS_CONFIG_RENAME: config_name_open(ide, 0); break;
+    case EV_COPTS_CONFIG_DELETE: config_delete_ask(ide); break;
+    case EV_COPTS_CONFIG_DELETE_YES: config_delete(ide); break;
+    case EV_CONFIG_NAME_OK: config_name_accept(ide); break;
+    case EV_CONFIG_NAME_CANCEL: gui_window_close(ide->app, ide->copts.name_window); break;
     case EV_COPTS_CANCEL: gui_window_close(ide->app, ide->copts.window); break;
     case EV_COPTS_HELP: help_open(ide); break;
     case EV_COPTS_AUTO_CONFIG: copts_auto_config(ide); break;
@@ -11193,8 +11341,14 @@ static void on_event(void* ctx, int id)
     case EV_COPTS_INC_UP: dirs_edit(ide, ide->copts.includes, &ide->copts.include_dirs, -1); break;
     case EV_COPTS_INC_DOWN: dirs_edit(ide, ide->copts.includes, &ide->copts.include_dirs, 1); break;
     case EV_COPTS_PAGE: copts_select_page(&ide->copts, gui_get_selected(ide->copts.pages)); break;
-    case EV_DBG_BROWSE: pick_path(ide, ide->copts.debug[0], 1, ""); break;
-    case EV_POST_BUILD_BROWSE: pick_path(ide, ide->copts.post_build[0], 1, ""); break;
+    case EV_DBG_BROWSE:
+        gui_set_selected(ide->open.filter, PROGRAMS_FILTER);
+        pick_path(ide, ide->copts.debug[0], 1, "");
+        break;
+    case EV_POST_BUILD_BROWSE:
+        gui_set_selected(ide->open.filter, PROGRAMS_FILTER);
+        pick_path(ide, ide->copts.post_build[0], 1, "");
+        break;
     case EV_EXTERNAL_TOOLS: external_tools_open(ide); break;
     case EV_EXT_LIST:
     case EV_EXT_ADD:
@@ -11435,9 +11589,9 @@ static void on_event(void* ctx, int id)
             complete_insert(ide, ide->complete.names[id - EV_COMPLETE_ITEM]);
             break;
         }
-        if (id >= EV_TARGET_ITEM && id < EV_TARGET_ITEM + COMPILE_TARGETS)
+        if (id >= EV_CONFIG_ITEM && id < EV_CONFIG_ITEM + MAX_CONFIGURATIONS)
         {
-            target_pick(ide, id - EV_TARGET_ITEM, -1);
+            config_pick(ide, id - EV_CONFIG_ITEM);
             break;
         }
         if (id >= EV_RECENT_ITEM && id < EV_RECENT_ITEM + ide->recent_projects.count)
@@ -11445,11 +11599,6 @@ static void on_event(void* ctx, int id)
             char path[1024] = { 0 };
             snprintf(path, sizeof path, "%s", ide->recent_projects.items[id - EV_RECENT_ITEM]);   /* project_open may drop it */
             project_open(ide, path);
-            break;
-        }
-        if (id >= EV_CONFIG_ITEM && id < EV_CONFIG_ITEM + COMPILE_CONFIGS)
-        {
-            target_pick(ide, -1, id - EV_CONFIG_ITEM);
             break;
         }
         if (id >= EV_TOOL_RUN && id < EV_TOOL_RUN + ide->ext_tools.count)
@@ -11503,7 +11652,7 @@ void gui_main(struct gui_app* app, int argc, char** argv)
     settings_load(ide);
     panels_size(ide);   /* before session_load, which puts back the saved sizes */
     playground_project_load(ide);
-    target_menu_refresh(ide);
+    config_menu_refresh(ide);
     recent_menu_refresh(ide);
     gui_set_timer(app, 2000, EV_TICK);   /* the outside-change check */
 

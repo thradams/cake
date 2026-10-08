@@ -663,12 +663,12 @@ reported by <code>gcc -v -E</code> / <code>clang -v -E</code>.</p>
 <pre><code>cake source.c
 </code></pre>
 
-<p>Compiles <code>source.c</code> and writes the C89 output to <code>./&lt;target&gt;/source.c</code>, where <code>&lt;target&gt;</code> is the platform Cake was built for (e.g. <code>./clang-macos-arm64/source.c</code>).</p>
+<p>Compiles <code>source.c</code> and writes the C89 output to <code>./&lt;target&gt;/source.c</code>, where <code>&lt;target&gt;</code> is the platform Cake was built for (e.g. <code>./aarch64-apple-darwin-clang/source.c</code>).</p>
 
-<pre><code>cake -target=msvc-win-x86 source.c
+<pre><code>cake -target=i686-pc-windows-msvc source.c
 </code></pre>
 
-<p>Compiles <code>source.c</code> targeting MSVC x86 and writes output to <code>./msvc-win-x86/source.c</code>.</p>
+<p>Compiles <code>source.c</code> targeting MSVC x86 and writes output to <code>./i686-pc-windows-msvc/source.c</code>.</p>
 
 <pre><code>cake file.c -o file.cc &amp;&amp; cl file.cc
 </code></pre>
@@ -709,25 +709,25 @@ Set the output filename when compiling a single file. Same as GCC and MSVC.</p>
 <p><strong><code>-output-root=&lt;dir&gt;</code></strong><br>
 Write each output to <code>&lt;dir&gt;/&lt;target&gt;/&lt;path relative to dir&gt;</code>, so a file always goes to the same place no matter which other files are passed. <code>&lt;dir&gt;</code> must be a parent folder of the input files; it is not a separate output folder. Files outside <code>&lt;dir&gt;</code> ignore it and go to <code>&lt;their dir&gt;/&lt;target&gt;/</code>. Without this option the root is the common directory of the files given. The IDE passes the project directory.</p>
 
-<p>Example: <code>cake -target=msvc-win-x64 -output-root=project project/main.c project/src/util.c other/lib.c</code></p>
+<p>Example: <code>cake -target=x86_64-pc-windows-msvc -output-root=project project/main.c project/src/util.c other/lib.c</code></p>
 
 <pre><code>project/                  &lt;- -output-root
 ├── main.c
 ├── src/
 │   └── util.c
-└── msvc-win-x64/             &lt;- generated
+└── x86_64-pc-windows-msvc/             &lt;- generated
     ├── main.c
     └── src/
         └── util.c
 other/                    &lt;- outside project
 ├── lib.c
-└── msvc-win-x64/             &lt;- generated next to lib.c
+└── x86_64-pc-windows-msvc/             &lt;- generated next to lib.c
     └── lib.c
 </code></pre>
 
-<p>Without <code>-output-root</code>, compiling only <code>project/src/util.c</code> would write <code>project/src/msvc-win-x64/util.c</code>.</p>
+<p>Without <code>-output-root</code>, compiling only <code>project/src/util.c</code> would write <code>project/src/x86_64-pc-windows-msvc/util.c</code>.</p>
 
-<p>Because the generated folder mirrors the source tree, a Makefile from <code>project/</code> can be copied into <code>project/msvc-win-x64/</code> and used unchanged. The output has no <code>#include</code>, so headers and <code>-I</code> are not needed. Files outside the root (like <code>other/lib.c</code>) need their paths adjusted, e.g. <code>../../other/msvc-win-x64/lib.c</code>.</p>
+<p>Because the generated folder mirrors the source tree, a Makefile from <code>project/</code> can be copied into <code>project/x86_64-pc-windows-msvc/</code> and used unchanged. The output has no <code>#include</code>, so headers and <code>-I</code> are not needed. Files outside the root (like <code>other/lib.c</code>) need their paths adjusted, e.g. <code>../../other/x86_64-pc-windows-msvc/lib.c</code>.</p>
 
 <p><strong><code>-no-output</code></strong><br>
 Run all analysis passes but suppress file output.</p>
@@ -882,59 +882,54 @@ Set the compilation target. Controls integer sizes, alignment, and the style of 
 <td>—</td>
 </tr>
 <tr>
-<td><code>gcc-linux-x64</code></td>
+<td><code>x86_64-linux-gnu-gcc</code></td>
 <td>Linux x86-64</td>
 <td>GCC</td>
 </tr>
 <tr>
-<td><code>gcc-linux-arm64</code></td>
+<td><code>aarch64-linux-gnu-gcc</code></td>
 <td>Linux aarch64 (e.g. Raspberry Pi)</td>
 <td>GCC</td>
 </tr>
 <tr>
-<td><code>gcc-linux-arm32</code></td>
+<td><code>arm-linux-gnueabihf-gcc</code></td>
 <td>Linux 32-bit ARM (e.g. Raspberry Pi 1/2)</td>
 <td>GCC</td>
 </tr>
 <tr>
-<td><code>msvc-win-x86</code></td>
+<td><code>i686-pc-windows-msvc</code></td>
 <td>Windows x86</td>
 <td>MSVC</td>
 </tr>
 <tr>
-<td><code>msvc-win-x64</code></td>
+<td><code>x86_64-pc-windows-msvc</code></td>
 <td>Windows x64</td>
 <td>MSVC</td>
 </tr>
 <tr>
-<td><code>clang-macos-arm64</code></td>
+<td><code>aarch64-apple-darwin-clang</code></td>
 <td>macOS arm64 (Apple Silicon)</td>
 <td>Clang</td>
 </tr>
 <tr>
-<td><code>tcc-win-x64</code></td>
+<td><code>x86_64-w64-mingw32-tcc</code></td>
 <td>Windows x64</td>
 <td>TCC</td>
 </tr>
 <tr>
-<td><code>tcc-linux-x64</code></td>
+<td><code>x86_64-linux-gnu-tcc</code></td>
 <td>Linux x86-64</td>
 <td>TCC</td>
 </tr>
 <tr>
-<td><code>tcc-macos-arm64</code></td>
+<td><code>aarch64-apple-darwin-tcc</code></td>
 <td>macOS arm64 (Apple Silicon)</td>
 <td>TCC</td>
 </tr>
 <tr>
-<td><code>catalina</code></td>
+<td><code>propeller-catalina</code></td>
 <td>Catalina</td>
 <td>Catalina C compiler</td>
-</tr>
-<tr>
-<td><code>ccu8</code></td>
-<td>Embedded / custom</td>
-<td>—</td>
 </tr>
 </tbody>
 </table>
@@ -1195,12 +1190,12 @@ replaced with equivalent C89 idioms. Specifically, the output contains:</p>
 
 <pre><code>c:\project\
 ├── file1.c
-└── msvc-win-x64\
+└── x86_64-pc-windows-msvc\
     └── file1.c
 </code></pre>
 
-<p>The output directory is named after the compilation target (see <code>-target</code>, section 4.4): <code>msvc-win-x64</code>, 
-<code>gcc-linux-x64</code>, <code>clang-macos-arm64</code>, etc. The examples below use <code>msvc-win-x64</code>.</p>
+<p>The output directory is named after the compilation target (see <code>-target</code>, section 4.4): <code>x86_64-pc-windows-msvc</code>, 
+<code>x86_64-linux-gnu-gcc</code>, <code>aarch64-apple-darwin-clang</code>, etc. The examples below use <code>x86_64-pc-windows-msvc</code>.</p>
 
 <p>Using the <code>-o</code> option (single input file only):</p>
 
@@ -1224,7 +1219,7 @@ then recreates the directory structure under <code>&lt;target&gt;</code> within 
 ├── file1.c
 ├── other\
 │   └── file2.c
-└── msvc-win-x64\
+└── x86_64-pc-windows-msvc\
     ├── file1.c
     └── other\
         └── file2.c
@@ -1330,7 +1325,7 @@ not helpers: Cake emits their prototypes, with <code>const</code> removed, and t
 <p>The generated file is a complete translation unit. It can be compiled with the target compiler with no 
 extra flags:</p>
 
-<pre><code class="language-bash">gcc -w gcc-linux-x64/file1.c -o file1
+<pre><code class="language-bash">gcc -w x86_64-linux-gnu-gcc/file1.c -o file1
 </code></pre>
 
 <p>Warnings are disabled here only because prototypes for libc functions are emitted without <code>const</code> 

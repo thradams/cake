@@ -1879,9 +1879,6 @@ void rename_list_clear(_Clear struct rename_list* p)
         rename_item_free(&p->data[i]);
     }
     free(p->data); //lint 29
-    p->data = NULL;
-    p->size = 0;
-    p->capacity = 0;
 
     for (int i = 0; i < p->pending_size; i++)
     {
@@ -1889,10 +1886,7 @@ void rename_list_clear(_Clear struct rename_list* p)
         rename_item_free(&p->pending[i].declaration);
     }
     free(p->pending); //lint 29 29
-    p->pending = NULL;
-    p->pending_size = 0;
-    p->pending_capacity = 0;
-    memset(p->old_name, 0, sizeof p->old_name);
+    *p = (struct rename_list){ 0 };
 }
 
 static bool rename_item_is(const struct rename_item* p, const char* file, int line, int col)

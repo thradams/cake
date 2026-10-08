@@ -83,17 +83,19 @@ static int alignment_flags_to_value(enum alignment_specifier_flags flags)
     return 0;
 }
 
-bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, enum target target)
+bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, const struct platform* target)
 {
     int align = alignment_flags_to_value(flags);
 
     if (align != 0)
     {
-        /*must have %d*/
-        const char* fmt = get_platform(target)->alignas_fmt_must_have_one_percent_d;
-        char buffer[50] = { 0 };
-        snprintf(buffer, sizeof buffer, fmt, align);
-        print_item(ss, first, buffer);
+        const char* _Opt fmt = target->code_alignas_spelling_fmt;
+        if (fmt)
+        {
+            char buffer[50] = { 0 };
+            snprintf(buffer, sizeof buffer, fmt, align);
+            print_item(ss, first, buffer);
+        }
     }
     return *first;
 }
@@ -414,7 +416,7 @@ struct type type_lvalue_conversion(const struct type* p_type)
     return t;
 }
 
-void print_type_core(struct osstream* ss, const struct type* p_type, bool onlydeclarator, bool printname, enum target target)
+void print_type_core(struct osstream* ss, const struct type* p_type, bool onlydeclarator, bool printname, const struct platform* target)
 {
     const struct type* _Opt p = p_type;
 
@@ -589,17 +591,17 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
     }
 }
 
-void print_type(struct osstream* ss, const struct type* p_type, enum target target)
+void print_type(struct osstream* ss, const struct type* p_type, const struct platform* target)
 {
     print_type_core(ss, p_type, false, true, target);
 }
 
-void print_type_no_names(struct osstream* ss, const struct type* p_type, enum target target)
+void print_type_no_names(struct osstream* ss, const struct type* p_type, const struct platform* target)
 {
     print_type_core(ss, p_type, false, false, target);
 }
 
-void type_print(const struct type* a, enum target target)
+void type_print(const struct type* a, const struct platform* target)
 {
     struct osstream ss = { 0 };
     print_type(&ss, a, target);
@@ -1558,23 +1560,23 @@ bool type_is_bitint(const struct type* p_type)
         (p_type->type_specifier_flags & TYPE_SPECIFIER_BITINT);
 }
 
-enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is_unsigned, enum target target)
+enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is_unsigned, const struct platform* target)
 {
     enum type_specifier_flags flags = TYPE_SPECIFIER_NONE;
 
-    if (width <= get_platform(target)->char_n_bits)
+    if (width <= target->char_n_bits)
     {
         flags = TYPE_SPECIFIER_CHAR | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_SIGNED);
     }
-    else if (width <= get_platform(target)->short_n_bits)
+    else if (width <= target->short_n_bits)
     {
         flags = TYPE_SPECIFIER_SHORT | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
     }
-    else if (width <= get_platform(target)->int_n_bits)
+    else if (width <= target->int_n_bits)
     {
         flags = TYPE_SPECIFIER_INT | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
     }
-    else if (width <= get_platform(target)->long_n_bits)
+    else if (width <= target->long_n_bits)
     {
         flags = TYPE_SPECIFIER_LONG | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
     }
@@ -1736,12 +1738,12 @@ bool type_is_char(const struct type* p_type)
   (unsigned short on msvc, int elsewhere). Used to tell "%ls" apart
   from "%s" when checking printf format strings.
 */
-bool type_is_wchar(const struct type* p_type, enum target target)
+bool type_is_wchar(const struct type* p_type, const struct platform* target)
 {
     if (!type_is_integer(p_type))
         return false;
 
-    return type_to_object_type(p_type, target) == get_platform(target)->wchar_t_type;
+    return type_to_object_type(p_type, target) == target->wchar_t_type;
 }
 
 /*
@@ -2013,7 +2015,7 @@ bool type_is_pointer_or_array(const struct type* p_type)
 
 
 //See 6.3.1.1
-int type_get_integer_rank(const struct type* p_type1, enum target target)
+int type_get_integer_rank(const struct type* p_type1, const struct platform* target)
 {
     if (type_is_pointer_or_array(p_type1))
     {
@@ -2034,19 +2036,19 @@ int type_get_integer_rank(const struct type* p_type1, enum target target)
         const int width = p_type1->bitint_width;
         int standard_rank = 80; /* long long */
 
-        if (width <= get_platform(target)->char_n_bits)
+        if (width <= target->char_n_bits)
         {
             standard_rank = 20;
         }
-        else if (width <= get_platform(target)->short_n_bits)
+        else if (width <= target->short_n_bits)
         {
             standard_rank = 30;
         }
-        else if (width <= get_platform(target)->int_n_bits)
+        else if (width <= target->int_n_bits)
         {
             standard_rank = 40;
         }
-        else if (width <= get_platform(target)->long_n_bits)
+        else if (width <= target->long_n_bits)
         {
             standard_rank = 50;
         }
@@ -2103,7 +2105,7 @@ struct type make_with_specifier_qualifier_list(const struct specifier_qualifier_
     }
 }
 
-struct type type_common(const struct type* p_type1, const struct type* p_type2, enum target target)
+struct type type_common(const struct type* p_type1, const struct type* p_type2, const struct platform* target)
 {
     //See 6.3.1.8 Usual arithmetic conversions
 
@@ -2437,7 +2439,7 @@ struct type type_dup(const struct type* p_type)
 }
 
 static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,
-    const char* member, size_t* sz, struct type* _Opt p_member_type_out, enum target target)
+    const char* member, size_t* sz, struct type* _Opt p_member_type_out, const struct platform* target)
 {
     enum sizeof_result sizeof_result = SIZEOF_RESULT_OK;
 
@@ -2446,7 +2448,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
 
     const bool is_union =
         (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
-    const bool msvc_target = (target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64);
+    const bool msvc_target = target->msvc_like_bitfield_layout;
 
     size_t size = 0;
     try
@@ -2492,7 +2494,7 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
                         }
                         else
                         {
-                            field_type_size = get_platform(target)->int_n_bits / 8;
+                            field_type_size = target->int_n_bits / 8;
                         }
 
                         size_t field_align = field_type_size;
@@ -2780,10 +2782,10 @@ static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* 
     return sizeof_result;
 }
 
-enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz, enum target target)
+enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, size_t* sz, const struct platform* target)
 {
     enum sizeof_result sizeof_result = SIZEOF_RESULT_OK;
-    const bool msvc_target = (target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64);
+    const bool msvc_target = target->msvc_like_bitfield_layout;
 
     /* #pragma pack(n) caps every member's alignment at n */
     const size_t pack_alignment = complete_struct_or_union_specifier->pack_alignment;
@@ -2840,7 +2842,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                         else
                         {
                             /* unnamed bitfield — use int as the storage unit */
-                            field_type_size = get_platform(target)->int_n_bits / 8;
+                            field_type_size = target->int_n_bits / 8;
                         }
 
                         size_t field_align = field_type_size;
@@ -2927,7 +2929,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                             /*
                              * Decide whether to open a new storage unit.
                              *
-                             * MSVC (TARGET_MSVC_WIN_X86, TARGET_MSVC_WIN_X64):
+                             * MSVC (msvc_like_bitfield_layout):
                              *   A new unit is required when:
                              *     (a) no unit is open yet,
                              *     (b) bits do not fit in remaining capacity, OR
@@ -2936,7 +2938,7 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
                              *   Rule (c) means type changes always force a flush,
                              *   even when the bits would still fit.
                              *
-                             * GCC (TARGET_GCC_LINUX_X64 and all other targets):
+                             * GCC (all other targets):
                              *   A new unit is required only for (a) and (b).
                              *   Additionally, when a new unit IS needed and the
                              *   current field's declared type is larger than the
@@ -3186,10 +3188,10 @@ enum sizeof_result get_sizeof_struct(struct struct_or_union_specifier* complete_
     return sizeof_result;
 }
 
-size_t type_get_alignof(const struct type* p_type, enum target target);
-size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, enum target target)
+size_t type_get_alignof(const struct type* p_type, const struct platform* target);
+size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, const struct platform* target)
 {
-    const bool msvc_target = (target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64);
+    const bool msvc_target = target->msvc_like_bitfield_layout;
 
     size_t align = 0;
     struct member_declaration* _Opt d = complete_struct_or_union_specifier->member_declaration_list.head;
@@ -3313,7 +3315,7 @@ size_t get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_u
 }
 
 
-size_t type_get_alignof(const struct type* p_type, enum target target)
+size_t type_get_alignof(const struct type* p_type, const struct platform* target)
 {
     size_t align = 0;
 
@@ -3321,7 +3323,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        align = get_platform(target)->pointer_alignment;
+        align = target->pointer_alignment;
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
@@ -3332,15 +3334,15 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
     {
         if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
-            align = get_platform(target)->char_alignment;
+            align = target->char_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
         {
-            align = get_platform(target)->bool_alignment;
+            align = target->bool_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
-            align = get_platform(target)->short_alignment;
+            align = target->short_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BITINT)
         {
@@ -3364,33 +3366,33 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
             }
             else
             {
-                align = get_platform(target)->int_alignment;
+                align = target->int_alignment;
             }
         }
         else if (p_type->type_specifier_flags == (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
         {
             //before 
-            align = get_platform(target)->long_double_alignment;
+            align = target->long_double_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
         {
-            align = get_platform(target)->long_alignment;
+            align = target->long_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         {
-            align = get_platform(target)->long_long_alignment;
+            align = target->long_long_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
-            align = get_platform(target)->int_alignment;
+            align = target->int_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
-            align = get_platform(target)->float_alignment;
+            align = target->float_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
-            align = get_platform(target)->double_alignment;
+            align = target->double_alignment;
         }
 
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_GCC__BUILTIN_VA_LIST)
@@ -3398,7 +3400,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
 #if __GNUC__
             align = _Alignof(__builtin_va_list);
 #else
-            align = get_platform(target)->pointer_alignment;
+            align = target->pointer_alignment;
 #endif
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
@@ -3435,7 +3437,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
         {
-            align = get_platform(target)->pointer_alignment;
+            align = target->pointer_alignment;
         }
         else
         {
@@ -3464,7 +3466,7 @@ size_t type_get_alignof(const struct type* p_type, enum target target)
     return align;
 }
 
-enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, struct type* _Opt p_member_type_out, enum target target)
+enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, struct type* _Opt p_member_type_out, const struct platform* target)
 {
     *size = 0; //out
 
@@ -3495,7 +3497,7 @@ enum sizeof_result type_get_offsetof(const struct type* p_type, const char* memb
     return get_offsetof_struct(p_complete, member, size, p_member_type_out, target);
 }
 
-enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum target target)
+enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, const struct platform* target)
 {
     *size = 0; //out
 
@@ -3507,13 +3509,13 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        *size = get_platform(target)->pointer_n_bits / 8;
+        *size = target->pointer_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
     if (category == TYPE_CATEGORY_FUNCTION)
     {
-        *size = get_platform(target)->pointer_n_bits / 8;
+        *size = target->pointer_n_bits / 8;
         return SIZEOF_RESULT_FUNCTION;
     }
 
@@ -3522,7 +3524,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
         if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
             //void f(int a[2])            
-            *size = get_platform(target)->pointer_n_bits / 8;
+            *size = target->pointer_n_bits / 8;
             return SIZEOF_RESULT_OK;
         }
         else
@@ -3598,7 +3600,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
                   is well within SIZE_MAX but still rejected). GCC/clang
                   targets do not share this limit, so only enforce it there.
                 */
-                if ((target == TARGET_MSVC_WIN_X86 || target == TARGET_MSVC_WIN_X64) &&
+                if (target->msvc_like_object_size_limit &&
                     result > 0x7FFFFFFFULL)
                 {
                     return SIZEOF_RESULT_OVERLOW;
@@ -3623,19 +3625,19 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
     {
-        *size = get_platform(target)->char_n_bits / 8;
+        *size = target->char_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
     {
-        *size = get_platform(target)->bool_n_bits / 8;
+        *size = target->bool_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
     {
-        *size = get_platform(target)->short_n_bits / 8;
+        *size = target->short_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
@@ -3653,7 +3655,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 #if __GNUC__
         * size = sizeof(__builtin_va_list);
 #else
-        * size = get_platform(target)->pointer_n_bits / 8;
+        * size = target->pointer_n_bits / 8;
 #endif
         return SIZEOF_RESULT_OK;
     }
@@ -3661,38 +3663,38 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
     /*must be before long*/
     if (p_type->type_specifier_flags == (TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE))
     {
-        *size = get_platform(target)->long_double_n_bits / 8;
+        *size = target->long_double_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
     {
-        *size = get_platform(target)->long_n_bits / 8;
+        *size = target->long_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
-        *size = get_platform(target)->long_long_n_bits / 8;
+        *size = target->long_long_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
     {
         //typedef long unsigned int uint64_t;
-        *size = get_platform(target)->int_n_bits / 8;
+        *size = target->int_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
     {
-        *size = get_platform(target)->float_n_bits / 8;
+        *size = target->float_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
     {
-        *size = get_platform(target)->double_n_bits / 8;
+        *size = target->double_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
@@ -3729,7 +3731,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
         }
         else
         {
-            *size = get_platform(target)->int_n_bits / 8;
+            *size = target->int_n_bits / 8;
         }
         return SIZEOF_RESULT_OK;
     }
@@ -3748,7 +3750,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
 
     if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
     {
-        *size = get_platform(target)->pointer_n_bits / 8;
+        *size = target->pointer_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
@@ -3774,7 +3776,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, enum
     return SIZEOF_RESULT_INCOMPLETE;
 }
 
-void type_get_integer_range(const struct type* p_type, enum target target, long long* min, unsigned long long* max)
+void type_get_integer_range(const struct type* p_type, const struct platform* target, long long* min, unsigned long long* max)
 {
     const struct type* p_effective_type = p_type;
     bool is_signed = true;
@@ -3904,18 +3906,18 @@ struct type type_make_float()
     return t;
 }
 
-struct type type_make_ptrdiff_t(enum target target)
+struct type type_make_ptrdiff_t(const struct platform* target)
 {
     struct type t = { 0 };
-    t.type_specifier_flags = object_type_to_type_specifier(get_platform(target)->ptrdiff_type);
+    t.type_specifier_flags = object_type_to_type_specifier(target->ptrdiff_type);
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
 
-struct type type_make_size_t(enum target target)
+struct type type_make_size_t(const struct platform* target)
 {
     struct type t = { 0 };
-    t.type_specifier_flags = object_type_to_type_specifier(get_platform(target)->size_t_type);
+    t.type_specifier_flags = object_type_to_type_specifier(target->size_t_type);
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
@@ -3965,10 +3967,10 @@ struct type make_with_type_specifier_flags(enum type_specifier_flags f)
     return t;
 }
 
-struct type make_size_t_type(enum target target)
+struct type make_size_t_type(const struct platform* target)
 {
     struct type t = { 0 };
-    t.type_specifier_flags = object_type_to_type_specifier(get_platform(target)->size_t_type);
+    t.type_specifier_flags = object_type_to_type_specifier(target->size_t_type);
 
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
@@ -5121,7 +5123,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             {
                 const int requested_align =
                     alignment_flags_to_value(pdeclarator->declaration_specifiers->alignment_specifier_flags);
-                const size_t natural_align = type_get_alignof(p, ctx->options.target);
+                const size_t natural_align = type_get_alignof(p, &ctx->options.platform);
 
                 if (requested_align != 0 && (long long)natural_align > 0 && (size_t)requested_align < natural_align)
                 {

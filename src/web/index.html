@@ -377,7 +377,7 @@ default in a Wayland session when these libraries are installed).</p>
 </code></pre>
 
 <p>On Windows, <code>build_tcc.bat</code> does the same. A Cake built by tcc uses the matching
-tcc target (<code>tcc-win-x64</code>, <code>tcc-linux-x64</code> or <code>tcc-macos-arm64</code>) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
+tcc target (<code>x86_64-w64-mingw32-tcc</code>, <code>x86_64-linux-gnu-tcc</code> or <code>aarch64-apple-darwin-tcc</code>) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
 and 0.9.27 on Linux.</p>
 
 <h2 id="toc_9">Build options</h2>
@@ -509,7 +509,7 @@ archive was downloaded with a browser, macOS blocks them. Allow with
 <pre><code>cake source.c
 </code></pre>
 
-<p>This writes the C89 output to <code>./&lt;target&gt;/source.c</code>, where <code>&lt;target&gt;</code> is the platform Cake was built for — for example <code>./clang-macos-arm64/source.c</code> or <code>./msvc-win-x64/source.c</code>. <code>-target=&lt;name&gt;</code> selects another platform; see the <a href="manual.html">Manual</a> for the full option list.</p>
+<p>This writes the C89 output to <code>./&lt;target&gt;/source.c</code>, where <code>&lt;target&gt;</code> is the platform Cake was built for — for example <code>./aarch64-apple-darwin-clang/source.c</code> or <code>./x86_64-pc-windows-msvc/source.c</code>. <code>-target=&lt;name&gt;</code> selects another platform; see the <a href="manual.html">Manual</a> for the full option list.</p>
 
 <h1 id="toc_15">IDE</h1>
 

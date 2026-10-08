@@ -37,6 +37,7 @@ struct gui_node
     int change_id;             /* GUI_INPUT: fired when the user edits the text; 0: none */
     int enabled;
     int separator;
+    int markable, marked;      /* menu item: gui_set_mark */
     int centered;              /* GUI_TEXT: the label centered in its rect */
     struct gui_layout layout;  /* where it sits in its parent (see ide_gui.h) */
     struct gui_node* after_label;   /* gui_set_after_label; NULL: none */

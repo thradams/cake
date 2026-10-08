@@ -146,7 +146,7 @@ tcc build.c -o build && ./build
 ```
 
 On Windows, `build_tcc.bat` does the same. A Cake built by tcc uses the matching
-tcc target (`tcc-win-x64`, `tcc-linux-x64` or `tcc-macos-arm64`) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
+tcc target (`x86_64-w64-mingw32-tcc`, `x86_64-linux-gnu-tcc` or `aarch64-apple-darwin-tcc`) and the tcc headers by default. Tested with tcc 0.9.28 on Windows
 and 0.9.27 on Linux.
 
 ## Build options
@@ -256,7 +256,7 @@ Notes:
 cake source.c
 ```
 
-This writes the C89 output to `./<target>/source.c`, where `<target>` is the platform Cake was built for — for example `./clang-macos-arm64/source.c` or `./msvc-win-x64/source.c`. `-target=<name>` selects another platform; see the [Manual](manual.md) for the full option list.
+This writes the C89 output to `./<target>/source.c`, where `<target>` is the platform Cake was built for — for example `./aarch64-apple-darwin-clang/source.c` or `./x86_64-pc-windows-msvc/source.c`. `-target=<name>` selects another platform; see the [Manual](manual.md) for the full option list.
 
 
 # IDE

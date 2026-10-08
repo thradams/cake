@@ -155,11 +155,7 @@ static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-#ifdef _WIN32
-    va_end(args); //lint 35
-#else
     va_end(args);
-#endif
 
     print_position(stream->path, stream->line, stream->col, ctx->options.diagnostic_ouput_format, color_enabled, false);
     if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
@@ -244,11 +240,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
 
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-#ifdef _WIN32
-    va_end(args); //lint 35
-#else
     va_end(args);
-#endif
 
     if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
     {
@@ -2034,7 +2026,7 @@ bool is_never_final(enum token_type type)
         type == TK_NEWLINE;
 }
 
-enum token_type is_keyword(const char* text, enum target target);
+enum token_type is_keyword(const char* text, const struct platform* target);
 
 struct token* _Opt preprocessor_look_ahead_core(const struct token* p)
 {
@@ -2318,10 +2310,8 @@ static bool preprocessor_name_is_defined(struct preprocessor_ctx* ctx, const str
 Evaluate a clang query operator to "0" or "1" for the given target.
 'op' is the operator name, 'arg' the (single) argument text.
 */
-static const char* clang_query_operator_value(enum target target, const char* op, const char* arg)
+static const char* clang_query_operator_value(const struct platform* target, const char* op, const char* arg)
 {
-    const bool is_apple = (target == TARGET_CLANG_MACOS_ARM64 || target == TARGET_CATALINA || target == TARGET_TCC_MACOS_ARM64);
-
     if (strcmp(op, "__has_builtin") == 0)
     {
         /* The target-detection builtins are the ones the SDK probes for
@@ -2339,29 +2329,31 @@ static const char* clang_query_operator_value(enum target target, const char* op
 
     if (strcmp(op, "__is_target_arch") == 0)
     {
-        if (target == TARGET_CLANG_MACOS_ARM64 || target == TARGET_TCC_MACOS_ARM64 || target == TARGET_GCC_LINUX_ARM64)
+        if (platform_arch_is(target, "ARM64"))
             return (strcmp(arg, "arm64") == 0 || strcmp(arg, "aarch64") == 0) ? "1" : "0";
-        if (target == TARGET_GCC_LINUX_X64 || target == TARGET_TCC_WIN_X64 || target == TARGET_TCC_LINUX_X64)
+        if (platform_arch_is(target, "X64"))
             return (strcmp(arg, "x86_64") == 0) ? "1" : "0";
-        if (target == TARGET_GCC_LINUX_ARM32)
+        if (platform_arch_is(target, "X86"))
+            return (strcmp(arg, "i386") == 0 || strcmp(arg, "x86") == 0) ? "1" : "0";
+        if (platform_arch_is(target, "ARM32"))
             return (strcmp(arg, "arm") == 0) ? "1" : "0";
         return "0";
     }
 
     if (strcmp(op, "__is_target_os") == 0)
     {
-        if (is_apple)
+        if (platform_os_is(target, "MACOS"))
             return (strcmp(arg, "macos") == 0 || strcmp(arg, "macosx") == 0 || strcmp(arg, "darwin") == 0) ? "1" : "0";
-        if (target == TARGET_GCC_LINUX_X64 || target == TARGET_TCC_LINUX_X64 || target == TARGET_GCC_LINUX_ARM64 || target == TARGET_GCC_LINUX_ARM32)
+        if (platform_os_is(target, "LINUX"))
             return (strcmp(arg, "linux") == 0) ? "1" : "0";
+        if (platform_os_is(target, "WINDOWS"))
+            return (strcmp(arg, "windows") == 0 || strcmp(arg, "win32") == 0) ? "1" : "0";
         return "0";
     }
 
     if (strcmp(op, "__is_target_vendor") == 0)
     {
-        if (is_apple)
-            return (strcmp(arg, "apple") == 0) ? "1" : "0";
-        return "0";
+        return (platform_os_is(target, "MACOS") && strcmp(arg, "apple") == 0) ? "1" : "0";
     }
 
     if (strcmp(op, "__is_target_environment") == 0)
@@ -3370,7 +3362,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     }
                 }
 
-                const char* value = clang_query_operator_value(ctx->options.target, op, arg);
+                const char* value = clang_query_operator_value(&ctx->options.platform, op, arg);
 
                 struct token* _Owner _Opt p_new_token = calloc(1, sizeof * p_new_token);
                 if (p_new_token == NULL)
@@ -7217,7 +7209,7 @@ static const char* object_type_spelling(enum object_type type, bool is_unsigned)
     return "int";
 }
 
-void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
+void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* target)
 {
     const struct diagnostic w =
         ctx->options.diagnostic_stack.stack[ctx->options.diagnostic_stack.top_index];
@@ -7258,7 +7250,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
     }
 
     /* the target's type sizes and signedness (struct platform), for cake's headers */
-    const struct platform* p_platform = get_platform(target);
+    const struct platform* p_platform = target;
     char platformstr[1024] = { 0 };
     snprintf(platformstr, sizeof platformstr,
              "#define __CAKE_SIZEOF_SHORT__ %d\n"
@@ -7348,7 +7340,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, enum target target)
      macro_copy_replacement_list but they need to be registered here.
    */
 
-    const char* pre_defined_macros_text = target_get_predefined_macros(target);
+    const char* pre_defined_macros_text = target->predefined_macros ? target->predefined_macros : "";
 
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "add_standard_macros", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
@@ -9337,7 +9329,9 @@ int test_predefined_macros()
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.macros.capacity = 5000;
-    add_standard_macros(&prectx, TARGET_DEFAULT);
+    struct platform host;
+    platform_default(&host);
+    add_standard_macros(&prectx, &host);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
     const char* _Opt _Owner result = print_preprocessed_to_string(list2.head);

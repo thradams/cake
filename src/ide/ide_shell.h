@@ -158,11 +158,13 @@ struct include_dirs
     int count;
 };
 
-/* The Properties of one target and configuration. */
+/* One configuration of a project: its name and everything a Build uses. */
 struct target_settings
 {
+    char name[64];
     int headers, style, diag;   /* each select's row */
     int flags[4];
+    char cake_target[64];   /* passed as -target= */
     char output[256];
     char options[512];
     char pre_build[3][512];    /* run before a Build: Command, Arguments, Directory; no Command, none */
@@ -171,17 +173,15 @@ struct target_settings
     struct include_dirs include_dirs;   /* a project's are relative to its folder */
 };
 
-#define COMPILE_TARGETS 9   /* the targets, in target_slugs' order */
+#define MAX_CONFIGURATIONS 32
 
-#define COMPILE_CONFIGS 2   /* Debug, Release */
-
-/* Properties: a project's or the Playground project's - the target and
- * configuration in use, and the options of each. */
+/* Properties: a project's or the Playground project's - its configurations
+ * and the one in use. */
 struct compiler_settings
 {
-    int target;   /* the row in target_slugs */
-    int config;   /* 0 Debug, 1 Release */
-    struct target_settings targets[COMPILE_TARGETS * COMPILE_CONFIGS];   /* [target * COMPILE_CONFIGS + config] */
+    int current;   /* the configuration in use, -1 none */
+    int count;
+    struct target_settings configurations[MAX_CONFIGURATIONS];
 };
 
 /* --- Projects (ide_project.c) --- */

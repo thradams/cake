@@ -6,7 +6,7 @@
 */
 
 #ifdef _WIN64
-    // 64-bit Windows  -target=msvc-win-x64
+    // 64-bit Windows  -target=x86_64-pc-windows-msvc
 
     //long is 4 bytes on windows
     static_assert(sizeof(1L) == 4);
@@ -64,7 +64,7 @@ static_assert(alignof((char*)0-1) == 4);
 
 #ifdef __x86_64__
 
-// linux -target=gcc-linux-x64
+// linux -target=x86_64-linux-gnu-gcc
 
 _Static_assert(sizeof(bool) == 1, "");
 _Static_assert(alignof(bool) == 1, "");

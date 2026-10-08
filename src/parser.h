@@ -332,7 +332,7 @@ bool pos_diagnostic(enum diagnostic_id w,
 int compile(int argc, const char** argv, struct report* error);
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
-bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, enum target target);
+bool print_type_alignment_flags(struct osstream* ss, bool* first, enum alignment_specifier_flags flags, const struct platform* target);
 enum alignment_specifier_flags alignment_value_to_flags(long long alignment);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags, int bitint_width);
 

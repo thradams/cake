@@ -677,8 +677,9 @@ bool flow_alt_to_interval(const struct flow_alternative* alt, long long* lo, lon
             *hi = v;
             return true;
         default:
-            return false;
+            break;
     }
+    return false;
 }
 
 bool flow_alt_set_interval(struct flow_alternative* alt, long long lo, long long hi)
