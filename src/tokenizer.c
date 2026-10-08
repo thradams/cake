@@ -92,14 +92,6 @@ struct macro_parameter
 {
     const char* _Owner name;
     struct macro_parameter* _Owner _Opt next;
-
-    /*
-      https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm#number-of-expansions
-      For each such parameter this expansion is performed exactly once
-      (this list and flag are clean and reused when performing argument expansion)
-    */
-    struct token_list expanded_list;
-    bool already_expanded;
 };
 
 struct macro
@@ -606,6 +598,16 @@ struct macro_argument
     /*the parameter this argument is associated with*/
     struct macro_parameter* _Opt macro_parameter;
     struct token_list tokens;
+
+    /*
+      https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm#number-of-expansions
+      For each such parameter this expansion is performed exactly once.
+      Cached per argument (not per parameter) because nested invocations
+      of the same macro must not share the cache.
+    */
+    struct token_list expanded_list;
+    bool already_expanded;
+
     struct macro_argument* _Owner _Opt next; /*linked list*/
 };
 
@@ -676,6 +678,7 @@ void macro_argument_delete(struct macro_argument* _Owner _Opt p)
     {
         _Assert(p->next == NULL);
         token_list_destroy(&p->tokens);
+        token_list_destroy(&p->expanded_list);
         free(p);
     }
 }
@@ -775,7 +778,6 @@ void macro_parameters_delete(_Dtor struct macro_parameter* _Owner _Opt parameter
     {
         struct macro_parameter* _Owner _Opt p_next = p->next;
         free((void* _Owner)p->name);
-        token_list_destroy(&p->expanded_list);
         free(p);
         p = p_next;
     }
@@ -816,7 +818,6 @@ void macro_delete(struct macro* _Owner _Opt macro)
         {
             struct macro_parameter* _Owner _Opt p_next = p_macro_parameter->next;
             free((void* _Owner)p_macro_parameter->name);
-            token_list_destroy(&p_macro_parameter->expanded_list);
             free(p_macro_parameter);
             p_macro_parameter = p_next;
         }
@@ -5800,11 +5801,8 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
         while (p)
         {
             struct macro_argument* _Opt next = p->next;
-            if (p->macro_parameter)
-            {
-                p->macro_parameter->already_expanded = false;
-                token_list_clear(&p->macro_parameter->expanded_list);
-            }
+            p->already_expanded = false;
+            token_list_clear(&p->expanded_list);
             p = next;
         }
 
@@ -5945,7 +5943,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                         throw;
                     }
 
-                    if (!p_argument->macro_parameter->already_expanded)
+                    if (!p_argument->already_expanded)
                     {
                         /*
                       https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm#number-of-expansions
@@ -5955,14 +5953,14 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     */
                         struct token_list copy_list = copy_argument_list(p_argument);
                         struct token_list r4 = replacement_list_reexamination(ctx, p_list_opt, &copy_list, 0, origin);
-                        token_list_swap(&p_argument->macro_parameter->expanded_list, &r4);
+                        token_list_swap(&p_argument->expanded_list, &r4);
                         token_list_destroy(&r4);
-                        p_argument->macro_parameter->already_expanded = true;
+                        p_argument->already_expanded = true;
                         token_list_destroy(&copy_list);
                     }
 
                     //Use the previous expansion
-                    struct token_list copy_list = copy_argument_list_tokens(&p_argument->macro_parameter->expanded_list);
+                    struct token_list copy_list = copy_argument_list_tokens(&p_argument->expanded_list);
                     if (copy_list.head)
                     {
                         //fix flags
@@ -9409,6 +9407,24 @@ void bug_test()
 
     const char* output =
         "a \"1\""
+        ;
+
+    assert(test_preprocessor_in_out_match(input, output));
+}
+
+void test_nested_same_macro_argument_expansion()
+{
+    /*
+      The expansion of each argument is cached (n3457 number-of-expansions).
+      The cache must be per invocation: the inner macro(var, 512) must not
+      leak its b = 512 into the outer invocation.
+    */
+    const char* input =
+        "#define macro(a,b) function(a,b)\n"
+        "macro(macro(var, 512), var)\n";
+
+    const char* output =
+        "function(function(var,512),var)"
         ;
 
     assert(test_preprocessor_in_out_match(input, output));

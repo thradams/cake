@@ -41,7 +41,7 @@ enum ide_event
     EV_FIND_DEFINITION, EV_FIND_USAGES, EV_RENAME, EV_FIND_IN_FILES,
     /* Project */
     EV_PROJECT_NEW, EV_PROJECT_OPEN, EV_PROJECT_ADD_FILE,
-    EV_MENU_NEW, EV_MENU_OPEN, EV_MENU_RECENT,   /* submenu parents: they fire nothing */
+    EV_MENU_RECENT,   /* submenu parent: fires nothing */
     EV_PROJECT_OPTIONS, EV_PROJECT_REPORT_UNUSED, EV_PROJECT_CLOSE, EV_PROJECT_RENAME,
     /* Build */
     EV_BUILD, EV_REBUILD, EV_COMPILE, EV_SHOW_GENERATED,
@@ -149,19 +149,10 @@ struct menu
 #endif
 #define SEPARATOR { EV_NONE, NULL, NULL, 1, NULL }
 
-/* File > New and File > Open: submenus, built from these */
-static const struct menu_item new_items[] = {
-    { EV_NEW_FILE, "File...", NULL, 1, "Create a new file" },
-    { EV_PROJECT_NEW, "Project...", NULL, 1, "Create a Cake project (.cakeproj), optionally with a main.c" },
-};
-static const struct menu_item open_items[] = {
-    { EV_OPEN, "File...", "Ctrl+O", 1, "Open a file" },
-    { EV_PROJECT_OPEN, "Project...", NULL, 1, "Open a .cakeproj project" },
-    { EV_OPEN_FOLDER, "Folder...", NULL, 1, "Show a folder in the Folder panel" },
-};
 static const struct menu_item file_items[] = {
-    { EV_MENU_NEW, "New", NULL, 1, "Create a new file or project" },
-    { EV_MENU_OPEN, "Open", NULL, 1, "Open a file, project or folder" },
+    { EV_NEW_FILE, "New File...", NULL, 1, "Create a new file" },
+    { EV_OPEN, "Open File...", "Ctrl+O", 1, "Open a file" },
+    { EV_OPEN_FOLDER, "Open Folder...", NULL, 1, "Show a folder in the Folder panel" },
     { EV_GIT_CLONE, "Clone Repository...", NULL, 1, "Copy a remote Git repository to a local folder" },
     SEPARATOR,
     { EV_SAVE, "Save", "Ctrl+S", 1, "Save the active file" },
@@ -213,6 +204,9 @@ static const struct menu_item search_items[] = {
     { EV_FIND_IN_FILES, "Find in Files...", "Ctrl+F", 1, "Search text in many files; the result in Find Results" },
 };
 static const struct menu_item project_items[] = {
+    { EV_PROJECT_NEW, "New Project...", NULL, 1, "Create a Cake project (.cakeproj), optionally with a main.c" },
+    { EV_PROJECT_OPEN, "Open Project...", NULL, 1, "Open a .cakeproj project" },
+    SEPARATOR,
     { EV_PROJECT_ADD_FILE, "Add Existing File...", NULL, 1, "Add files to the open project" },
     SEPARATOR,
     { EV_PROJECT_RENAME, "Rename Project...", NULL, 1, "Rename the open project's .cakeproj file" },
@@ -360,6 +354,10 @@ enum look_in
     LOOK_IN_INCLUDE_DIRS,
     LOOK_IN_PROJECT,
 };
+
+/* The Find and Replace buttons, 2 + 11 + 1 + 11 + 2: the panel's minimum
+ * width, and the width it first opens at. */
+#define FIF_MIN_COLS 27
 
 struct find_in_files
 {
@@ -1335,7 +1333,7 @@ static struct gui_node* menu_item_create(struct ide* ide, const struct menu_item
         gui_set_separator(it, 1);
         return it;
     }
-    if (spec->id != EV_MENU_NEW && spec->id != EV_MENU_OPEN && spec->id != EV_MENU_RECENT)
+    if (spec->id != EV_MENU_RECENT)
         gui_set_id(it, spec->id);
     ide->labels[spec->id] = spec->label;
     if (spec->shortcut)
@@ -1356,13 +1354,6 @@ static void build_menus(struct ide* ide)
         {
             const struct menu_item* spec = &menus[m].items[i];
             struct gui_node* it = menu_item_create(ide, spec);
-            if (spec->id == EV_MENU_NEW || spec->id == EV_MENU_OPEN)
-            {
-                const struct menu_item* sub = spec->id == EV_MENU_NEW ? new_items : open_items;
-                int n = spec->id == EV_MENU_NEW ? COUNT(new_items) : COUNT(open_items);
-                for (int k = 0; k < n; k++)
-                    gui_append(it, menu_item_create(ide, &sub[k]));
-            }
             if (spec->id == EV_MENU_RECENT)
                 ide->recent_menu = it;   /* filled by recent_menu_refresh */
             gui_append(menu, it);
@@ -1439,14 +1430,44 @@ static void build_statusbar(struct ide* ide)
 }
 
 /* A docked panel `size` cells thick, with the dock popup. */
-static struct gui_node* new_panel(struct ide* ide, const char* title, enum gui_dock side, int size)
+/* The panels' first sizes, in cells: panels_size turns them into pixels
+ * once settings_load has set the UI font - before it, the cells are the
+ * default font's. */
+static struct
+{
+    struct gui_node* win;
+    enum gui_dock side;
+    int cells;
+} panel_sizes[16];
+static int panel_size_count;
+
+static void panel_set_size(struct ide* ide, struct gui_node* win, enum gui_dock side, int cells)
 {
     int cw = 0, ch = 0;
     gui_cell_size(ide->app, &cw, &ch);
+    gui_window_set_dock(win, side, cells * (side == GUI_DOCK_BOTTOM ? ch : cw));
+}
+
+static struct gui_node* new_panel(struct ide* ide, const char* title, enum gui_dock side, int size)
+{
     struct gui_node* win = create(ide, GUI_WINDOW, title);
-    gui_window_set_dock(win, side, size * (side == GUI_DOCK_BOTTOM ? ch : cw));
+    panel_set_size(ide, win, side, size);
     gui_set_context_menu(win, ide->dock_menu);
+    if (panel_size_count < (int)(sizeof panel_sizes / sizeof panel_sizes[0]))
+    {
+        panel_sizes[panel_size_count].win = win;
+        panel_sizes[panel_size_count].side = side;
+        panel_sizes[panel_size_count].cells = size;
+        panel_size_count++;
+    }
     return win;
+}
+
+/* Every panel at its first size in the UI font now set. */
+static void panels_size(struct ide* ide)
+{
+    for (int i = 0; i < panel_size_count; i++)
+        panel_set_size(ide, panel_sizes[i].win, panel_sizes[i].side, panel_sizes[i].cells);
 }
 
 static void build_popups(struct ide* ide);
@@ -1592,8 +1613,8 @@ static void build_panels(struct ide* ide)
     ide->find_kind = FIND_NONE;
 
     /* Find and Replace: docked right, shown from Search > Find in Files. */
-    ide->fif.window = new_panel(ide, "Find and Replace", GUI_DOCK_RIGHT, 32);
-    gui_window_set_min_size(ide->fif.window, 29, 0);   /* the Find and Replace buttons, 2 + 12 + 1 + 12 + 2 */
+    ide->fif.window = new_panel(ide, "Find and Replace", GUI_DOCK_RIGHT, FIF_MIN_COLS);
+    gui_window_set_min_size(ide->fif.window, FIF_MIN_COLS, 0);
     ide->fif.match_case = 1;
     ide->fif.file_type = 2;   /* *.c;*.h */
 }
@@ -2592,6 +2613,7 @@ static void build_popups(struct ide* ide)
     ide->editor_menu = create(ide, GUI_MENU, NULL);
     add_popup_item(ide, ide->editor_menu, EV_COMPILE, "Compile", NULL);
     add_popup_item(ide, ide->editor_menu, EV_SHOW_GENERATED, "Show Generated Code", NULL);
+    add_popup_item(ide, ide->editor_menu, EV_TOGGLE_HDRSRC, "Switch Header/Source", NULL);
     add_popup_item(ide, ide->editor_menu, EV_NONE, NULL, NULL);
     add_popup_item(ide, ide->editor_menu, EV_FIND_DECLARATION, "Find Declaration", NULL);
     add_popup_item(ide, ide->editor_menu, EV_FIND_DEFINITION, "Find Definition", "F12");
@@ -2602,7 +2624,6 @@ static void build_popups(struct ide* ide)
     add_popup_item(ide, ide->editor_menu, EV_NONE, NULL, NULL);
     add_popup_item(ide, ide->editor_menu, EV_TOGGLE_READONLY, "[ ] Read-only", NULL);
     add_popup_item(ide, ide->editor_menu, EV_NONE, NULL, NULL);
-    add_popup_item(ide, ide->editor_menu, EV_TOGGLE_HDRSRC, "Toggle Header/Source", NULL);
     add_popup_item(ide, ide->editor_menu, EV_COPY_PATH, "Copy Full Path", NULL);
     add_popup_item(ide, ide->editor_menu, EV_SHOW_FOLDER, "Show My Folder", NULL);
     add_popup_item(ide, ide->editor_menu, EV_FORMAT, "Format", NULL);
@@ -2665,7 +2686,7 @@ static void editor_menu_refresh(struct ide* ide)
     }
 }
 
-/* Toggle Header/Source: x.c <-> x.h, opened when it exists. */
+/* Switch Header/Source: x.c <-> x.h, opened when it exists. */
 static void toggle_header_source(struct ide* ide, struct doc* d)
 {
     char other[1024] = { 0 };
@@ -8073,8 +8094,8 @@ static void fif_build(struct ide* ide)
     row += 2;
     if (f->mode)
     {
-        gui_set_id(add_at(ide, f->window, GUI_BUTTON, 2, row, 12, 1, "Find"), EV_FR_FIND);
-        gui_set_id(add_at(ide, f->window, GUI_BUTTON, 15, row, 12, 1, "Replace"), EV_FR_REPLACE);
+        gui_set_id(add_at(ide, f->window, GUI_BUTTON, 2, row, 11, 1, "Find"), EV_FR_FIND);
+        gui_set_id(add_at(ide, f->window, GUI_BUTTON, 14, row, 11, 1, "Replace"), EV_FR_REPLACE);
     }
     else
     {
@@ -11480,6 +11501,7 @@ void gui_main(struct gui_app* app, int argc, char** argv)
     build_dialogs(ide);
     compiler_settings_default(&ide->global_options);
     settings_load(ide);
+    panels_size(ide);   /* before session_load, which puts back the saved sizes */
     playground_project_load(ide);
     target_menu_refresh(ide);
     recent_menu_refresh(ide);

@@ -774,7 +774,7 @@ static void run_cake_on_own_source(const char* cake_flags)
 #elif defined PLATFORM_WINDOWS && defined COMPILER_CLANG
     snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #elif (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
-    snprintf(self, 2000, "./" EXE(CKC_NAME) " -fanalyzer -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, "./" EXE(CKC_NAME) " -DTEST -fanalyzer -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #elif defined COMPILER_GCC && !defined COMPILER_TINYC
     snprintf(self, 2000, "./" CKC_NAME " -DTEST -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
 #elif defined COMPILER_TINYC
