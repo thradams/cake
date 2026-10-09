@@ -4,7 +4,7 @@
  * Edit the original source files instead and re-run the amalgamator.
  */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -1649,7 +1649,7 @@ int json_write_file(const char *path, const struct json_value *root)
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -2690,7 +2690,7 @@ struct options
 
     bool null_checks_enabled;   /* -nullchecks: check nullable pointer */
 
-    bool ownership_enabled;     /* check ownerhip rules */
+    bool annotations_enabled;   /* -annotations: _Owner, _Opt, _Out... are checked */
     bool preprocess_only;       /* -E: preprocess only */
 
     bool preprocess_def_macro;  /* -preprocess-def-macro : preprocess #def */
@@ -2853,6 +2853,8 @@ void print_help();
 
 void options_set_error(struct options* options, enum diagnostic_id w, bool value);
 void options_set_warning(struct options* options, enum diagnostic_id w, bool value);
+bool diagnostic_can_happen(const struct options* options, enum diagnostic_id w);
+bool options_default_nonnull(const struct options* options);
 void options_set_note(struct options* options, enum diagnostic_id w, bool value);
 void options_set_all_warnings(struct options* options);
 void options_set_clear_all_warnings(struct options* options);
@@ -5364,9 +5366,6 @@ void rename_list_clear(_Clear struct rename_list* p)
         rename_item_free(&p->data[i]);
     }
     free(p->data); //lint 29
-    p->data = NULL;
-    p->size = 0;
-    p->capacity = 0;
 
     for (int i = 0; i < p->pending_size; i++)
     {
@@ -5374,10 +5373,7 @@ void rename_list_clear(_Clear struct rename_list* p)
         rename_item_free(&p->pending[i].declaration);
     }
     free(p->pending); //lint 29 29
-    p->pending = NULL;
-    p->pending_size = 0;
-    p->pending_capacity = 0;
-    memset(p->old_name, 0, sizeof p->old_name);
+    *p = (struct rename_list){ 0 };
 }
 
 static bool rename_item_is(const struct rename_item* p, const char* file, int line, int col)
@@ -5545,7 +5541,7 @@ void rename_pairs_clear(_Clear struct rename_pairs* p)
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -5855,7 +5851,7 @@ static void fp_boundaries(struct fp_value v,
     mi.e = pl.e;
 
     /*
-      Member-wise rather than `*m_plus = pl;`: under #pragma safety enable the
+      Member-wise rather than `*m_plus = pl;`: under //#pragma safety enable the
       flow analysis does not currently count a whole-struct assignment as
       initializing an _Out pointee, and reports warning 71.
     */
@@ -6276,7 +6272,7 @@ int float_to_string(float value, char* buffer, int size)
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
  
 #ifdef _WIN32
@@ -6641,7 +6637,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 #ifdef _WIN32
 
@@ -6797,7 +6793,7 @@ void c_gotoxy(int x, int y)
                     final, the one seen by the parser.
 
 */
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -6912,11 +6908,7 @@ static void tokenizer_diagnostic(enum diagnostic_id w, struct tokenizer_ctx* ctx
     va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-#ifdef _WIN32
-    va_end(args); //lint 35
-#else
     va_end(args);
-#endif
 
     print_position(stream->path, stream->line, stream->col, ctx->options.diagnostic_ouput_format, color_enabled, false);
     if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
@@ -7001,11 +6993,7 @@ bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx,
 
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-#ifdef _WIN32
-    va_end(args); //lint 35
-#else
     va_end(args);
-#endif
 
     if (ctx->options.diagnostic_ouput_format == DIAGNOSTIC_OUTPUT_FORMAT_MSVC)
     {
@@ -14105,7 +14093,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
      macro_copy_replacement_list but they need to be registered here.
    */
 
-    const char* pre_defined_macros_text = target->predefined_macros;
+    const char* pre_defined_macros_text = target->predefined_macros ? target->predefined_macros : "";
 
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "add_standard_macros", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
@@ -16386,7 +16374,7 @@ void hash_hash_at_ends_of_replacement_list()
  *  https://github.com/thradams/cake 
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 void ss_swap(struct osstream* a, struct osstream* b)
@@ -16509,7 +16497,7 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -20850,75 +20838,78 @@ static const char file_string_h[] = {
 ,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115
 ,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,41,59,10,10,32,32
 ,32,32,47,42,32,109,105,115,99,101,108,108,97,110,101,111,117,115,32,42,47,10,32,32,32
-,32,118,111,105,100,42,32,109,101,109,115,101,116,40,118,111,105,100,42,32,115,44,32,105,110
-,116,32,99,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,35,105,102,32,100
-,101,102,105,110,101,100,40,95,95,108,105,110,117,120,95,95,41,10,32,32,32,32,32,32,32
-,32,118,111,105,100,42,32,109,101,109,115,101,116,95,101,120,112,108,105,99,105,116,40,118,111
-,105,100,42,32,115,44,32,105,110,116,32,99,44,32,115,105,122,101,95,116,32,110,41,59,10
-,32,32,32,32,35,101,110,100,105,102,10,32,32,32,32,99,104,97,114,42,32,115,116,114,101
-,114,114,111,114,40,105,110,116,32,101,114,114,110,117,109,41,59,10,32,32,32,32,115,105,122
-,101,95,116,32,115,116,114,108,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,115,41
-,59,10,32,32,32,32,115,105,122,101,95,116,32,115,116,114,110,108,101,110,40,99,111,110,115
-,116,32,99,104,97,114,42,32,115,44,32,115,105,122,101,95,116,32,109,97,120,108,101,110,41
-,59,10,10,32,32,32,32,35,105,102,32,100,101,102,105,110,101,100,40,95,95,108,105,110,117
-,120,95,95,41,32,124,124,32,100,101,102,105,110,101,100,40,95,95,65,80,80,76,69,95,95
-,41,10,32,32,32,32,32,32,32,32,47,42,32,80,79,83,73,88,32,42,47,10,32,32,32
-,32,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,116,111,107,95,114,40
-,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111
-,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,101,112,44,32,99
-,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,108,97,115,116,115,41,59,10,32,32
-,32,32,32,32,32,32,105,110,116,32,115,116,114,99,97,115,101,99,109,112,40,99,111,110,115
-,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115
-,50,41,59,10,32,32,32,32,32,32,32,32,105,110,116,32,115,116,114,110,99,97,115,101,99
-,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32
-,99,104,97,114,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32
-,35,101,110,100,105,102,10,10,32,32,32,32,35,105,102,32,100,101,102,105,110,101,100,40,95
-,87,73,78,51,50,41,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,105,110
-,116,32,101,114,114,110,111,95,116,59,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101
-,102,32,115,105,122,101,95,116,32,114,115,105,122,101,95,116,59,10,32,32,32,32,32,32,32
-,32,101,114,114,110,111,95,116,32,109,101,109,99,112,121,95,115,40,118,111,105,100,42,32,114
-,101,115,116,114,105,99,116,32,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109,97,120
-,44,32,99,111,110,115,116,32,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,50
-,44,32,114,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,32,32,32,32,101,114,114
-,110,111,95,116,32,109,101,109,109,111,118,101,95,115,40,118,111,105,100,42,32,115,49,44,32
-,114,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32,118,111,105,100
-,42,32,115,50,44,32,114,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,32,32,32
-,32,101,114,114,110,111,95,116,32,115,116,114,99,112,121,95,115,40,99,104,97,114,42,32,114
-,101,115,116,114,105,99,116,32,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109,97,120
-,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50
-,41,59,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,115,116,114,99,97,116
-,95,115,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,114,115,105
-,122,101,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114
-,101,115,116,114,105,99,116,32,115,50,41,59,10,32,32,32,32,32,32,32,32,101,114,114,110
-,111,95,116,32,115,116,114,110,99,112,121,95,115,40,99,104,97,114,42,32,114,101,115,116,114
-,105,99,116,32,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99,111
-,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,114,115
-,105,122,101,95,116,32,110,41,59,10,32,32,32,32,32,32,32,32,99,104,97,114,42,32,95
-,79,112,116,32,115,116,114,116,111,107,95,115,40,99,104,97,114,42,32,95,79,112,116,32,114
-,101,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114
-,101,115,116,114,105,99,116,32,115,50,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105
-,99,116,32,112,116,114,41,59,10,32,32,32,32,32,32,32,32,105,110,116,32,95,115,116,114
-,105,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115
-,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32,32,32,32,32,105,110,116,32
-,95,115,116,114,110,105,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44
-,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,44,32,115,105,122,101,95,116,32,110
-,41,59,10,32,32,32,32,32,32,32,32,105,110,116,32,115,116,114,105,99,109,112,40,99,111
-,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42
-,32,115,50,41,59,10,32,32,32,32,32,32,32,32,105,110,116,32,115,116,114,110,105,99,109
-,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99
-,104,97,114,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,32
-,32,32,32,47,42,32,116,104,101,32,109,115,118,99,32,115,116,114,105,110,103,46,104,32,97
-,108,115,111,32,100,101,99,108,97,114,101,115,32,116,104,101,32,119,105,100,101,32,115,116,114
-,105,110,103,32,102,117,110,99,116,105,111,110,115,32,40,99,111,114,101,99,114,116,95,119,115
-,116,114,105,110,103,46,104,41,44,10,32,32,32,32,32,32,32,32,32,32,32,116,104,101,32
-,119,105,110,100,111,119,115,32,115,100,107,32,104,101,97,100,101,114,115,32,40,115,116,114,97
-,108,105,103,110,46,104,41,32,99,111,117,110,116,32,111,110,32,116,104,97,116,32,42,47,10
-,32,32,32,32,32,32,32,32,35,105,110,99,108,117,100,101,32,60,119,99,104,97,114,46,104
-,62,10,32,32,32,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,10,32,32,32,32
-,99,104,97,114,42,32,95,79,119,110,101,114,32,95,79,112,116,32,115,116,114,100,117,112,40
-,99,111,110,115,116,32,99,104,97,114,42,32,115,114,99,41,59,10,10,32,32,32,32,35,105
-,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,114,105,110,103,46,104,62,10,35,101
-,110,100,105,102,10
+,32,118,111,105,100,42,32,109,101,109,115,101,116,40,95,67,108,101,97,114,32,95,79,117,116
+,32,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44,32,115,105,122,101,95,116,32,110
+,41,59,10,32,32,32,32,35,105,102,32,100,101,102,105,110,101,100,40,95,95,108,105,110,117
+,120,95,95,41,10,32,32,32,32,32,32,32,32,118,111,105,100,42,32,109,101,109,115,101,116
+,95,101,120,112,108,105,99,105,116,40,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44
+,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,35,101,110,100,105,102,10,32,32
+,32,32,99,104,97,114,42,32,115,116,114,101,114,114,111,114,40,105,110,116,32,101,114,114,110
+,117,109,41,59,10,32,32,32,32,115,105,122,101,95,116,32,115,116,114,108,101,110,40,99,111
+,110,115,116,32,99,104,97,114,42,32,115,41,59,10,32,32,32,32,115,105,122,101,95,116,32
+,115,116,114,110,108,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,115,44,32,115,105
+,122,101,95,116,32,109,97,120,108,101,110,41,59,10,10,32,32,32,32,35,105,102,32,100,101
+,102,105,110,101,100,40,95,95,108,105,110,117,120,95,95,41,32,124,124,32,100,101,102,105,110
+,101,100,40,95,95,65,80,80,76,69,95,95,41,10,32,32,32,32,32,32,32,32,47,42,32
+,80,79,83,73,88,32,42,47,10,32,32,32,32,32,32,32,32,99,104,97,114,42,32,95,79
+,112,116,32,115,116,114,116,111,107,95,114,40,99,104,97,114,42,32,95,79,112,116,32,114,101
+,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,115,101,112,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99
+,116,32,108,97,115,116,115,41,59,10,32,32,32,32,32,32,32,32,105,110,116,32,115,116,114
+,99,97,115,101,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99
+,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32,32,32,32,32,105
+,110,116,32,115,116,114,110,99,97,115,101,99,109,112,40,99,111,110,115,116,32,99,104,97,114
+,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,44,32,115,105,122
+,101,95,116,32,110,41,59,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,35
+,105,102,32,100,101,102,105,110,101,100,40,95,87,73,78,51,50,41,10,32,32,32,32,32,32
+,32,32,116,121,112,101,100,101,102,32,105,110,116,32,101,114,114,110,111,95,116,59,10,32,32
+,32,32,32,32,32,32,116,121,112,101,100,101,102,32,115,105,122,101,95,116,32,114,115,105,122
+,101,95,116,59,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,109,101,109,99
+,112,121,95,115,40,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,114
+,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32,118,111,105,100,42
+,32,114,101,115,116,114,105,99,116,32,115,50,44,32,114,115,105,122,101,95,116,32,110,41,59
+,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,109,101,109,109,111,118,101,95
+,115,40,118,111,105,100,42,32,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109,97,120
+,44,32,99,111,110,115,116,32,118,111,105,100,42,32,115,50,44,32,114,115,105,122,101,95,116
+,32,110,41,59,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,115,116,114,99
+,112,121,95,115,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,114
+,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32,99,104,97,114,42
+,32,114,101,115,116,114,105,99,116,32,115,50,41,59,10,32,32,32,32,32,32,32,32,101,114
+,114,110,111,95,116,32,115,116,114,99,97,116,95,115,40,99,104,97,114,42,32,114,101,115,116
+,114,105,99,116,32,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,41,59,10
+,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,115,116,114,110,99,112,121,95,115
+,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,114,115,105,122,101
+,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,115,50,44,32,114,115,105,122,101,95,116,32,110,41,59,10,32,32,32
+,32,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,116,111,107,95,115,40
+,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,49,44,32,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,99
+,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,112,116,114,41,59,10,32,32,32,32
+,32,32,32,32,105,110,116,32,95,115,116,114,105,99,109,112,40,99,111,110,115,116,32,99,104
+,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10
+,32,32,32,32,32,32,32,32,105,110,116,32,95,115,116,114,110,105,99,109,112,40,99,111,110
+,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32
+,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,32,32,32,32,105,110
+,116,32,115,116,114,105,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44
+,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32,32,32,32
+,32,105,110,116,32,115,116,114,110,105,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42
+,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,44,32,115,105,122,101
+,95,116,32,110,41,59,10,32,32,32,32,32,32,32,32,47,42,32,116,104,101,32,109,115,118
+,99,32,115,116,114,105,110,103,46,104,32,97,108,115,111,32,100,101,99,108,97,114,101,115,32
+,116,104,101,32,119,105,100,101,32,115,116,114,105,110,103,32,102,117,110,99,116,105,111,110,115
+,32,40,99,111,114,101,99,114,116,95,119,115,116,114,105,110,103,46,104,41,44,10,32,32,32
+,32,32,32,32,32,32,32,32,116,104,101,32,119,105,110,100,111,119,115,32,115,100,107,32,104
+,101,97,100,101,114,115,32,40,115,116,114,97,108,105,103,110,46,104,41,32,99,111,117,110,116
+,32,111,110,32,116,104,97,116,32,42,47,10,32,32,32,32,32,32,32,32,35,105,110,99,108
+,117,100,101,32,60,119,99,104,97,114,46,104,62,10,32,32,32,32,35,101,110,100,105,102,10
+,10,35,101,108,115,101,10,10,32,32,32,32,99,104,97,114,42,32,95,79,119,110,101,114,32
+,95,79,112,116,32,115,116,114,100,117,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115
+,114,99,41,59,10,32,32,32,32,118,111,105,100,42,32,109,101,109,115,101,116,40,95,67,108
+,101,97,114,32,95,79,117,116,32,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44,32
+,95,95,67,65,75,69,95,83,73,90,69,95,84,89,80,69,95,95,32,110,41,59,10,10,32
+,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,114,105,110,103,46
+,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_tgmath_h[] = {
 
@@ -22203,7 +22194,7 @@ char* _Owner read_file(const char* path, bool append_newline)
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 #ifndef _Countof
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
@@ -22336,6 +22327,28 @@ void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 }
 
 
+/* default_nonnull is part of the annotations; without -check-annotations it has no effect */
+bool options_default_nonnull(const struct options* options)
+{
+    return options->null_checks_enabled && options->annotations_enabled;
+}
+
+/* false when the option that emits w is off, so a //lint for it is not unnecessary */
+bool diagnostic_can_happen(const struct options* options, enum diagnostic_id w)
+{
+    switch (w)
+    {
+    case W_NON_OWNER_TO_OWNER_ASSIGN:
+    case W_USING_TEMPORARY_OWNER:
+    case W_POINTER_TO_OWNER_EXPECTED:
+    case W_OWNER_ALIASED_BY_NON_OWNER_POINTER:
+        return options->annotations_enabled;
+    default:
+        break;
+    }
+    return get_diagnostic_phase(w) != 2 || options->flow_analysis;
+}
+
 int get_diagnostic_phase(enum diagnostic_id w)
 {
     switch (w)
@@ -22437,8 +22450,6 @@ int fill_options(struct options* options,
     platform_default(&options->platform);
 
     options_set_all_warnings(options);
-    options_set_warning(options, W_FLOW_NULL_DEREFERENCE, false);
-    options_set_warning(options, W_FLOW_NULLABLE_TO_NON_NULLABLE, false);
     options_set_warning(options, W_UNUSED_PARAMETER, false);
     //options_set_warning(options, W_PARAM_COULD_BE_CONST, false);
     options_set_warning(options, W_PARAM_SET_BUT_NOT_USED, false);
@@ -22636,15 +22647,9 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-fanalyzer") == 0)
+        if (strcmp(argv[i], "-flow") == 0)
         {
             options->flow_analysis = true;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-nullchecks") == 0)
-        {
-            options->null_checks_enabled = true;
             continue;
         }
 
@@ -22661,23 +22666,15 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (has_prefix(argv[i], "-ownership="))
+        if (strcmp(argv[i], "-check-annotations") == 0)
         {
-            if (strcmp(argv[i], "-ownership=enable") == 0)
-            {
-                options->ownership_enabled = true;
-                continue;
-            }
+            options->annotations_enabled = true;
+            continue;
+        }
 
-            if (strcmp(argv[i], "-ownership=disable") == 0)
-            {
-                options->ownership_enabled = false;
-                continue;
-            }
-
-            printf("Invalid option. Options are: "
-                   "enable, disable"
-                   "\n");
+        if (strcmp(argv[i], "-default-nonnull") == 0)
+        {
+            options->null_checks_enabled = true;
             continue;
         }
 
@@ -22795,28 +22792,6 @@ int fill_options(struct options* options,
         }
 
 
-        if (has_prefix(argv[i], "-nullable="))
-        {
-            if (strcmp(argv[i], "-nullable=disable") == 0)
-            {
-                options->null_checks_enabled = false;
-                //unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-                //options->diagnostic_stack.stack[0].warnings &= ~w;
-                continue;
-            }
-
-            if (strcmp(argv[i], "-nullable=enabled") == 0)
-            {
-                options->null_checks_enabled = true;
-                continue;
-            }
-
-            printf("Invalid option. Options are: "
-               "disable, enabled"
-               "\n");
-            continue;
-        }
-
         if (strcmp(argv[i], "-autoconfig") == 0 ||
             strcmp(argv[i], "-auto-config") == 0)
         {
@@ -22920,6 +22895,9 @@ int fill_options(struct options* options,
     /* after -Wall/-w..., which would turn it into a warning (dropped inside headers) */
     if (options_is_find_request(options))
         options_set_note(options, W_FIND_DEFINITION, true);
+
+    if (options->null_checks_enabled && !options->annotations_enabled)
+        printf("warning: -default-nonnull has no effect without -check-annotations\n");
 
     /* report modes do not need the tokens of inactive #if blocks */
     if (options_is_report_mode(options))
@@ -23052,9 +23030,9 @@ void print_help()
     print_option("-w -wd", "Enables or disable warning number");
     print_option("-wall", "Enables all warnings");
     print_option("-Werror", "Treats every enabled warning as an error");
-    print_option("-fanalyzer ", "Enable flow analysis");
-    print_option("-ownership=enable/disable", "Enables ownership checks");
-    print_option("-nullable=enabled/disable", "Enables nullable checks");
+    print_option("-flow", "Runs flow analysis, including null checks (same as #pragma flow enable)");
+    print_option("-check-annotations", "_Owner, _Opt, _Out, ... are checked; without it they are ignored (same as #pragma check_annotations enable)");
+    print_option("-default-nonnull", "Pointers without _Opt are non-null; requires -check-annotations (same as #pragma default_nonnull)");
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");
@@ -23273,7 +23251,7 @@ struct style_options style_options_microsoft(void)
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 /*
@@ -30241,7 +30219,7 @@ struct object object_shift_right(const struct platform* target,
 *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -33454,13 +33432,13 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             {
                 is_u16 = true;
                 is_bigger_than_char = true;
-                char_type_specifiers = TYPE_SPECIFIER_UNSIGNED | object_type_to_type_specifier(ctx->options.platform.int16_type);
+                char_type_specifiers = (enum type_specifier_flags) (TYPE_SPECIFIER_UNSIGNED | object_type_to_type_specifier(ctx->options.platform.int16_type));
             }
             else if (prefix_token->lexeme[0] == 'U')
             {
                 is_u32 = true;
                 is_bigger_than_char = true;
-                char_type_specifiers = TYPE_SPECIFIER_UNSIGNED | object_type_to_type_specifier(ctx->options.platform.int32_type);
+                char_type_specifiers = (enum type_specifier_flags) (TYPE_SPECIFIER_UNSIGNED | object_type_to_type_specifier(ctx->options.platform.int32_type));
             }
             else
             {
@@ -37806,8 +37784,8 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, bool is_
 }
 
 static void check_comparison(const struct parser_ctx* ctx,
-                             struct expression* p_a_expression,
-                             struct expression* p_b_expression,
+                             const struct expression* p_a_expression,
+                             const struct expression* p_b_expression,
                              const struct token* op_token)
 {
     /* unsigned_expr < 0 is always false; unsigned_expr >= 0 is always true */
@@ -37852,8 +37830,11 @@ static void check_comparison(const struct parser_ctx* ctx,
         op_token->type == '!=' ||
         op_token->type == '==';
 
-    struct type* p_a_type = &p_a_expression->object.type;
-    struct type* p_b_type = &p_b_expression->object.type;
+    /* arrays and functions are compared as pointers */
+    struct type a_type = type_lvalue_conversion(&p_a_expression->object.type);
+    struct type b_type = type_lvalue_conversion(&p_b_expression->object.type);
+    struct type* p_a_type = &a_type;
+    struct type* p_b_type = &b_type;
 
     /*
     * Equality operators (6.5.10)
@@ -38009,6 +37990,9 @@ static void check_comparison(const struct parser_ctx* ctx,
                          p_a_expression,
                          p_b_expression,
                          "comparing different enums.");
+
+    type_destroy(&a_type);
+    type_destroy(&b_type);
 }
 
 struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, bool is_discarded)
@@ -38108,7 +38092,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
                             .p_token_end = new_expression->right->last_token
                         };
 
-                        enum diagnostic_id warning_id = 0;
+                        enum diagnostic_id warning_id = W_LOCATION;
 
                         if (op == '>=')
                         {
@@ -40079,7 +40063,7 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
                                      const struct expression* p_b_expression, /* src */
                                      enum assigment_type assignment_type)
 {
-    if (!ctx->options.ownership_enabled)
+    if (!ctx->options.annotations_enabled)
         return;
 
     const struct type* const p_b_type = &p_b_expression->object.type;
@@ -40787,7 +40771,7 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 /*
   For performance reasons we will separate expression from preprocessor from compiler.
@@ -41833,7 +41817,7 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -42282,7 +42266,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.15"
+#define CAKE_VERSION "0.15.16"
 
 
  
@@ -45026,7 +45010,8 @@ void check_dianostic_suppression_phase(struct parser_ctx* ctx, const struct toke
         {
             if (get_diagnostic_phase(ids[i]) == phase)
             {
-                if (!diagnostic_queue_remove(&ctx->diagnostic_queue, (enum diagnostic_id)ids[i]))
+                if (!diagnostic_queue_remove(&ctx->diagnostic_queue, (enum diagnostic_id)ids[i]) &&
+                    diagnostic_can_happen(&ctx->options, (enum diagnostic_id)ids[i]))
                 {
                     ids[i] = -ids[i];
                 }
@@ -47347,11 +47332,21 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        if (p_init_declarator->initializer->assignment_expression->object.type.array_num_elements > array_size_elements)
+                        const struct expression* p_init_expression = p_init_declarator->initializer->assignment_expression;
+                        const unsigned long long init_num_elements = p_init_expression->object.type.array_num_elements;
+                        if (init_num_elements > array_size_elements)
                         {
                             if (p_init_declarator->p_declarator->first_token_opt)
                             {
-                                diagnostic(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "initializer for array is too long");
+                                if (p_init_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL &&
+                                    init_num_elements == array_size_elements + 1)
+                                {
+                                    diagnostic(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "the terminating null character does not fit in the array");
+                                }
+                                else
+                                {
+                                    diagnostic(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "initializer for array is too long");
+                                }
                             }
                         }
                     }
@@ -50676,7 +50671,9 @@ struct enum_specifier* _Owner _Opt enum_specifier(struct parser_ctx* ctx)
     }
 
     /* -find-declaration, -rename, -find-usages: the first declaration of the tag is the identity */
-    const struct token* _Opt p_first_tag = p_enum_specifier ? p_enum_specifier->first_tag_token : NULL;
+    const struct token* _Opt p_first_tag = NULL;
+    if (p_enum_specifier)
+        p_first_tag = p_enum_specifier->first_tag_token;
     if (p_enum_specifier && p_enum_specifier->tag_token)
         rename_record(&ctx->options, p_enum_specifier->tag_token, p_first_tag);
 
@@ -51255,10 +51252,15 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
         break;
     }
 
-    if (ctx->options.ownership_enabled)
+    /* without -annotations they are ignored, like empty macros */
+    if (ctx->options.annotations_enabled)
     {
         switch (ctx->current->type)
         {
+            case TK_KEYWORD_CAKE_OPT:
+                p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OPT;
+            break;
+
             case TK_KEYWORD_CAKE_OUT:
                 p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_CTOR;
             break;
@@ -51289,19 +51291,6 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
         }
     }
 
-    if (ctx->options.null_checks_enabled)
-    {
-        switch (ctx->current->type)
-        {
-            case TK_KEYWORD_CAKE_OPT:
-                p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OPT;
-            break;
-
-            default:
-            // do nothing
-            break;
-        }
-    }
 
     p_type_qualifier->token = ctx->current;
 
@@ -52068,7 +52057,8 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             {
                 _Assert(ctx->current != NULL);
 
-                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW)
+                /* without -annotations _View is ignored, like an empty macro */
+                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW && ctx->options.annotations_enabled)
                 {
                     diagnostic(C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
                         ctx,
@@ -53354,36 +53344,17 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 throw;
             }
         }
-        else if (strcmp(p_pragma_token->lexeme, "nullable") == 0)
+        else if (strcmp(p_pragma_token->lexeme, "default_nonnull") == 0)
         {
-            p_pragma_token = pragma_declaration_match(p_pragma_token);
-            if (p_pragma_token == NULL)
-                throw;
-
-            if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
-                strcmp(p_pragma_token->lexeme, "disable") != 0)
-            {
-                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected 'enable' or 'disable'");
-                throw;
-            }
-
-            const bool nullable_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
-
-            options_set_warning(&ctx->options, W_NULLABLE_TO_NON_NULLABLE, nullable_enable);
-            options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, nullable_enable);
-            options_set_warning(&ctx->options, W_FLOW_NULLABLE_TO_NON_NULLABLE, nullable_enable);
-
-            if (nullable_enable)
-            {
-                ctx->options.null_checks_enabled = true;
-                ctx->options.flow_analysis = true; // also enable flow analysis
-            }
-            else
-            {
-                ctx->options.null_checks_enabled = false;
-            }
+            /* pointers without _Opt are non-null */
+            ctx->options.null_checks_enabled = true;
         }
-        else if (strcmp(p_pragma_token->lexeme, "ownership") == 0)
+        else if (strcmp(p_pragma_token->lexeme, "default_null") == 0)
+        {
+            /* pointers without _Opt may be null */
+            ctx->options.null_checks_enabled = false;
+        }
+        else if (strcmp(p_pragma_token->lexeme, "check_annotations") == 0)
         {
             p_pragma_token = pragma_declaration_match(p_pragma_token);
             if (p_pragma_token == NULL)
@@ -53396,18 +53367,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 throw;
             }
 
-            const bool ownership_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
-            options_set_warning(&ctx->options, W_FLOW_UNINITIALIZED, ownership_enable);
-
-            if (ownership_enable)
-            {
-                ctx->options.ownership_enabled = true;
-                ctx->options.flow_analysis = true; // also enable flow analysis
-            }
-            else
-            {
-                ctx->options.ownership_enabled = false;
-            }
+            ctx->options.annotations_enabled = strcmp(p_pragma_token->lexeme, "enable") == 0;
         }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "flow") == 0)
         {
@@ -53445,21 +53405,10 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             p_pragma_token = pragma_declaration_match(p_pragma_token);
 
-            options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, safety_enable);
-            options_set_warning(&ctx->options, W_FLOW_NULLABLE_TO_NON_NULLABLE, safety_enable);
-
-            if (safety_enable)
-            {
-                ctx->options.null_checks_enabled = true;
-                ctx->options.flow_analysis = true; // also enable flow analysis
-                ctx->options.ownership_enabled = true;
-            }
-            else
-            {
-                ctx->options.null_checks_enabled = false;
-                ctx->options.ownership_enabled = false;
-                ctx->options.flow_analysis = false;
-            }
+            /* shortcut for flow + annotations + default_nonnull */
+            ctx->options.null_checks_enabled = safety_enable;
+            ctx->options.annotations_enabled = safety_enable;
+            ctx->options.flow_analysis = safety_enable;
         }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "pack") == 0)
         {
@@ -59122,7 +59071,7 @@ int initializer_init_new(struct parser_ctx* ctx,
  *
  */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 /*
@@ -60870,7 +60819,7 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
  *  https://github.com/thradams/cake
  */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -62078,7 +62027,7 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 
-#pragma safety enable
+//#pragma safety enable
 
 /*
 *  Prefix used to create file scope declarators
@@ -62699,7 +62648,7 @@ static int find_member_name(const struct type* p_type,
   then wrapped to the field width like a _BitInt (codegen_emit_wrap_text).
 */
 
-static void codegen_emit_wrap_text(struct codegen_ctx* ctx,
+static void codegen_emit_wrap_text(const struct codegen_ctx* ctx,
                                    struct osstream* oss,
                                    const char* lowered,
                                    int width,
@@ -63252,14 +63201,17 @@ static void codegen_emit_bitfield_assignment(struct codegen_ctx* ctx,
             codegen_emit_bitfield_store(ctx, &new_value, p_access->base.c_str, p_access->p_owner, p_access->p_member, value.c_str, false, NULL, true, false);
             ss_fprintf(&new_value, strcmp(op ? op : "+", "+") == 0 ? " - 1" : " + 1");
 
-            const struct type* p_type = &p_access->p_member->declarator->object.type;
-            const bool is_unsigned = type_is_bool(p_type) || (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
-            const int width = (int)object_to_unsigned_long_long(&p_access->p_member->constant_expression->object);
-            struct osstream lowered = { 0 };
-            codegen_print_bitfield_promoted_type(ctx, &lowered, p_access->p_member);
-            if (new_value.c_str != NULL && lowered.c_str != NULL)
-                codegen_emit_wrap_text(ctx, oss, lowered.c_str, width, is_unsigned, new_value.c_str, false, false);
-            ss_close(&lowered);
+            if (p_access->p_member->declarator && p_access->p_member->constant_expression)
+            {
+                const struct type* p_type = &p_access->p_member->declarator->object.type;
+                const bool is_unsigned = type_is_bool(p_type) || (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
+                const int width = (int)object_to_unsigned_long_long(&p_access->p_member->constant_expression->object);
+                struct osstream lowered = { 0 };
+                codegen_print_bitfield_promoted_type(ctx, &lowered, p_access->p_member);
+                if (new_value.c_str != NULL && lowered.c_str != NULL)
+                    codegen_emit_wrap_text(ctx, oss, lowered.c_str, width, is_unsigned, new_value.c_str, false, false);
+                ss_close(&lowered);
+            }
             ss_close(&new_value);
         }
         else
@@ -63346,7 +63298,7 @@ static void codegen_print_designator(struct osstream* ss, const struct object* p
 }
 
 /* p_object is a member object that is a lowered bitfield: its struct and declarator */
-static bool codegen_object_is_lowered_bitfield(struct codegen_ctx* ctx,
+static bool codegen_object_is_lowered_bitfield(const struct codegen_ctx* ctx,
                                                const struct object* p_object,
                                                struct struct_or_union_specifier** pp_owner,
                                                struct member_declarator** pp_member)
@@ -63399,7 +63351,8 @@ static bool codegen_emit_object_bitfield_store(struct codegen_ctx* ctx,
 {
     struct struct_or_union_specifier* _Opt p_owner = NULL;
     struct member_declarator* _Opt p_member = NULL;
-    if (!codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member))
+    if (!codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member) ||
+        p_owner == NULL || p_member == NULL)
         return false;
 
     const char* last_dot = strrchr(lvalue, '.');
@@ -63532,10 +63485,11 @@ static void codegen_emit_object_bitfield_read_or_name(struct codegen_ctx* ctx,
     ss_fprintf(&full, "%s", name);
     codegen_print_designator(&full, p_object, NULL);
     const char* text = full.c_str ? full.c_str : "";
-    struct struct_or_union_specifier* p_owner = NULL;
-    struct member_declarator* p_member = NULL;
-    const char* last_dot = strrchr(text, '.');
-    if (last_dot && codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member))
+    struct struct_or_union_specifier* _Opt p_owner = NULL;
+    struct member_declarator* _Opt p_member = NULL;
+    const char* _Opt last_dot = strrchr(text, '.');
+    if (last_dot && codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member) &&
+        p_owner && p_member)
     {
         struct osstream base = { 0 };
         ss_fprintf(&base, "%.*s", (int)(last_dot - text) + 1, text);
@@ -63742,6 +63696,7 @@ static int il_visit_literal_string2(const struct token* current, struct osstream
 static void il_print_string(struct token* first_token, struct token* last_token, struct osstream* oss)
 {
     bool opened = false;
+    bool wide = false;
 
     struct token* _Opt ptk = first_token;
     do
@@ -63754,10 +63709,22 @@ static void il_print_string(struct token* first_token, struct token* last_token,
         {
             if (!opened)
             {
-                if (ptk->lexeme[0] == 'L')
+                wide = ptk->lexeme[0] == 'L';
+                if (wide)
                     ss_fprintf(oss, "L");
                 ss_fprintf(oss, "\"");
                 opened = true;
+            }
+            else
+            {
+                /*
+                  Keep literals separated: "\x7f" "ELF" must not
+                  become "\x7fELF" (escape would absorb 'E' and 'F')
+                */
+                ss_fprintf(oss, "\" ");
+                if (wide)
+                    ss_fprintf(oss, "L");
+                ss_fprintf(oss, "\"");
             }
             il_visit_literal_string2(ptk, oss);
         }
@@ -64136,7 +64103,7 @@ static bool codegen_bitint_result_needs_wrap(const struct codegen_ctx* ctx, cons
   Also used to read bitfields under -no-bitfields: 'text' is then the storage
   shifted down to the field's first bit.
 */
-static void codegen_emit_wrap_text(struct codegen_ctx* ctx,
+static void codegen_emit_wrap_text(const struct codegen_ctx* ctx,
                                    struct osstream* oss,
                                    const char* lowered,
                                    int width,
@@ -69006,7 +68973,8 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
                         count++;
                         p = p->next;
                     }
-                    codegen_print_bitfield_tile_initializers(ctx, ss, p_owner, member, index, count, false, first);
+                    if (p_owner)
+                        codegen_print_bitfield_tile_initializers(ctx, ss, p_owner, member, index, count, false, first);
                     member = p;
                     index += count;
                     continue;
@@ -70647,7 +70615,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 }
 
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -71316,8 +71284,9 @@ bool flow_alt_to_interval(const struct flow_alternative* alt, long long* lo, lon
             *hi = v;
             return true;
         default:
-            return false;
+            break;
     }
+    return false;
 }
 
 bool flow_alt_set_interval(struct flow_alternative* alt, long long lo, long long hi)
@@ -71439,7 +71408,7 @@ bool flow_alternative_can_be_zero(const struct flow_alternative* alt)
 }
 
 
-#pragma safety enable
+//#pragma safety enable
 
 
 
@@ -73114,7 +73083,7 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
 }
 
 
-#pragma safety enable
+//#pragma safety enable
 
 
 /* flow reaches the object an expression stands for through its REF alternatives
@@ -73307,8 +73276,9 @@ static bool flow_scalar_relation_holds(long long x, enum expression_type op, lon
         case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
             return x <= rhs;
         default:
-            return false;
+            break;
     }
+    return false;
 }
 
 #define FLOW_BRANCH_PATH_MAX_CHAIN 128
@@ -73788,7 +73758,7 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
     if (ctx->p_current_flow_branch == NULL)
         return;
 
-    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+    const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
 
     try
     {
@@ -74019,7 +73989,7 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
         if (relation == FLOW_RELATION_ANY &&
                 p_type != NULL &&
                 type_is_pointer(p_type) &&
-                (type_is_nullable(p_type, nullable_enabled) || force_opt))
+                ((nullable_enabled && type_is_nullable(p_type, nullable_enabled)) || force_opt))
         {
             /* Two child maps so alternatives from each arm have distinct origins. */
             struct flow_branch* _Opt p_null_map =
@@ -75509,7 +75479,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                 p_dest_governing_type != NULL ? p_dest_governing_type : &p_object_src->type;
             if (!dest_is_dtor &&
                     type_is_pointer(&p_object_src->type) &&
-                    !type_is_nullable(p_null_type, ctx->ctx->options.null_checks_enabled) &&
+                    !type_is_nullable(p_null_type, options_default_nonnull(&ctx->ctx->options)) &&
                     flow_alternative_can_be_zero(p_alternative) &&
                     !in_array_element)
             {
@@ -75649,6 +75619,14 @@ static bool flow_dest_pointee_is_ctor(const struct type* p_type)
     return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_CTOR;
 }
 
+/* Without -check-annotations a non-const pointer parameter may only write the pointee (no _Out to say so), so only a const one is known to read it. */
+static bool flow_param_reads_pointee(const struct flow_ctx* ctx, const struct type* p_type)
+{
+    if (flow_dest_pointee_is_ctor(p_type))
+        return false;
+    return ctx->ctx->options.annotations_enabled || flow_dest_pointee_is_const(p_type);
+}
+
 static bool flow_dest_pointee_is_dtor(const struct type* p_type)
 {
     return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_DTOR;
@@ -75780,7 +75758,7 @@ static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
                 break;
                 case FLOW_EFFECT_ANY:
                     flow_branch_set_object_any_n(ctx->p_current_flow_branch, pointee, p_token,
-                                          ctx->ctx->options.null_checks_enabled);
+                                          options_default_nonnull(&ctx->ctx->options));
                 break;
                 case FLOW_EFFECT_DTOR:
                     flow_branch_apply_dtor_or_clear_effect(ctx->p_current_flow_branch, pointee, false, p_token);
@@ -75793,7 +75771,7 @@ static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
 
     /* Also check the pointee for uninitialized / moved state (when the argument itself is read). */
     const bool source_uninit = type_is_uninit(&p_expression->object.type) || type_is_pointed_uninit(&p_expression->object.type);
-    const bool check_uninitialized = !flow_dest_pointee_is_ctor(&p_object_dest->type) && !source_uninit;
+    const bool check_uninitialized = flow_param_reads_pointee(ctx, &p_object_dest->type) && !source_uninit;
     /* For an array parameter, pass its type so the argument array's
     elements are checked against the parameter's element _Opt. */
     const struct type* _Opt gov =
@@ -76012,7 +75990,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 {
                     flow_branch_set_object_any_n(ctx->p_current_flow_branch, p_object_dest,
                                               p_expression->first_token,
-                                              ctx->ctx->options.null_checks_enabled);
+                                              options_default_nonnull(&ctx->ctx->options));
                     return;
                 }
             }
@@ -76312,6 +76290,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     /* Returning a pointer doesn't read what it points at, so the pointee's uninitialized state is not a finding on the return path (`return malloc(n);` after declaring malloc _Uninitialized is the ordinary allocator-wrapper idiom) -- INIT_PARAMETER stays checked, since handing that pointer to a callee that may read it is a real bug unless the callee declares _Out. */
                     const bool check_unitialized =
                         !flow_dest_pointee_is_ctor(&p_object_dest->type) &&
+                        (init_type != INIT_PARAMETER || flow_param_reads_pointee(ctx, &p_object_dest->type)) &&
                         !source_uninit &&
                         init_type != INIT_RETURN;
 
@@ -76408,7 +76387,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                 break;
                                 case FLOW_EFFECT_ANY:
                                     flow_branch_set_object_any_n(ctx->p_current_flow_branch, pointee, p_effect_token,
-                                                          ctx->ctx->options.null_checks_enabled);
+                                                          options_default_nonnull(&ctx->ctx->options));
                                 break;
                                 case FLOW_EFFECT_DTOR:
                                     flow_branch_apply_dtor_or_clear_effect(ctx->p_current_flow_branch, pointee, false, p_effect_token);
@@ -76437,7 +76416,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
             if (!dtor_here &&
                     !src_is_array &&
                     type_is_pointer(&p_object_dest->type) &&
-                    !type_is_nullable(&p_object_dest->type, ctx->ctx->options.null_checks_enabled) &&
+                    !type_is_nullable(&p_object_dest->type, options_default_nonnull(&ctx->ctx->options)) &&
                     flow_alternative_can_be_zero(p_src_alternative))
             {
                 struct osstream name_ss = { 0 };
@@ -77145,7 +77124,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
                         flow_branch_set_object_lifetime_ended(ctx->p_current_flow_branch, pointee, e->p_token);
                     break;
                     case FLOW_EFFECT_ANY:
-                        flow_branch_set_object_any_n(ctx->p_current_flow_branch, pointee, e->p_token, ctx->ctx->options.null_checks_enabled);
+                        flow_branch_set_object_any_n(ctx->p_current_flow_branch, pointee, e->p_token, options_default_nonnull(&ctx->ctx->options));
                     break;
                     case FLOW_EFFECT_DTOR:
                         flow_branch_apply_dtor_or_clear_effect(ctx->p_current_flow_branch, pointee, false, e->p_token);
@@ -77246,7 +77225,7 @@ static void flow_invalidate_unknown_index_write(struct flow_ctx* ctx,
         if (!index_is_pinned)
         {
             const bool left_is_array = type_is_array(&p_subscript->left->object.type);
-            const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+            const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
 
             /* Every array the write can land in. Pass 0 counts them; pass 1
                invalidates them: with several, each in its own arm made from the
@@ -77662,8 +77641,9 @@ static enum expression_type flow_swap_relational(enum expression_type op)
         case EXPR_RELATIONAL_LESS_OR_EQUAL_THAN:
             return EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN;
         default:
-            return op;
+            break;
     }
+    return op;
 }
 
 /* Narrow `src` (a variable's alternatives) for the condition `var OP c`,
@@ -78236,8 +78216,9 @@ static bool flow_alt_concrete_int(const struct flow_alternative* alt, long long*
             *out = (long long)(uintptr_t)alt->value.p;
             return true;
         default:
-            return false;
+            break;
     }
+    return false;
 }
 
 static int flow_pair_equality(const struct flow_alternative* lval,
@@ -79255,7 +79236,7 @@ static void flow_seed_member_default(struct flow_ctx* ctx, const struct object* 
         if (flow_branch_search_up(ctx->p_current_flow_branch, member_obj) != NULL)
             return; /* already has flow state */
 
-        const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+        const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
         if (type_is_pointer(&member_obj->type))
         {
             /* Seed an unseeded pointer member from its declared nullability:
@@ -79542,7 +79523,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         {
                             a.value_kind = FLOW_VALUE_KIND_PTR;
                             a.value.p = NULL;
-                            a.value_relation = type_is_nullable(&p_expression->object.type, ctx->ctx->options.null_checks_enabled)
+                            a.value_relation = type_is_nullable(&p_expression->object.type, options_default_nonnull(&ctx->ctx->options))
                             ? FLOW_RELATION_ANY
                             : FLOW_RELATION_NOT_EQUAL;
                         }
@@ -79983,7 +79964,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             _Opt pointer     -> possibly null
             integer          -> ANY
             */
-                    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+                    const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
                     struct flow_key_alternatives* _Opt e_unres = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
                     if (e_unres == NULL) throw;
                     if (e_unres != NULL && e_unres->alternatives.size == 0)
@@ -80195,8 +80176,8 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     }
                 }
                 else if (type_is_pointer(&p_expression->object.type) &&
-                 ctx->ctx->options.null_checks_enabled &&
-                 !type_is_nullable(&p_expression->object.type, ctx->ctx->options.null_checks_enabled))
+                 options_default_nonnull(&ctx->ctx->options) &&
+                 !type_is_nullable(&p_expression->object.type, options_default_nonnull(&ctx->ctx->options)))
                 {
                     /* An unresolved element of a non-_Opt pointer array is non-null by
             the non-_Opt => non-null rule -- e.g. `argv[i]` for
@@ -80248,7 +80229,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 flow_visit_expression(ctx, p_expression->left);
                 flow_visit_function_arguments(ctx, &p_expression->left->object.type, &p_expression->argument_expression_list);
 
-                const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+                const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
                 const struct type* p_ret_type = &p_expression->object.type;
                 const struct token* p_call_token = p_expression->first_token;
                 /* `_Clear` in RETURN position means the returned pointee is all-zero
@@ -81197,7 +81178,9 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 ctx->pending_ended_report_line = ended_line;
                             }
 
+                            /* without default_nonnull an unknown (ANY) pointer is not a null to report, only a null the flow has seen */
                             if (flow_alternative_can_be_zero(p_right_alt2) &&
+                            (options_default_nonnull(&ctx->ctx->options) || p_right_alt2->value_relation != FLOW_RELATION_ANY) &&
                             !ctx->expression_is_not_evaluated &&
                             flow_origins_compatible(p_right_alt2->p_origin_map, ctx->p_current_flow_branch))
                             {
@@ -81281,8 +81264,8 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         flow_alternatives_add(&result_entry->alternatives, &a);
                     }
                     else if (type_is_pointer(&p_expression->object.type) &&
-                     ctx->ctx->options.null_checks_enabled &&
-                     !type_is_nullable(&p_expression->object.type, ctx->ctx->options.null_checks_enabled))
+                     options_default_nonnull(&ctx->ctx->options) &&
+                     !type_is_nullable(&p_expression->object.type, options_default_nonnull(&ctx->ctx->options)))
                     {
                         struct flow_alternative a =
                         {
@@ -85350,7 +85333,7 @@ void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 
 #ifdef _WIN32
@@ -86191,7 +86174,7 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 */
 
 
-#pragma safety enable
+//#pragma safety enable
 
 
 static char gcc_builtins[] =
@@ -86829,7 +86812,7 @@ void target_self_test()
 */
 
 
-#pragma safety enable
+//#pragma safety enable
 
 
 

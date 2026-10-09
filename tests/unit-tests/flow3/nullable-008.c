@@ -1,4 +1,6 @@
-#pragma nullable enable
+#pragma default_nonnull
+#pragma check_annotations enable
+#pragma flow enable
 
 struct X { char* name; };
 

@@ -1,4 +1,4 @@
-#pragma nullable disable
+#pragma default_null
 
 void F(char(*p)[10])
 {

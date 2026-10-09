@@ -163,7 +163,7 @@ struct target_settings
 {
     char name[64];
     int headers, style, diag;   /* each select's row */
-    int flags[4];
+    int flags[6];
     char cake_target[64];   /* passed as -target= */
     char output[256];
     char options[512];

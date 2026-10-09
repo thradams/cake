@@ -45,7 +45,8 @@
     {L"..\\samples",       L"samples"},     \
     {L"..\\include\\*.h",  L"include"},     \
     {L"..\\include\\sys\\*.h", L"include\\sys"}, \
-    {L"..\\web",           L"web"}
+    {L"..\\web",           L"web"},         \
+    {L"..\\loc.exe",       L"tools\\loc.exe"}
 
 /* optional: shows "I agree with the license terms"; the file is read when setup.exe is built */
 #define INSTALLER_LICENSE_FILE L"win_license.rtf"

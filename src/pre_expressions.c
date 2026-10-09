@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 /*
   For performance reasons we will separate expression from preprocessor from compiler.

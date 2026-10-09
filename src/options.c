@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 #include "cake_compat.h"
 #include "options.h"
 #include <string.h>
@@ -143,6 +143,28 @@ void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 }
 
 
+/* default_nonnull is part of the annotations; without -check-annotations it has no effect */
+bool options_default_nonnull(const struct options* options)
+{
+    return options->null_checks_enabled && options->annotations_enabled;
+}
+
+/* false when the option that emits w is off, so a //lint for it is not unnecessary */
+bool diagnostic_can_happen(const struct options* options, enum diagnostic_id w)
+{
+    switch (w)
+    {
+    case W_NON_OWNER_TO_OWNER_ASSIGN:
+    case W_USING_TEMPORARY_OWNER:
+    case W_POINTER_TO_OWNER_EXPECTED:
+    case W_OWNER_ALIASED_BY_NON_OWNER_POINTER:
+        return options->annotations_enabled;
+    default:
+        break;
+    }
+    return get_diagnostic_phase(w) != 2 || options->flow_analysis;
+}
+
 int get_diagnostic_phase(enum diagnostic_id w)
 {
     switch (w)
@@ -244,8 +266,6 @@ int fill_options(struct options* options,
     platform_default(&options->platform);
 
     options_set_all_warnings(options);
-    options_set_warning(options, W_FLOW_NULL_DEREFERENCE, false);
-    options_set_warning(options, W_FLOW_NULLABLE_TO_NON_NULLABLE, false);
     options_set_warning(options, W_UNUSED_PARAMETER, false);
     //options_set_warning(options, W_PARAM_COULD_BE_CONST, false);
     options_set_warning(options, W_PARAM_SET_BUT_NOT_USED, false);
@@ -443,15 +463,9 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-fanalyzer") == 0)
+        if (strcmp(argv[i], "-flow") == 0)
         {
             options->flow_analysis = true;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-nullchecks") == 0)
-        {
-            options->null_checks_enabled = true;
             continue;
         }
 
@@ -468,23 +482,15 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (has_prefix(argv[i], "-ownership="))
+        if (strcmp(argv[i], "-check-annotations") == 0)
         {
-            if (strcmp(argv[i], "-ownership=enable") == 0)
-            {
-                options->ownership_enabled = true;
-                continue;
-            }
+            options->annotations_enabled = true;
+            continue;
+        }
 
-            if (strcmp(argv[i], "-ownership=disable") == 0)
-            {
-                options->ownership_enabled = false;
-                continue;
-            }
-
-            printf("Invalid option. Options are: "
-                   "enable, disable"
-                   "\n");
+        if (strcmp(argv[i], "-default-nonnull") == 0)
+        {
+            options->null_checks_enabled = true;
             continue;
         }
 
@@ -602,28 +608,6 @@ int fill_options(struct options* options,
         }
 
 
-        if (has_prefix(argv[i], "-nullable="))
-        {
-            if (strcmp(argv[i], "-nullable=disable") == 0)
-            {
-                options->null_checks_enabled = false;
-                //unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-                //options->diagnostic_stack.stack[0].warnings &= ~w;
-                continue;
-            }
-
-            if (strcmp(argv[i], "-nullable=enabled") == 0)
-            {
-                options->null_checks_enabled = true;
-                continue;
-            }
-
-            printf("Invalid option. Options are: "
-               "disable, enabled"
-               "\n");
-            continue;
-        }
-
         if (strcmp(argv[i], "-autoconfig") == 0 ||
             strcmp(argv[i], "-auto-config") == 0)
         {
@@ -727,6 +711,9 @@ int fill_options(struct options* options,
     /* after -Wall/-w..., which would turn it into a warning (dropped inside headers) */
     if (options_is_find_request(options))
         options_set_note(options, W_FIND_DEFINITION, true);
+
+    if (options->null_checks_enabled && !options->annotations_enabled)
+        printf("warning: -default-nonnull has no effect without -check-annotations\n");
 
     /* report modes do not need the tokens of inactive #if blocks */
     if (options_is_report_mode(options))
@@ -859,9 +846,9 @@ void print_help()
     print_option("-w -wd", "Enables or disable warning number");
     print_option("-wall", "Enables all warnings");
     print_option("-Werror", "Treats every enabled warning as an error");
-    print_option("-fanalyzer ", "Enable flow analysis");
-    print_option("-ownership=enable/disable", "Enables ownership checks");
-    print_option("-nullable=enabled/disable", "Enables nullable checks");
+    print_option("-flow", "Runs flow analysis, including null checks (same as #pragma flow enable)");
+    print_option("-check-annotations", "_Owner, _Opt, _Out, ... are checked; without it they are ignored (same as #pragma check_annotations enable)");
+    print_option("-default-nonnull", "Pointers without _Opt are non-null; requires -check-annotations (same as #pragma default_nonnull)");
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");

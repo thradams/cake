@@ -12,5 +12,5 @@ int main(void)
 
     f_const(buffer); //lint 30 passing a possible uninitialized object 'buffer' (see line 9)
 
-    f_non_const(buffer); //lint 30 passing a possible uninitialized object 'buffer' (see line 9)
+    f_non_const(buffer); /* no warning: without check_annotations a non-const parameter may only write it */
 }

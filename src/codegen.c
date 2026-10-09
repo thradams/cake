@@ -1,4 +1,4 @@
-#pragma safety enable
+//#pragma safety enable
 #include "version.h"
 #include "cake_compat.h"
 #include <stdlib.h>

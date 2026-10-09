@@ -939,8 +939,14 @@ Generate <code>cake.json</code> with the include directories of the current syst
 
 <h3 id="toc_15">4.5 Analysis Options</h3>
 
-<p><strong><code>-fanalyzer</code></strong><br>
-Run Cake&#39;s built-in flow analysis pass, including ownership, nullability, and lifetime checks.</p>
+<p><strong><code>-flow</code></strong><br>
+Run Cake&#39;s built-in flow analysis pass, including null checks (same as <code>#pragma flow enable</code>).</p>
+
+<p><strong><code>-default-nonnull</code></strong><br>
+Pointers without <code>_Opt</code> are non-null (same as <code>#pragma default_nonnull</code>). It has no effect without <code>-check-annotations</code>.</p>
+
+<p><strong><code>-check-annotations</code></strong><br>
+<code>_Owner</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Out</code>, <code>_Opt</code>... are checked (same as <code>#pragma check_annotations enable</code>). Without it they are ignored, like empty macros.</p>
 
 <p><strong><code>-const-literal</code></strong><br>
 Treat string literals as <code>const char[]</code> rather than <code>char[]</code>.</p>
@@ -3221,7 +3227,7 @@ instead of being rejected as a non-constant address.</p>
 
 <h3 id="toc_102">11.9 Object Lifetime Checks (Ownership)</h3>
 
-<p>Cake includes a static analysis system for tracking object ownership and lifetime, activated with <code>#pragma safety enable</code> or <code>-fanalyzer</code>.</p>
+<p>Cake includes a static analysis system for tracking object ownership and lifetime, activated with <code>#pragma safety enable</code> or <code>-flow -check-annotations -default-nonnull</code>.</p>
 
 <p><strong><code>_Owner</code></strong> — This pointer or variable is responsible for freeing the object.</p>
 

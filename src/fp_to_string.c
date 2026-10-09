@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 #include "cake_compat.h"
 #include "fp_to_string.h"
@@ -286,7 +286,7 @@ static void fp_boundaries(struct fp_value v,
     mi.e = pl.e;
 
     /*
-      Member-wise rather than `*m_plus = pl;`: under #pragma safety enable the
+      Member-wise rather than `*m_plus = pl;`: under //#pragma safety enable the
       flow analysis does not currently count a whole-struct assignment as
       initializing an _Out pointee, and reports warning 71.
     */

@@ -3,7 +3,7 @@
 *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 #include "cake_compat.h"
 #include "type.h"
@@ -2654,7 +2654,8 @@ void check_dianostic_suppression_phase(struct parser_ctx* ctx, const struct toke
         {
             if (get_diagnostic_phase(ids[i]) == phase)
             {
-                if (!diagnostic_queue_remove(&ctx->diagnostic_queue, (enum diagnostic_id)ids[i]))
+                if (!diagnostic_queue_remove(&ctx->diagnostic_queue, (enum diagnostic_id)ids[i]) &&
+                    diagnostic_can_happen(&ctx->options, (enum diagnostic_id)ids[i]))
                 {
                     ids[i] = -ids[i];
                 }
@@ -4975,11 +4976,21 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        if (p_init_declarator->initializer->assignment_expression->object.type.array_num_elements > array_size_elements)
+                        const struct expression* p_init_expression = p_init_declarator->initializer->assignment_expression;
+                        const unsigned long long init_num_elements = p_init_expression->object.type.array_num_elements;
+                        if (init_num_elements > array_size_elements)
                         {
                             if (p_init_declarator->p_declarator->first_token_opt)
                             {
-                                diagnostic(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "initializer for array is too long");
+                                if (p_init_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL &&
+                                    init_num_elements == array_size_elements + 1)
+                                {
+                                    diagnostic(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "the terminating null character does not fit in the array");
+                                }
+                                else
+                                {
+                                    diagnostic(W_ARRAY_SIZE, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "initializer for array is too long");
+                                }
                             }
                         }
                     }
@@ -8885,10 +8896,15 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
         break;
     }
 
-    if (ctx->options.ownership_enabled)
+    /* without -annotations they are ignored, like empty macros */
+    if (ctx->options.annotations_enabled)
     {
         switch (ctx->current->type)
         {
+            case TK_KEYWORD_CAKE_OPT:
+                p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OPT;
+            break;
+
             case TK_KEYWORD_CAKE_OUT:
                 p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_CTOR;
             break;
@@ -8919,19 +8935,6 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
         }
     }
 
-    if (ctx->options.null_checks_enabled)
-    {
-        switch (ctx->current->type)
-        {
-            case TK_KEYWORD_CAKE_OPT:
-                p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OPT;
-            break;
-
-            default:
-            // do nothing
-            break;
-        }
-    }
 
     p_type_qualifier->token = ctx->current;
 
@@ -9698,7 +9701,8 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             {
                 _Assert(ctx->current != NULL);
 
-                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW)
+                /* without -annotations _View is ignored, like an empty macro */
+                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW && ctx->options.annotations_enabled)
                 {
                     diagnostic(C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
                         ctx,
@@ -10984,36 +10988,17 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 throw;
             }
         }
-        else if (strcmp(p_pragma_token->lexeme, "nullable") == 0)
+        else if (strcmp(p_pragma_token->lexeme, "default_nonnull") == 0)
         {
-            p_pragma_token = pragma_declaration_match(p_pragma_token);
-            if (p_pragma_token == NULL)
-                throw;
-
-            if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
-                strcmp(p_pragma_token->lexeme, "disable") != 0)
-            {
-                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected 'enable' or 'disable'");
-                throw;
-            }
-
-            const bool nullable_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
-
-            options_set_warning(&ctx->options, W_NULLABLE_TO_NON_NULLABLE, nullable_enable);
-            options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, nullable_enable);
-            options_set_warning(&ctx->options, W_FLOW_NULLABLE_TO_NON_NULLABLE, nullable_enable);
-
-            if (nullable_enable)
-            {
-                ctx->options.null_checks_enabled = true;
-                ctx->options.flow_analysis = true; // also enable flow analysis
-            }
-            else
-            {
-                ctx->options.null_checks_enabled = false;
-            }
+            /* pointers without _Opt are non-null */
+            ctx->options.null_checks_enabled = true;
         }
-        else if (strcmp(p_pragma_token->lexeme, "ownership") == 0)
+        else if (strcmp(p_pragma_token->lexeme, "default_null") == 0)
+        {
+            /* pointers without _Opt may be null */
+            ctx->options.null_checks_enabled = false;
+        }
+        else if (strcmp(p_pragma_token->lexeme, "check_annotations") == 0)
         {
             p_pragma_token = pragma_declaration_match(p_pragma_token);
             if (p_pragma_token == NULL)
@@ -11026,18 +11011,7 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 throw;
             }
 
-            const bool ownership_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
-            options_set_warning(&ctx->options, W_FLOW_UNINITIALIZED, ownership_enable);
-
-            if (ownership_enable)
-            {
-                ctx->options.ownership_enabled = true;
-                ctx->options.flow_analysis = true; // also enable flow analysis
-            }
-            else
-            {
-                ctx->options.ownership_enabled = false;
-            }
+            ctx->options.annotations_enabled = strcmp(p_pragma_token->lexeme, "enable") == 0;
         }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "flow") == 0)
         {
@@ -11075,21 +11049,10 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             p_pragma_token = pragma_declaration_match(p_pragma_token);
 
-            options_set_warning(&ctx->options, W_FLOW_NULL_DEREFERENCE, safety_enable);
-            options_set_warning(&ctx->options, W_FLOW_NULLABLE_TO_NON_NULLABLE, safety_enable);
-
-            if (safety_enable)
-            {
-                ctx->options.null_checks_enabled = true;
-                ctx->options.flow_analysis = true; // also enable flow analysis
-                ctx->options.ownership_enabled = true;
-            }
-            else
-            {
-                ctx->options.null_checks_enabled = false;
-                ctx->options.ownership_enabled = false;
-                ctx->options.flow_analysis = false;
-            }
+            /* shortcut for flow + annotations + default_nonnull */
+            ctx->options.null_checks_enabled = safety_enable;
+            ctx->options.annotations_enabled = safety_enable;
+            ctx->options.flow_analysis = safety_enable;
         }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "pack") == 0)
         {

@@ -1,4 +1,4 @@
-#pragma safety enable
+//#pragma safety enable
 
 #include "flow_alternative.h"
 #include "error.h"

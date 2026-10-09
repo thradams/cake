@@ -13,7 +13,7 @@ time than the bug.
 ## Running
 
 ```bash
-cake -fanalyzer -nullable=enabled -no-output -fdiagnostics-color=never file.c
+cake -flow -default-nonnull -no-output -fdiagnostics-color=never file.c
 ```
 
 A passing test prints nothing but the banner and filename. Any `warning`/`error`
@@ -22,7 +22,7 @@ line is a failure.
 To sweep the folder:
 
 ```bash
-for f in *.c; do cake -fanalyzer -nullable=enabled -no-output -fdiagnostics-color=never "$f"; done
+for f in *.c; do cake -flow -default-nonnull -no-output -fdiagnostics-color=never "$f"; done
 ```
 
 ## Conventions
@@ -62,7 +62,7 @@ cd src
 for f in main.c codegen.c compile.c console.c defer.c error.c expressions.c \
          flow3.c fs.c hashmap.c object.c options.c osstream.c parser.c \
          pre_expressions.c target.c tokenizer.c token.c type.c; do
-  cake -fanalyzer -nullable=enabled -no-output -fdiagnostics-color=never "$f"
+  cake -flow -default-nonnull -no-output -fdiagnostics-color=never "$f"
 done
 ```
 

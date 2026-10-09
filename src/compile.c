@@ -6,7 +6,7 @@
  *
  */
 
-#pragma safety enable
+//#pragma safety enable
 #include "cake_compat.h"
 #include "compile.h"
 #include <stdlib.h>

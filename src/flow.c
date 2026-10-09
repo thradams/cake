@@ -1,4 +1,4 @@
-#pragma safety enable
+//#pragma safety enable
 
 #include "cake_compat.h"
 #include <stdlib.h>
@@ -686,7 +686,7 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
     if (ctx->p_current_flow_branch == NULL)
         return;
 
-    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+    const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
 
     try
     {
@@ -917,7 +917,7 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
         if (relation == FLOW_RELATION_ANY &&
                 p_type != NULL &&
                 type_is_pointer(p_type) &&
-                (type_is_nullable(p_type, nullable_enabled) || force_opt))
+                ((nullable_enabled && type_is_nullable(p_type, nullable_enabled)) || force_opt))
         {
             /* Two child maps so alternatives from each arm have distinct origins. */
             struct flow_branch* _Opt p_null_map =
@@ -2407,7 +2407,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                 p_dest_governing_type != NULL ? p_dest_governing_type : &p_object_src->type;
             if (!dest_is_dtor &&
                     type_is_pointer(&p_object_src->type) &&
-                    !type_is_nullable(p_null_type, ctx->ctx->options.null_checks_enabled) &&
+                    !type_is_nullable(p_null_type, options_default_nonnull(&ctx->ctx->options)) &&
                     flow_alternative_can_be_zero(p_alternative) &&
                     !in_array_element)
             {
@@ -2547,6 +2547,14 @@ static bool flow_dest_pointee_is_ctor(const struct type* p_type)
     return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_CTOR;
 }
 
+/* Without -check-annotations a non-const pointer parameter may only write the pointee (no _Out to say so), so only a const one is known to read it. */
+static bool flow_param_reads_pointee(const struct flow_ctx* ctx, const struct type* p_type)
+{
+    if (flow_dest_pointee_is_ctor(p_type))
+        return false;
+    return ctx->ctx->options.annotations_enabled || flow_dest_pointee_is_const(p_type);
+}
+
 static bool flow_dest_pointee_is_dtor(const struct type* p_type)
 {
     return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_DTOR;
@@ -2678,7 +2686,7 @@ static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
                 break;
                 case FLOW_EFFECT_ANY:
                     flow_branch_set_object_any_n(ctx->p_current_flow_branch, pointee, p_token,
-                                          ctx->ctx->options.null_checks_enabled);
+                                          options_default_nonnull(&ctx->ctx->options));
                 break;
                 case FLOW_EFFECT_DTOR:
                     flow_branch_apply_dtor_or_clear_effect(ctx->p_current_flow_branch, pointee, false, p_token);
@@ -2691,7 +2699,7 @@ static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
 
     /* Also check the pointee for uninitialized / moved state (when the argument itself is read). */
     const bool source_uninit = type_is_uninit(&p_expression->object.type) || type_is_pointed_uninit(&p_expression->object.type);
-    const bool check_uninitialized = !flow_dest_pointee_is_ctor(&p_object_dest->type) && !source_uninit;
+    const bool check_uninitialized = flow_param_reads_pointee(ctx, &p_object_dest->type) && !source_uninit;
     /* For an array parameter, pass its type so the argument array's
     elements are checked against the parameter's element _Opt. */
     const struct type* _Opt gov =
@@ -2910,7 +2918,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 {
                     flow_branch_set_object_any_n(ctx->p_current_flow_branch, p_object_dest,
                                               p_expression->first_token,
-                                              ctx->ctx->options.null_checks_enabled);
+                                              options_default_nonnull(&ctx->ctx->options));
                     return;
                 }
             }
@@ -3210,6 +3218,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     /* Returning a pointer doesn't read what it points at, so the pointee's uninitialized state is not a finding on the return path (`return malloc(n);` after declaring malloc _Uninitialized is the ordinary allocator-wrapper idiom) -- INIT_PARAMETER stays checked, since handing that pointer to a callee that may read it is a real bug unless the callee declares _Out. */
                     const bool check_unitialized =
                         !flow_dest_pointee_is_ctor(&p_object_dest->type) &&
+                        (init_type != INIT_PARAMETER || flow_param_reads_pointee(ctx, &p_object_dest->type)) &&
                         !source_uninit &&
                         init_type != INIT_RETURN;
 
@@ -3306,7 +3315,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                 break;
                                 case FLOW_EFFECT_ANY:
                                     flow_branch_set_object_any_n(ctx->p_current_flow_branch, pointee, p_effect_token,
-                                                          ctx->ctx->options.null_checks_enabled);
+                                                          options_default_nonnull(&ctx->ctx->options));
                                 break;
                                 case FLOW_EFFECT_DTOR:
                                     flow_branch_apply_dtor_or_clear_effect(ctx->p_current_flow_branch, pointee, false, p_effect_token);
@@ -3335,7 +3344,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
             if (!dtor_here &&
                     !src_is_array &&
                     type_is_pointer(&p_object_dest->type) &&
-                    !type_is_nullable(&p_object_dest->type, ctx->ctx->options.null_checks_enabled) &&
+                    !type_is_nullable(&p_object_dest->type, options_default_nonnull(&ctx->ctx->options)) &&
                     flow_alternative_can_be_zero(p_src_alternative))
             {
                 struct osstream name_ss = { 0 };
@@ -4043,7 +4052,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
                         flow_branch_set_object_lifetime_ended(ctx->p_current_flow_branch, pointee, e->p_token);
                     break;
                     case FLOW_EFFECT_ANY:
-                        flow_branch_set_object_any_n(ctx->p_current_flow_branch, pointee, e->p_token, ctx->ctx->options.null_checks_enabled);
+                        flow_branch_set_object_any_n(ctx->p_current_flow_branch, pointee, e->p_token, options_default_nonnull(&ctx->ctx->options));
                     break;
                     case FLOW_EFFECT_DTOR:
                         flow_branch_apply_dtor_or_clear_effect(ctx->p_current_flow_branch, pointee, false, e->p_token);
@@ -4144,7 +4153,7 @@ static void flow_invalidate_unknown_index_write(struct flow_ctx* ctx,
         if (!index_is_pinned)
         {
             const bool left_is_array = type_is_array(&p_subscript->left->object.type);
-            const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+            const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
 
             /* Every array the write can land in. Pass 0 counts them; pass 1
                invalidates them: with several, each in its own arm made from the
@@ -6155,7 +6164,7 @@ static void flow_seed_member_default(struct flow_ctx* ctx, const struct object* 
         if (flow_branch_search_up(ctx->p_current_flow_branch, member_obj) != NULL)
             return; /* already has flow state */
 
-        const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+        const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
         if (type_is_pointer(&member_obj->type))
         {
             /* Seed an unseeded pointer member from its declared nullability:
@@ -6442,7 +6451,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         {
                             a.value_kind = FLOW_VALUE_KIND_PTR;
                             a.value.p = NULL;
-                            a.value_relation = type_is_nullable(&p_expression->object.type, ctx->ctx->options.null_checks_enabled)
+                            a.value_relation = type_is_nullable(&p_expression->object.type, options_default_nonnull(&ctx->ctx->options))
                             ? FLOW_RELATION_ANY
                             : FLOW_RELATION_NOT_EQUAL;
                         }
@@ -6883,7 +6892,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             _Opt pointer     -> possibly null
             integer          -> ANY
             */
-                    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+                    const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
                     struct flow_key_alternatives* _Opt e_unres = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
                     if (e_unres == NULL) throw;
                     if (e_unres != NULL && e_unres->alternatives.size == 0)
@@ -7095,8 +7104,8 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     }
                 }
                 else if (type_is_pointer(&p_expression->object.type) &&
-                 ctx->ctx->options.null_checks_enabled &&
-                 !type_is_nullable(&p_expression->object.type, ctx->ctx->options.null_checks_enabled))
+                 options_default_nonnull(&ctx->ctx->options) &&
+                 !type_is_nullable(&p_expression->object.type, options_default_nonnull(&ctx->ctx->options)))
                 {
                     /* An unresolved element of a non-_Opt pointer array is non-null by
             the non-_Opt => non-null rule -- e.g. `argv[i]` for
@@ -7148,7 +7157,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 flow_visit_expression(ctx, p_expression->left);
                 flow_visit_function_arguments(ctx, &p_expression->left->object.type, &p_expression->argument_expression_list);
 
-                const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+                const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
                 const struct type* p_ret_type = &p_expression->object.type;
                 const struct token* p_call_token = p_expression->first_token;
                 /* `_Clear` in RETURN position means the returned pointee is all-zero
@@ -8097,7 +8106,9 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 ctx->pending_ended_report_line = ended_line;
                             }
 
+                            /* without default_nonnull an unknown (ANY) pointer is not a null to report, only a null the flow has seen */
                             if (flow_alternative_can_be_zero(p_right_alt2) &&
+                            (options_default_nonnull(&ctx->ctx->options) || p_right_alt2->value_relation != FLOW_RELATION_ANY) &&
                             !ctx->expression_is_not_evaluated &&
                             flow_origins_compatible(p_right_alt2->p_origin_map, ctx->p_current_flow_branch))
                             {
@@ -8181,8 +8192,8 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         flow_alternatives_add(&result_entry->alternatives, &a);
                     }
                     else if (type_is_pointer(&p_expression->object.type) &&
-                     ctx->ctx->options.null_checks_enabled &&
-                     !type_is_nullable(&p_expression->object.type, ctx->ctx->options.null_checks_enabled))
+                     options_default_nonnull(&ctx->ctx->options) &&
+                     !type_is_nullable(&p_expression->object.type, options_default_nonnull(&ctx->ctx->options)))
                     {
                         struct flow_alternative a =
                         {

@@ -457,6 +457,7 @@ static void build_tools(void)
     execute_cmd(CC CC_C99 " -D_CRT_SECURE_NO_WARNINGS amalgamator.c "        CC_OUTPUT("../" EXE("amalgamator")));
     execute_cmd(CC CC_C99 " -D_CRT_SECURE_NO_WARNINGS -I.. " CC_NO_UNKNOWN_PRAGMA_WARNING " embed.c ../fs.c ../error.c "
                 CC_OUTPUT("../" EXE("embed")));    
+    execute_cmd(CC CC_C99 " -D_CRT_SECURE_NO_WARNINGS loc.c "                CC_OUTPUT("../" EXE("loc")));
 
     echo_chdir("./hoedown");
     execute_cmd(CC CC_C99 HOEDOWN_SOURCE_FILES CC_OUTPUT("../../" EXE("hoedown")));
@@ -741,6 +742,7 @@ static void build_installer(void)
     execute_cmd("rm -rf " PACKAGE_NAME " && mkdir -p " PACKAGE_NAME "/include");
     execute_cmd("cp -r " CKC_NAME " " CAKE_NAME " cake.json samples web " PACKAGE_NAME "/");
     execute_cmd("cp include/*.h " PACKAGE_NAME "/include/");
+    execute_cmd("mkdir -p " PACKAGE_NAME "/tools && cp loc " PACKAGE_NAME "/tools/");
     execute_cmd("cp tools/unix_install.sh " PACKAGE_NAME "/install.sh && chmod +x " PACKAGE_NAME "/install.sh");
     execute_cmd("echo " CAKE_VERSION " > " PACKAGE_NAME "/VERSION");
     execute_cmd("tar czf " PACKAGE_NAME ".tar.gz " PACKAGE_NAME);
@@ -770,15 +772,15 @@ static void run_cake_on_own_source(const char* cake_flags)
     self = calloc(2000, sizeof(char));
 
 #if defined COMPILER_MSVC
-    snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -const-literal %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -const-literal %s " CAKE_SOURCE_FILES, cake_flags);
 #elif defined PLATFORM_WINDOWS && defined COMPILER_CLANG
-    snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #elif (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
-    snprintf(self, 2000, "./" EXE(CKC_NAME) " -DTEST -fanalyzer -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, "./" EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #elif defined COMPILER_GCC && !defined COMPILER_TINYC
-    snprintf(self, 2000, "./" CKC_NAME " -DTEST -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
+    snprintf(self, 2000, "./" CKC_NAME " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
 #elif defined COMPILER_TINYC
-    snprintf(self, 2000, RUN EXE(CKC_NAME) " -DTEST -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, RUN EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #endif
 
     execute_cmd(self);

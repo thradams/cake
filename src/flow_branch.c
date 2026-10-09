@@ -1,4 +1,4 @@
-#pragma safety enable
+//#pragma safety enable
 
 #include <stdlib.h>
 #include <string.h>

@@ -178,7 +178,7 @@ static const struct menu_item edit_items[] = {
     { EV_WORD_WRAP, "Word Wrap...", "Ctrl+W", 1, "Wrap the selected text at a column" },
     SEPARATOR,
     { EV_FORMAT, "Format", "Ctrl+Shift+F", 1, "Format the active file's code" },
-    { EV_COMPLETE, "Complete Word", "Ctrl+Space", 1, "Complete the word at the caret" },
+    { EV_COMPLETE, "Auto-complete", "Ctrl+Space", 1, "Complete the word at the caret" },
     { EV_RENAME, "Rename...", "F2", 1, "Rename the identifier at the caret everywhere it is used" },
 };
 static const struct menu_item view_items[] = {
@@ -700,6 +700,7 @@ static const struct macro
     { "$(TargetExt)", "The binary's extension, including the dot" },
     { "$(ProjectDir)", "The open project's folder, without a trailing slash" },
     { "$(ProjectName)", "The open project's name" },
+    { "$(InstallDir)", "The folder of cakeide, where cake is installed, without a trailing slash" },
     { "$(Platform)", "The compilation target's name, e.g. x86_64-pc-windows-msvc" },
     { "$(IncludeDirs)", "The open project's include directories, as -I options" },
 };
@@ -760,9 +761,11 @@ enum help_id
     HELP_DIAG_GCC,
     HELP_DIAG_MSVC,
     HELP_FLAG_LINE_DIRECTIVES,
-    HELP_FLAG_FANALYZER,
+    HELP_FLAG_FLOW,
     HELP_FLAG_CONST_LITERAL,
     HELP_FLAG_WALL,
+    HELP_FLAG_DEFAULT_NONNULL,
+    HELP_FLAG_ANNOTATIONS,
     HELP_COPTS_OUTPUT,
     HELP_COPTS_OPTIONS,
     HELP_COPTS_CONFIG,
@@ -3190,7 +3193,8 @@ static const char* const copts_headers[] = { "System Headers", "Cake Headers" };
 static const char* const copts_styles[] = { "disabled", "cake", "gnu", "microsoft" };
 static const char* const copts_diags[] = { "cake ide", "gcc", "msvc" };
 static const char* const copts_flags[] = {
-    "-line-directives", "-fanalyzer", "-const-literal", "-Wall",
+    "-line-directives", "-flow", "-const-literal", "-Wall",
+    "-default-nonnull", "-check-annotations",
 };
 
 static struct gui_node* add_select_of(struct ide* ide, struct gui_node* parent, int col, int row,
@@ -3292,9 +3296,9 @@ static void build_compiler_options(struct ide* ide)
     struct gui_node* flags_label = add_label(ide, c->window, 18, 10, "Flags");
     c->flags = add_group_of(ide, c->window, 30, 10, 28, copts_flags, COUNT(copts_flags), 1);
     gui_set_after_label(c->flags, flags_label);
-    struct gui_node* options_label = add_label(ide, c->window, 18, 16, "Options");
-    c->options = add_at(ide, c->window, GUI_INPUT, 30, 16, 28, 1, NULL);
-    stretch_right(c->options, 30, 16, 3, 1);
+    struct gui_node* options_label = add_label(ide, c->window, 18, 17, "Options");
+    c->options = add_at(ide, c->window, GUI_INPUT, 30, 17, 28, 1, NULL);
+    stretch_right(c->options, 30, 17, 3, 1);
     gui_set_after_label(c->options, options_label);
     copts_page_take(c, 0, first);
     /* the Includes page: the target's #include search path */
@@ -4215,7 +4219,7 @@ static void append_include_arg(struct ide_text* out, const char* dir)
  * exttool_expand: $(FilePath) $(FileDir) $(FileName) $(FileExt) (and the
  * $(Item...) spellings), $(CakeOutput[Changed]), $(CakeInput{Files,Changed}),
  * $(Target{Dir,FileName,Name,Ext,Path}), $(Platform), $(Target),
- * $(ProjectName), $(ProjectDir), $(IncludeDirs); "$$"
+ * $(ProjectName), $(ProjectDir), $(InstallDir), $(IncludeDirs); "$$"
  * is a '$'. An unknown macro expands to nothing. */
 static void expand_macros(struct ide* ide, const char* in, struct ide_text* out, int quote)
 {
@@ -4331,6 +4335,11 @@ static void expand_macros(struct ide* ide, const char* in, struct ide_text* out,
         else if (strcmp(macro, "ProjectDir") == 0)
         {
             snprintf(buf, sizeof buf, "%s", file_uses_project(ide, path) ? p->dir : dir);
+            ide_text_printf(out, "%s", buf);
+        }
+        else if (strcmp(macro, "InstallDir") == 0)
+        {
+            ide_exe_dir(buf, (int)sizeof buf);
             ide_text_printf(out, "%s", buf);
         }
         else if (strcmp(macro, "IncludeDirs") == 0)
@@ -4769,6 +4778,7 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| `$(TargetExt)` | `.exe` |\n"
         "| `$(ProjectDir)` | `C:/work/hello` |\n"
         "| `$(ProjectName)` | `hello` |\n"
+        "| `$(InstallDir)` | `C:/Program Files/cake/0.15.15` - the folder of cakeide |\n"
         "| `$(Platform)` | `x86_64-pc-windows-msvc` |\n"
         "\n"
         "Every `...Dir` macro ends without a slash: write "
@@ -5205,14 +5215,24 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "## `-line-directives`\n\nemit `#line` directives in the generated C89 "
         "output\n\n"
         "Preserves source location information." },
-    [HELP_FLAG_FANALYZER] = { "flag-fanalyzer",
-        "## `-fanalyzer`\n\nrun Cake's built-in flow analysis\n\n"
-        "Includes ownership, nullability, and lifetime checks." },
+    [HELP_FLAG_FLOW] = { "flag-flow",
+        "## `-flow`\n\nrun Cake's built-in flow analysis\n\n"
+        "Checks uninitialized values, null dereference, unreachable code, "
+        "and the annotations when `-check-annotations` is on. "
+        "Same as `#pragma flow enable`." },
     [HELP_FLAG_CONST_LITERAL] = { "flag-const-literal",
         "## `-const-literal`\n\ntreat string literals as `const char[]` "
         "rather than `char[]`" },
     [HELP_FLAG_WALL] = { "flag-wall",
         "## `-Wall`\n\nenable all warnings" },
+    [HELP_FLAG_DEFAULT_NONNULL] = { "flag-default-nonnull",
+        "## `-default-nonnull`\n\npointers without `_Opt` are non-null\n\n"
+        "Requires `-check-annotations`. Same as `#pragma default_nonnull`." },
+    [HELP_FLAG_ANNOTATIONS] = { "flag-annotations",
+        "## `-check-annotations`\n\n`_Owner`, `_View`, `_Dtor`, `_Out`, `_Clear`, `_Opt`... "
+        "are checked\n\n"
+        "Without it they are ignored, like empty macros. "
+        "Same as `#pragma check_annotations enable`." },
     [HELP_COPTS_OUTPUT] = { "copts-output",
         "# Output\n\nName of the built executable. Empty: derived from the "
         "source/project.\n\n"
@@ -5238,8 +5258,6 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| `2` | unused variable |\n"
         "| `6` | unused function parameter |\n"
         "| `11` | style |\n"
-        "| `33` | nullable pointer flow check |\n"
-        "| `35` | nullable pointer flow check |\n"
         "| `83` | parameter set but not used |\n"
         "| `84` | variable set but not used |\n"
         "\n"
@@ -5256,10 +5274,11 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "\n"
         "| Option | Effect |\n"
         "|---|---|\n"
-        "| `-ownership=enable` / `-ownership=disable` | turn the ownership "
-        "checks on or off |\n"
-        "| `-nullable=enabled` / `-nullable=disable` | turn the nullable "
-        "pointer checks on or off (`-nullchecks` = `enabled`) |\n"
+        "| `-flow` | run flow analysis (`#pragma flow enable`) |\n"
+        "| `-check-annotations` | `_Owner`, `_Opt`, `_Out`... are checked; without it "
+        "they are ignored (`#pragma check_annotations enable`) |\n"
+        "| `-default-nonnull` | pointers without `_Opt` are non-null "
+        "(`#pragma default_nonnull`) |\n"
         "| `-no-discard` | make `[[nodiscard]]` the default for every function "
         "|\n"
         "\n"
@@ -5472,20 +5491,29 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "Only files matching **File Types**. Open files are searched in "
         "their editor, unsaved changes included." },
     [HELP_INCLUDE_DIRS] = { "include-dirs",
-        "# Include Directories\n\nthe `#include` search path\n"
+        "# Include Directories\n"
         "\n"
-        "A page of [Properties](help:copts), for each configuration. "
-        "Every directory goes to Cake as `-I`, with `-no-includes`: `cake.json` "
-        "is not read, so this list must have the system headers too - "
-        "[Auto Config](help:auto-config) puts the compiler's there. The C compiler "
-        "after Cake does not need them: Cake's output has no `#include`.\n"
+        "The `#include` search path\n"
+        "\n"
+        "A page of [Properties](help:copts), for each configuration. \n"
+        "\n"
+        "Every directory goes to Cake as `-I`, with `-no-includes`: "
+        "`cake.json` is not\n"
+        "read, so this list must have the system headers too - "
+        "[AutoConfig](help:auto-config) \n"
+        "puts the compiler's there. The C compiler after Cake does not need "
+        "them: \n"
+        "Cake's output has no `#include`.\n"
         "\n"
         "Directories are searched in list order - **Move Up** / **Move Down** "
-        "change it. A project's are stored relative to the project folder; the "
-        "Playground's as full paths.\n"
+        "change it.\n"
+        "A project's are stored relative to the project folder; the "
+        "Playground's as full\n"
+        "paths.\n"
         "\n"
         "Cake's own annotated headers (the `include` folder next to the "
-        "executable) are always searched first and are not listed here." },
+        "executable) are\n"
+        "always searched first and are not listed here." },
     [HELP_PLAYGROUND] = { "playground",
         "# Playground\n\na scratch file, and the project of every loose file\n"
         "\n"
@@ -6062,14 +6090,20 @@ static void build_help_texts(struct ide* ide)
              "`-line-directives`: emit `#line` directives in the generated C89 output",
              HELP_FLAG_LINE_DIRECTIVES);
     set_help(ide, gui_child_at(c->flags, 1),
-             "`-fanalyzer`: run Cake's built-in flow analysis",
-             HELP_FLAG_FANALYZER);
+             "`-flow`: run Cake's built-in flow analysis",
+             HELP_FLAG_FLOW);
     set_help(ide, gui_child_at(c->flags, 2),
              "`-const-literal`: treat string literals as `const char[]` rather than `char[]`",
              HELP_FLAG_CONST_LITERAL);
     set_help(ide, gui_child_at(c->flags, 3),
              "`-Wall`: enable all warnings",
              HELP_FLAG_WALL);
+    set_help(ide, gui_child_at(c->flags, 4),
+             "`-default-nonnull`: pointers without `_Opt` are non-null",
+             HELP_FLAG_DEFAULT_NONNULL);
+    set_help(ide, gui_child_at(c->flags, 5),
+             "`-check-annotations`: `_Owner`, `_Opt`, `_Out`... are checked",
+             HELP_FLAG_ANNOTATIONS);
     set_help(ide, c->output,
              "Name of the built executable (empty: derived from the source/project)",
              HELP_COPTS_OUTPUT);
@@ -8568,7 +8602,7 @@ static int clamp_index(int i, int count)
 
 /* The "compile" object, in the old IDE's .cakeproj keys, so both IDEs read
  * each other's projects. */
-static const char* const flag_keys[] = { "line_directives", "fanalyzer", "const_literal", "wall" };
+static const char* const flag_keys[] = { "line_directives", "flow", "const_literal", "wall", "default_nonnull", "check_annotations" };
 
 static int slug_index(const char* slug, const char* const* slugs, int count);
 
@@ -9346,6 +9380,19 @@ static int slug_index(const char* slug, const char* const* slugs, int count)
     return 0;
 }
 
+/* The tools installed with cake ($(InstallDir)/tools), used while ide.json has no "external_tools". */
+static void add_default_tools(struct ide* ide)
+{
+#ifdef _WIN32
+    const char* loc = "$(InstallDir)/tools/loc.exe";
+#else
+    const char* loc = "$(InstallDir)/tools/loc";
+#endif
+    if (ide->ext_tools.count < MAX_EXT_TOOLS)
+        ext_tool_init(&ide->ext_tools.tools[ide->ext_tools.count++], "Lines of code", loc, "$(CakeInputFiles)", "$(ProjectDir)");
+    tools_menu_refresh(ide);
+}
+
 /* Anything missing keeps its default. */
 static void settings_load(struct ide* ide)
 {
@@ -9354,7 +9401,10 @@ static void settings_load(struct ide* ide)
     int crlf = 0;
     char* text = ide_read_file(path, &crlf);
     if (!text)
-        return;   /* no settings yet: the defaults */
+    {
+        add_default_tools(ide);   /* no settings yet: the defaults */
+        return;
+    }
     struct json_error error = { 0 };
     struct json_value* root = json_parse(text, &error);
     free(text);
@@ -9405,6 +9455,8 @@ static void settings_load(struct ide* ide)
     compile_from_json(compile, &ide->global_options);
 
     const struct json_value* tools = json_find_member(root, "external_tools");
+    if (!tools)
+        add_default_tools(ide);
     size_t n = tools && tools->type == JSON_ARRAY ? json_count(tools) : 0;
     for (size_t i = 0; i < n && ide->ext_tools.count < MAX_EXT_TOOLS; i++)
     {

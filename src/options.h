@@ -500,7 +500,7 @@ struct options
 
     bool null_checks_enabled;   /* -nullchecks: check nullable pointer */
 
-    bool ownership_enabled;     /* check ownerhip rules */
+    bool annotations_enabled;   /* -annotations: _Owner, _Opt, _Out... are checked */
     bool preprocess_only;       /* -E: preprocess only */
 
     bool preprocess_def_macro;  /* -preprocess-def-macro : preprocess #def */
@@ -663,6 +663,8 @@ void print_help();
 
 void options_set_error(struct options* options, enum diagnostic_id w, bool value);
 void options_set_warning(struct options* options, enum diagnostic_id w, bool value);
+bool diagnostic_can_happen(const struct options* options, enum diagnostic_id w);
+bool options_default_nonnull(const struct options* options);
 void options_set_note(struct options* options, enum diagnostic_id w, bool value);
 void options_set_all_warnings(struct options* options);
 void options_set_clear_all_warnings(struct options* options);

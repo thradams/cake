@@ -27,7 +27,7 @@ fi
 echo "Installing cake $VERSION in $DEST"
 rm -rf "$DEST"
 mkdir -p "$DEST"
-cp -R cake cakeide cake.json samples web include "$DEST/"
+cp -R cake cakeide cake.json samples web include tools "$DEST/"
 
 echo "$PATH_LINE" > "$PATH_FILE"
 echo "PATH updated ($PATH_FILE)."

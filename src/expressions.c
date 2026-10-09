@@ -3,7 +3,7 @@
 *  https://github.com/thradams/cake
 */
 
-#pragma safety enable
+//#pragma safety enable
 
 #include "cake_compat.h"
 #include <limits.h>
@@ -3190,13 +3190,13 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
             {
                 is_u16 = true;
                 is_bigger_than_char = true;
-                char_type_specifiers = TYPE_SPECIFIER_UNSIGNED | object_type_to_type_specifier(ctx->options.platform.int16_type);
+                char_type_specifiers = (enum type_specifier_flags) (TYPE_SPECIFIER_UNSIGNED | object_type_to_type_specifier(ctx->options.platform.int16_type));
             }
             else if (prefix_token->lexeme[0] == 'U')
             {
                 is_u32 = true;
                 is_bigger_than_char = true;
-                char_type_specifiers = TYPE_SPECIFIER_UNSIGNED | object_type_to_type_specifier(ctx->options.platform.int32_type);
+                char_type_specifiers = (enum type_specifier_flags) (TYPE_SPECIFIER_UNSIGNED | object_type_to_type_specifier(ctx->options.platform.int32_type));
             }
             else
             {
@@ -7542,8 +7542,8 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx, bool is_
 }
 
 static void check_comparison(const struct parser_ctx* ctx,
-                             struct expression* p_a_expression,
-                             struct expression* p_b_expression,
+                             const struct expression* p_a_expression,
+                             const struct expression* p_b_expression,
                              const struct token* op_token)
 {
     /* unsigned_expr < 0 is always false; unsigned_expr >= 0 is always true */
@@ -7588,8 +7588,11 @@ static void check_comparison(const struct parser_ctx* ctx,
         op_token->type == '!=' ||
         op_token->type == '==';
 
-    struct type* p_a_type = &p_a_expression->object.type;
-    struct type* p_b_type = &p_b_expression->object.type;
+    /* arrays and functions are compared as pointers */
+    struct type a_type = type_lvalue_conversion(&p_a_expression->object.type);
+    struct type b_type = type_lvalue_conversion(&p_b_expression->object.type);
+    struct type* p_a_type = &a_type;
+    struct type* p_b_type = &b_type;
 
     /*
     * Equality operators (6.5.10)
@@ -7745,6 +7748,9 @@ static void check_comparison(const struct parser_ctx* ctx,
                          p_a_expression,
                          p_b_expression,
                          "comparing different enums.");
+
+    type_destroy(&a_type);
+    type_destroy(&b_type);
 }
 
 struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, bool is_discarded)
@@ -7844,7 +7850,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx, boo
                             .p_token_end = new_expression->right->last_token
                         };
 
-                        enum diagnostic_id warning_id = 0;
+                        enum diagnostic_id warning_id = W_LOCATION;
 
                         if (op == '>=')
                         {
@@ -9815,7 +9821,7 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
                                      const struct expression* p_b_expression, /* src */
                                      enum assigment_type assignment_type)
 {
-    if (!ctx->options.ownership_enabled)
+    if (!ctx->options.annotations_enabled)
         return;
 
     const struct type* const p_b_type = &p_b_expression->object.type;

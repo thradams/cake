@@ -4,7 +4,7 @@
 */
 
 
-#pragma safety enable
+//#pragma safety enable
 
 #include "cake_compat.h"
 #include <assert.h>

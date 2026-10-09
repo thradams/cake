@@ -1897,7 +1897,7 @@ int main(void)
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma ownership enable
+<pre><code class="language-c">#pragma check_annotations enable
 void free(void* _Owner _Opt p);
 
 int main(void)
@@ -1912,7 +1912,7 @@ int main(void)
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma ownership enable
+<pre><code class="language-c">#pragma check_annotations enable
 void* _Owner _Opt malloc(unsigned long size);
 
 int main(void)
@@ -1926,7 +1926,7 @@ int main(void)
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma ownership enable
+<pre><code class="language-c">#pragma check_annotations enable
 
 void take(int* _Owner _Opt* pp);
 
@@ -1941,7 +1941,7 @@ int main(void)
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma ownership enable
+<pre><code class="language-c">#pragma check_annotations enable
 void free(void* _Owner _Opt p);
 void* _Owner _Opt malloc(unsigned long size);
 
