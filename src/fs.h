@@ -86,7 +86,9 @@ struct dirent* _Opt readdir(DIR* dirp);
 #else
 
 //https://man7.org/linux/man-pages/man2/mkdir.2.html
+#if !defined(__CATALYST__)
 #include <unistd.h>
+#endif // !defined(__CATALYST__)
 
 #ifdef __CAKE__
 /*
@@ -140,10 +142,12 @@ char* _Owner _Opt read_file(const char* path, bool append_newline);
 /* the file as it is on disk: no BOM skipping, \r\n kept */
 char* _Owner _Opt read_file_binary(const char* path);
 bool file_exists(const char* path);
+#if !defined(__CATALYST__)
 /* an existing regular file (not a directory) */
 bool path_is_regular_file(const char* path);
 /* last-modified time, or 0 if it can't be stat'ed */
 long long file_mtime(const char* path);
+#endif
 
 /* creates every folder of outdir after root (root itself must exist); 0 or errno */
 int create_multiple_paths(const char* root, const char* outdir);

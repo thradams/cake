@@ -3578,6 +3578,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, cons
             unsigned long long result = 0;
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
+#if !defined(__CATALINA__)
 #if SIZE_MAX < 0xFFFFFFFFFFFFFFFFULL
                 /* Only meaningful when size_t is narrower than unsigned long
                    long -- on a 64-bit host SIZE_MAX == ULLONG_MAX, so
@@ -3590,6 +3591,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, cons
                 {
                     return SIZEOF_RESULT_OVERLOW;
                 }
+#endif
 #endif
 
                 /*

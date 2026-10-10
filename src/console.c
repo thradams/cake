@@ -5,6 +5,31 @@
 
 //#pragma safety enable
 
+#if defined(__CATALYST__)
+
+// Use Catalyst functions for console support
+
+#include <stdio.h>
+#include <stdbool.h>
+#include <hmi.h>
+
+bool enable_vt_mode(void)
+{
+    return true;
+}
+
+int c_kbhit(void)
+{
+   return k_ready();
+}
+
+int c_getch(void)
+{
+    return k_get();
+}
+
+#else // defined(__CATALYST__)
+
 #ifdef _WIN32
 #include <Windows.h>
 #include <conio.h>
@@ -120,3 +145,5 @@ void c_gotoxy(int x, int y)
     printf("\x1b[%d;%dH", y, x);
     fflush(stdout);
 }
+
+#endif // defined(__CATALYST__)

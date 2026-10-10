@@ -123,11 +123,14 @@
 
 #else
 
-
+    #ifdef __CATALINA__
+        typedef unsigned int     size_t;
+    #else
     #ifdef _WIN64
         typedef unsigned long long size_t;
     #elif defined _WIN32
         typedef unsigned int     size_t;
+    #endif
     #endif
 
     #ifdef __linux__

@@ -283,6 +283,12 @@
 
 #else
 
+    #ifdef __CATALINA__
+
+        typedef struct __iobuf FILE;
+        typedef unsigned int size_t;
+
+    #else
 
     #ifdef _WIN64
         typedef struct _iobuf FILE;
@@ -296,6 +302,8 @@
 
         typedef struct _IO_FILE FILE;
         typedef __SIZE_TYPE__ size_t; // valid since C23
+
+    #endif
 
     #endif
 

@@ -604,12 +604,19 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
             label_ctx.searching_label_mode = true;
             label_ctx.label_name = p_jump_statement->label->lexeme;
-            if (ctx->p_declaration == NULL)
+            if (ctx->p_declaration)
+            {
+                defer_start_visit_declaration(&label_ctx, ctx->p_declaration);
+            }
+            else if (ctx->p_function_literal_body)
+            {
+                /* (static void (void)){ goto L; L:; } */
+                defer_start_visit_compound_statement(&label_ctx, ctx->p_function_literal_body, NULL);
+            }
+            else
             {
                 throw;
             }
-
-            defer_start_visit_declaration(&label_ctx, ctx->p_declaration);
 
             
 
@@ -883,34 +890,11 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
         break;
 
         case EXPR_POSTFIX_FUNCTION_LITERAL:
-        {
-            _Assert(p_expression->compound_statement != NULL);
-
-            // TODO missing parameters of literal functions
-            // without it static analysis will not work
-            defer_visit_compound_statement(ctx, p_expression->compound_statement);
-            // _Assert(ctx->tail_block == NULL);
-            // struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
-            // if (p_defer == NULL)
-            // {
-            // return;
-            // }
-            // p_defer->p_function_body = p_declaration->function_body;
-
-            // defer_visit_typen(ctx, p_declaration);
-            // _Assert(p_declaration->function_body != NULL); //defer_visit_declaration does not change this
-
-            // parameters
-            // if (ctx->tail_block)
-            // {
-            // //exit_block_visit(ctx,
-            // ctx->tail_block,
-            // p_expression->compound_statement->last_token,
-            // &p_expression->defer_list);
-            // }
-
-            //
-        }
+            /*
+            * The body of a function literal is a separate function, already
+            * visited when it was parsed (see defer_start_visit_compound_statement
+            * in expressions.c). Visiting it again here duplicated its defers.
+            */
         break;
         default:
         break;
@@ -1129,6 +1113,7 @@ void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
     try
     {
         _Assert(ctx->tail_block == NULL);
+        ctx->p_function_literal_body = p_compound_statement;
         struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
         if (p_defer == NULL)
         {

@@ -11,7 +11,12 @@
 #include "cake_compat.h"
 
 
+#if defined(__CATALINA__)
+//Catalina only supports DOS 8.3 file names ...
+#define CAKE_CONFIG_FILE_NAME "cake.jsn"
+#else
 #define CAKE_CONFIG_FILE_NAME "cake.json"
+#endif
 
 
 struct include_dir

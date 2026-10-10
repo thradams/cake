@@ -28,6 +28,9 @@ struct defer_visit_ctx
     /*-------------------------------*/
 
     struct declaration* _Opt p_declaration;
+
+    /* body of a function literal (it has no declaration) */
+    struct compound_statement* _Opt p_function_literal_body;
 };
 
 void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p);

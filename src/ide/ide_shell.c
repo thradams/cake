@@ -1622,7 +1622,6 @@ static void build_git_clone(struct ide* ide);
 static void build_git(struct ide* ide);
 static void build_new_project(struct ide* ide);
 static void build_compiler_options(struct ide* ide);
-static int ext_tool_find(struct ide* ide, const char* title);
 static struct gui_node* add_macro_button(struct ide* ide, struct gui_node* parent, int col, int row,
                                          struct gui_node* input);
 static void build_external_tools(struct ide* ide);
@@ -3850,17 +3849,6 @@ static void macro_event(struct ide* ide, int id)
         return;
     gui_input_insert(m->target, macros[id - EV_MACRO_ITEM].name);
     gui_focus(ide->app, m->target);
-}
-
-/* The External Tool titled `title`, or -1. */
-static int ext_tool_find(struct ide* ide, const char* title)
-{
-    for (int i = 0; i < ide->ext_tools.count; i++)
-    {
-        if (ide->ext_tools.tools[i].title[0] && strcmp(ide->ext_tools.tools[i].title, title) == 0)
-            return i;
-    }
-    return -1;
 }
 
 /* --- External Tools: 66 x 22, a list of tools and the selected one's
@@ -8022,12 +8010,6 @@ static const char* platform_for(struct ide* ide, const char* path)
     static struct platform host;
     platform_default(&host);
     return host.name;
-}
-
-static const char* platform_name(struct ide* ide)
-{
-    struct doc* d = active_doc(ide);
-    return platform_for(ide, d ? d->path : "");
 }
 
 static void show_generated_code(struct ide* ide)

@@ -130,6 +130,12 @@ int generate_file_scope_new_name(const struct codegen_ctx* ctx, const char* curr
     return 1;
 }
 
+static void declarator_save_original_name(struct declarator* p_declarator)
+{
+    if (p_declarator->original_name == NULL && p_declarator->name_opt)
+        p_declarator->original_name = strdup(p_declarator->name_opt->lexeme);
+}
+
 int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     try
@@ -163,6 +169,7 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
                         {
                             char* _Opt _Owner temp = strdup(new_name);
                             if (temp == NULL) throw;
+                            declarator_save_original_name(p_init_declarator->p_declarator);
                             free(p_init_declarator->p_declarator->name_opt->lexeme);
                             p_init_declarator->p_declarator->name_opt->lexeme = temp;
                         }
@@ -193,6 +200,7 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
         {
             char* _Opt _Owner temp = strdup(qualified_name);
             if (temp == NULL) throw;
+            declarator_save_original_name(p_init_declarator->p_declarator);
             free(p_init_declarator->p_declarator->name_opt->lexeme);
             p_init_declarator->p_declarator->name_opt->lexeme = temp;
         }
@@ -2864,8 +2872,12 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             char name[220] = { 0 };
             if (ctx->p_current_function_opt->name_opt)
             {
-                snprintf(func_name, sizeof func_name, "%s", ctx->p_current_function_opt->name_opt->lexeme);
-                snprintf(name, sizeof(name), "__cake_func_%s", func_name);
+                /* local functions are renamed; __func__ is the source name (N3884) */
+                const char* source_name = ctx->p_current_function_opt->original_name ?
+                    ctx->p_current_function_opt->original_name :
+                    ctx->p_current_function_opt->name_opt->lexeme;
+                snprintf(func_name, sizeof func_name, "%s", source_name);
+                snprintf(name, sizeof(name), "__cake_func_%s", ctx->p_current_function_opt->name_opt->lexeme);
             }
             else
             {
@@ -6965,6 +6977,12 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
                 object_print_initialization_list(ctx, ss, member, first);
                 member = member->next;
                 index++;
+#if defined(__CATALINA__)
+                if (index % 25 == 0)
+                {
+                   ss_fprintf(ss, "\n");
+                }
+#endif
             }
         }
     }
@@ -8275,6 +8293,9 @@ size_t clean_line_directives(char* buf)
 
     char current_file[512] = "";
     int expected_line = 1;
+#if defined(__CATALINA__)
+    int first_line = 1; /* per call: each output buffer starts fresh */
+#endif
 
     while (*r)
     {
@@ -8301,10 +8322,33 @@ size_t clean_line_directives(char* buf)
                 if (nlen >= sizeof(new_file)) nlen = sizeof(new_file) - 1;
                 memcpy(new_file, &dir_fname[1], nlen);
                 new_file[nlen] = '\0';
+#if defined(__CATALINA__) && (defined(_WIN32) || defined(_WIN64))
+                // Catalina doesn't understand normalized paths on Windows
+                // so denormalize it
+                for (size_t i = 0; i < nlen; i++) {
+                   if (new_file[i] == '/') {
+                      new_file[i] = '\\';
+                   }
+                }
+#endif
             }
 
             int line_needed = (dir_line_num != expected_line);
             int file_needed = (dir_fname != NULL && strcmp(new_file, current_file) != 0);
+
+#if defined(__CATALINA__)
+            // Catalina automatically includes a #line with the file name
+            // as the first line (in order to make builtins like alloca()
+            // work correctly - see compile.h) so don't add the file name
+            // in the first #line (but remember the file name!)
+            if (first_line) {
+                if (file_needed) {
+                     strncpy(current_file, new_file, sizeof(current_file) - 1);
+                }
+                file_needed = 0;
+                first_line = 0;
+            }
+#endif
 
             if (line_needed || file_needed)
             {
@@ -8368,6 +8412,14 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                        ctx->options.platform.name,
                        timestamp);
         }
+
+#if defined(__CATALINA__)
+        if (ctx->options.line_directives) {
+           const struct token* _Opt tail = ctx->p_ast->token_list.tail;
+           if (tail && tail->token_origin)
+              ss_fprintf(oss, "#line 1 \"%s\"\n", tail->token_origin->lexeme);
+        }
+#endif
 
         ctx->indentation = 0;
 

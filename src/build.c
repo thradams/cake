@@ -17,6 +17,10 @@
  *   ./build -cflags "-O3 -march=native"  (extra flags for cake and the IDE)
  *   ./build test -cake-headers (cake runs with its bundled headers: self
  *                             analysis, cake89 bootstrap and the test suites)
+ *
+ * CATALINA
+ *   gcc build.c -D__CATALINA__ -o build && ./build -no-ide
+ *
  */
 
 #include "build.h"
@@ -188,12 +192,23 @@ static const char* user_cflags = "";   /* -cflags "..." */
 
 #if defined COMPILER_GCC && !defined COMPILER_TINYC
 
+#if defined(__CATALINA__)
+#define GCC_FLAGS            \
+      " -std=gnu11 "           \
+      " -D__CATALINA__ "       \
+      " -Wall "                \
+      " -Wno-multichar "       \
+      " -Wno-missing-braces "  \
+      " -Wno-unknown-pragmas " \
+      " -g "
+#else
 #define GCC_FLAGS            \
       " -std=gnu11 "           \
       " -Wall "                \
       " -Wno-multichar "       \
       " -Wno-missing-braces "  \
       " -Wno-unknown-pragmas "
+#endif /* __CATALINA__ */
 
 #endif /* COMPILER_GCC && !COMPILER_TINYC */
 
@@ -781,6 +796,8 @@ static void run_cake_on_own_source(const char* cake_flags)
     snprintf(self, 2000, "./" CKC_NAME " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
 #elif defined COMPILER_TINYC
     snprintf(self, 2000, RUN EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+#elif defined COMPILER_CATALINA
+    snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #endif
 
     execute_cmd(self);

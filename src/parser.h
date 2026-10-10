@@ -985,6 +985,7 @@ struct declarator
     struct declarator* _Opt p_complete_declarator;
 
     int num_uses; /*used to show not used warnings*/
+    int num_evaluated_uses; /*uses outside sizeof, typeof etc. (N3884 local function definition)*/
     int num_writes;
     bool address_taken;
     bool pointee_written;
@@ -1006,6 +1007,11 @@ struct declarator
       used in code generation to indicate when the declarator was renamed
     */
     bool declarator_renamed;
+
+    /*
+      source name before renaming (used by __func__ in local functions)
+    */
+    char* _Owner _Opt original_name;
 
     /*
       true once this declarator has been given an initializer,

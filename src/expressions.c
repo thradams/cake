@@ -3100,6 +3100,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 }
 
                 p_declarator->num_uses++;
+                if (ctx->unevaluated_operand_depth == 0)
+                    p_declarator->num_evaluated_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
 
@@ -3755,6 +3757,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 else if (type_is_array(&p_expression_node->object.type))
                 {
                     p_expression_node_new->object.type = get_array_item_type(&p_expression_node->object.type);
+
+                    /* an element of an object of the enclosing function (N3884) */
+                    p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 }
 
                 parser_match(ctx);
@@ -5305,11 +5310,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 if (new_expression->right->lvalue_disabled)
                 {
+                    /* lvalue_disabled is set only for objects of the enclosing function (N3884) */
                     diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
                                ctx,
                                new_expression->right->first_token,
                         NULL,
-                               "this expression cannot be used as lvalue");
+                               "cannot take the address of '%s' from the enclosing function",
+                               new_expression->right->first_token->lexeme);
                 }
 
                 /*
@@ -7097,6 +7104,27 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
     return p_expression_node;
 }
 
+/*
+  constexpr int a[2] = {1, 2};
+  static int local() { return *(a + 1); }
+  The array decays to a pointer to the object of the enclosing function (N3884).
+*/
+static void check_array_decay_from_enclosing_function(struct parser_ctx* ctx, const struct expression* p_expression)
+{
+    if (!p_expression->lvalue_disabled || !type_is_array(&p_expression->object.type))
+        return;
+
+    struct osstream ss_name = { 0 };
+    flow_expression_to_string(p_expression, &ss_name);
+    diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+               ctx,
+               p_expression->first_token,
+               NULL,
+               "the usage of '%s' would require access to the object from the enclosing function, which is not allowed",
+               ss_name.c_str ? ss_name.c_str : "");
+    ss_close(&ss_name);
+}
+
 struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool is_discarded)
 {
     /*
@@ -7158,6 +7186,9 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
             }
 
             new_expression->last_token = new_expression->right->last_token;
+
+            check_array_decay_from_enclosing_function(ctx, new_expression->left);
+            check_array_decay_from_enclosing_function(ctx, new_expression->right);
 
             if (!type_is_scalar_decay(&new_expression->left->object.type))
             {

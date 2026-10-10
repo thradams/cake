@@ -445,6 +445,8 @@ void platform_default(_Out struct platform* p)
     platform_gcc(p, "arm64");
 #elif defined(__linux__) && defined(__arm__)
     platform_gcc(p, "arm32");
+#elif defined(__CATALINA__)
+    platform_catalina(p);
 #else
 #error "unknown host platform"
 #endif

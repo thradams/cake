@@ -6023,15 +6023,25 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                            rather than a pointer-kind alternative. Recognise
                            that as a base too -- via the operand's static type,
                            which no invalidation can change -- so the guard's
-                           non-nullness survives the arithmetic. */
+                           non-nullness survives the arithmetic. A string
+                           literal is a SIGNED `== 1` (EXPR_PRIMARY_STRING_LITERAL)
+                           and reaches here as that through `c ? p : ""`; a
+                           pointer equal to a non-zero number is a base too
+                           (conditional-literal-pointer-arithmetic.c). */
                         const bool lbase = (lval->value_kind == FLOW_VALUE_KIND_PTR) ||
                             (lval->value_kind == FLOW_VALUE_KIND_REF && lval->value.p != NULL) ||
                             (type_is_pointer(&p_left->object.type) &&
-                             lval->value_relation == FLOW_RELATION_NOT_EQUAL);
+                             (lval->value_relation == FLOW_RELATION_NOT_EQUAL ||
+                              (lval->value_relation == FLOW_RELATION_EQUAL &&
+                               lval->value_kind == FLOW_VALUE_KIND_SIGNED &&
+                               lval->value.i != 0)));
                         const bool rbase = (rval->value_kind == FLOW_VALUE_KIND_PTR) ||
                             (rval->value_kind == FLOW_VALUE_KIND_REF && rval->value.p != NULL) ||
                             (type_is_pointer(&p_right->object.type) &&
-                             rval->value_relation == FLOW_RELATION_NOT_EQUAL);
+                             (rval->value_relation == FLOW_RELATION_NOT_EQUAL ||
+                              (rval->value_relation == FLOW_RELATION_EQUAL &&
+                               rval->value_kind == FLOW_VALUE_KIND_SIGNED &&
+                               rval->value.i != 0)));
 
                         const struct flow_alternative* _Opt base = NULL;
                         if (lbase && rnum2 && (op == '+' || op == '-'))
@@ -9735,8 +9745,13 @@ static bool flow_alternative_is_step(const struct flow_alternative* alt)
     return is_step;
 }
 
+/* The numeric values of e as [*p_min, *p_max]. One value, or (repeated
+   values allowed) several: `if (c) n++;` in a loop body leaves n {0, 1} after
+   one pass and {0, 1, 2} after two, a range still moving like a single value
+   (loop-counter-in-branch-widened.c). */
 static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
-                                     long long* out,
+                                     long long* p_min,
+                                     long long* p_max,
                                      bool allow_repeated_value,
                                      bool* _Opt p_is_step)
 {
@@ -9746,7 +9761,8 @@ static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
     }
 
     bool found = false;
-    long long value = 0;
+    long long min = 0;
+    long long max = 0;
 
     for (int i = 0; i < e->alternatives.size; i++)
     {
@@ -9777,7 +9793,7 @@ static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
             return false;
         }
 
-        if (found && (!allow_repeated_value || this_value != value))
+        if (found && !allow_repeated_value)
         {
             return false;
         }
@@ -9787,7 +9803,10 @@ static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
             *p_is_step = false;
         }
 
-        value = this_value;
+        if (!found || this_value < min)
+            min = this_value;
+        if (!found || this_value > max)
+            max = this_value;
         found = true;
     }
 
@@ -9796,7 +9815,8 @@ static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
         return false;
     }
 
-    *out = value;
+    *p_min = min;
+    *p_max = max;
     return true;
 }
 
@@ -9839,25 +9859,25 @@ static void flow_widen_loop_variant_objects(
         {
             for (const struct flow_key_alternatives* _Opt e = cur->buckets[i]; e; e = e->next)
             {
-                long long pass1_value = 0;
-                long long pass2_value = 0;
+                long long pass1_min = 0, pass1_max = 0;
+                long long pass2_min = 0, pass2_max = 0;
                 bool is_step = true;
 
                 if (!flow_entry_numeric_value(
-                    flow_branch_search_up(p_pass1_exit, e->p_obj_key), &pass1_value,
+                    flow_branch_search_up(p_pass1_exit, e->p_obj_key), &pass1_min, &pass1_max,
                     allow_repeated_value, NULL))
                 {
                     continue;
                 }
 
                 if (!flow_entry_numeric_value(
-                    flow_branch_search_up(p_pass2_exit, e->p_obj_key), &pass2_value,
+                    flow_branch_search_up(p_pass2_exit, e->p_obj_key), &pass2_min, &pass2_max,
                     allow_repeated_value, &is_step))
                 {
                     continue;
                 }
 
-                if (pass1_value == pass2_value)
+                if (pass1_min == pass2_min && pass1_max == pass2_max)
                 {
                     continue;
                 }
@@ -9885,8 +9905,16 @@ static void flow_widen_loop_variant_objects(
                 struct flow_widen_fact fact = { .relation = FLOW_RELATION_ANY, .value = ANY_VALUE };
                 if (is_step && type_is_signed_integer(&e->p_obj_key->type))
                 {
-                    fact.relation = pass2_value > pass1_value ? FLOW_RELATION_GREATER_EQUAL : FLOW_RELATION_LESS_EQUAL;
-                    fact.value = pass1_value;
+                    if (pass2_min >= pass1_min && pass2_max > pass1_max)
+                    {
+                        fact.relation = FLOW_RELATION_GREATER_EQUAL;
+                        fact.value = pass1_min;
+                    }
+                    else if (pass2_max <= pass1_max && pass2_min < pass1_min)
+                    {
+                        fact.relation = FLOW_RELATION_LESS_EQUAL;
+                        fact.value = pass1_max;
+                    }
                 }
                 facts[variants.size - 1] = fact;
             }

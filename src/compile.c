@@ -162,6 +162,63 @@ static int collect_system_include_dirs(struct json_value* dirs)
 #endif
     return 0;
 
+#elif defined(__CATALINA__)
+
+    /* Read straight out of LCCDIR */
+    char *env = getenv("LCCDIR");
+    if (env == NULL) {
+        printf("LCCDIR not found, run cake -autoconfig inside a Catalina command line window or under Catalyst\n");
+        return -1;
+    }
+
+    const char* p = env;
+    for (;;)
+    {
+#if !defined(__CATALYST__)
+        // for Catalyst, need to include "/include/"
+        // if LCCDIR does not exist or is empty!
+        if (*p == '\0')
+            break;
+#endif
+
+        char filename_local[500] = { 0 };
+        const int max_count = (int)(sizeof(filename_local) - sizeof("/include/"));
+        int count = 0;
+        while (*p != '\0' && (*p != ';' && *p != '\n'))
+        {
+            if (count < max_count)
+                filename_local[count++] = *p;
+            p++;
+        }
+        filename_local[count] = 0;
+
+        if (count > 0)
+        {
+            strcat(filename_local, "/include/");
+            char* pch = filename_local;
+            while (*pch)
+            {
+                if (*pch == '\\')
+                    *pch = '/';
+                pch++;
+            }
+
+            json_add_string(dirs, filename_local);
+        }
+#if defined(__CATALYST__)
+        else {
+            // for Catalyst, if LCCDIR is empty,
+            // explicitly add "/include/"
+            json_add_string(dirs, "/include/");
+        }
+#endif
+        if (*p == '\0')
+            break;
+        p++;
+    }
+
+    return 0;
+
 #elif defined(__linux__) || defined(__APPLE__)
 
     /* Parsed out of the platform compiler's own "-v -E" output, between
@@ -367,11 +424,15 @@ int compile_one_file(const char* file_name,
 
     bool color_enabled = !options->color_disabled;
 
+#if !defined(__CATALINA__)
+    // For Catalina, don't print the name of each file processed
+    // (there will usually be only one file)
     if (!options_is_report_mode(options))
     {
         print_path(file_name, true);
         printf("\n");
     }
+#endif // !defined(__CATALINA__)
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.options = *options;
@@ -580,8 +641,37 @@ int compile_one_file(const char* file_name,
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
                 {
+#if defined(__CATALINA__)
+                    if (p_output_string) {
+                        // catalina needs its builtins included in the output
+                        // (e.g. __builtin_alloca()) to compile them correctly
+                        if (builtin[0] != '\0') {
+                           if (options->line_directives) {
+                              // Catalina requires an initial #line directive
+                              // to correctly generate debug information, so
+                              // if we have builtins, we add one first
+                              char new_file[512] = "";
+                              snprintf(new_file, sizeof new_file, "%s", file_name);
+                              const size_t nlen = strlen(new_file);
+#if defined(_WIN32) || defined(_WIN64)
+                              // Catalina doesn't understand normalized paths
+                              // on Windows so denormalize it
+                              for (size_t i = 0; i < nlen; i++) {
+                                 if (new_file[i] == '/') {
+                                    new_file[i] = '\\';
+                                 }
+                              }
+#endif
+                              fprintf(outfile, "#line 1 \"%s\"\n", new_file);
+                           }
+                           fprintf(outfile, "%s", builtin);
+                        }
+                        fprintf(outfile, "%s", p_output_string);
+                    }
+#else // defined(__CATALINA__)
                     if (p_output_string)
                         fprintf(outfile, "%s", p_output_string);
+#endif // defined(__CATALINA__)
 
                     const bool write_error = ferror(outfile) != 0;
                     if (fclose(outfile) != 0 || write_error)

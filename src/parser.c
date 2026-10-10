@@ -4107,7 +4107,21 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
             struct scope* _Opt p_previous_scope = NULL;
             struct declarator* _Opt p_previous_declarator = find_declarator(ctx, func_name, &p_previous_scope);
-            if (p_previous_declarator && p_previous_declarator != p_declaration->init_declarator_list.head->p_declarator)
+            /*
+            * void f() { extern void g(); static void g() {} }
+            * already reported as a redeclaration with different linkage (N3884);
+            * the local definition must not complete the outer g.
+            */
+            const bool is_linkage_mismatch =
+                p_previous_declarator &&
+                p_previous_scope &&
+                p_previous_scope->scope_level > 0 &&
+                p_previous_declarator->declaration_specifiers &&
+                !(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                p_declaration->declaration_specifiers &&
+                (p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
+
+            if (p_previous_declarator && !is_linkage_mismatch && p_previous_declarator != p_declaration->init_declarator_list.head->p_declarator)
             {
                 p_previous_declarator->p_complete_declarator = p_declaration->init_declarator_list.head->p_declarator;
 
@@ -4708,6 +4722,28 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                                 NULL,
                                 "previous declaration");
                         }
+                        else if (out_scope->scope_level > 0 &&
+                                 (p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                                 !(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
+                        {
+                            /*
+                            * void f() {
+                            *   static void g();
+                            *   extern void g(); // error: g has no linkage here (N3884)
+                            * }
+                            */
+                            diagnostic(C_ERROR_REDECLARATION,
+                                ctx,
+                                ctx->current,
+                                NULL,
+                                "non-static declaration of '%s' follows local function declaration", declarator_name);
+
+                            diagnostic(W_LOCATION,
+                                ctx,
+                                p_previous_declarator->name_opt,
+                                NULL,
+                                "previous declaration");
+                        }
                     }
                 }
                 else
@@ -4754,7 +4790,20 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 * added to the scope; uses are counted on the outer declarator.
                 * An inner static function has no linkage (N3884 local functions),
                 * it is a different function.
+                *
+                * The outer declarator is registered in this scope too, so a
+                * later static declaration of the same name in this scope is
+                * a redeclaration with different linkage (N3884 EXAMPLE 8):
+                *
+                * void f() {
+                *   extern void g();
+                *   static void g() {} // error
+                * }
                 */
+                struct hash_item_set item = { 0 };
+                item.p_declarator = declarator_add_ref(p_previous_declarator);
+                hashmap_set(&ctx->scopes.tail->variables, declarator_name, &item);
+                hash_item_set_destroy(&item);
             }
             else
             {
@@ -5331,6 +5380,22 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         "storage size of '%s' isn't constant", p_init_declarator->p_declarator->name_opt->lexeme);
                 }
             }
+        }
+
+        if (ctx->scopes.tail &&
+            ctx->scopes.tail->scope_level > 0 &&
+            p_init_declarator->p_declarator->declaration_specifiers &&
+            type_is_function(&p_init_declarator->p_declarator->object.type) &&
+            (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags &
+             (STORAGE_SPECIFIER_AUTO | STORAGE_SPECIFIER_REGISTER | STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_CONSTEXPR)))
+        {
+            /*
+            * void f() { auto void g(void); }
+            * N3884: block scope function declarations can only use extern or static
+            */
+            diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+                p_init_declarator->p_declarator->first_token_opt, NULL,
+                "function declared in block scope can only have the 'extern' or 'static' storage-class specifier");
         }
 
         /* 
@@ -9014,6 +9079,7 @@ void declarator_delete(struct declarator* _Owner _Opt p)
         object_destroy(&p->object);
         expression_delete(p->p_expression_true);
         expression_delete(p->p_expression_false);
+        free(p->original_name);
         free(p);
     }
 }
@@ -12401,7 +12467,25 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     NULL,
                     "case label not within a switch statement");
 
-                throw;
+                /*
+                * not fatal: consume the label and keep parsing, otherwise inside
+                * a function literal the enclosing expression reports a second error
+                * void f(int n) { switch (n) { case 1: (static void (void)){ case 2: ; }; } }
+                */
+                parser_match(ctx);
+                p_label->constant_expression = constant_expression(ctx, true, false);
+                if (p_label->constant_expression == NULL)
+                    throw;
+                if (ctx->current && ctx->current->type == '...')
+                {
+                    parser_match(ctx);
+                    p_label->constant_expression_end = constant_expression(ctx, true, false);
+                    if (p_label->constant_expression_end == NULL)
+                        throw;
+                }
+                if (parser_match_tk(ctx, ':') != 0)
+                    throw;
+                return p_label;
             }
 
             parser_match(ctx);
@@ -12595,7 +12679,12 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     ctx->current,
                     NULL,
                     "default case not within a switch statement");
-                throw;
+
+                /* not fatal, see case above */
+                parser_match(ctx);
+                if (parser_match_tk(ctx, ':') != 0)
+                    throw;
+                return p_label;
             }
 
             struct label* _Opt p_existing_default_label = case_label_list_find_default( &ctx->p_current_switch_statement->label_list);
@@ -12913,6 +13002,25 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                 else
                 {
                     p_declarator = entry->data.p_declarator;
+                }
+
+                if (p_declarator &&
+                    p_declarator->num_evaluated_uses > 0 &&
+                    p_declarator->declaration_specifiers &&
+                    (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                    type_is_function(&p_declarator->object.type) &&
+                    declarator_get_function_definition(p_declarator) == NULL &&
+                    p_declarator->name_opt)
+                {
+                    /*
+                    * void f() { static void g(void); g(); }
+                    * N3884: a local function that is used must be defined in the same scope
+                    */
+                    diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE,
+                        ctx,
+                        p_declarator->name_opt, NULL,
+                        "local function '%s' used but not defined",
+                        p_declarator->name_opt->lexeme);
                 }
 
                 if (p_declarator)
@@ -15556,6 +15664,10 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     struct selection_statement* _Opt p_current_switch_statement = ctx->p_current_switch_statement;
     ctx->p_current_switch_statement = NULL;
 
+    /* break/continue cannot leave a local function (N3884) */
+    const struct iteration_statement* _Opt p_current_iteration_statement = ctx->p_current_iteration_statement;
+    ctx->p_current_iteration_statement = NULL;
+
     struct label_list label_list = { 0 };
     label_list_swap(&label_list, &ctx->label_list);
 
@@ -15576,6 +15688,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     ctx->p_current_try_statement_opt = p_current_try_statement_opt;
     ctx->p_current_defer_statement_opt = p_current_defer_statement_opt;
     ctx->p_current_switch_statement = p_current_switch_statement;
+    ctx->p_current_iteration_statement = p_current_iteration_statement;
 
     label_list_destroy(&label_list);
     return p_compound_statement;

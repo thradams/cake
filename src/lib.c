@@ -1663,6 +1663,15 @@ int json_write_file(const char *path, const struct json_value *root)
 #include <ctype.h>
 
 
+#include <stdio.h>
+
+
+#include <string.h>
+
+
+#include <stdlib.h>
+
+
 
 /*
  *  This file is part of cake compiler
@@ -1734,6 +1743,12 @@ void c_gotoxy(int x, int y);
 */
 
 //#pragma once
+
+
+#include <stdbool.h>
+
+
+#include <limits.h>
 
 
 #if defined(PATH_MAX)
@@ -1819,9 +1834,11 @@ struct dirent* _Opt readdir(DIR* dirp);
 #else
 
 //https://man7.org/linux/man-pages/man2/mkdir.2.html
+#if !defined(__CATALYST__)
 
 
 #include <unistd.h>
+#endif // !defined(__CATALYST__)
 
 #ifdef __CAKE__
 /*
@@ -1877,10 +1894,12 @@ char* _Owner _Opt read_file(const char* path, bool append_newline);
 /* the file as it is on disk: no BOM skipping, \r\n kept */
 char* _Owner _Opt read_file_binary(const char* path);
 bool file_exists(const char* path);
+#if !defined(__CATALYST__)
 /* an existing regular file (not a directory) */
 bool path_is_regular_file(const char* path);
 /* last-modified time, or 0 if it can't be stat'ed */
 long long file_mtime(const char* path);
+#endif
 
 /* creates every folder of outdir after root (root itself must exist); 0 or errno */
 int create_multiple_paths(const char* root, const char* outdir);
@@ -1946,6 +1965,9 @@ void ss_swap(struct osstream* a, struct osstream* b);
 */
 
 //#pragma once
+
+
+#include <stddef.h>
 
 struct declarator;
 struct enumerator;
@@ -2051,6 +2073,9 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 
 
 
+#include <stdbool.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -2059,7 +2084,13 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 //#pragma once
 
 
+#include <stdbool.h>
+
+
 //#pragma once
+
+
+#include <stdbool.h>
 
 
 enum object_type
@@ -2198,6 +2229,9 @@ long long target_signed_max(const struct platform* target, enum object_type type
 long long target_signed_min(const struct platform* target, enum object_type type);
 unsigned long long target_unsigned_max(const struct platform* target, enum object_type type);
 
+
+
+#include <limits.h>
 
 struct global_unused_list;
 struct rename_list;
@@ -3296,7 +3330,12 @@ const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, un
 
 
 
+#if defined(__CATALINA__)
+//Catalina only supports DOS 8.3 file names ...
+#define CAKE_CONFIG_FILE_NAME "cake.jsn"
+#else
 #define CAKE_CONFIG_FILE_NAME "cake.json"
+#endif
 
 
 struct include_dir
@@ -3474,6 +3513,9 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx, const
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
 
 
 #include <debugapi.h>
@@ -5576,6 +5618,9 @@ int float_to_string(float value, char* buffer, int size);
 
 #include <stdint.h>
 
+
+#include <string.h>
+
 /*
  *  The standard-library alternative, in case we ever want it back. Build
  *  with -DSTANDARD_ALTERNATIVE to use it instead of the Grisu2 code below;
@@ -5598,6 +5643,9 @@ int float_to_string(float value, char* buffer, int size);
  */
 #ifdef STANDARD_ALTERNATIVE
 
+
+
+#include <stdio.h>
 
 int double_to_string(double value, char* buffer, int size)
 {
@@ -6274,11 +6322,32 @@ int float_to_string(float value, char* buffer, int size)
 
 //#pragma safety enable
 
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdbool.h>
+
+
+#include <assert.h>
  
+
+
+#include <assert.h>
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER
+
+
+#include <crtdbg.h>
 #endif
 
 static unsigned int string_hash(const char* key)
@@ -6639,21 +6708,70 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
 //#pragma safety enable
 
+#if defined(__CATALYST__)
+
+// Use Catalyst functions for console support
+
+
+
+#include <stdio.h>
+
+
+#include <stdbool.h>
+
+
+#include <hmi.h>
+
+bool enable_vt_mode(void)
+{
+    return true;
+}
+
+int c_kbhit(void)
+{
+   return k_ready();
+}
+
+int c_getch(void)
+{
+    return k_get();
+}
+
+#else // defined(__CATALYST__)
+
 #ifdef _WIN32
+
+
+#include <Windows.h>
 
 
 #include <conio.h>
 #else
 
 
+#include <stdlib.h>
+
+
 #include <termios.h>
+
+
+#include <unistd.h>
 
 
 #include <fcntl.h>
 
 
 #include <sys/ioctl.h>
+
+
+#include <stdio.h>
 #endif
+
+
+#include <stdbool.h>
+
+
+#include <stdio.h>
 
 #ifndef WIN32
 
@@ -6756,6 +6874,8 @@ void c_gotoxy(int x, int y)
     fflush(stdout);
 }
 
+#endif // defined(__CATALYST__)
+
 
 /*
  *  This file is part of cake compiler
@@ -6797,7 +6917,43 @@ void c_gotoxy(int x, int y)
 
 
 
+#include <ctype.h>
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdio.h>
+
+
+#include <stdlib.h>
+
+
+#include <sys/stat.h>
+
+
 #include <errno.h>
+
+
+#include <string.h>
+
+
+#include <stdbool.h>
+
+
+#include <assert.h>
+
+
+#include <stdlib.h>
+
+
+#include <stddef.h>
+
+
+#include <assert.h>
 
 
 #include <time.h>
@@ -6818,9 +6974,18 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 
 
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 
@@ -16377,6 +16542,21 @@ void hash_hash_at_ends_of_replacement_list()
 //#pragma safety enable
 
 
+
+#include <stdbool.h>
+
+
+#include <errno.h>
+
+
+#include <stdio.h>
+
+
+#include <stdlib.h>
+
+
+#include <assert.h>
+
 void ss_swap(struct osstream* a, struct osstream* b)
 {
     struct osstream r = *a;
@@ -16445,12 +16625,21 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
         return -1;
     }
     _Assert(stream->c_str); //reserve does that
-    
+
+#if defined(__CATALINA__)
+    // on Catalina, vsnprintf supports more C99 options than vsprintf
+    if (reserve(stream, stream->size + size + 1) != 0)
+    {
+        return -1;
+    }
+    size = vsnprintf(stream->c_str + stream->size, size+1, fmt, args);
+#else // defined(__CATALINA__)
 #ifdef _WIN32
     size = vsprintf(stream->c_str + stream->size, fmt, args); //lint 35
 #else
     size = vsprintf(stream->c_str + stream->size, fmt, args);
 #endif
+#endif // defined(__CATALINA__)
     if (size > 0)
     {
         stream->size += size;
@@ -16501,15 +16690,39 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 
 
 
+#include <stdlib.h>
+
+
+#include <ctype.h>
+
+
 #include <wchar.h>
 
 
 
+#include <sys/types.h>
+
+
+#include <stdio.h>
+
+
+#include <sys/stat.h>
+
+
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 
@@ -16523,9 +16736,29 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #endif
 
 #else
+
+
+#include <stdlib.h>
+#if !defined(__CATALINA__)
+
+
+#include <unistd.h>
+#endif // !defined(__CATALINA__)
 #endif
 
 
+
+#include <assert.h>
+
+
+
+#include <string.h>
+
+
+#include <stdbool.h>
+
+
+#include <errno.h>
 
 bool path_is_normalized(const char* path)
 {
@@ -16643,6 +16876,8 @@ bool file_exists(const char* path)
     return true;
 }
 
+#if !defined(__CATALYST__)
+
 bool path_is_regular_file(const char* path)
 {
     if (!path || !path[0])
@@ -16661,6 +16896,8 @@ long long file_mtime(const char* path)
         return 0;
     return (long long)st.st_mtime;
 }
+
+#endif
 
 int create_multiple_paths(const char* root, const char* outdir)
 {
@@ -16978,6 +17215,17 @@ int get_self_path(char* buffer, int maxsize) {
     buffer[maxsize - 1] = '\0';
     return 0;
 }
+#elif defined(__CATALYST__)
+
+// under Catalyst, always use the root directory
+int get_self_path(char* buffer, int maxsize)
+{
+   if (maxsize <= 0)
+      return 1;
+   snprintf(buffer, maxsize, "%s", "/");
+   return 0;
+}
+
 #else
 
 int get_self_path(char* buffer, int maxsize)
@@ -20470,48 +20718,53 @@ static const char file_stdio_h[] = {
 ,42,32,115,116,114,101,97,109,41,59,10,32,32,32,32,32,32,32,32,70,73,76,69,42,32
 ,95,79,119,110,101,114,32,95,79,112,116,32,95,102,100,111,112,101,110,40,105,110,116,32,102
 ,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32,109,111,100,101,41,59,10,32,32,32
-,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,10,10,32,32,32,32,35,105,102,100
-,101,102,32,95,87,73,78,54,52,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102
-,32,115,116,114,117,99,116,32,95,105,111,98,117,102,32,70,73,76,69,59,10,32,32,32,32
-,32,32,32,32,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103
-,32,108,111,110,103,32,115,105,122,101,95,116,59,10,32,32,32,32,35,101,108,105,102,32,100
-,101,102,105,110,101,100,32,95,87,73,78,51,50,10,32,32,32,32,32,32,32,32,116,121,112
-,101,100,101,102,32,115,116,114,117,99,116,32,95,105,111,98,117,102,32,70,73,76,69,59,10
-,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32
-,105,110,116,32,32,32,32,32,115,105,122,101,95,116,59,10,32,32,32,32,35,101,110,100,105
-,102,10,10,32,32,32,32,35,105,102,100,101,102,32,95,95,108,105,110,117,120,95,95,10,10
-,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,73
-,79,95,70,73,76,69,32,70,73,76,69,59,10,32,32,32,32,32,32,32,32,116,121,112,101
-,100,101,102,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32,115,105,122,101,95,116,59
-,32,47,47,32,118,97,108,105,100,32,115,105,110,99,101,32,67,50,51,10,10,32,32,32,32
-,35,101,110,100,105,102,10,10,32,32,32,32,35,105,102,100,101,102,32,95,95,65,80,80,76
-,69,95,95,10,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,115,116,114,117
-,99,116,32,95,95,115,70,73,76,69,32,70,73,76,69,59,10,32,32,32,32,32,32,32,32
-,116,121,112,101,100,101,102,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32,115,105,122
-,101,95,116,59,10,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,105,110,116
-,32,115,110,112,114,105,110,116,102,40,95,79,117,116,32,99,104,97,114,42,32,99,111,110,115
-,116,32,95,66,117,102,102,101,114,44,32,115,105,122,101,95,116,32,99,111,110,115,116,32,95
-,66,117,102,102,101,114,67,111,117,110,116,44,32,99,104,97,114,32,99,111,110,115,116,42,32
-,99,111,110,115,116,32,95,70,111,114,109,97,116,44,32,46,46,46,41,59,10,10,32,32,32
-,32,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112,116,32,102,111,112,101,110,40
-,99,104,97,114,32,99,111,110,115,116,42,32,95,70,105,108,101,78,97,109,101,44,32,99,104
-,97,114,32,99,111,110,115,116,42,32,95,77,111,100,101,41,59,10,32,32,32,32,105,110,116
-,32,102,99,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,95,83,116,114
-,101,97,109,41,59,10,10,32,32,32,32,35,105,102,32,100,101,102,105,110,101,100,32,95,95
-,108,105,110,117,120,95,95,32,124,124,32,100,101,102,105,110,101,100,32,95,95,65,80,80,76
-,69,95,95,10,32,32,32,32,32,32,32,32,70,73,76,69,42,32,95,79,119,110,101,114,32
-,95,79,112,116,32,112,111,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,95,67
-,111,109,109,97,110,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32,95,77,111,100,101
-,41,59,10,32,32,32,32,32,32,32,32,105,110,116,32,112,99,108,111,115,101,40,70,73,76
-,69,42,32,95,79,119,110,101,114,32,95,83,116,114,101,97,109,41,59,10,32,32,32,32,35
-,101,110,100,105,102,10,10,32,32,32,32,115,105,122,101,95,116,32,102,114,101,97,100,40,10
-,32,32,32,32,32,32,32,32,32,32,32,32,95,79,117,116,32,118,111,105,100,42,32,95,66
-,117,102,102,101,114,44,10,32,32,32,32,32,32,32,32,32,32,32,32,115,105,122,101,95,116
-,32,95,69,108,101,109,101,110,116,83,105,122,101,44,10,32,32,32,32,32,32,32,32,32,32
-,32,32,115,105,122,101,95,116,32,95,69,108,101,109,101,110,116,67,111,117,110,116,44,10,32
-,32,32,32,32,32,32,32,32,32,32,32,70,73,76,69,42,32,95,83,116,114,101,97,109,10
-,32,32,32,32,41,59,10,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116
-,32,60,115,116,100,105,111,46,104,62,10,35,101,110,100,105,102,10
+,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,10,32,32,32,32,35,105,102,100,101
+,102,32,95,95,67,65,84,65,76,73,78,65,95,95,10,10,32,32,32,32,32,32,32,32,116
+,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,95,105,111,98,117,102,32,70,73,76
+,69,59,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,117,110,115,105,103,110
+,101,100,32,105,110,116,32,115,105,122,101,95,116,59,10,10,32,32,32,32,35,101,108,115,101
+,10,10,32,32,32,32,35,105,102,100,101,102,32,95,87,73,78,54,52,10,32,32,32,32,32
+,32,32,32,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,105,111,98,117,102,32
+,70,73,76,69,59,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,117,110,115
+,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,115,105,122,101,95,116,59,10,32
+,32,32,32,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95,87,73,78,51,50,10,32
+,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,95,105,111
+,98,117,102,32,70,73,76,69,59,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102
+,32,117,110,115,105,103,110,101,100,32,105,110,116,32,32,32,32,32,115,105,122,101,95,116,59
+,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,35,105,102,100,101,102,32,95
+,95,108,105,110,117,120,95,95,10,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102
+,32,115,116,114,117,99,116,32,95,73,79,95,70,73,76,69,32,70,73,76,69,59,10,32,32
+,32,32,32,32,32,32,116,121,112,101,100,101,102,32,95,95,83,73,90,69,95,84,89,80,69
+,95,95,32,115,105,122,101,95,116,59,32,47,47,32,118,97,108,105,100,32,115,105,110,99,101
+,32,67,50,51,10,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,35,101,110
+,100,105,102,10,10,32,32,32,32,35,105,102,100,101,102,32,95,95,65,80,80,76,69,95,95
+,10,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32
+,95,95,115,70,73,76,69,32,70,73,76,69,59,10,32,32,32,32,32,32,32,32,116,121,112
+,101,100,101,102,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32,115,105,122,101,95,116
+,59,10,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,105,110,116,32,115,110
+,112,114,105,110,116,102,40,95,79,117,116,32,99,104,97,114,42,32,99,111,110,115,116,32,95
+,66,117,102,102,101,114,44,32,115,105,122,101,95,116,32,99,111,110,115,116,32,95,66,117,102
+,102,101,114,67,111,117,110,116,44,32,99,104,97,114,32,99,111,110,115,116,42,32,99,111,110
+,115,116,32,95,70,111,114,109,97,116,44,32,46,46,46,41,59,10,10,32,32,32,32,70,73
+,76,69,42,32,95,79,119,110,101,114,32,95,79,112,116,32,102,111,112,101,110,40,99,104,97
+,114,32,99,111,110,115,116,42,32,95,70,105,108,101,78,97,109,101,44,32,99,104,97,114,32
+,99,111,110,115,116,42,32,95,77,111,100,101,41,59,10,32,32,32,32,105,110,116,32,102,99
+,108,111,115,101,40,70,73,76,69,42,32,95,79,119,110,101,114,32,95,83,116,114,101,97,109
+,41,59,10,10,32,32,32,32,35,105,102,32,100,101,102,105,110,101,100,32,95,95,108,105,110
+,117,120,95,95,32,124,124,32,100,101,102,105,110,101,100,32,95,95,65,80,80,76,69,95,95
+,10,32,32,32,32,32,32,32,32,70,73,76,69,42,32,95,79,119,110,101,114,32,95,79,112
+,116,32,112,111,112,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,95,67,111,109,109
+,97,110,100,44,32,99,111,110,115,116,32,99,104,97,114,42,32,95,77,111,100,101,41,59,10
+,32,32,32,32,32,32,32,32,105,110,116,32,112,99,108,111,115,101,40,70,73,76,69,42,32
+,95,79,119,110,101,114,32,95,83,116,114,101,97,109,41,59,10,32,32,32,32,35,101,110,100
+,105,102,10,10,32,32,32,32,115,105,122,101,95,116,32,102,114,101,97,100,40,10,32,32,32
+,32,32,32,32,32,32,32,32,32,95,79,117,116,32,118,111,105,100,42,32,95,66,117,102,102
+,101,114,44,10,32,32,32,32,32,32,32,32,32,32,32,32,115,105,122,101,95,116,32,95,69
+,108,101,109,101,110,116,83,105,122,101,44,10,32,32,32,32,32,32,32,32,32,32,32,32,115
+,105,122,101,95,116,32,95,69,108,101,109,101,110,116,67,111,117,110,116,44,10,32,32,32,32
+,32,32,32,32,32,32,32,32,70,73,76,69,42,32,95,83,116,114,101,97,109,10,32,32,32
+,32,41,59,10,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115
+,116,100,105,111,46,104,62,10,35,101,110,100,105,102,10
 , 0 };
 static const char file_stdlib_h[] = {
 
@@ -20704,51 +20957,55 @@ static const char file_stdlib_h[] = {
 ,101,44,32,115,105,122,101,95,116,32,97,108,105,103,110,109,101,110,116,41,59,10,32,32,32
 ,32,32,32,32,32,118,111,105,100,32,95,97,108,105,103,110,101,100,95,102,114,101,101,40,118
 ,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,112,116,114,41,59,10,32,32
-,32,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,10,10,32,32,32,32,35,105,102
-,100,101,102,32,95,87,73,78,54,52,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101
-,102,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,115,105,122,101
-,95,116,59,10,32,32,32,32,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95,87,73
-,78,51,50,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,117,110,115,105,103
-,110,101,100,32,105,110,116,32,32,32,32,32,115,105,122,101,95,116,59,10,32,32,32,32,35
-,101,110,100,105,102,10,10,32,32,32,32,35,105,102,100,101,102,32,95,95,108,105,110,117,120
-,95,95,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,95,95,83,73,90,69
-,95,84,89,80,69,95,95,32,115,105,122,101,95,116,59,10,32,32,32,32,35,101,110,100,105
-,102,10,10,32,32,32,32,35,105,102,100,101,102,32,95,95,65,80,80,76,69,95,95,10,32
-,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,95,95,83,73,90,69,95,84,89,80
-,69,95,95,32,115,105,122,101,95,116,59,10,32,32,32,32,35,101,110,100,105,102,10,10,10
-,32,32,32,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,95,67,108
-,101,97,114,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101,109,98,44,32
-,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32,32,32,32,118,111,105,100,32,102,114
-,101,101,40,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,112,116,114,41
-,59,10,32,32,32,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,95
-,85,110,105,110,105,116,105,97,108,105,122,101,100,32,109,97,108,108,111,99,40,115,105,122,101
-,95,116,32,115,105,122,101,41,59,10,32,32,32,32,118,111,105,100,42,32,95,79,119,110,101
-,114,32,95,79,112,116,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,95,79,112,116
-,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,10,10,32,32,32
-,32,108,111,110,103,32,115,116,114,116,111,108,40,99,104,97,114,32,99,111,110,115,116,42,32
-,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69,110,100
-,80,116,114,44,32,105,110,116,32,95,82,97,100,105,120,41,59,10,32,32,32,32,108,111,110
-,103,32,108,111,110,103,32,115,116,114,116,111,108,108,40,99,104,97,114,32,99,111,110,115,116
+,32,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,10,32,32,32,32,35,105,102,100
+,101,102,32,95,95,67,65,84,65,76,73,78,65,95,95,10,32,32,32,32,32,32,32,32,116
+,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,105,110,116,32,32,32,32,32,115
+,105,122,101,95,116,59,10,32,32,32,32,35,101,108,115,101,10,32,32,32,32,35,105,102,100
+,101,102,32,95,87,73,78,54,52,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102
+,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,115,105,122,101,95
+,116,59,10,32,32,32,32,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95,87,73,78
+,51,50,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,117,110,115,105,103,110
+,101,100,32,105,110,116,32,32,32,32,32,115,105,122,101,95,116,59,10,32,32,32,32,35,101
+,110,100,105,102,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,35,105,102,100
+,101,102,32,95,95,108,105,110,117,120,95,95,10,32,32,32,32,32,32,32,32,116,121,112,101
+,100,101,102,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32,115,105,122,101,95,116,59
+,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,35,105,102,100,101,102,32,95
+,95,65,80,80,76,69,95,95,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32
+,95,95,83,73,90,69,95,84,89,80,69,95,95,32,115,105,122,101,95,116,59,10,32,32,32
+,32,35,101,110,100,105,102,10,10,10,32,32,32,32,118,111,105,100,42,32,95,79,119,110,101
+,114,32,95,79,112,116,32,95,67,108,101,97,114,32,99,97,108,108,111,99,40,115,105,122,101
+,95,116,32,110,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32
+,32,32,32,118,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32,95,79,119,110,101,114
+,32,95,79,112,116,32,112,116,114,41,59,10,32,32,32,32,118,111,105,100,42,32,95,79,119
+,110,101,114,32,95,79,112,116,32,95,85,110,105,110,105,116,105,97,108,105,122,101,100,32,109
+,97,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32,32,32,32,118
+,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,114,101,97,108,108,111,99,40
+,118,111,105,100,42,32,95,79,112,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105
+,122,101,41,59,10,10,10,32,32,32,32,108,111,110,103,32,115,116,114,116,111,108,40,99,104
+,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42
+,32,95,79,112,116,32,95,69,110,100,80,116,114,44,32,105,110,116,32,95,82,97,100,105,120
+,41,59,10,32,32,32,32,108,111,110,103,32,108,111,110,103,32,115,116,114,116,111,108,108,40
+,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114
+,42,42,32,95,79,112,116,32,95,69,110,100,80,116,114,44,32,105,110,116,32,95,82,97,100
+,105,120,41,59,10,32,32,32,32,100,111,117,98,108,101,32,115,116,114,116,111,100,40,99,104
+,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42
+,32,95,79,112,116,32,95,69,110,100,80,116,114,41,59,10,32,32,32,32,108,111,110,103,32
+,100,111,117,98,108,101,32,115,116,114,116,111,108,100,40,99,104,97,114,32,99,111,110,115,116
 ,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69
-,110,100,80,116,114,44,32,105,110,116,32,95,82,97,100,105,120,41,59,10,32,32,32,32,100
-,111,117,98,108,101,32,115,116,114,116,111,100,40,99,104,97,114,32,99,111,110,115,116,42,32
-,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69,110,100
-,80,116,114,41,59,10,32,32,32,32,108,111,110,103,32,100,111,117,98,108,101,32,115,116,114
-,116,111,108,100,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44
-,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69,110,100,80,116,114,41,59,10,32,32
-,32,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,115,116,114,116
-,111,117,108,108,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44
-,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69,110,100,80,116,114,44,32,105,110,116
-,32,95,82,97,100,105,120,41,59,10,32,32,32,32,102,108,111,97,116,32,115,116,114,116,111
-,102,40,99,104,97,114,32,99,111,110,115,116,42,32,95,83,116,114,105,110,103,44,32,99,104
-,97,114,42,42,32,95,79,112,116,32,95,69,110,100,80,116,114,41,59,10,10,32,32,32,32
-,99,104,97,114,42,32,95,79,112,116,32,95,102,117,108,108,112,97,116,104,40,99,104,97,114
-,42,32,95,79,112,116,32,97,98,115,80,97,116,104,44,32,99,111,110,115,116,32,99,104,97
-,114,42,32,114,101,108,80,97,116,104,44,32,115,105,122,101,95,116,32,109,97,120,76,101,110
-,103,116,104,41,59,10,10,32,32,32,32,47,42,32,46,46,116,104,101,110,32,108,101,116,115
-,32,105,110,99,108,117,100,101,32,116,104,101,32,115,121,115,116,101,109,32,104,101,97,100,101
-,114,115,32,46,46,46,32,42,47,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101
-,120,116,32,60,115,116,100,108,105,98,46,104,62,10,10,35,101,110,100,105,102,10
+,110,100,80,116,114,41,59,10,32,32,32,32,117,110,115,105,103,110,101,100,32,108,111,110,103
+,32,108,111,110,103,32,115,116,114,116,111,117,108,108,40,99,104,97,114,32,99,111,110,115,116
+,42,32,95,83,116,114,105,110,103,44,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69
+,110,100,80,116,114,44,32,105,110,116,32,95,82,97,100,105,120,41,59,10,32,32,32,32,102
+,108,111,97,116,32,115,116,114,116,111,102,40,99,104,97,114,32,99,111,110,115,116,42,32,95
+,83,116,114,105,110,103,44,32,99,104,97,114,42,42,32,95,79,112,116,32,95,69,110,100,80
+,116,114,41,59,10,10,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,95,102,117,108
+,108,112,97,116,104,40,99,104,97,114,42,32,95,79,112,116,32,97,98,115,80,97,116,104,44
+,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,108,80,97,116,104,44,32,115,105,122
+,101,95,116,32,109,97,120,76,101,110,103,116,104,41,59,10,10,32,32,32,32,47,42,32,46
+,46,116,104,101,110,32,108,101,116,115,32,105,110,99,108,117,100,101,32,116,104,101,32,115,121
+,115,116,101,109,32,104,101,97,100,101,114,115,32,46,46,46,32,42,47,10,32,32,32,32,35
+,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,108,105,98,46,104,62,10,10
+,35,101,110,100,105,102,10
 , 0 };
 static const char file_stdnoreturn_h[] = {
 
@@ -22196,6 +22453,18 @@ char* _Owner read_file(const char* path, bool append_newline)
 
 //#pragma safety enable
 
+
+#include <string.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
+#include <stdlib.h>
+
 #ifndef _Countof
 #define _Countof(X) (sizeof(X)/sizeof(X[0]))
 #endif
@@ -23161,6 +23430,9 @@ bool options_diagnostic_is_note(const struct options* options, enum diagnostic_i
 */
 
 
+
+#include <string.h>
+
 struct style_options style_options_cake(void)
 {
     struct style_options s  = {0};
@@ -23254,6 +23526,9 @@ struct style_options style_options_microsoft(void)
 //#pragma safety enable
 
 
+#include <stdlib.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -23273,12 +23548,24 @@ struct style_options style_options_microsoft(void)
 
 
 
+#include <stdbool.h>
+
+
+#include <wchar.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
 
 //#pragma once
+
+
+#include <stdbool.h>
+
+
+#include <stddef.h>
 
 
 struct parser_ctx;
@@ -24040,6 +24327,15 @@ struct object object_shift_right(const struct platform* target,
 
 
 
+#include <limits.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -24047,6 +24343,12 @@ struct object object_shift_right(const struct platform* target,
 
 //#pragma once
 
+
+
+#include <stdio.h>
+
+
+#include <errno.h>
 
 
 /*
@@ -24360,6 +24662,9 @@ struct marker expression_to_marker(const struct expression* p_expression);
 
 void flow_expression_to_string(const struct expression* p_expression, struct osstream* oss);
 
+
+
+#include <stdbool.h>
 
 
 struct scope
@@ -25330,6 +25635,7 @@ struct declarator
     struct declarator* _Opt p_complete_declarator;
 
     int num_uses; /*used to show not used warnings*/
+    int num_evaluated_uses; /*uses outside sizeof, typeof etc. (N3884 local function definition)*/
     int num_writes;
     bool address_taken;
     bool pointee_written;
@@ -25351,6 +25657,11 @@ struct declarator
       used in code generation to indicate when the declarator was renamed
     */
     bool declarator_renamed;
+
+    /*
+      source name before renaming (used by __func__ in local functions)
+    */
+    char* _Owner _Opt original_name;
 
     /*
       true once this declarator has been given an initializer,
@@ -26335,6 +26646,9 @@ const struct direct_declarator* _Opt get_innermost_direct_declarator(const struc
 
 
 
+
+
+#include <string.h>
 
 
 #include <math.h>
@@ -30223,6 +30537,21 @@ struct object object_shift_right(const struct platform* target,
 
 
 
+#include <limits.h>
+
+
+#include <stdlib.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
+
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake 
@@ -30251,6 +30580,9 @@ struct defer_visit_ctx
     /*-------------------------------*/
 
     struct declaration* _Opt p_declaration;
+
+    /* body of a function literal (it has no declaration) */
+    struct compound_statement* _Opt p_function_literal_body;
 };
 
 void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p);
@@ -30261,12 +30593,24 @@ void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
 
 
 
+#include <math.h>
+
+
 #include <float.h>
 
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 #if defined(_WIN32) && defined(__TINYC__)
@@ -33342,6 +33686,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 }
 
                 p_declarator->num_uses++;
+                if (ctx->unevaluated_operand_depth == 0)
+                    p_declarator->num_evaluated_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
 
@@ -33997,6 +34343,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 else if (type_is_array(&p_expression_node->object.type))
                 {
                     p_expression_node_new->object.type = get_array_item_type(&p_expression_node->object.type);
+
+                    /* an element of an object of the enclosing function (N3884) */
+                    p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 }
 
                 parser_match(ctx);
@@ -35547,11 +35896,13 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 if (new_expression->right->lvalue_disabled)
                 {
+                    /* lvalue_disabled is set only for objects of the enclosing function (N3884) */
                     diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
                                ctx,
                                new_expression->right->first_token,
                         NULL,
-                               "this expression cannot be used as lvalue");
+                               "cannot take the address of '%s' from the enclosing function",
+                               new_expression->right->first_token->lexeme);
                 }
 
                 /*
@@ -37339,6 +37690,27 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
     return p_expression_node;
 }
 
+/*
+  constexpr int a[2] = {1, 2};
+  static int local() { return *(a + 1); }
+  The array decays to a pointer to the object of the enclosing function (N3884).
+*/
+static void check_array_decay_from_enclosing_function(struct parser_ctx* ctx, const struct expression* p_expression)
+{
+    if (!p_expression->lvalue_disabled || !type_is_array(&p_expression->object.type))
+        return;
+
+    struct osstream ss_name = { 0 };
+    flow_expression_to_string(p_expression, &ss_name);
+    diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
+               ctx,
+               p_expression->first_token,
+               NULL,
+               "the usage of '%s' would require access to the object from the enclosing function, which is not allowed",
+               ss_name.c_str ? ss_name.c_str : "");
+    ss_close(&ss_name);
+}
+
 struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool is_discarded)
 {
     /*
@@ -37400,6 +37772,9 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
             }
 
             new_expression->last_token = new_expression->right->last_token;
+
+            check_array_decay_from_enclosing_function(ctx, new_expression->left);
+            check_array_decay_from_enclosing_function(ctx, new_expression->right);
 
             if (!type_is_scalar_decay(&new_expression->left->object.type))
             {
@@ -40779,12 +41154,36 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
 
 
 
+#include <stdlib.h>
+
+
 #include <locale.h>
 
+
+#include <assert.h>
+
+
+#include <limits.h>
+
+
+#include <errno.h>
+
+
+#include <stdio.h>
+
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 /*context expressions preprocessor*/
@@ -41821,6 +42220,27 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 
 
 
+#include <stdlib.h>
+
+
+#include <stdio.h>
+
+
+#include <stdarg.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
+
+#include <stddef.h>
+
+
+#include <ctype.h>
+
+
 
 /*
  *  This file is part of cake compiler
@@ -42095,6 +42515,9 @@ void object_set_destroy(_Dtor struct object_set* l);
 
 
 
+
+#include <time.h>
+
 struct flow_label_state
 {
     const char* label_name;
@@ -42257,7 +42680,13 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 
 
 
+
+#include <errno.h>
+
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 
@@ -42272,6 +42701,12 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
  
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
 
@@ -42397,6 +42832,12 @@ void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx);
 
 
 
+
+#include <time.h>
+
+
+
+#include <stddef.h>  // for NULL
 
 /* 
 * Anonymous structs/unions receive a name
@@ -46463,7 +46904,21 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
             struct scope* _Opt p_previous_scope = NULL;
             struct declarator* _Opt p_previous_declarator = find_declarator(ctx, func_name, &p_previous_scope);
-            if (p_previous_declarator && p_previous_declarator != p_declaration->init_declarator_list.head->p_declarator)
+            /*
+            * void f() { extern void g(); static void g() {} }
+            * already reported as a redeclaration with different linkage (N3884);
+            * the local definition must not complete the outer g.
+            */
+            const bool is_linkage_mismatch =
+                p_previous_declarator &&
+                p_previous_scope &&
+                p_previous_scope->scope_level > 0 &&
+                p_previous_declarator->declaration_specifiers &&
+                !(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                p_declaration->declaration_specifiers &&
+                (p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC);
+
+            if (p_previous_declarator && !is_linkage_mismatch && p_previous_declarator != p_declaration->init_declarator_list.head->p_declarator)
             {
                 p_previous_declarator->p_complete_declarator = p_declaration->init_declarator_list.head->p_declarator;
 
@@ -47064,6 +47519,28 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                                 NULL,
                                 "previous declaration");
                         }
+                        else if (out_scope->scope_level > 0 &&
+                                 (p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                                 !(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
+                        {
+                            /*
+                            * void f() {
+                            *   static void g();
+                            *   extern void g(); // error: g has no linkage here (N3884)
+                            * }
+                            */
+                            diagnostic(C_ERROR_REDECLARATION,
+                                ctx,
+                                ctx->current,
+                                NULL,
+                                "non-static declaration of '%s' follows local function declaration", declarator_name);
+
+                            diagnostic(W_LOCATION,
+                                ctx,
+                                p_previous_declarator->name_opt,
+                                NULL,
+                                "previous declaration");
+                        }
                     }
                 }
                 else
@@ -47110,7 +47587,20 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 * added to the scope; uses are counted on the outer declarator.
                 * An inner static function has no linkage (N3884 local functions),
                 * it is a different function.
+                *
+                * The outer declarator is registered in this scope too, so a
+                * later static declaration of the same name in this scope is
+                * a redeclaration with different linkage (N3884 EXAMPLE 8):
+                *
+                * void f() {
+                *   extern void g();
+                *   static void g() {} // error
+                * }
                 */
+                struct hash_item_set item = { 0 };
+                item.p_declarator = declarator_add_ref(p_previous_declarator);
+                hashmap_set(&ctx->scopes.tail->variables, declarator_name, &item);
+                hash_item_set_destroy(&item);
             }
             else
             {
@@ -47687,6 +48177,22 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         "storage size of '%s' isn't constant", p_init_declarator->p_declarator->name_opt->lexeme);
                 }
             }
+        }
+
+        if (ctx->scopes.tail &&
+            ctx->scopes.tail->scope_level > 0 &&
+            p_init_declarator->p_declarator->declaration_specifiers &&
+            type_is_function(&p_init_declarator->p_declarator->object.type) &&
+            (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags &
+             (STORAGE_SPECIFIER_AUTO | STORAGE_SPECIFIER_REGISTER | STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_CONSTEXPR)))
+        {
+            /*
+            * void f() { auto void g(void); }
+            * N3884: block scope function declarations can only use extern or static
+            */
+            diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
+                p_init_declarator->p_declarator->first_token_opt, NULL,
+                "function declared in block scope can only have the 'extern' or 'static' storage-class specifier");
         }
 
         /* 
@@ -51370,6 +51876,7 @@ void declarator_delete(struct declarator* _Owner _Opt p)
         object_destroy(&p->object);
         expression_delete(p->p_expression_true);
         expression_delete(p->p_expression_false);
+        free(p->original_name);
         free(p);
     }
 }
@@ -54757,7 +55264,25 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     NULL,
                     "case label not within a switch statement");
 
-                throw;
+                /*
+                * not fatal: consume the label and keep parsing, otherwise inside
+                * a function literal the enclosing expression reports a second error
+                * void f(int n) { switch (n) { case 1: (static void (void)){ case 2: ; }; } }
+                */
+                parser_match(ctx);
+                p_label->constant_expression = constant_expression(ctx, true, false);
+                if (p_label->constant_expression == NULL)
+                    throw;
+                if (ctx->current && ctx->current->type == '...')
+                {
+                    parser_match(ctx);
+                    p_label->constant_expression_end = constant_expression(ctx, true, false);
+                    if (p_label->constant_expression_end == NULL)
+                        throw;
+                }
+                if (parser_match_tk(ctx, ':') != 0)
+                    throw;
+                return p_label;
             }
 
             parser_match(ctx);
@@ -54951,7 +55476,12 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                     ctx->current,
                     NULL,
                     "default case not within a switch statement");
-                throw;
+
+                /* not fatal, see case above */
+                parser_match(ctx);
+                if (parser_match_tk(ctx, ':') != 0)
+                    throw;
+                return p_label;
             }
 
             struct label* _Opt p_existing_default_label = case_label_list_find_default( &ctx->p_current_switch_statement->label_list);
@@ -55269,6 +55799,25 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                 else
                 {
                     p_declarator = entry->data.p_declarator;
+                }
+
+                if (p_declarator &&
+                    p_declarator->num_evaluated_uses > 0 &&
+                    p_declarator->declaration_specifiers &&
+                    (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
+                    type_is_function(&p_declarator->object.type) &&
+                    declarator_get_function_definition(p_declarator) == NULL &&
+                    p_declarator->name_opt)
+                {
+                    /*
+                    * void f() { static void g(void); g(); }
+                    * N3884: a local function that is used must be defined in the same scope
+                    */
+                    diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE,
+                        ctx,
+                        p_declarator->name_opt, NULL,
+                        "local function '%s' used but not defined",
+                        p_declarator->name_opt->lexeme);
                 }
 
                 if (p_declarator)
@@ -57912,6 +58461,10 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     struct selection_statement* _Opt p_current_switch_statement = ctx->p_current_switch_statement;
     ctx->p_current_switch_statement = NULL;
 
+    /* break/continue cannot leave a local function (N3884) */
+    const struct iteration_statement* _Opt p_current_iteration_statement = ctx->p_current_iteration_statement;
+    ctx->p_current_iteration_statement = NULL;
+
     struct label_list label_list = { 0 };
     label_list_swap(&label_list, &ctx->label_list);
 
@@ -57932,6 +58485,7 @@ struct compound_statement* _Owner _Opt function_body(struct parser_ctx* ctx)
     ctx->p_current_try_statement_opt = p_current_try_statement_opt;
     ctx->p_current_defer_statement_opt = p_current_defer_statement_opt;
     ctx->p_current_switch_statement = p_current_switch_statement;
+    ctx->p_current_iteration_statement = p_current_iteration_statement;
 
     label_list_destroy(&label_list);
     return p_compound_statement;
@@ -59085,6 +59639,9 @@ int initializer_init_new(struct parser_ctx* ctx,
 //#pragma once
 
 
+#include <stdbool.h>
+
+
 struct report;
 int compile(int argc, const char** argv, struct report* report);
 const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
@@ -59109,12 +59666,39 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
 
 void print_report(const struct report* report);
 
+
+#include <stdlib.h>
+
+
+#include <ctype.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
 #ifdef _WIN32
+
+
+#include <Windows.h>
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+
+
+#include <debugapi.h>
 #endif
 
+
+
+#include <time.h>
 
 static char* _Opt strrchr2(const char* s, int c)
 {
@@ -59242,6 +59826,63 @@ static int collect_system_include_dirs(struct json_value* dirs)
 #else
     pclose(fp);
 #endif
+    return 0;
+
+#elif defined(__CATALINA__)
+
+    /* Read straight out of LCCDIR */
+    char *env = getenv("LCCDIR");
+    if (env == NULL) {
+        printf("LCCDIR not found, run cake -autoconfig inside a Catalina command line window or under Catalyst\n");
+        return -1;
+    }
+
+    const char* p = env;
+    for (;;)
+    {
+#if !defined(__CATALYST__)
+        // for Catalyst, need to include "/include/"
+        // if LCCDIR does not exist or is empty!
+        if (*p == '\0')
+            break;
+#endif
+
+        char filename_local[500] = { 0 };
+        const int max_count = (int)(sizeof(filename_local) - sizeof("/include/"));
+        int count = 0;
+        while (*p != '\0' && (*p != ';' && *p != '\n'))
+        {
+            if (count < max_count)
+                filename_local[count++] = *p;
+            p++;
+        }
+        filename_local[count] = 0;
+
+        if (count > 0)
+        {
+            strcat(filename_local, "/include/");
+            char* pch = filename_local;
+            while (*pch)
+            {
+                if (*pch == '\\')
+                    *pch = '/';
+                pch++;
+            }
+
+            json_add_string(dirs, filename_local);
+        }
+#if defined(__CATALYST__)
+        else {
+            // for Catalyst, if LCCDIR is empty,
+            // explicitly add "/include/"
+            json_add_string(dirs, "/include/");
+        }
+#endif
+        if (*p == '\0')
+            break;
+        p++;
+    }
+
     return 0;
 
 #elif defined(__linux__) || defined(__APPLE__)
@@ -59449,11 +60090,15 @@ int compile_one_file(const char* file_name,
 
     bool color_enabled = !options->color_disabled;
 
+#if !defined(__CATALINA__)
+    // For Catalina, don't print the name of each file processed
+    // (there will usually be only one file)
     if (!options_is_report_mode(options))
     {
         print_path(file_name, true);
         printf("\n");
     }
+#endif // !defined(__CATALINA__)
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.options = *options;
@@ -59662,8 +60307,37 @@ int compile_one_file(const char* file_name,
                 FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
                 if (outfile)
                 {
+#if defined(__CATALINA__)
+                    if (p_output_string) {
+                        // catalina needs its builtins included in the output
+                        // (e.g. __builtin_alloca()) to compile them correctly
+                        if (builtin[0] != '\0') {
+                           if (options->line_directives) {
+                              // Catalina requires an initial #line directive
+                              // to correctly generate debug information, so
+                              // if we have builtins, we add one first
+                              char new_file[512] = "";
+                              snprintf(new_file, sizeof new_file, "%s", file_name);
+                              const size_t nlen = strlen(new_file);
+#if defined(_WIN32) || defined(_WIN64)
+                              // Catalina doesn't understand normalized paths
+                              // on Windows so denormalize it
+                              for (size_t i = 0; i < nlen; i++) {
+                                 if (new_file[i] == '/') {
+                                    new_file[i] = '\\';
+                                 }
+                              }
+#endif
+                              fprintf(outfile, "#line 1 \"%s\"\n", new_file);
+                           }
+                           fprintf(outfile, "%s", builtin);
+                        }
+                        fprintf(outfile, "%s", p_output_string);
+                    }
+#else // defined(__CATALINA__)
                     if (p_output_string)
                         fprintf(outfile, "%s", p_output_string);
+#endif // defined(__CATALINA__)
 
                     const bool write_error = ferror(outfile) != 0;
                     if (fclose(outfile) != 0 || write_error)
@@ -60823,6 +61497,24 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
 
 
 
+#include <stdlib.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
+
+#include <ctype.h> 
+
+
+
+#include <stdint.h>
+
+
+#include <limits.h>
+
 
 /*
  * We maintain a stack of items—blocks, defers, variables—
@@ -61411,12 +62103,19 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
 
             label_ctx.searching_label_mode = true;
             label_ctx.label_name = p_jump_statement->label->lexeme;
-            if (ctx->p_declaration == NULL)
+            if (ctx->p_declaration)
+            {
+                defer_start_visit_declaration(&label_ctx, ctx->p_declaration);
+            }
+            else if (ctx->p_function_literal_body)
+            {
+                /* (static void (void)){ goto L; L:; } */
+                defer_start_visit_compound_statement(&label_ctx, ctx->p_function_literal_body, NULL);
+            }
+            else
             {
                 throw;
             }
-
-            defer_start_visit_declaration(&label_ctx, ctx->p_declaration);
 
             
 
@@ -61690,34 +62389,11 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
         break;
 
         case EXPR_POSTFIX_FUNCTION_LITERAL:
-        {
-            _Assert(p_expression->compound_statement != NULL);
-
-            // TODO missing parameters of literal functions
-            // without it static analysis will not work
-            defer_visit_compound_statement(ctx, p_expression->compound_statement);
-            // _Assert(ctx->tail_block == NULL);
-            // struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
-            // if (p_defer == NULL)
-            // {
-            // return;
-            // }
-            // p_defer->p_function_body = p_declaration->function_body;
-
-            // defer_visit_typen(ctx, p_declaration);
-            // _Assert(p_declaration->function_body != NULL); //defer_visit_declaration does not change this
-
-            // parameters
-            // if (ctx->tail_block)
-            // {
-            // //exit_block_visit(ctx,
-            // ctx->tail_block,
-            // p_expression->compound_statement->last_token,
-            // &p_expression->defer_list);
-            // }
-
-            //
-        }
+            /*
+            * The body of a function literal is a separate function, already
+            * visited when it was parsed (see defer_start_visit_compound_statement
+            * in expressions.c). Visiting it again here duplicated its defers.
+            */
         break;
         default:
         break;
@@ -61936,6 +62612,7 @@ void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
     try
     {
         _Assert(ctx->tail_block == NULL);
+        ctx->p_function_literal_body = p_compound_statement;
         struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
         if (p_defer == NULL)
         {
@@ -62028,6 +62705,30 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 
 //#pragma safety enable
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdio.h>
+
+
+#include <assert.h>
+
+
+#include <limits.h>
+
+
+#include <stdint.h>
+
+
+#include <time.h>
+
+
+#include <ctype.h>
 
 /*
 *  Prefix used to create file scope declarators
@@ -62147,6 +62848,12 @@ int generate_file_scope_new_name(const struct codegen_ctx* ctx, const char* curr
     return 1;
 }
 
+static void declarator_save_original_name(struct declarator* p_declarator)
+{
+    if (p_declarator->original_name == NULL && p_declarator->name_opt)
+        p_declarator->original_name = strdup(p_declarator->name_opt->lexeme);
+}
+
 int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     try
@@ -62180,6 +62887,7 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
                         {
                             char* _Opt _Owner temp = strdup(new_name);
                             if (temp == NULL) throw;
+                            declarator_save_original_name(p_init_declarator->p_declarator);
                             free(p_init_declarator->p_declarator->name_opt->lexeme);
                             p_init_declarator->p_declarator->name_opt->lexeme = temp;
                         }
@@ -62210,6 +62918,7 @@ int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, str
         {
             char* _Opt _Owner temp = strdup(qualified_name);
             if (temp == NULL) throw;
+            declarator_save_original_name(p_init_declarator->p_declarator);
             free(p_init_declarator->p_declarator->name_opt->lexeme);
             p_init_declarator->p_declarator->name_opt->lexeme = temp;
         }
@@ -64881,8 +65590,12 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             char name[220] = { 0 };
             if (ctx->p_current_function_opt->name_opt)
             {
-                snprintf(func_name, sizeof func_name, "%s", ctx->p_current_function_opt->name_opt->lexeme);
-                snprintf(name, sizeof(name), "__cake_func_%s", func_name);
+                /* local functions are renamed; __func__ is the source name (N3884) */
+                const char* source_name = ctx->p_current_function_opt->original_name ?
+                    ctx->p_current_function_opt->original_name :
+                    ctx->p_current_function_opt->name_opt->lexeme;
+                snprintf(func_name, sizeof func_name, "%s", source_name);
+                snprintf(name, sizeof(name), "__cake_func_%s", ctx->p_current_function_opt->name_opt->lexeme);
             }
             else
             {
@@ -68982,6 +69695,12 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
                 object_print_initialization_list(ctx, ss, member, first);
                 member = member->next;
                 index++;
+#if defined(__CATALINA__)
+                if (index % 25 == 0)
+                {
+                   ss_fprintf(ss, "\n");
+                }
+#endif
             }
         }
     }
@@ -70292,6 +71011,9 @@ size_t clean_line_directives(char* buf)
 
     char current_file[512] = "";
     int expected_line = 1;
+#if defined(__CATALINA__)
+    int first_line = 1; /* per call: each output buffer starts fresh */
+#endif
 
     while (*r)
     {
@@ -70318,10 +71040,33 @@ size_t clean_line_directives(char* buf)
                 if (nlen >= sizeof(new_file)) nlen = sizeof(new_file) - 1;
                 memcpy(new_file, &dir_fname[1], nlen);
                 new_file[nlen] = '\0';
+#if defined(__CATALINA__) && (defined(_WIN32) || defined(_WIN64))
+                // Catalina doesn't understand normalized paths on Windows
+                // so denormalize it
+                for (size_t i = 0; i < nlen; i++) {
+                   if (new_file[i] == '/') {
+                      new_file[i] = '\\';
+                   }
+                }
+#endif
             }
 
             int line_needed = (dir_line_num != expected_line);
             int file_needed = (dir_fname != NULL && strcmp(new_file, current_file) != 0);
+
+#if defined(__CATALINA__)
+            // Catalina automatically includes a #line with the file name
+            // as the first line (in order to make builtins like alloca()
+            // work correctly - see compile.h) so don't add the file name
+            // in the first #line (but remember the file name!)
+            if (first_line) {
+                if (file_needed) {
+                     strncpy(current_file, new_file, sizeof(current_file) - 1);
+                }
+                file_needed = 0;
+                first_line = 0;
+            }
+#endif
 
             if (line_needed || file_needed)
             {
@@ -70385,6 +71130,14 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                        ctx->options.platform.name,
                        timestamp);
         }
+
+#if defined(__CATALINA__)
+        if (ctx->options.line_directives) {
+           const struct token* _Opt tail = ctx->p_ast->token_list.tail;
+           if (tail && tail->token_origin)
+              ss_fprintf(oss, "#line 1 \"%s\"\n", tail->token_origin->lexeme);
+        }
+#endif
 
         ctx->indentation = 0;
 
@@ -70617,6 +71370,21 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
 //#pragma safety enable
 
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdio.h>
+
+
+#include <limits.h>
+
+
+#include <stdint.h>
 
 
 #define FLOW_ALT_POOL_BLOCK_NODES 4096
@@ -71410,6 +72178,18 @@ bool flow_alternative_can_be_zero(const struct flow_alternative* alt)
 
 //#pragma safety enable
 
+
+
+#include <stdlib.h>
+
+
+#include <string.h>
+
+
+#include <stdint.h>
+
+
+#include <stdio.h>
 
 
 enum
@@ -73085,6 +73865,30 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
 
 //#pragma safety enable
 
+
+
+#include <stdlib.h>
+
+
+#include <assert.h>
+
+
+#include <string.h>
+
+
+#include <ctype.h>
+
+
+#include <stdlib.h>
+
+
+#include <stdint.h>
+
+
+#include <limits.h>
+
+
+#include <stdio.h>
 
 /* flow reaches the object an expression stands for through its REF alternatives
    (flow_branch_search_up); p_ref is a parse-time link that is NULL or a
@@ -79095,15 +79899,25 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                            rather than a pointer-kind alternative. Recognise
                            that as a base too -- via the operand's static type,
                            which no invalidation can change -- so the guard's
-                           non-nullness survives the arithmetic. */
+                           non-nullness survives the arithmetic. A string
+                           literal is a SIGNED `== 1` (EXPR_PRIMARY_STRING_LITERAL)
+                           and reaches here as that through `c ? p : ""`; a
+                           pointer equal to a non-zero number is a base too
+                           (conditional-literal-pointer-arithmetic.c). */
                         const bool lbase = (lval->value_kind == FLOW_VALUE_KIND_PTR) ||
                             (lval->value_kind == FLOW_VALUE_KIND_REF && lval->value.p != NULL) ||
                             (type_is_pointer(&p_left->object.type) &&
-                             lval->value_relation == FLOW_RELATION_NOT_EQUAL);
+                             (lval->value_relation == FLOW_RELATION_NOT_EQUAL ||
+                              (lval->value_relation == FLOW_RELATION_EQUAL &&
+                               lval->value_kind == FLOW_VALUE_KIND_SIGNED &&
+                               lval->value.i != 0)));
                         const bool rbase = (rval->value_kind == FLOW_VALUE_KIND_PTR) ||
                             (rval->value_kind == FLOW_VALUE_KIND_REF && rval->value.p != NULL) ||
                             (type_is_pointer(&p_right->object.type) &&
-                             rval->value_relation == FLOW_RELATION_NOT_EQUAL);
+                             (rval->value_relation == FLOW_RELATION_NOT_EQUAL ||
+                              (rval->value_relation == FLOW_RELATION_EQUAL &&
+                               rval->value_kind == FLOW_VALUE_KIND_SIGNED &&
+                               rval->value.i != 0)));
 
                         const struct flow_alternative* _Opt base = NULL;
                         if (lbase && rnum2 && (op == '+' || op == '-'))
@@ -82807,8 +83621,13 @@ static bool flow_alternative_is_step(const struct flow_alternative* alt)
     return is_step;
 }
 
+/* The numeric values of e as [*p_min, *p_max]. One value, or (repeated
+   values allowed) several: `if (c) n++;` in a loop body leaves n {0, 1} after
+   one pass and {0, 1, 2} after two, a range still moving like a single value
+   (loop-counter-in-branch-widened.c). */
 static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
-                                     long long* out,
+                                     long long* p_min,
+                                     long long* p_max,
                                      bool allow_repeated_value,
                                      bool* _Opt p_is_step)
 {
@@ -82818,7 +83637,8 @@ static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
     }
 
     bool found = false;
-    long long value = 0;
+    long long min = 0;
+    long long max = 0;
 
     for (int i = 0; i < e->alternatives.size; i++)
     {
@@ -82849,7 +83669,7 @@ static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
             return false;
         }
 
-        if (found && (!allow_repeated_value || this_value != value))
+        if (found && !allow_repeated_value)
         {
             return false;
         }
@@ -82859,7 +83679,10 @@ static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
             *p_is_step = false;
         }
 
-        value = this_value;
+        if (!found || this_value < min)
+            min = this_value;
+        if (!found || this_value > max)
+            max = this_value;
         found = true;
     }
 
@@ -82868,7 +83691,8 @@ static bool flow_entry_numeric_value(const struct flow_key_alternatives* _Opt e,
         return false;
     }
 
-    *out = value;
+    *p_min = min;
+    *p_max = max;
     return true;
 }
 
@@ -82911,25 +83735,25 @@ static void flow_widen_loop_variant_objects(
         {
             for (const struct flow_key_alternatives* _Opt e = cur->buckets[i]; e; e = e->next)
             {
-                long long pass1_value = 0;
-                long long pass2_value = 0;
+                long long pass1_min = 0, pass1_max = 0;
+                long long pass2_min = 0, pass2_max = 0;
                 bool is_step = true;
 
                 if (!flow_entry_numeric_value(
-                    flow_branch_search_up(p_pass1_exit, e->p_obj_key), &pass1_value,
+                    flow_branch_search_up(p_pass1_exit, e->p_obj_key), &pass1_min, &pass1_max,
                     allow_repeated_value, NULL))
                 {
                     continue;
                 }
 
                 if (!flow_entry_numeric_value(
-                    flow_branch_search_up(p_pass2_exit, e->p_obj_key), &pass2_value,
+                    flow_branch_search_up(p_pass2_exit, e->p_obj_key), &pass2_min, &pass2_max,
                     allow_repeated_value, &is_step))
                 {
                     continue;
                 }
 
-                if (pass1_value == pass2_value)
+                if (pass1_min == pass2_min && pass1_max == pass2_max)
                 {
                     continue;
                 }
@@ -82957,8 +83781,16 @@ static void flow_widen_loop_variant_objects(
                 struct flow_widen_fact fact = { .relation = FLOW_RELATION_ANY, .value = ANY_VALUE };
                 if (is_step && type_is_signed_integer(&e->p_obj_key->type))
                 {
-                    fact.relation = pass2_value > pass1_value ? FLOW_RELATION_GREATER_EQUAL : FLOW_RELATION_LESS_EQUAL;
-                    fact.value = pass1_value;
+                    if (pass2_min >= pass1_min && pass2_max > pass1_max)
+                    {
+                        fact.relation = FLOW_RELATION_GREATER_EQUAL;
+                        fact.value = pass1_min;
+                    }
+                    else if (pass2_max <= pass1_max && pass2_min < pass1_min)
+                    {
+                        fact.relation = FLOW_RELATION_LESS_EQUAL;
+                        fact.value = pass1_max;
+                    }
                 }
                 facts[variants.size - 1] = fact;
             }
@@ -85336,6 +86168,18 @@ void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)
 //#pragma safety enable
 
 
+
+#include <stdio.h>
+
+
+#include <stdarg.h>
+
+
+#include <assert.h>
+
+
+#include <errno.h>
+
 #ifdef _WIN32
 
 
@@ -86177,6 +87021,27 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 //#pragma safety enable
 
 
+
+#include <limits.h>
+
+
+#include <assert.h>
+
+
+#include <stdbool.h>
+
+
+#include <stdio.h>
+
+
+#include <string.h>
+
+
+#include <inttypes.h>
+
+
+#include <assert.h>
+
 static char gcc_builtins[] =
 {
  #include "include/builtins/gcc_builtins.h.include"
@@ -86612,6 +87477,8 @@ void platform_default(_Out struct platform* p)
     platform_gcc(p, "arm64");
 #elif defined(__linux__) && defined(__arm__)
     platform_gcc(p, "arm32");
+#elif defined(__CATALINA__)
+    platform_catalina(p);
 #else
 #error "unknown host platform"
 #endif
@@ -86814,6 +87681,21 @@ void target_self_test()
 
 //#pragma safety enable
 
+
+
+#include <assert.h>
+
+
+#include <stdbool.h>
+
+
+#include <stdio.h>
+
+
+#include <string.h>
+
+
+#include <stdlib.h>
 
 
 #define TYPE_QUALIFIER_CAKE_MASK \
@@ -90377,6 +91259,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, cons
             unsigned long long result = 0;
             if (unsigned_long_long_mul(&result, sz, arraysize))
             {
+#if !defined(__CATALINA__)
 #if SIZE_MAX < 0xFFFFFFFFFFFFFFFFULL
                 /* Only meaningful when size_t is narrower than unsigned long
                    long -- on a 64-bit host SIZE_MAX == ULLONG_MAX, so
@@ -90389,6 +91272,7 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, cons
                 {
                     return SIZEOF_RESULT_OVERLOW;
                 }
+#endif
 #endif
 
                 /*

@@ -53,6 +53,13 @@
 #  define CC_NO_UNKNOWN_PRAGMA_WARNING ""
 #  define CC_C99    ""
 
+#elif defined(__CATALINA__)
+#  define COMPILER_CATALINA 1
+#  define CC " catalina "
+#  define CC_OUTPUT(X) " -o " X
+#  define CC_NO_UNKNOWN_PRAGMA_WARNING ""
+#  define CC_C99    "-C99"
+
 #else
 #  define COMPILER_UNKNOWN 1
 #endif

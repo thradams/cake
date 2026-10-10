@@ -39,7 +39,9 @@
 
 #else
 #include <stdlib.h>
+#if !defined(__CATALINA__)
 #include <unistd.h>
+#endif // !defined(__CATALINA__)
 #endif
 
 #include <assert.h>
@@ -164,6 +166,8 @@ bool file_exists(const char* path)
     return true;
 }
 
+#if !defined(__CATALYST__)
+
 bool path_is_regular_file(const char* path)
 {
     if (!path || !path[0])
@@ -182,6 +186,8 @@ long long file_mtime(const char* path)
         return 0;
     return (long long)st.st_mtime;
 }
+
+#endif
 
 int create_multiple_paths(const char* root, const char* outdir)
 {
@@ -497,6 +503,17 @@ int get_self_path(char* buffer, int maxsize) {
     buffer[maxsize - 1] = '\0';
     return 0;
 }
+#elif defined(__CATALYST__)
+
+// under Catalyst, always use the root directory
+int get_self_path(char* buffer, int maxsize)
+{
+   if (maxsize <= 0)
+      return 1;
+   snprintf(buffer, maxsize, "%s", "/");
+   return 0;
+}
+
 #else
 
 int get_self_path(char* buffer, int maxsize)

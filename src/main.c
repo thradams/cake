@@ -29,6 +29,10 @@
 #include "unit_test.c"
 #endif
 
+#if defined(__CATALYST__)
+#include <prop.h> // for setenv()
+#endif // defined(__CATALYST__)
+
 int main(int argc, char** argv)
 {
     enable_vt_mode();
@@ -94,6 +98,16 @@ int main(int argc, char** argv)
         printf("******* Memory leaks **********************\n");        
     }
 #endif
+
+#if defined(__CATALYST__)
+    if (result == EXIT_FAILURE) {
+        setenv("_EXIT_CODE", "1", 1);
+    }
+    else {
+        setenv("_EXIT_CODE", "0", 1);
+    }
+    _waitms(1000);
+#endif // defined(__CATALYST__)
 
     return result;
 }
