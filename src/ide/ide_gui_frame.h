@@ -16,8 +16,10 @@ void frame_free(struct frame_recorder* r);
 
 /* Recording starts; text is measured with `c`'s fonts. */
 void frame_begin(struct frame_recorder* r, struct gui_canvas* c);
-/* What changed, drawn into the canvas of frame_begin and in *painted; 0
- * when the picture is the same. */
+/*
+    What changed, drawn into the canvas of frame_begin and in *painted; 0
+    when the picture is the same.
+*/
 int frame_end(struct frame_recorder* r, int width, int height, struct gui_rect* painted);
 /* The next paint draws everything (a new back buffer, a new size). */
 void frame_invalidate(struct frame_recorder* r);

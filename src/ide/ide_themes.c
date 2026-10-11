@@ -1,21 +1,28 @@
-/* ide_themes.c - the IDE's five themes: Ambar, Dark, White, Nebula and
- * Xcode Dark, copied from the old IDE (ide.c) unchanged - struct gui_theme
- * has the same fields as its ui_theme.
- */
+/*
+    ide_themes.c - the IDE's five themes: Ambar, Dark, White, Nebula and
+    Xcode Dark, copied from the old IDE (ide.c) unchanged - struct gui_theme
+    has the same fields as its ui_theme.
+*/
 #include "ide_shell.h"
 
-/* Visual Studio Dark theme palette (editor #1E1E1E/#D4D4D4, chrome #2D2D30,
- * accent #007ACC). */
-/* "Ambar" - dark chrome with an amber accent (#F5C242): the accent
- * carries buttons, the active border, selection and keywords, with a
- * warm grey text ramp and a gruvbox-leaning syntax palette. Replaces
- * the old "Classic" entry, which was only ever a snapshot of the
- * framework default. */
+/*
+    Visual Studio Dark theme palette (editor #1E1E1E/#D4D4D4, chrome #2D2D30,
+    accent #007ACC).
+*/
+/*
+    "Ambar" - dark chrome with an amber accent (#F5C242): the accent
+    carries buttons, the active border, selection and keywords, with a
+    warm grey text ramp and a gruvbox-leaning syntax palette. Replaces
+    the old "Classic" entry, which was only ever a snapshot of the
+    framework default.
+*/
 const struct gui_theme ide_theme_ambar = {
-    /* NOTE: anything drawn ON the #F5C242 accent uses dark ink, not white -
-     * white scores 1.66:1 against this amber (unreadable), dark ink 10:1.
-     * Buttons are the exception: their text is light, so their hover state
-     * stays grey instead of turning amber. */
+    /*
+        NOTE: anything drawn ON the #F5C242 accent uses dark ink, not white -
+        white scores 1.66:1 against this amber (unreadable), dark ink 10:1.
+        Buttons are the exception: their text is light, so their hover state
+        stays grey instead of turning amber.
+    */
     .desktop_bg = GUI_RGB(0x1E, 0x1E, 0x20),
 
     .btn_bg = GUI_RGB(0x3A, 0x3A, 0x3F),
@@ -147,9 +154,11 @@ const struct gui_theme ide_theme_ambar = {
                                                        * dark panel keeps the
                                                        * plain light default */
 
-    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
-     * rather than reusing them directly, so Markdown reads as part of the
-     * same VS Code Dark palette. */
+    /*
+        UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+        rather than reusing them directly, so Markdown reads as part of the
+        same VS Code Dark palette.
+    */
     .md_heading_fg = GUI_RGB(0xF5, 0xC2, 0x42),     /* same VS blue as
                                                      * editor_keyword_fg */
     .md_blockquote_fg = GUI_RGB(0x7C, 0x7C, 0x74),  /* same green as
@@ -170,9 +179,11 @@ const struct gui_theme ide_theme_ambar = {
                                                      * GitHub dark's own code-
                                                      * block tint */
 
-    /* <listbox> - same body colors as <editor>/<input> rather than the
-     * classic theme's cyan, selection reuses the same #007ACC accent as
-     * every other "selected" state in this theme. */
+    /*
+        <listbox> - same body colors as <editor>/<input> rather than the
+        classic theme's cyan, selection reuses the same #007ACC accent as
+        every other "selected" state in this theme.
+    */
     .panel_fg = GUI_RGB(0x96, 0x94, 0x8E),
     .listbox_fg = GUI_RGB(0x96, 0x94, 0x8E),  /* deliberately dimmer than
                                               * editor_fg: the Folder panel
@@ -192,8 +203,10 @@ const struct gui_theme ide_theme_ambar = {
     .project_icon_md_fg = GUI_RGB(0xE9, 0xB4, 0x6A),  /* matches this theme's
                                                        * own md_link_fg */
 
-    /* <editor> inline diagnostics - VS Code Dark's actual error/warning/info
-     * squiggle colors, so they read as authentically part of this theme. */
+    /*
+        <editor> inline diagnostics - VS Code Dark's actual error/warning/info
+        squiggle colors, so they read as authentically part of this theme.
+    */
     .diag_error_fg = GUI_RGB(0xF4, 0x47, 0x47),
     .diag_warning_fg = GUI_RGB(0xCC, 0xA7, 0x00),
     .diag_info_fg = GUI_RGB(0x37, 0x94, 0xFF),
@@ -333,9 +346,11 @@ const struct gui_theme ide_theme_dark = {
                                                        * dark panel keeps the
                                                        * plain light default */
 
-    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
-     * rather than reusing them directly, so Markdown reads as part of the
-     * same VS Code Dark palette. */
+    /*
+        UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+        rather than reusing them directly, so Markdown reads as part of the
+        same VS Code Dark palette.
+    */
     .md_heading_fg = GUI_RGB(0x56, 0x9C, 0xD6),     /* same VS blue as
                                                      * editor_keyword_fg */
     .md_blockquote_fg = GUI_RGB(0x6A, 0x99, 0x55),  /* same green as
@@ -356,9 +371,11 @@ const struct gui_theme ide_theme_dark = {
                                                      * GitHub dark's own code-
                                                      * block tint */
 
-    /* <listbox> - same body colors as <editor>/<input> rather than the
-     * classic theme's cyan, selection reuses the same #007ACC accent as
-     * every other "selected" state in this theme. */
+    /*
+        <listbox> - same body colors as <editor>/<input> rather than the
+        classic theme's cyan, selection reuses the same #007ACC accent as
+        every other "selected" state in this theme.
+    */
     .panel_fg = GUI_RGB(0x93, 0x93, 0x93),
     .listbox_fg = GUI_RGB(0x93, 0x93, 0x93),  /* dimmer than editor_fg - see
                                               * the Ambar theme's own note */
@@ -377,8 +394,10 @@ const struct gui_theme ide_theme_dark = {
     .project_icon_md_fg = GUI_RGB(0x3D, 0xA8, 0xF5),  /* matches this theme's
                                                        * own md_link_fg */
 
-    /* <editor> inline diagnostics - VS Code Dark's actual error/warning/info
-     * squiggle colors, so they read as authentically part of this theme. */
+    /*
+        <editor> inline diagnostics - VS Code Dark's actual error/warning/info
+        squiggle colors, so they read as authentically part of this theme.
+    */
     .diag_error_fg = GUI_RGB(0xF4, 0x47, 0x47),
     .diag_warning_fg = GUI_RGB(0xCC, 0xA7, 0x00),
     .diag_info_fg = GUI_RGB(0x37, 0x94, 0xFF),
@@ -388,8 +407,10 @@ const struct gui_theme ide_theme_dark = {
     .diag_info_bg = GUI_RGB(0x22, 0x33, 0x46),
 };
 
-/* Visual Studio Light theme palette (editor #FFFFFF/#1E1E1E, chrome #F3F3F3,
- * accent #007ACC/#CCE8FF selection). */
+/*
+    Visual Studio Light theme palette (editor #FFFFFF/#1E1E1E, chrome #F3F3F3,
+    accent #007ACC/#CCE8FF selection).
+*/
 const struct gui_theme ide_theme_white = {
     .desktop_bg = GUI_RGB(0xEA, 0xEA, 0xEA),
 
@@ -406,9 +427,11 @@ const struct gui_theme ide_theme_white = {
 
     .menu_fg = GUI_RGB(0x1E, 0x1E, 0x1E),
     .menu_bg = GUI_RGB(0xF3, 0xF3, 0xF3),
-    /* #0078D7 - the Windows accent blue, with white ink on it (black would
-     * score 4.1:1 against it, white 4.7:1, and white is what Windows itself
-     * uses for a selected menu row). */
+    /*
+        #0078D7 - the Windows accent blue, with white ink on it (black would
+        score 4.1:1 against it, white 4.7:1, and white is what Windows itself
+        uses for a selected menu row).
+    */
     .menu_fg_sel = GUI_RGB(0xFF, 0xFF, 0xFF),
     .menu_bg_sel = GUI_RGB(0x00, 0x78, 0xD7),
     .menu_item_fg = GUI_RGB(0x00, 0x00, 0x00),
@@ -425,11 +448,13 @@ const struct gui_theme ide_theme_white = {
     .box_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .box_border_style = GUI_BORDER_DOUBLE,
 
-    /* #99B4D1 - the classic Windows window-frame blue-gray. Near-black
-     * (#1E1E1E) frames around every window and dialog were the loudest thing
-     * on screen in a light theme; this recedes into the chrome the way a real
-     * light UI's frames do, while still separating a window from the desktop
-     * behind it. */
+    /*
+        #99B4D1 - the classic Windows window-frame blue-gray. Near-black
+        (#1E1E1E) frames around every window and dialog were the loudest thing
+        on screen in a light theme; this recedes into the chrome the way a real
+        light UI's frames do, while still separating a window from the desktop
+        behind it.
+    */
     .window_border_fg = GUI_RGB(0x99, 0xB4, 0xD1),
     .window_border_bg = GUI_RGB(0xF0, 0xF0, 0xF0),
     .window_border_fg_dragging = GUI_RGB(0x00, 0x78, 0xD7),
@@ -478,10 +503,12 @@ const struct gui_theme ide_theme_white = {
                                                   * unlike the black used
                                                   * against the plain white
                                                   * unfocused fill */
-    /* #ADD6FF - Visual Studio Light's actual text-selection color (also used
-     * by <editor>, which reuses input_sel_*). Pale, so the selected text's
-     * own color stays dark instead of the white used against the old darker
-     * blue - otherwise it'd be unreadable against this light a background. */
+    /*
+        #ADD6FF - Visual Studio Light's actual text-selection color (also used
+        by <editor>, which reuses input_sel_*). Pale, so the selected text's
+        own color stays dark instead of the white used against the old darker
+        blue - otherwise it'd be unreadable against this light a background.
+    */
     .input_sel_bg = GUI_RGB(0xAD, 0xD6, 0xFF),
     .input_sel_fg = GUI_RGB(0x00, 0x00, 0x00),
 
@@ -549,9 +576,11 @@ const struct gui_theme ide_theme_white = {
                                                        * on the gray
                                                        * editor_output_bg */
 
-    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
-     * rather than reusing them directly, so Markdown reads as part of the
-     * same VS Code Light palette. */
+    /*
+        UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+        rather than reusing them directly, so Markdown reads as part of the
+        same VS Code Light palette.
+    */
     .md_heading_fg = GUI_RGB(0x00, 0x00, 0xFF),     /* same blue as
                                                      * editor_keyword_fg */
     .md_blockquote_fg = GUI_RGB(0x00, 0x80, 0x00),  /* same green as
@@ -571,9 +600,11 @@ const struct gui_theme ide_theme_white = {
                                                      * editor_bg and editor_
                                                      * current_line_bg */
 
-    /* <listbox> - same body colors as <editor>/<input> rather than the
-     * classic theme's cyan, selection reuses the same #CCE8FF accent as
-     * every other "selected" state in this theme. */
+    /*
+        <listbox> - same body colors as <editor>/<input> rather than the
+        classic theme's cyan, selection reuses the same #CCE8FF accent as
+        every other "selected" state in this theme.
+    */
     .panel_fg = GUI_RGB(0x60, 0x60, 0x60),
     .listbox_fg = GUI_RGB(0x60, 0x60, 0x60),  /* dimmer than the editor's own
                                               * #1E1E1E body text - the
@@ -600,9 +631,11 @@ const struct gui_theme ide_theme_white = {
     .project_icon_md_fg = GUI_RGB(0x00, 0x66, 0xCC),  /* matches this theme's
                                                        * own md_link_fg */
 
-    /* <editor> inline diagnostics - VS Code Light's actual error/warning/
-     * info squiggle colors, so they read as authentically part of this
-     * theme. */
+    /*
+        <editor> inline diagnostics - VS Code Light's actual error/warning/
+        info squiggle colors, so they read as authentically part of this
+        theme.
+    */
     .diag_error_fg = GUI_RGB(0xE5, 0x14, 0x00),
     .diag_warning_fg = GUI_RGB(0xBF, 0x88, 0x03),
     .diag_info_fg = GUI_RGB(0x1A, 0x85, 0xFF),
@@ -724,13 +757,17 @@ const struct gui_theme ide_theme_raspberry_pi = {
     .diag_info_bg = GUI_RGB(0xE5, 0xF1, 0xFB),
 };
 
-/* "Nebula" - a deep indigo night palette (editor #1A1B26, text #C0CAF5,
- * accent #7AA2F7): violet keywords, blue function names, green strings and
- * orange literals, with the whole chrome tinted the same indigo instead of
- * a neutral gray. */
+/*
+    "Nebula" - a deep indigo night palette (editor #1A1B26, text #C0CAF5,
+    accent #7AA2F7): violet keywords, blue function names, green strings and
+    orange literals, with the whole chrome tinted the same indigo instead of
+    a neutral gray.
+*/
 const struct gui_theme ide_theme_nebula = {
-    /* NOTE: anything drawn ON the #7AA2F7 accent uses the dark #1A1B26 ink,
-     * not white - white scores 2.4:1 against this blue, the dark ink 8.7:1. */
+    /*
+        NOTE: anything drawn ON the #7AA2F7 accent uses the dark #1A1B26 ink,
+        not white - white scores 2.4:1 against this blue, the dark ink 8.7:1.
+    */
     .desktop_bg = GUI_RGB(0x16, 0x16, 0x1E),
 
     .btn_bg = GUI_RGB(0x2A, 0x2E, 0x40),
@@ -841,9 +878,11 @@ const struct gui_theme ide_theme_nebula = {
                                                     * reads as recessed */
     .editor_output_fg = GUI_RGB(0xC0, 0xCA, 0xF5),
 
-    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
-     * rather than reusing them directly, so Markdown reads as part of the
-     * same indigo palette. */
+    /*
+        UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+        rather than reusing them directly, so Markdown reads as part of the
+        same indigo palette.
+    */
     .md_heading_fg = GUI_RGB(0x7A, 0xA2, 0xF7),
     .md_blockquote_fg = GUI_RGB(0x56, 0x5F, 0x89),
     .md_code_fg = GUI_RGB(0x9E, 0xCE, 0x6A),
@@ -855,8 +894,10 @@ const struct gui_theme ide_theme_nebula = {
     .editor_diff_remove_word_bg = GUI_RGB(0x6B, 0x2E, 0x4E),
     .md_code_bg = GUI_RGB(0x1F, 0x22, 0x33),
 
-    /* <listbox> - same body colors as <editor>/<input>, selection reuses the
-     * same #7AA2F7 accent as every other "selected" state in this theme. */
+    /*
+        <listbox> - same body colors as <editor>/<input>, selection reuses the
+        same #7AA2F7 accent as every other "selected" state in this theme.
+    */
     .panel_fg = GUI_RGB(0x9A, 0xA5, 0xCE),
     .listbox_fg = GUI_RGB(0x9A, 0xA5, 0xCE),  /* dimmer than editor_fg: the
                                               * Folder panel is the biggest
@@ -875,8 +916,10 @@ const struct gui_theme ide_theme_nebula = {
     .project_icon_md_fg = GUI_RGB(0x73, 0xDA, 0xCA),  /* matches this theme's
                                                        * own md_link_fg */
 
-    /* <editor> inline diagnostics - the palette's own red/amber/blue, so the
-     * squiggles read as part of this theme. */
+    /*
+        <editor> inline diagnostics - the palette's own red/amber/blue, so the
+        squiggles read as part of this theme.
+    */
     .diag_error_fg = GUI_RGB(0xDB, 0x4B, 0x4B),
     .diag_warning_fg = GUI_RGB(0xE0, 0xAF, 0x68),
     .diag_info_fg = GUI_RGB(0x0D, 0xB9, 0xD7),
@@ -886,11 +929,13 @@ const struct gui_theme ide_theme_nebula = {
     .diag_info_bg = GUI_RGB(0x18, 0x37, 0x46),
 };
 
-/* "Xcode Dark" - Xcode's own Default (Dark) editor palette (editor #292A30,
- * text #FFFFFF, current line #2F3239, selection #646F83): pink keywords,
- * salmon strings, khaki numbers/chars, orange preprocessor, gray-blue
- * comments, mint type names and teal function names. Chrome is Xcode's
- * dark navigator/inspector graphite with macOS's system blue as accent. */
+/*
+    "Xcode Dark" - Xcode's own Default (Dark) editor palette (editor #292A30,
+    text #FFFFFF, current line #2F3239, selection #646F83): pink keywords,
+    salmon strings, khaki numbers/chars, orange preprocessor, gray-blue
+    comments, mint type names and teal function names. Chrome is Xcode's
+    dark navigator/inspector graphite with macOS's system blue as accent.
+*/
 const struct gui_theme ide_theme_xcode_dark = {
     .desktop_bg = GUI_RGB(0x1F, 0x1F, 0x24),
 
@@ -993,8 +1038,10 @@ const struct gui_theme ide_theme_xcode_dark = {
                                                     * console */
     .editor_output_fg = GUI_RGB(0xE5, 0xE5, 0xEA),
 
-    /* UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
-     * so Markdown reads as part of the same palette. */
+    /*
+        UI_SYNTAX_MARKDOWN - mirrors this theme's own C-highlighting accents
+        so Markdown reads as part of the same palette.
+    */
     .md_heading_fg = GUI_RGB(0xFC, 0x5F, 0xA3),
     .md_blockquote_fg = GUI_RGB(0x6C, 0x79, 0x86),
     .md_code_fg = GUI_RGB(0xD0, 0xBF, 0x69),
@@ -1006,8 +1053,10 @@ const struct gui_theme ide_theme_xcode_dark = {
     .editor_diff_remove_word_bg = GUI_RGB(0x6E, 0x2C, 0x2C),
     .md_code_bg = GUI_RGB(0x2D, 0x2E, 0x33),
 
-    /* <listbox> - Xcode's navigator: a shade darker than the editor, with
-     * the same system blue as every other "selected" state in this theme. */
+    /*
+        <listbox> - Xcode's navigator: a shade darker than the editor, with
+        the same system blue as every other "selected" state in this theme.
+    */
     .panel_fg = GUI_RGB(0xD1, 0xD1, 0xD6),
     .listbox_fg = GUI_RGB(0xD1, 0xD1, 0xD6),  /* dimmer than editor_fg so the
                                               * Folder panel doesn't pull
@@ -1024,8 +1073,10 @@ const struct gui_theme ide_theme_xcode_dark = {
     .project_icon_h_fg = GUI_RGB(0xDA, 0xBA, 0xFF),   /* lavender bracket color */
     .project_icon_md_fg = GUI_RGB(0xFD, 0x8F, 0x3F),  /* matches editor_preproc_fg */
 
-    /* <editor> inline diagnostics - Xcode's own issue-navigator red/yellow
-     * and the system teal-blue for notes. */
+    /*
+        <editor> inline diagnostics - Xcode's own issue-navigator red/yellow
+        and the system teal-blue for notes.
+    */
     .diag_error_fg = GUI_RGB(0xFF, 0x4B, 0x4B),
     .diag_warning_fg = GUI_RGB(0xFF, 0xC6, 0x27),
     .diag_info_fg = GUI_RGB(0x5A, 0xC8, 0xFA),
@@ -1035,10 +1086,12 @@ const struct gui_theme ide_theme_xcode_dark = {
     .diag_info_bg = GUI_RGB(0x32, 0x46, 0x54),
 };
 
-/* "Nebula II" - the Neo-tree/Neovim look of the screenshot (editor #130F1A,
- * text #CDD6F4, accent #89B4FA): mauve keywords, blue function names, green
- * strings, peach literals and yellow type names, with the side panels one
- * step lighter (#1D1F2F) than the editor. */
+/*
+    "Nebula II" - the Neo-tree/Neovim look of the screenshot (editor #130F1A,
+    text #CDD6F4, accent #89B4FA): mauve keywords, blue function names, green
+    strings, peach literals and yellow type names, with the side panels one
+    step lighter (#1D1F2F) than the editor.
+*/
 const struct gui_theme ide_theme_nebula2 = {
     /* NOTE: anything drawn ON the #89B4FA accent uses the dark #1E1E2E ink. */
     .desktop_bg = GUI_RGB(0x11, 0x11, 0x1B),
@@ -1142,8 +1195,10 @@ const struct gui_theme ide_theme_nebula2 = {
     .editor_diff_remove_word_bg = GUI_RGB(0x6E, 0x34, 0x4C),
     .md_code_bg = GUI_RGB(0x18, 0x18, 0x25),
 
-    /* the panel a step lighter than the editor, the selected row
-     * a muted surface instead of the full accent. */
+    /*
+        the panel a step lighter than the editor, the selected row
+        a muted surface instead of the full accent.
+    */
     .panel_fg = GUI_RGB(0xBA, 0xC2, 0xDE),
     .listbox_fg = GUI_RGB(0xBA, 0xC2, 0xDE),
     .panel_bg = GUI_RGB(0x1D, 0x1F, 0x2F),

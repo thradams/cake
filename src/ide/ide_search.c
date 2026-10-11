@@ -1,8 +1,9 @@
-/* ide_search.c - plain-text search over files, the old IDE's fr_search_*:
- * each match is reported as "name:line:col: <its line>" with the match
- * highlighted (VT100 bold yellow), then a summary line. Find Definition's
- * fallback uses it; Find in Files will too.
- */
+/*
+    ide_search.c - plain-text search over files, the old IDE's fr_search_*:
+    each match is reported as "name:line:col: <its line>" with the match
+    highlighted (VT100 bold yellow), then a summary line. Find Definition's
+    fallback uses it; Find in Files will too.
+*/
 #include "ide_shell.h"
 #include <ctype.h>
 #include <stdarg.h>

@@ -31,8 +31,10 @@ struct include_dir_list
     struct include_dir* _Opt tail;
 };
 
-/* Called for each file an #include reads, so a caller (the IDE) learns each
- * translation unit's dependencies; the compiler itself keeps nothing. */
+/*
+    Called for each file an #include reads, so a caller (the IDE) learns each
+    translation unit's dependencies; the compiler itself keeps nothing.
+*/
 struct include_listener
 {
     void (*callback)(void* _Opt data, const char* source_file, const char* included_file);

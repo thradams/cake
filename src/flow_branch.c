@@ -1,4 +1,4 @@
-//#pragma safety enable
+
 
 #include <stdlib.h>
 #include <string.h>
@@ -23,9 +23,11 @@ static unsigned int flow_hash_key(const struct object* obj, int num_of_buckets)
 {
     _Assert(num_of_buckets > 0);
 
-    /* Narrow the unsigned value itself: the flow analysis does not carry a
-       value relation through the cast, so testing num_of_buckets before
-       converting would not rule out a zero divisor. */
+    /*
+        Narrow the unsigned value itself: the flow analysis does not carry a
+        value relation through the cast, so testing num_of_buckets before
+        converting would not rule out a zero divisor.
+    */
     const unsigned int buckets = (unsigned int)num_of_buckets;
     if (buckets == 0)
     {
@@ -191,10 +193,12 @@ static void flow_branch_maybe_grow(struct flow_branch* m)
 {
     if (m->num_of_entries * 100 > m->num_of_buckets * FLOW_BRANCH_LOAD_FACTOR_PERCENT)
     {
-        /* Doubling forever briefly holds the old and new bucket arrays live
-           together (rehash walks the old table while filling the new one
-           before freeing it). Past a threshold, grow by half instead of
-           doubling, same reasoning as flow_alternatives_grow. */
+        /*
+            Doubling forever briefly holds the old and new bucket arrays live
+            together (rehash walks the old table while filling the new one
+            before freeing it). Past a threshold, grow by half instead of
+            doubling, same reasoning as flow_alternatives_grow.
+        */
         enum { FLOW_BRANCH_GROW_DOUBLE_LIMIT = 4096 };
         int new_num_of_buckets = m->num_of_buckets < FLOW_BRANCH_GROW_DOUBLE_LIMIT
             ? m->num_of_buckets * 2
@@ -399,6 +403,38 @@ struct flow_key_alternatives* _Opt flow_branch_search_up(struct flow_branch* _Op
     return NULL;
 }
 
+struct flow_branch_entries flow_branch_entries_begin(const struct flow_branch* _Opt first, const struct flow_branch* _Opt stop)
+{
+    struct flow_branch_entries it = { .map = first, .stop = stop, .bucket = -1, .entry = NULL };
+    return it;
+}
+
+const struct flow_key_alternatives* _Opt flow_branch_entries_next(struct flow_branch_entries* it)
+{
+    if (it->entry != NULL)
+    {
+        it->entry = it->entry->next;
+    }
+
+    while (it->entry == NULL)
+    {
+        if (it->map == NULL || it->map == it->stop)
+        {
+            return NULL;
+        }
+
+        it->bucket++;
+        if (it->map->buckets == NULL || it->bucket >= it->map->num_of_buckets)
+        {
+            it->map = it->map->p_parent_map;
+            it->bucket = -1;
+            continue;
+        }
+        it->entry = it->map->buckets[it->bucket];
+    }
+    return it->entry;
+}
+
 struct flow_key_alternatives* _Opt flow_branch_find_add(struct flow_branch* _Opt m, const struct object* obj)
 {
     if (m == NULL)
@@ -422,9 +458,11 @@ struct flow_key_alternatives* _Opt flow_branch_find_add(struct flow_branch* _Opt
             return e;
         }
 
-        /* Grow BEFORE inserting: simpler than growing after and having to
-           re-derive the new index for the entry we just added. One extra
-           rehash near a threshold crossing is not worth the extra code path. */
+        /*
+            Grow BEFORE inserting: simpler than growing after and having to
+            re-derive the new index for the entry we just added. One extra
+            rehash near a threshold crossing is not worth the extra code path.
+        */
         flow_branch_maybe_grow(m);
 
         unsigned int idx = flow_hash_key(obj, m->num_of_buckets);
@@ -478,16 +516,18 @@ void flow_branch_set_object_moved(struct flow_branch* _Opt m, const struct objec
     {
         for (int i = 0; i < e->alternatives.size; i++)
         {
-            /* Update .line too, not just .imaginary: .line is what the
-               eventual "object 'p' is moved (see line N)" diagnostic
-               reports, and it must point at WHERE THE MOVE HAPPENED, not
-               wherever this alternative was last seeded (e.g. the
-               declaration/initializer line). Leaving the old .line behind
-               pointed a double-free/use-after-move report at the variable's
-               declaration instead of the first free()/move -- confirmed via
-               `p = malloc(1); free(p); free(p);` reporting "(see line
-               <declaration>)" instead of "(see line <first free>)".
-               User-reported. */
+            /*
+                Update .line too, not just .imaginary: .line is what the
+                eventual "object 'p' is moved (see line N)" diagnostic
+                reports, and it must point at WHERE THE MOVE HAPPENED, not
+                wherever this alternative was last seeded (e.g. the
+                declaration/initializer line). Leaving the old .line behind
+                pointed a double-free/use-after-move report at the variable's
+                declaration instead of the first free()/move -- confirmed via
+                `p = malloc(1); free(p); free(p);` reporting "(see line
+                <declaration>)" instead of "(see line <first free>)".
+                User-reported.
+            */
             e->alternatives.data[i]->imaginary = FLOW_IMAGINARY_MOVED;
             e->alternatives.data[i]->p_origin_token = p_token;
         }
@@ -586,26 +626,27 @@ void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct objec
         flow_alternatives_clear(&p_flow_key_alternatives->alternatives);
 
         /*
-        A plain FLOW_VALUE_KIND_SIGNED/ANY alternative is read by
-        flow_alternative_can_be_zero as "could be zero" regardless of
-        the object's actual type -- fine for scalars, but wrong for a
-        non-optional pointer member: its own type already guarantees it
-        can never be null, "unknown value" or not. Without this,
-        invalidating a struct's members (e.g. after passing &x to a
-        plain mutable-pointer parameter, or through a _Out call) made
-        every non-_Opt pointer member of that struct look
-        possibly-null afterward, even though nothing could have made it
-        null -- found via a user-reported false positive:
+            A plain FLOW_VALUE_KIND_SIGNED/ANY alternative is read by
+            flow_alternative_can_be_zero as "could be zero" regardless of
+            the object's actual type -- fine for scalars, but wrong for a
+            non-optional pointer member: its own type already guarantees it
+            can never be null, "unknown value" or not. Without this,
+            invalidating a struct's members (e.g. after passing &x to a
+            plain mutable-pointer parameter, or through a _Out call) made
+            every non-_Opt pointer member of that struct look
+            possibly-null afterward, even though nothing could have made it
+            null -- found via a user-reported false positive:
 
-         struct X { int* p_non_null; };
-         struct X x = make();
-         f(&x);                  // f(struct X*), plain mutable pointer
-         int y = *x.p_non_null;  // "possible null pointer dereference"
+             struct X { int* p_non_null; };
+             struct X x = make();
+             f(&x);                  // f(struct X*), plain mutable pointer
+             int y = *x.p_non_null;  // "possible null pointer dereference"
 
-        Seed a NOT_EQUAL-0 PTR alternative instead for that case, so the
-        member is still correctly treated as "unknown identity, but
-        definitely non-null" -- the same guarantee flow3 already gives a
-        non-_Opt pointer PARAMETER on entry. */
+            Seed a NOT_EQUAL-0 PTR alternative instead for that case, so the
+            member is still correctly treated as "unknown identity, but
+            definitely non-null" -- the same guarantee flow3 already gives a
+            non-_Opt pointer PARAMETER on entry.
+        */
         if (nullable_enabled &&
                 type_is_pointer(&obj->type) &&
                 !type_is_nullable(&obj->type, nullable_enabled))
@@ -684,11 +725,13 @@ void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const str
         if (e->alternatives.data[i]->imaginary != FLOW_IMAGINARY_MOVED)
         {
             e->alternatives.data[i]->imaginary = FLOW_IMAGINARY_ENDED;
-            /* The "(see line N)" in the eventual diagnostic must point at
-               where the lifetime actually ended, not wherever this
-               alternative happened to be seeded (e.g. an earlier read of
-               the same member) -- otherwise it misdirects the reader to
-               an unrelated line. */
+            /*
+                The "(see line N)" in the eventual diagnostic must point at
+                where the lifetime actually ended, not wherever this
+                alternative happened to be seeded (e.g. an earlier read of
+                the same member) -- otherwise it misdirects the reader to
+                an unrelated line.
+            */
             e->alternatives.data[i]->p_origin_token = p_token;
         }
     }
@@ -736,15 +779,19 @@ static void flow_branch_free_entries(struct flow_branch* m);
 
 static void flow_branch_clear(_Clear struct flow_branch* m)
 {
-    /* The bucket table and its entries go the same way here as in
-       flow_branch_free_entries -- that is the whole of the freeing work, so
-       share it rather than keeping a second copy of the walk. */
+    /*
+        The bucket table and its entries go the same way here as in
+        flow_branch_free_entries -- that is the whole of the freeing work, so
+        share it rather than keeping a second copy of the walk.
+    */
     flow_branch_free_entries(m);
 
-    /* _Clear promises every member is zero on exit, on EVERY path --
-       including the one where there were no buckets to free at all, which
-       the old early return skipped. Written out in full rather than
-       relying on what free_entries happens to reset. */
+    /*
+        _Clear promises every member is zero on exit, on EVERY path --
+        including the one where there were no buckets to free at all, which
+        the old early return skipped. Written out in full rather than
+        relying on what free_entries happens to reset.
+    */
     m->buckets = NULL; //lint 26  flow_branch_free_entries makes null
     m->num_of_buckets = 0;
     m->num_of_entries = 0;
@@ -855,8 +902,10 @@ static struct flow_key_alternatives* _Opt flow_branch_arm_find_entry(const struc
 
 void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch* const arms[], int num_arms)
 {
-    /* Write into a temporary map parented to parent so pre-branch
-       reads are clean and don't see our own partial writes. */
+    /*
+        Write into a temporary map parented to parent so pre-branch
+        reads are clean and don't see our own partial writes.
+    */
     struct flow_branch temp = { .p_parent_map = parent, .kind = FLOW_BRANCH_MERGE_TEMP };
 
     struct object_set objs = { 0 };
@@ -920,18 +969,20 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
         }
         flow_alternatives_clear(&p_temp_entry->alternatives);
 
-        /* When every reachable arm contributes the identical set of values,
-           the branch did not discriminate this object, so the per-arm origin
-           tag carries no correlation information by construction: emit ONE
-           copy, keeping each alternative's own pre-merge origin, instead of
-           one re-tagged copy per arm. (Re-tagging the collapsed copy with
-           `parent` instead loses the origin the "state comes from here"
-           notes read, and produced 28 false "lifetime has ended" warnings
-           analysing this very file -- keep the original origin.) Without this an
-           object all arms agree on costs an alternative per arm at every
-           merge, and those multiply along the path (measured: 93% of all
-           alternatives stored were duplicates of an existing value that
-           differed only in origin). */
+        /*
+            When every reachable arm contributes the identical set of values,
+            the branch did not discriminate this object, so the per-arm origin
+            tag carries no correlation information by construction: emit ONE
+            copy, keeping each alternative's own pre-merge origin, instead of
+            one re-tagged copy per arm. (Re-tagging the collapsed copy with
+            `parent` instead loses the origin the "state comes from here"
+            notes read, and produced 28 false "lifetime has ended" warnings
+            analysing this very file -- keep the original origin.) Without this an
+            object all arms agree on costs an alternative per arm at every
+            merge, and those multiply along the path (measured: 93% of all
+            alternatives stored were duplicates of an existing value that
+            differed only in origin).
+        */
         enum { COLLAPSE_MAX_ARMS = 8 };
         const struct flow_alternatives* _Opt agreed = NULL;
         if (num_arms <= COLLAPSE_MAX_ARMS)
@@ -998,13 +1049,15 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
             }
             else
             {
-                /* Arm is reachable but didn't write this variable:
-                   inherit the pre-branch value from parent, but re-tag each
-                   alternative's origin as arms[j] (this arm's map) instead of
-                   keeping the ancestor's origin. This lets later logic (e.g.
-                   flow_branch_transfer_true_false_set) tell values that arrived
-                   via this arm's path apart from an ancestor's original
-                   value, without mutating the ancestor's own entry. */
+                /*
+                    Arm is reachable but didn't write this variable:
+                    inherit the pre-branch value from parent, but re-tag each
+                    alternative's origin as arms[j] (this arm's map) instead of
+                    keeping the ancestor's origin. This lets later logic (e.g.
+                    flow_branch_transfer_true_false_set) tell values that arrived
+                    via this arm's path apart from an ancestor's original
+                    value, without mutating the ancestor's own entry.
+                */
                 struct flow_key_alternatives* _Opt p_pre_entry = flow_branch_search_up(parent, obj);
                 if (p_pre_entry)
                 {
@@ -1042,57 +1095,58 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
     flow_branch_clear(&temp);
 
     /*
-       Every arm's data has now been copied out (as VALUE copies) into
-       `parent`. Walk each arm's ancestor chain (up to, but not including,
-       `parent`) and free a map's own bucket entries once nothing else can
-       still read them.
+        Every arm's data has now been copied out (as VALUE copies) into
+        `parent`. Walk each arm's ancestor chain (up to, but not including,
+        `parent`) and free a map's own bucket entries once nothing else can
+        still read them.
 
-       A map is safe to free only when it has exactly ONE child ever
-       created off it (child_count == 1): that child is necessarily the
-       one arm chain being cleaned up right now, so nothing else can reach
-       this map through a different, still-live path. A map with MORE than
-       one child is a fork point shared by more than one branch and must
-       be left alone, no matter which single arm's cleanup walk happens to
-       pass through it.
+        A map is safe to free only when it has exactly ONE child ever
+        created off it (child_count == 1): that child is necessarily the
+        one arm chain being cleaned up right now, so nothing else can reach
+        this map through a different, still-live path. A map with MORE than
+        one child is a fork point shared by more than one branch and must
+        be left alone, no matter which single arm's cleanup walk happens to
+        pass through it.
 
-       This matters because a chain interposed by
-       flow_narrow_map_branch/flow_branch_arena_new_branch can be shared by
-       more than one arm across DIFFERENT merges. The clearest case is
-       `L && R`: R is evaluated once, starting from L's own true-branch
-       map, producing right_pair.p_true and right_pair.p_false as TWO
-       SIBLING branches off that SAME map (child_count == 2 there). The
-       `&&`'s own internal merge for its false result
-       (merge_a_b(p_and_false, left_pair.p_false, right_pair.p_false))
-       walks up from right_pair.p_false and, without this check, would
-       free L's true-branch map's entries as "private scratch state" --
-       wiping out the narrowing of L (e.g. "p is non-null") that
-       right_pair.p_true's own chain still depends on, and that the `&&`'s
-       TRUE result (right_pair.p_true) -- returned to and used by the
-       caller AFTER this false-branch merge already ran -- still needs.
-       (Confirmed via `_Assert(p && p->next); p->i = 1;`, equally
-       reproducible via `if (!(p && p->next)) return; p->i = 1;`.)
+        This matters because a chain interposed by
+        flow_narrow_map_branch/flow_branch_arena_new_branch can be shared by
+        more than one arm across DIFFERENT merges. The clearest case is
+        `L && R`: R is evaluated once, starting from L's own true-branch
+        map, producing right_pair.p_true and right_pair.p_false as TWO
+        SIBLING branches off that SAME map (child_count == 2 there). The
+        `&&`'s own internal merge for its false result
+        (merge_a_b(p_and_false, left_pair.p_false, right_pair.p_false))
+        walks up from right_pair.p_false and, without this check, would
+        free L's true-branch map's entries as "private scratch state" --
+        wiping out the narrowing of L (e.g. "p is non-null") that
+        right_pair.p_true's own chain still depends on, and that the `&&`'s
+        TRUE result (right_pair.p_true) -- returned to and used by the
+        caller AFTER this false-branch merge already ran -- still needs.
+        (Confirmed via `_Assert(p && p->next); p->i = 1;`, equally
+        reproducible via `if (!(p && p->next)) return; p->i = 1;`.)
 
-       child_count is only ever incremented (see flow_branch_arena_new), and
-       every child a map will ever have is created before that map stops
-       being `ctx->p_current_flow_branch` for the branch that owns it, so by
-       the time ANY cleanup walk reaches a map, its child_count is already
-       final -- safe to check without true reference counting. Once a
-       shared fork point (child_count > 1) is found, stop walking further
-       up that arm entirely: everything above a shared node is reachable
-       through the OTHER branch(es) sharing it too, so this arm's walk has
-       no more exclusive ground left to reclaim.
+        child_count is only ever incremented (see flow_branch_arena_new), and
+        every child a map will ever have is created before that map stops
+        being `ctx->p_current_flow_branch` for the branch that owns it, so by
+        the time ANY cleanup walk reaches a map, its child_count is already
+        final -- safe to check without true reference counting. Once a
+        shared fork point (child_count > 1) is found, stop walking further
+        up that arm entirely: everything above a shared node is reachable
+        through the OTHER branch(es) sharing it too, so this arm's walk has
+        no more exclusive ground left to reclaim.
 
-       Separately: an arm that never actually branched (e.g. a plain
-       function call as one operand of || / &&, whose fallback branch pair
-       is {p_before, p_before}) IS p_before itself -- an ancestor `parent`
-       was just built on top of, not a descendant created for this merge.
-       `parent` itself is guaranteed to keep being read from after this
-       merge returns (every caller sets ctx->p_current_flow_branch to it),
-       so `parent` and everything on ITS OWN ancestor chain must never be
-       freed here even if child_count happens to read as 1 (e.g. `parent`
-       is p_before's only child so far, with siblings still to be created
-       later by code that hasn't run yet). Check this before the
-       child_count check, since it must hold regardless of child_count. */
+        Separately: an arm that never actually branched (e.g. a plain
+        function call as one operand of || / &&, whose fallback branch pair
+        is {p_before, p_before}) IS p_before itself -- an ancestor `parent`
+        was just built on top of, not a descendant created for this merge.
+        `parent` itself is guaranteed to keep being read from after this
+        merge returns (every caller sets ctx->p_current_flow_branch to it),
+        so `parent` and everything on ITS OWN ancestor chain must never be
+        freed here even if child_count happens to read as 1 (e.g. `parent`
+        is p_before's only child so far, with siblings still to be created
+        later by code that hasn't run yet). Check this before the
+        child_count check, since it must hold regardless of child_count.
+    */
     for (int i = 0; i < num_arms; i++)
     {
         if (arms[i] == NULL || arms[i] == parent)
@@ -1203,15 +1257,17 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
             {
                 const struct flow_alternative* a = p_src_entry->alternatives.data[k];
 
-                /* Skip a fact the join already carries. Several jumps usually
-                   agree about most objects, and adding one copy per jump
-                   multiplies alternatives -- and with them the reports that
-                   walk alternatives, e.g. the same "parameter was consumed"
-                   said twelve times instead of twice. Two facts count as the
-                   same only when value, relation, imaginary state AND the
-                   token that established them all match, so the differing
-                   facts this retagging exists to keep apart still land as
-                   separate alternatives. */
+                /*
+                    Skip a fact the join already carries. Several jumps usually
+                    agree about most objects, and adding one copy per jump
+                    multiplies alternatives -- and with them the reports that
+                    walk alternatives, e.g. the same "parameter was consumed"
+                    said twelve times instead of twice. Two facts count as the
+                    same only when value, relation, imaginary state AND the
+                    token that established them all match, so the differing
+                    facts this retagging exists to keep apart still land as
+                    separate alternatives.
+                */
                 bool already_there = false;
                 for (int m = 0; m < p_join_entry->alternatives.size; m++)
                 {
@@ -1307,8 +1363,10 @@ void flow_branch_debug_print(const struct flow_branch* _Opt map, int indent)
 
     char prefix[1024] = "";
 
-    /* chain[0] is the deepest (current) map, chain[printed_len-1] is the
-       root -- walk it backwards so the root prints first. */
+    /*
+        chain[0] is the deepest (current) map, chain[printed_len-1] is the
+        root -- walk it backwards so the root prints first.
+    */
     for (int i = printed_len - 1; i >= 0; i--)
     {
         const struct flow_branch* m = chain[i];
@@ -1352,8 +1410,10 @@ void flow_branch_debug_print(const struct flow_branch* _Opt map, int indent)
             }
         }
 
-        /* Next iteration (one level deeper) prints its own map header and
-           entries under this node's child slot, i.e. at child_prefix. */
+        /*
+            Next iteration (one level deeper) prints its own map header and
+            entries under this node's child slot, i.e. at child_prefix.
+        */
         snprintf(prefix, sizeof(prefix), "%s", child_prefix);
     }
 
@@ -1379,9 +1439,11 @@ int flow_alternative_truth(struct flow_branch* _Opt map,
     if (alt->imaginary != FLOW_IMAGINARY_NONE ||
             alt->value_relation == FLOW_RELATION_UNINITIALIZED)
     {
-        /* moved/ended/absent/uninitialized objects have their own
-           diagnostics; reading one as a truth value would just pile a
-           second, less useful answer on top of them. */
+        /*
+            moved/ended/absent/uninitialized objects have their own
+            diagnostics; reading one as a truth value would just pile a
+            second, less useful answer on top of them.
+        */
         return -1;
     }
 
@@ -1417,17 +1479,19 @@ int flow_object_truth(struct flow_branch* _Opt map, const struct object* p_objec
 
     for (int i = 0; i < p_entry->alternatives.size; i++)
     {
-        /* NOTE: deliberately no flow_alternative_is_dead() skip here. The
-           seed loops and the loop widening do skip dead-origin alternatives,
-           but this predicate must not: a branch the FIRST pass folded away can
-           still contribute a real value later. find_next_subobject_old's
+        /*
+            NOTE: deliberately no flow_alternative_is_dead() skip here. The
+            seed loops and the loop widening do skip dead-origin alternatives,
+            but this predicate must not: a branch the FIRST pass folded away can
+            still contribute a real value later. find_next_subobject_old's
 
-               for (;;) { if (it == NULL) break; ... it = it->parent; }
-               if (it != NULL)                      <- reported always true
+                for (;;) { if (it == NULL) break; ... it = it->parent; }
+                if (it != NULL)                      <- reported always true
 
-           reaches the trailing test with `it` null through exactly such a
-           branch, and skipping it left only the non-null alternatives.
-           See flow3/loop-break-from-folded-branch.c. */
+            reaches the trailing test with `it` null through exactly such a
+            branch, and skipping it left only the non-null alternatives.
+            See flow3/loop-break-from-folded-branch.c.
+        */
         const int this_alternative =
             flow_alternative_truth(map, p_entry->alternatives.data[i], depth);
 
@@ -1462,9 +1526,11 @@ struct osstream flow_explain_origin(const struct flow_branch* _Opt map)
         return ss_storage;
     }
 
-    /* Collect deepest-first, then walk backwards, so the line reads in the
-       order control flow actually took -- same reason flow_branch_debug_print
-       collects the chain into an array before printing it. */
+    /*
+        Collect deepest-first, then walk backwards, so the line reads in the
+        order control flow actually took -- same reason flow_branch_debug_print
+        collects the chain into an array before printing it.
+    */
     const struct flow_branch* chain[FLOW_BRANCH_PATH_MAX_CHAIN];
     int chain_len = 0;
     for (const struct flow_branch* _Opt cur = map; cur; cur = cur->p_parent_map)
@@ -1491,14 +1557,16 @@ struct osstream flow_explain_origin(const struct flow_branch* _Opt map)
         ss_fprintf(ss, "%s%s", printed > 0 ? " -> " : "", name_ss.c_str ? name_ss.c_str : "");
         ss_close(&name_ss);
 
-        /* Branch maps know the condition they came from, and that
-           expression knows where it was written -- so each step of the path
-           can point at the exact `if` the reader needs to look at, instead
-           of leaving them to find which of several identically-spelled
-           conditions this one was. Only branch maps carry branch_expr; the
-           other kinds have no single source line to name. Guarded on
-           line > 0 because compiler-generated tokens carry no real
-           position. */
+        /*
+            Branch maps know the condition they came from, and that
+            expression knows where it was written -- so each step of the path
+            can point at the exact `if` the reader needs to look at, instead
+            of leaving them to find which of several identically-spelled
+            conditions this one was. Only branch maps carry branch_expr; the
+            other kinds have no single source line to name. Guarded on
+            line > 0 because compiler-generated tokens carry no real
+            position.
+        */
         if (m->p_branch_expr != NULL &&
                 m->p_branch_expr->first_token->line > 0)
         {
@@ -1530,10 +1598,12 @@ struct flow_branch* _Opt flow_branch_arena_new_branch(struct flow_branch_arena* 
     return m;
 }
 
-/* The p_narrowed_from of a value narrowed from `alt` into the map new_origin:
-   alt's own origin, unless that is on new_origin's chain already -- then
-   alt's own p_narrowed_from (a condition narrowed twice, `c > 2 && c < 9`)
-   still says where the value came from. */
+/*
+    The p_narrowed_from of a value narrowed from `alt` into the map new_origin:
+    alt's own origin, unless that is on new_origin's chain already -- then
+    alt's own p_narrowed_from (a condition narrowed twice, `c > 2 && c < 9`)
+    still says where the value came from.
+*/
 const struct flow_branch* _Opt flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Opt new_origin)
 {
     const struct flow_branch* _Opt provenance = alt->p_origin_map;
@@ -1655,11 +1725,13 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
             ss_fprintf(ss, "%s", map->kind == FLOW_BRANCH_TRUE_BRANCH ? "true branch" : "false branch");
             if (map->p_branch_expr)
             {
-                /* flow_expression_to_string() starts by ss_clear()-ing whatever
-           stream it is given -- so it must NOT be handed `ss` directly,
-           or it wipes out the "what" text already written above. Render
-           the expression into its own scratch stream instead, then
-           append. */
+                /*
+                    flow_expression_to_string() starts by ss_clear()-ing whatever
+                    stream it is given -- so it must NOT be handed `ss` directly,
+                    or it wipes out the "what" text already written above. Render
+                    the expression into its own scratch stream instead, then
+                    append.
+                */
                 struct osstream expr_ss = { 0 };
                 flow_expression_to_string(map->p_branch_expr, &expr_ss);
                 ss_fprintf(ss, " (%s)", expr_ss.c_str ? expr_ss.c_str : "");

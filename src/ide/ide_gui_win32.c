@@ -1,11 +1,12 @@
-/* ide_gui_win32.c - Win32/GDI backend of the ide GUI framework.
- *
- * Only translates OS events into calls to the core and implements the
- * drawing primitives of ide_gui_backend.h. Everything about a window
- * lives in one struct win32_window, reached from the HWND through
- * GWLP_USERDATA - no globals. The main window owns the detached ones
- * (gui_window_detach): one more OS window each, sharing its fonts.
- */
+/*
+    ide_gui_win32.c - Win32/GDI backend of the ide GUI framework.
+
+    Only translates OS events into calls to the core and implements the
+    drawing primitives of ide_gui_backend.h. Everything about a window
+    lives in one struct win32_window, reached from the HWND through
+    GWLP_USERDATA - no globals. The main window owns the detached ones
+    (gui_window_detach): one more OS window each, sharing its fonts.
+*/
 #include "ide_gui_backend.h"
 
 #include <windows.h>
@@ -63,8 +64,10 @@ struct gui_canvas
     HBITMAP shade_bmp;
 };
 
-/* DwmSetWindowAttribute, looked up at run time so the program still runs
- * where dwmapi is missing. */
+/*
+    DwmSetWindowAttribute, looked up at run time so the program still runs
+    where dwmapi is missing.
+*/
 struct titlebar
 {
     HRESULT(WINAPI* set_attribute)(HWND, DWORD, LPCVOID, DWORD);
@@ -72,16 +75,20 @@ struct titlebar
     int applied;
 };
 
-/* The installed font candidates offered to the app, by index into
- * font_candidates. */
+/*
+    The installed font candidates offered to the app, by index into
+    font_candidates.
+*/
 struct offered_fonts
 {
     int candidate[16];
     int count;
 };
 
-/* WM_APP + 1 to a detached window whose surface is gone: destroy it, now
- * that no handler of its own is running. */
+/*
+    WM_APP + 1 to a detached window whose surface is gone: destroy it, now
+    that no handler of its own is running.
+*/
 #define WM_DETACHED_GONE (WM_APP + 1)
 
 struct win32_window;
@@ -145,16 +152,20 @@ static const wchar_t* pick_font(HDC dc)
     return L"Courier New";
 }
 
-/* The small font, as a percentage of the main one - the old IDE's
- * FONT_SMALL_PERCENT. */
+/*
+    The small font, as a percentage of the main one - the old IDE's
+    FONT_SMALL_PERCENT.
+*/
 #define SMALL_FONT_PERCENT 85
 /* The editor font's "Smaller" and "Larger": this much of the dialogs' size. */
 #define SMALLER_FONT_PERCENT 90
 #define LARGER_FONT_PERCENT 115
 
-/* A font of the chosen family at `pt` for the monitor's DPI, measured. The
- * advance is measured on "M" rather than taken from tmAveCharWidth, which
- * rounds. */
+/*
+    A font of the chosen family at `pt` for the monitor's DPI, measured. The
+    advance is measured on "M" rather than taken from tmAveCharWidth, which
+    rounds.
+*/
 static HFONT make_font(HDC dc, int pt, const wchar_t* family, struct gui_metrics* m)
 {
     int dpi = GetDeviceCaps(dc, LOGPIXELSY);
@@ -173,8 +184,10 @@ static HFONT make_font(HDC dc, int pt, const wchar_t* family, struct gui_metrics
     return font;
 }
 
-/* GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
- * cell_w is half its row height, and ASCII advances go to ui_ascii_w. */
+/*
+    GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
+    cell_w is half its row height, and ASCII advances go to ui_ascii_w.
+*/
 static HFONT make_ui_font(HDC dc, int pt, struct gui_canvas* c, struct gui_metrics* m)
 {
     HFONT font = NULL;
@@ -237,8 +250,10 @@ static HFONT make_ui_font(HDC dc, int pt, struct gui_canvas* c, struct gui_metri
     return font;
 }
 
-/* The installed font candidates, offered to the app (gui_font_count); the
- * first one is in use. */
+/*
+    The installed font candidates, offered to the app (gui_font_count); the
+    first one is in use.
+*/
 static void offer_fonts(struct win32_window* win)
 {
     HDC dc = GetDC(win->hwnd);
@@ -275,8 +290,10 @@ static void offer_fonts(struct win32_window* win)
     gui_app_set_ui_fonts(win->app, ui_names, ui_count, 0);
 }
 
-/* (Re)creates both fonts from canvas->pt: they always exist together, so
- * drawing never has to create one. */
+/*
+    (Re)creates both fonts from canvas->pt: they always exist together, so
+    drawing never has to create one.
+*/
 static void apply_font(struct win32_window* win)
 {
     struct gui_canvas* c = &win->canvas;
@@ -352,8 +369,10 @@ int gui_text_width(struct gui_canvas* c, const uint32_t* cps, int count, enum gu
     return width;
 }
 
-/* 10 px at 96 DPI and the default font size: its own size, but it grows
- * and shrinks with the DPI and the zoom like everything else. */
+/*
+    10 px at 96 DPI and the default font size: its own size, but it grows
+    and shrinks with the DPI and the zoom like everything else.
+*/
 int gui_scrollbar_size(struct gui_canvas* c)
 {
     int size = MulDiv(10 * c->pt, c->dpi > 0 ? c->dpi : 96, 96 * DEFAULT_FONT_PT);
@@ -387,9 +406,11 @@ void gui_shade_rect(struct gui_canvas* c, int x, int y, int w, int h, int alpha)
 void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int count,
                    uint32_t fg, uint32_t bg, enum gui_font font)
 {
-    /* UTF-16 with one lpDx entry per unit: each code point advances one
-     * cell (its own width in GUI_FONT_UI), the second unit of a surrogate
-     * pair advances 0. */
+    /*
+        UTF-16 with one lpDx entry per unit: each code point advances one
+        cell (its own width in GUI_FONT_UI), the second unit of a surrogate
+        pair advances 0.
+    */
     WCHAR text[512] = { 0 };
     INT dx[512] = { 0 };
     struct gui_metrics m = gui_font_metrics(c, font);
@@ -537,8 +558,10 @@ static void detached_open(struct win32_window* main, struct gui_surface* s, int 
     ShowWindow(hwnd, SW_SHOW);
 }
 
-/* Its surface is gone: hidden now, destroyed from its own queue
- * (WM_DETACHED_GONE), since a handler of it may be running. */
+/*
+    Its surface is gone: hidden now, destroyed from its own queue
+    (WM_DETACHED_GONE), since a handler of it may be running.
+*/
 static void detached_close(struct win32_window* main, struct win32_window* d)
 {
     struct detached_list* list = &main->detached;
@@ -594,8 +617,10 @@ static void sync_detached(struct win32_window* main)
     }
 }
 
-/* Tints the OS title bar and border with the app's chrome color, and only
- * when it changed. */
+/*
+    Tints the OS title bar and border with the app's chrome color, and only
+    when it changed.
+*/
 static void sync_titlebar(struct win32_window* win)
 {
     struct titlebar* tb = &win->titlebar;
@@ -609,9 +634,11 @@ static void sync_titlebar(struct win32_window* win)
     tb->set_attribute(win->hwnd, DWMWA_BORDER_COLOR, &cr, sizeof cr);
 }
 
-/* Lets the core paint whatever is dirty and invalidates just that rect, so
- * WM_PAINT blits it - in the main window and in each detached one. Nothing
- * dirty -> nothing happens. */
+/*
+    Lets the core paint whatever is dirty and invalidates just that rect, so
+    WM_PAINT blits it - in the main window and in each detached one. Nothing
+    dirty -> nothing happens.
+*/
 static void refresh(struct win32_window* win)
 {
     win = win->owner;
@@ -966,8 +993,10 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
     case WM_DPICHANGED:
     {
-        /* Moving to a monitor with another DPI: rebuild the font for it and
-         * take the window rect Windows suggests. */
+        /*
+            Moving to a monitor with another DPI: rebuild the font for it and
+            take the window rect Windows suggests.
+        */
         RECT* suggested = (RECT*)lp;
         if (!win->surface)
         {
@@ -1025,9 +1054,11 @@ static void utf8_args(struct win32_window* win)
     LocalFree(wargv);
 }
 
-/* The app draws its own chrome (menubar, statusbar), so the OS caption has
- * no text and no icon - as in the old IDE. WS_EX_DLGMODALFRAME is what
- * stops Windows from keeping an empty icon slot. */
+/*
+    The app draws its own chrome (menubar, statusbar), so the OS caption has
+    no text and no icon - as in the old IDE. WS_EX_DLGMODALFRAME is what
+    stops Windows from keeping an empty icon slot.
+*/
 static void plain_caption(HWND hwnd)
 {
     SetWindowTextW(hwnd, L"");

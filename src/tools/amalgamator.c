@@ -1,3 +1,9 @@
+/*
+    This file is part of cake compiler
+    https://github.com/thradams/cake
+
+    Joins C files and the local headers they include into one file.
+*/
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -108,21 +114,56 @@ int str_ends_with(const char* str, const char* suffix)
     return strcicmp(str + lenstr - lensuffix, suffix) == 0;
 }
 
+/*
+    Returns whether a block comment is still open at the end of the line.
+*/
+static bool scan_comments(const char* p, bool in_comment)
+{
+    while (*p)
+    {
+        if (in_comment)
+        {
+            if (p[0] == '*' && p[1] == '/')
+            {
+                in_comment = false;
+                p++;
+            }
+        }
+        else if (p[0] == '/' && p[1] == '*')
+        {
+            in_comment = true;
+            p++;
+        }
+        else if (p[0] == '/' && p[1] == '/')
+        {
+            break;
+        }
+        else if (*p == '"' || *p == '\'')
+        {
+            const char q = *p++;
+            while (*p && *p != q)
+            {
+                if (*p == '\\' && p[1])
+                    p++;
+                p++;
+            }
+            if (*p == '\0')
+                break;
+        }
+        p++;
+    }
+    return in_comment;
+}
+
 bool Write(const char* name, bool bHeaderMode, FILE* out, struct strlist_node** s_included)
 {
 
     bool cppfile = str_ends_with(name, ".c");
 
-    fputs("\n", out);
     bool found = false;
-
-    assert(!strlist_has(name, s_included));
-    mark_as_included(name, s_included);
 
     struct strlist_node* defineList = 0;
 
-
-    char previous = '\0';
 
     FILE* input = fopen(name, "r");
 
@@ -135,44 +176,54 @@ bool Write(const char* name, bool bHeaderMode, FILE* out, struct strlist_node** 
 
     if (input)
     {
+        fputs("\n", out);
+        assert(!strlist_has(name, s_included));
+        mark_as_included(name, s_included);
         found = true;
-        unsigned int c = '\0';
-
         bool bInclude = bHeaderMode ? false : true;
+        bool first_line = true;
+        bool in_comment = false;
+        char line[8192];
+        int line_number = 0;
+        /*
+            #line is emitted before the next line written whenever the output
+            stopped matching the source lines: at the start of the file, after an
+            #include and after lines skipped in header mode.
+        */
+        bool need_line_directive = true;
 
-        while (!feof(input))
+        while (fgets(line, sizeof line, input))
         {
-            previous = c;
-            c = fgetc(input);
+            char* linebuffer = line;
+            if (first_line && strncmp(linebuffer, "\xEF\xBB\xBF", 3) == 0)
+                linebuffer += 3; //skip UTF-8 BOM
+            first_line = false;
+            line_number++;
 
-            if (c == 0xef)
+            if (need_line_directive && bInclude)
             {
-                c = fgetc(input);
-                if (c == 0xbb)
-                    c = fgetc(input);
-                if (c == 0xbf)
-                    c = fgetc(input);
+                fputs("#line ", out);
+                fprintf(out, "%d \"", line_number);
+                for (const char* p = name; *p; p++)
+                    fputc(*p == '\\' ? '/' : *p, out);
+                fputs("\"\n", out);
+                need_line_directive = false;
             }
 
-            if ((previous == '\0' || previous == '\n') && c == '#')
+            const char* pChar = linebuffer;
+            while (*pChar == ' ' || *pChar == '\t')
+                pChar++;
+
+            const bool line_starts_in_comment = in_comment;
+            in_comment = scan_comments(linebuffer, in_comment);
+
+            if (*pChar == '#' && !line_starts_in_comment)
             {
-                c = fgetc(input);
-                char linebuffer[500];
-                int i = 0;
-                linebuffer[i] = '#';
-                i++;
-                while (c != '\n' && c != EOF)
-                {
-                    linebuffer[i] = c;
-                    c = fgetc(input);
-                    i++;
-                }
-                linebuffer[i] = '\0';
-                const char* pChar = linebuffer;
+                linebuffer[strcspn(linebuffer, "\r\n")] = '\0';
 
                 pChar++; //skip #
 
-                while (*pChar == ' ') //skip spaces
+                while (*pChar == ' ' || *pChar == '\t') //skip spaces
                     pChar++;
 
                 if (strncmp(pChar, "//BEGIN_EXPORT", sizeof("//BEGIN_EXPORT") - 1) == 0)
@@ -263,14 +314,18 @@ bool Write(const char* name, bool bHeaderMode, FILE* out, struct strlist_node** 
                             k++;
                         }
 
-                        if (!strlist_has(fileName, s_included))
+                        if (strlist_has(fileName, s_included))
                         {
                             fputs("\n", out);
-                            if (!Write(fileName, bHeaderMode, out, s_included))
-                            {
-                                fputs(linebuffer, out);
-                                fputs("\n", out);
-                            }
+                        }
+                        else if (Write(fileName, bHeaderMode, out, s_included))
+                        {
+                            need_line_directive = true;
+                        }
+                        else
+                        {
+                            fputs(linebuffer, out);
+                            fputs("\n", out);
                         }
                     }
                     else
@@ -288,13 +343,13 @@ bool Write(const char* name, bool bHeaderMode, FILE* out, struct strlist_node** 
                     }
                 }
             }
-            else
+            else if (bInclude)
             {
-                if (c != 0xFEFF && c != EOF && bInclude)
-                {
-                    fputc(c, out);
-                }
+                fputs(linebuffer, out);
             }
+
+            if (!bInclude)
+                need_line_directive = true;
         }
 
         fprintf(out, "\n");
@@ -323,10 +378,10 @@ int main(int argc, char** argv)
 {
     if (argc <= 1)
     {
-        printf(" [options] file1.c file2.c ...\n");
-        printf(" options:\n");
-        printf(" -o output name\n");
-        printf(" -h header mode\n");
+        printf("usage: amalgamator [options] file1.c [file2.c ...]\n");
+        printf("options:\n");
+        printf("  -o<file>  output file (default amalgamated.c)\n");
+        printf("  -h        header mode: only the //BEGIN_EXPORT .. //END_EXPORT parts\n");
         return 1;
     }
 
@@ -372,6 +427,7 @@ int main(int argc, char** argv)
             }
 
         }
+
         fclose(out);
         printf("Amalgamated file %s generated.\n", file_name_out);
     }

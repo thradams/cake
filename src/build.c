@@ -29,9 +29,11 @@
 #include <ctype.h>
 
 
- /*---------------------------------------------------------------------------
-  * Source file lists
-  *---------------------------------------------------------------------------*/
+ /*
+     ---------------------------------------------------------------------------
+     Source file lists
+     ---------------------------------------------------------------------------
+ */
 
 #define CAKE_LIB_SOURCE_FILES \
     " json.c "                \
@@ -61,8 +63,10 @@
     CAKE_LIB_SOURCE_FILES \
     " main.c "
 
-/* Linux: the IDE's backend - Wayland when the session is Wayland and its
- * libraries are installed, else X11 (Xft); "wayland" / "x11" choose. */
+/*
+    Linux: the IDE's backend - Wayland when the session is Wayland and its
+    libraries are installed, else X11 (Xft); "wayland" / "x11" choose.
+*/
 static int wayland = -1;   /* -1: detect */
 static const char* user_cflags = "";   /* -cflags "..." */
 #define LINUX_IDE_FRONTEND (wayland ? " ide/ide_gui_wayland.c " : " ide/ide_gui_x11.c ")
@@ -100,18 +104,22 @@ static const char* user_cflags = "";   /* -cflags "..." */
     " version.c "
 
 
- /*---------------------------------------------------------------------------
-  * Output binary names
-  *---------------------------------------------------------------------------*/
+ /*
+     ---------------------------------------------------------------------------
+     Output binary names
+     ---------------------------------------------------------------------------
+ */
 
 #define CKC_NAME    "cake"
 #define CKC89_NAME  "cake89"
 #define CAKE_NAME   "cakeide"
 
 
-  /*---------------------------------------------------------------------------
-   * Compiler flags (per platform/config)
-   *---------------------------------------------------------------------------*/
+  /*
+      ---------------------------------------------------------------------------
+      Compiler flags (per platform/config)
+      ---------------------------------------------------------------------------
+  */
 
 #if defined COMPILER_MSVC
 
@@ -497,7 +505,6 @@ static void build_inner_tests(void)
 {
     print_header("Build inner tests");
     execute_cmd(RUN EXE("maketest") " unit_test.c " CAKE_SOURCE_FILES);
-    remove(EXE("maketest"));
 }
 
 static void build_embedded_files(void)
@@ -512,7 +519,6 @@ static void build_amalgamation(void)
 {
     print_header("Build amalgamated file (lib.c)");
     execute_cmd(RUN EXE("amalgamator") " -olib.c " CAKE_LIB_SOURCE_FILES);
-    remove(EXE("amalgamator"));
 }
 
 static void build_web_samples(void)
@@ -649,9 +655,11 @@ static void build_cake_ide(int debug)
          CLANG_UNIX_FLAGS, clang_unix_config, user_cflags, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #else
-    /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
-     * /usr/include/freetype2 rather than directly on the default
-     * include path, so it must be added explicitly. */
+    /*
+        Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
+        /usr/include/freetype2 rather than directly on the default
+        include path, so it must be added explicitly.
+    */
     snprintf(cmd, sizeof cmd, "clang %s%s %s -I/usr/include/freetype2  %s %s -o " EXE(CAKE_NAME) " %s",
          CLANG_UNIX_FLAGS, clang_unix_config, user_cflags, LINUX_IDE_FRONTEND, LINUX_IDE_LIBS, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
@@ -670,9 +678,11 @@ static void build_cake_ide(int debug)
          GCC_FLAGS, gcc_config, user_cflags, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
 #else
-    /* Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
-     * /usr/include/freetype2 rather than directly on the default
-     * include path, so it must be added explicitly. */
+    /*
+        Xft.h pulls in <ft2build.h>, which on Debian/Ubuntu lives under
+        /usr/include/freetype2 rather than directly on the default
+        include path, so it must be added explicitly.
+    */
     snprintf(cmd, sizeof cmd, "gcc %s %s %s -I/usr/include/freetype2  %s %s -o " EXE(CAKE_NAME) " %s",
          GCC_FLAGS, gcc_config, user_cflags, LINUX_IDE_FRONTEND, LINUX_IDE_LIBS, CAKE_IDE_SOURCE_FILES);
     execute_cmd(cmd);
@@ -757,7 +767,7 @@ static void build_installer(void)
     execute_cmd("rm -rf " PACKAGE_NAME " && mkdir -p " PACKAGE_NAME "/include");
     execute_cmd("cp -r " CKC_NAME " " CAKE_NAME " cake.json samples web " PACKAGE_NAME "/");
     execute_cmd("cp include/*.h " PACKAGE_NAME "/include/");
-    execute_cmd("mkdir -p " PACKAGE_NAME "/tools && cp loc " PACKAGE_NAME "/tools/");
+    execute_cmd("mkdir -p " PACKAGE_NAME "/tools && cp loc amalgamator maketest " PACKAGE_NAME "/tools/");
     execute_cmd("cp tools/unix_install.sh " PACKAGE_NAME "/install.sh && chmod +x " PACKAGE_NAME "/install.sh");
     execute_cmd("echo " CAKE_VERSION " > " PACKAGE_NAME "/VERSION");
     execute_cmd("tar czf " PACKAGE_NAME ".tar.gz " PACKAGE_NAME);
@@ -1086,8 +1096,10 @@ int main(int argc, char* argv[])
         }
         else if (strcmp(argv[i], "-cake-headers") == 0)
         {
-            /* every cake run (self-analysis, cake89, test suites) uses the
-               bundled headers instead of the system ones */
+            /*
+                every cake run (self-analysis, cake89, test suites) uses the
+                bundled headers instead of the system ones
+            */
             cake_headers = 1;
         }
         else if (strcmp(argv[i], "-no-ide") == 0)

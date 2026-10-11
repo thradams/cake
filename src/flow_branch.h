@@ -110,6 +110,22 @@ struct flow_key_alternatives* _Opt flow_branch_search_up(struct flow_branch* _Op
 struct flow_key_alternatives* _Opt flow_branch_find_add(struct flow_branch* _Opt m, const struct object* obj);
 void flow_branch_remove(struct flow_branch* _Opt m, const struct object* obj);
 
+/*
+    Every entry of the maps from `first` up the parent chain, stopping before
+    `stop` (NULL: up to the root).
+      struct flow_branch_entries it = flow_branch_entries_begin(first, stop);
+      for (const struct flow_key_alternatives* _Opt e; (e = flow_branch_entries_next(&it)) != NULL;)
+*/
+struct flow_branch_entries
+{
+    const struct flow_branch* _Opt map;
+    const struct flow_branch* _Opt stop;
+    int bucket;
+    const struct flow_key_alternatives* _Opt entry;
+};
+struct flow_branch_entries flow_branch_entries_begin(const struct flow_branch* _Opt first, const struct flow_branch* _Opt stop);
+const struct flow_key_alternatives* _Opt flow_branch_entries_next(struct flow_branch_entries* it);
+
 void flow_branch_set_object_moved(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
 void flow_branch_set_object_zero(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
 void flow_branch_set_object_uninitialized(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
@@ -143,11 +159,13 @@ struct object_set
     int size;
     int capacity;
 
-    /* Open-addressing hash index (pointer-keyed, NULL = empty slot) used only
-       to make membership checks O(1) average -- `items` above stays the dense,
-       insertion-ordered array every caller already iterates over; this table
-       exists purely so object_set_add doesn't have to linearly rescan it.
-       See the comment on object_set_add for why this exists. */
+    /*
+        Open-addressing hash index (pointer-keyed, NULL = empty slot) used only
+        to make membership checks O(1) average -- `items` above stays the dense,
+        insertion-ordered array every caller already iterates over; this table
+        exists purely so object_set_add doesn't have to linearly rescan it.
+        See the comment on object_set_add for why this exists.
+    */
     const struct object* _Opt* _Owner _Opt table;
     int table_capacity;
 };

@@ -1,8 +1,9 @@
-/* ide_gui_widgets.c - the ide framework's widgets: text, box, button,
- * input, select, listbox and group. Each one looks and behaves like its
- * counterpart in the old IDE (render_button, render_input, render_select,
- * render_listbox, render_group in ide_ui.c). See GUI_IDE_SPEC.md.
- */
+/*
+    ide_gui_widgets.c - the ide framework's widgets: text, box, button,
+    input, select, listbox and group. Each one looks and behaves like its
+    counterpart in the old IDE (render_button, render_input, render_select,
+    render_listbox, render_group in ide_ui.c). See GUI_IDE_SPEC.md.
+*/
 #include "ide_gui_internal.h"
 #include <limits.h>
 #include <stdlib.h>
@@ -256,11 +257,15 @@ static void input_edit(struct gui_app* app, struct gui_node* n, int lo, int hi, 
     core_fire(app, n->change_id);
 }
 
-/* How far the text is scrolled left, px: the caret is always in view
- * (nothing stored, derived each time). */
-/* The text's scroll, in px: it moves only when the focused caret leaves the
- * box, and just enough to bring it back - the code editor's rule
- * (ensure_caret_visible). The text does not chase the caret. */
+/*
+    How far the text is scrolled left, px: the caret is always in view
+    (nothing stored, derived each time).
+*/
+/*
+    The text's scroll, in px: it moves only when the focused caret leaves the
+    box, and just enough to bring it back - the code editor's rule
+    (ensure_caret_visible). The text does not chase the caret.
+*/
 static void input_follow_caret(const struct gui_app* app, struct gui_node* n)
 {
     int cw = core_node_metrics(app, n)->cell_w;
@@ -396,8 +401,10 @@ static void paint_input(const struct paint* p, const struct gui_node* n)
     if (focused)
         input_follow_caret(app, (struct gui_node*)n);   /* the scroll is the paint's: the box's size is known here */
 
-    /* the text in one run, then again in the selection colors clipped to
-     * the selection: the glyphs never move; the widget's clip cuts the text */
+    /*
+        the text in one run, then again in the selection colors clipped to
+        the selection: the glyphs never move; the widget's clip cuts the text
+    */
     gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, row_h, bg);
     int x = n->rect.x - input_offset(app, n);
     core_draw_utf8(p, x, y, n->value, -1, fg, bg);
@@ -417,8 +424,10 @@ static void paint_input(const struct paint* p, const struct gui_node* n)
             gui_set_clip(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h);
         }
     }
-    /* The caret: a thin bar, a fifth of a cell, as in the old IDE, hidden
-     * while there is a selection or in the blink's off half. */
+    /*
+        The caret: a thin bar, a fifth of a cell, as in the old IDE, hidden
+        while there is a selection or in the blink's off half.
+    */
     if (focused && lo == hi && !app->caret.off)
     {
         int caret_x = n->rect.x - input_offset(app, n) + core_utf8_width(app, p->font, n->value, n->cursor);
@@ -493,8 +502,10 @@ static int on_scrollbar(const struct gui_app* app, const struct gui_node* n, int
     return has_scrollbar(app, n) && x >= n->rect.x + n->rect.w - app->scrollbar_px;
 }
 
-/* The scrollbar overlay along the right edge, only while the mouse is over
- * the box or its thumb is dragged - it never reserves space. */
+/*
+    The scrollbar overlay along the right edge, only while the mouse is over
+    the box or its thumb is dragged - it never reserves space.
+*/
 static void paint_scrollbar(const struct paint* p, const struct gui_node* n)
 {
     const struct gui_app* app = p->app;
@@ -511,8 +522,10 @@ static void paint_scrollbar(const struct paint* p, const struct gui_node* n)
                   hot ? app->theme.scrollbar_thumb_hot_bg : app->theme.scrollbar_thumb_bg);
 }
 
-/* A listbox's widest label, in columns; in GUI_FONT_UI its measured width
- * in columns of cell_w, rounded up. */
+/*
+    A listbox's widest label, in columns; in GUI_FONT_UI its measured width
+    in columns of cell_w, rounded up.
+*/
 static int list_max_cols(const struct gui_app* app, const struct gui_node* n)
 {
     int max = 0;
@@ -634,8 +647,10 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
     int cw = core_node_metrics(app, n)->cell_w, ch = core_node_metrics(app, n)->cell_h;
     int focused = app->ui.focused == n;
     int cols = n->rect.w / cw;
-    /* Rows are whole; the part of the box below the last one is just
-     * background. */
+    /*
+        Rows are whole; the part of the box below the last one is just
+        background.
+    */
     uint32_t body_fg = n->has_colors ? n->fg : t->listbox_fg;   /* a panel's list sets its own */
     uint32_t body_bg = n->has_colors ? n->bg : t->listbox_bg;
     gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h, body_bg);
@@ -685,9 +700,11 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
     paint_hbar(p, n);
 }
 
-/* One row per item: "( )"/"(•)" for radios, "[ ]"/"[X]" for check boxes,
- * then the label with its first letter accented. The keyboard row shows in
- * the selection colors while the group has focus. Same as render_group. */
+/*
+    One row per item: "( )"/"(•)" for radios, "[ ]"/"[X]" for check boxes,
+    then the label with its first letter accented. The keyboard row shows in
+    the selection colors while the group has focus. Same as render_group.
+*/
 static void paint_group(const struct paint* p, const struct gui_node* n)
 {
     const struct gui_app* app = p->app;
@@ -732,9 +749,11 @@ void widget_paint(const struct paint* outer, const struct gui_node* n)
     struct paint q = *outer;   /* each widget draws in its own font */
     q.font = core_node_font(n);
     const struct paint* p = &q;
-    /* Nothing a widget draws leaves its box (0 width: no box, no clip);
-     * a button's box includes its shadow, one cell right and half a row
-     * below. */
+    /*
+        Nothing a widget draws leaves its box (0 width: no box, no clip);
+        a button's box includes its shadow, one cell right and half a row
+        below.
+    */
     if (n->rect.w > 0 && n->rect.h > 0)
     {
         int extra_w = 0, extra_h = 0;
@@ -762,8 +781,10 @@ void widget_paint(const struct paint* outer, const struct gui_node* n)
 
 /* --- The open select list --- */
 
-/* Directly under the control, at least as wide, one row per choice inside
- * a frame - the old IDE's layout_select_popup. Sets each item's rect. */
+/*
+    Directly under the control, at least as wide, one row per choice inside
+    a frame - the old IDE's layout_select_popup. Sets each item's rect.
+*/
 static struct gui_rect select_popup_layout(const struct gui_app* app, struct gui_node* select)
 {
     /* the frame in the layout's cells, the rows in the select's font */
@@ -921,9 +942,11 @@ static void ensure_visible(const struct gui_app* app, struct gui_node* n, int in
     clamp_scroll(app, n);
 }
 
-/* A multi-select listbox (gui_set_multi): its picked rows are the checked
- * items. A click picks one row; Ctrl (Cmd) adds or removes it; Shift picks
- * the rows from the last one picked to it - the old IDE's. */
+/*
+    A multi-select listbox (gui_set_multi): its picked rows are the checked
+    items. A click picks one row; Ctrl (Cmd) adds or removes it; Shift picks
+    the rows from the last one picked to it - the old IDE's.
+*/
 static void listbox_pick(struct gui_node* n, int index, int mods)
 {
     if (mods & GUI_MOD_PRIMARY)
@@ -1110,10 +1133,12 @@ void widget_mouse_move(struct gui_app* app)
     }
 }
 
-/* A notch (120 units) scrolls 3 rows, as in the old IDE. A touchpad sends
- * smaller steps: they add up, and every 40 units scroll one whole row - so
- * scrolling stays fluid without ever showing a row in part, and without any
- * animation. */
+/*
+    A notch (120 units) scrolls 3 rows, as in the old IDE. A touchpad sends
+    smaller steps: they add up, and every 40 units scroll one whole row - so
+    scrolling stays fluid without ever showing a row in part, and without any
+    animation.
+*/
 void widget_wheel(struct gui_app* app, int wheel)
 {
     struct gui_node* n = app->ui.hot;
@@ -1140,8 +1165,10 @@ void widget_wheel(struct gui_app* app, int wheel)
         app->needs_paint = 1;
 }
 
-/* Sideways (a touchpad swipe, a tilt wheel, Shift+wheel): editors and
- * listboxes scroll by columns, 40 units each. */
+/*
+    Sideways (a touchpad swipe, a tilt wheel, Shift+wheel): editors and
+    listboxes scroll by columns, 40 units each.
+*/
 void widget_hwheel(struct gui_app* app, int wheel)
 {
     struct gui_node* n = app->ui.hot;
@@ -1370,9 +1397,11 @@ int widget_key(struct gui_app* app, int key, int mods)
     return handled;
 }
 
-/* A letter typed in a listbox: the next row (after the selected one,
- * wrapping) whose text starts with it, case-insensitive; a file-type marker
- * (an item with colors) and leading blanks are skipped - the old IDE's. */
+/*
+    A letter typed in a listbox: the next row (after the selected one,
+    wrapping) whose text starts with it, case-insensitive; a file-type marker
+    (an item with colors) and leading blanks are skipped - the old IDE's.
+*/
 static void listbox_type_ahead(struct gui_app* app, struct gui_node* n, uint32_t ch)
 {
     if (n->child_count == 0)

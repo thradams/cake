@@ -368,8 +368,10 @@ void rename_list_clear(_Clear struct rename_list* p);
 /* -rename phase 2: records p_token and its declaration, decided by rename_list_commit */
 void rename_record(const struct options* options, const struct token* p_token, const struct token* _Opt p_declaration_name);
 
-/* end of one file: keeps the occurrences whose declaration is the target or the declaration of an occurrence already kept;
-   returns false when the file had occurrences but none could be decided */
+/*
+    end of one file: keeps the occurrences whose declaration is the target or the declaration of an occurrence already kept;
+    returns false when the file had occurrences but none could be decided
+*/
 bool rename_list_commit(struct rename_list* p, const struct options* options);
 
 /* phase 3: the pairs of an undecided file, decided again later without compiling it */

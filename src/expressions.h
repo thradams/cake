@@ -222,8 +222,10 @@ struct offsetof_designator
     struct token* _Opt identifier;
     struct expression* _Owner _Opt index;
 
-    /* identifier node: byte offset of the member inside its struct/union
-       index node: size in bytes of one array element */
+    /*
+        identifier node: byte offset of the member inside its struct/union
+        index node: size in bytes of one array element
+    */
     size_t member_offset;
     size_t element_size;
 
@@ -265,9 +267,6 @@ struct expression
     struct expression* _Owner _Opt right;
 
     bool is_assignment_expression;
-
-    /*  used to check how contexpr can be used inside function literals */
-    bool lvalue_disabled;       
 
     struct defer_list defer_list; //arguments
 };

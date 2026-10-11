@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+
 #include "cake_compat.h"
 #include "options.h"
 #include <string.h>
@@ -200,12 +200,14 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME:
     case W_COMPILE_ASSERT_UNPROVEM:
 
-        /* The former W_OWNERSHIP_* group (22-26). These are now reported by
-           flow analysis (flow1/flow3), so they must be phase 2 -- otherwise
-           they default to phase 0 and a `//lint 26` is checked while parsing,
-           before flow analysis has queued the diagnostic. The removal then
-           fails and the suppression itself is reported as
-           "diagnostic '26' not recognized" while the warning still fires. */
+        /*
+            The former W_OWNERSHIP_* group (22-26). These are now reported by
+            flow analysis (flow1/flow3), so they must be phase 2 -- otherwise
+            they default to phase 0 and a `//lint 26` is checked while parsing,
+            before flow analysis has queued the diagnostic. The removal then
+            fails and the suppression itself is reported as
+            "diagnostic '26' not recognized" while the warning still fires.
+        */
     case W_FLOW_NOT_OWNER:
     case W_FLOW_USING_TEMPORARY_OWNER:
     case W_FLOW_MOVE_ASSIGNMENT_OF_NON_OWNER:
@@ -215,12 +217,14 @@ int get_diagnostic_phase(enum diagnostic_id w)
         /* Emitted only from flow1.c. */
     case W_UNINITIALZED:
 
-        /* ERRORS reported by flow analysis. They are suppressible with a
-           `//lint <id>` comment just like warnings are, so they need the flow
-           phase too -- otherwise the suppression is checked while parsing,
-           before flow analysis has queued the diagnostic, and the comment is
-           reported as "diagnostic '<id>' not recognized" while the error still
-           fires (tests/unit-tests/flow_owner_increment.c). */
+        /*
+            ERRORS reported by flow analysis. They are suppressible with a
+            `//lint <id>` comment just like warnings are, so they need the flow
+            phase too -- otherwise the suppression is checked while parsing,
+            before flow analysis has queued the diagnostic, and the comment is
+            reported as "diagnostic '<id>' not recognized" while the error still
+            fires (tests/unit-tests/flow_owner_increment.c).
+        */
     case C_ERROR_FLOW_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER:
     case C_ERROR_FLOW_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER:
     case C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE:
@@ -271,15 +275,19 @@ int fill_options(struct options* options,
     options_set_warning(options, W_PARAM_SET_BUT_NOT_USED, false);
     options_set_warning(options, W_SET_BUT_NOT_USED, false);
     options_set_warning(options, W_UNUSED_VARIABLE, false);
-    /* Off by default: it fires on plenty of deliberate code (a condition
-       decided by a build-time macro, a redundant null guard kept for
-       clarity), so it is opt-in with -w085. */
+    /*
+        Off by default: it fires on plenty of deliberate code (a condition
+        decided by a build-time macro, a redundant null guard kept for
+        clarity), so it is opt-in with -w085.
+    */
     options_set_warning(options, W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME, false);
 
     options_set_warning(options, W_STYLE, false);
 
-    /* Off by default: implicit int/bool to enum assignment fires on plenty
-       of existing code (flags, raw constants), so it is opt-in. */
+    /*
+        Off by default: implicit int/bool to enum assignment fires on plenty
+        of existing code (flags, raw constants), so it is opt-in.
+    */
     options_set_warning(options, W_INT_TO_ENUM_CONVERSION, false);
 
     /* Off by default: reported by -unused-extern-report. */
@@ -902,8 +910,10 @@ void options_set_all_warnings(struct options* options)
 {
     struct bitset* p_warnings = &options->diagnostic_stack.stack[options->diagnostic_stack.top_index].warnings;
 
-    /* -Wall must not interfere with W_INFO or W_STYLE in any way -- preserve
-       whatever they were already configured as. */
+    /*
+        -Wall must not interfere with W_INFO or W_STYLE in any way -- preserve
+        whatever they were already configured as.
+    */
     const int info_was_warning = bitset_get(p_warnings, W_INFO);
     const int style_was_warning = bitset_get(p_warnings, W_STYLE);
 

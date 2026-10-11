@@ -1,11 +1,12 @@
-/* ide_gui_backend.h - what a platform backend (ide_gui_win32.c,
- * ide_gui_x11.c, ide_gui_cocoa.c) provides to the framework core, and what
- * the core provides to the backend. Internal: apps include only ide_gui.h.
- *
- * A backend only translates OS events and implements the drawing
- * primitives. Layout, painting order, hit testing and behavior live in the
- * core (ide_gui_core.c).
- */
+/*
+    ide_gui_backend.h - what a platform backend (ide_gui_win32.c,
+    ide_gui_x11.c, ide_gui_cocoa.c) provides to the framework core, and what
+    the core provides to the backend. Internal: apps include only ide_gui.h.
+
+    A backend only translates OS events and implements the drawing
+    primitives. Layout, painting order, hit testing and behavior live in the
+    core (ide_gui_core.c).
+*/
 #ifndef IDE_GUI_BACKEND_H
 #define IDE_GUI_BACKEND_H
 
@@ -13,8 +14,10 @@
 
 /* --- Implemented by the backend --- */
 
-/* The backend's drawing target (its back buffer, fonts, ...). Opaque to the
- * core, which only passes it back into the primitives below. */
+/*
+    The backend's drawing target (its back buffer, fonts, ...). Opaque to the
+    core, which only passes it back into the primitives below.
+*/
 struct gui_canvas;
 
 enum gui_font
@@ -33,38 +36,52 @@ struct gui_metrics
 
 struct gui_metrics gui_font_metrics(struct gui_canvas* c, enum gui_font font);
 
-/* The thickness of a scrollbar, px - its own size, scaled for the DPI,
- * not tied to any font. */
+/*
+    The thickness of a scrollbar, px - its own size, scaled for the DPI,
+    not tied to any font.
+*/
 int gui_scrollbar_size(struct gui_canvas* c);
 
-/* Drawing goes into the canvas's back buffer; the backend presents the
- * region the core reports as painted. */
-/* Drawing stays inside this rect until the next call; w or h <= 0
- * clears it. */
+/*
+    Drawing goes into the canvas's back buffer; the backend presents the
+    region the core reports as painted.
+*/
+/*
+    Drawing stays inside this rect until the next call; w or h <= 0
+    clears it.
+*/
 void gui_set_clip(struct gui_canvas* c, int x, int y, int w, int h);
 void gui_fill_rect(struct gui_canvas* c, int x, int y, int w, int h, uint32_t rgb);
 
 /* Darkens the rect with black at `alpha` (0..255) - drop shadows. */
 void gui_shade_rect(struct gui_canvas* c, int x, int y, int w, int h, int alpha);
 
-/* One run of text at (x, y) = top-left of its first cell: every code point
- * advances exactly cell_w, `bg` fills the run's rect, and the glyphs are
- * clipped to it. */
+/*
+    One run of text at (x, y) = top-left of its first cell: every code point
+    advances exactly cell_w, `bg` fills the run's rect, and the glyphs are
+    clipped to it.
+*/
 void gui_draw_text(struct gui_canvas* c, int x, int y, const uint32_t* cps, int count,
                    uint32_t fg, uint32_t bg, enum gui_font font);
 
-/* The width of a run, px: count * cell_w, except in GUI_FONT_UI, where
- * every glyph advances its own width (and gui_draw_text draws them so). */
+/*
+    The width of a run, px: count * cell_w, except in GUI_FONT_UI, where
+    every glyph advances its own width (and gui_draw_text draws them so).
+*/
 int gui_text_width(struct gui_canvas* c, const uint32_t* cps, int count, enum gui_font font);
 
-/* Whether this backend can show a detached window in an OS window of its
- * own (gui_window_detach). 0: the surface calls below are never needed. */
+/*
+    Whether this backend can show a detached window in an OS window of its
+    own (gui_window_detach). 0: the surface calls below are never needed.
+*/
 int gui_backend_can_detach(void);
 
 /* --- Clipboard --- */
 
-/* The canvas reaches the backend's window, which X11 needs to own the
- * selection. */
+/*
+    The canvas reaches the backend's window, which X11 needs to own the
+    selection.
+*/
 void gui_clipboard_set(struct gui_canvas* c, const char* utf8);  /* '
 ' line ends */
 char* gui_clipboard_get(struct gui_canvas* c);           /* malloc'ed, '
@@ -72,8 +89,10 @@ char* gui_clipboard_get(struct gui_canvas* c);           /* malloc'ed, '
 
 /* --- Input, posted by the backend --- */
 
-/* Keys other than characters. Letters and digits use their uppercase ASCII
- * code ('A', '7'); '+', '-' and ' ' likewise. */
+/*
+    Keys other than characters. Letters and digits use their uppercase ASCII
+    code ('A', '7'); '+', '-' and ' ' likewise.
+*/
 enum gui_key
 {
     GUI_KEY_ESCAPE = 256,
@@ -139,34 +158,48 @@ void gui_app_start(struct gui_app* app, struct gui_canvas* c, int argc, char** a
 
 /* The client area changed size (px). */
 void gui_app_resize(struct gui_app* app, int w, int h);
-/* The back buffer was made again (its contents lost): the next paint draws
- * everything. */
+/*
+    The back buffer was made again (its contents lost): the next paint draws
+    everything.
+*/
 void gui_app_invalidate(struct gui_app* app);
 
-/* The zoom the app asked for (gui_zoom) since the last call, in points;
- * the backend applies it to the font, then calls gui_app_font_changed. */
+/*
+    The zoom the app asked for (gui_zoom) since the last call, in points;
+    the backend applies it to the font, then calls gui_app_font_changed.
+*/
 int gui_app_take_zoom(struct gui_app* app);
 
-/* Whether the app changed its timer (gui_set_timer) since the last call;
- * if so *ms is its new period, 0 to stop it. */
+/*
+    Whether the app changed its timer (gui_set_timer) since the last call;
+    if so *ms is its new period, 0 to stop it.
+*/
 int gui_app_take_timer(struct gui_app* app, int* ms);
 
-/* Before gui_app_start: the font families the backend can use (UTF-8,
- * copied) and the one it uses. */
+/*
+    Before gui_app_start: the font families the backend can use (UTF-8,
+    copied) and the one it uses.
+*/
 void gui_app_set_fonts(struct gui_app* app, const char* const names[], int count, int current);
 
-/* The font family the app asked for (gui_set_font) since the last call, or
- * -1; the backend applies it, then calls gui_app_font_changed. */
+/*
+    The font family the app asked for (gui_set_font) since the last call, or
+    -1; the backend applies it, then calls gui_app_font_changed.
+*/
 int gui_app_take_font(struct gui_app* app);
 
-/* Before gui_app_start: the font families GUI_FONT_UI can use (UTF-8),
- * proportional and monospaced, and the one in use. */
+/*
+    Before gui_app_start: the font families GUI_FONT_UI can use (UTF-8),
+    proportional and monospaced, and the one in use.
+*/
 void gui_app_set_ui_fonts(struct gui_app* app, const char* const names[], int count, int current);
 
-/* 1 when the app picked another GUI_FONT_UI family or size since the last
- * call, or the editor's size: the family's index in *index (-1: none
- * offered), *editor_size -1, 0 or 1 for the editor font smaller, the base
- * size or larger; the backend applies it, then calls gui_app_font_changed. */
+/*
+    1 when the app picked another GUI_FONT_UI family or size since the last
+    call, or the editor's size: the family's index in *index (-1: none
+    offered), *editor_size -1, 0 or 1 for the editor font smaller, the base
+    size or larger; the backend applies it, then calls gui_app_font_changed.
+*/
 int gui_app_take_ui_font(struct gui_app* app, int* index, int* editor_size);
 
 /* Whether the app asked to end (gui_quit). */
@@ -192,19 +225,25 @@ enum gui_cursor
 
 enum gui_cursor gui_app_cursor(const struct gui_app* app);
 
-/* Paints whatever is dirty into the canvas. Returns 1 and sets *painted if
- * anything was painted, 0 if nothing was dirty. */
+/*
+    Paints whatever is dirty into the canvas. Returns 1 and sets *painted if
+    anything was painted, 0 if nothing was dirty.
+*/
 int gui_app_paint(struct gui_app* app, struct gui_canvas* c, struct gui_rect* painted);
 
-/* --- Detached windows: one more OS window each ---
- *
- * After each event the backend asks for the OS windows to make, raise and
- * destroy. Each has its own canvas (the same fonts as the main one) and
- * gets its own events, size and paints through the calls below. */
+/*
+    --- Detached windows: one more OS window each ---
+
+    After each event the backend asks for the OS windows to make, raise and
+    destroy. Each has its own canvas (the same fonts as the main one) and
+    gets its own events, size and paints through the calls below.
+*/
 struct gui_surface;
 
-/* A surface that needs its OS window, or NULL: its client size in *w, *h
- * (px). The backend makes it, then calls gui_surface_start. */
+/*
+    A surface that needs its OS window, or NULL: its client size in *w, *h
+    (px). The backend makes it, then calls gui_surface_start.
+*/
 struct gui_surface* gui_app_take_surface_open(struct gui_app* app, int* w, int* h);
 void gui_surface_start(struct gui_app* app, struct gui_surface* s, void* native, int w, int h);
 /* A surface whose OS window should come to the front, or NULL; its native. */

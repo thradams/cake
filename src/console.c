@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+
 
 #if defined(__CATALYST__)
 

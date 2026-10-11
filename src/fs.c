@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+
 
 #include "cake_compat.h"
 #include <stdlib.h>
@@ -92,8 +92,10 @@ void path_normalize(char* path)
         }
     }
 #else
-    /*See the note in path_is_normalized: used on Windows only, marked used
-      here so neither configuration warns.*/
+    /*
+        See the note in path_is_normalized: used on Windows only, marked used
+        here so neither configuration warns.
+    */
     (void)path;
 #endif
 }

@@ -46,7 +46,9 @@
     {L"..\\include\\*.h",  L"include"},     \
     {L"..\\include\\sys\\*.h", L"include\\sys"}, \
     {L"..\\web",           L"web"},         \
-    {L"..\\loc.exe",       L"tools\\loc.exe"}
+    {L"..\\loc.exe",       L"tools\\loc.exe"}, \
+    {L"..\\amalgamator.exe", L"tools\\amalgamator.exe"}, \
+    {L"..\\maketest.exe",  L"tools\\maketest.exe"}
 
 /* optional: shows "I agree with the license terms"; the file is read when setup.exe is built */
 #define INSTALLER_LICENSE_FILE L"win_license.rtf"
@@ -84,8 +86,10 @@ static bool is_cake_path_entry(const wchar_t* entry, size_t length, const wchar_
     return parent && _wcsicmp(parent + 1, L"cake") == 0;
 }
 
-/* Removes install_dir (and old cake versions when adding) from the system
-   PATH, then appends install_dir if add is true. */
+/*
+    Removes install_dir (and old cake versions when adding) from the system
+    PATH, then appends install_dir if add is true.
+*/
 static void update_system_path(const wchar_t* install_dir, bool add)
 {
     HKEY key;

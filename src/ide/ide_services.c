@@ -1,7 +1,8 @@
-/* ide_services.c - the IDE's access to files and folders. Windows only
- * for now (the IDE is Windows-first until it is stable); the other
- * platforms come with their backends.
- */
+/*
+    ide_services.c - the IDE's access to files and folders. Windows only
+    for now (the IDE is Windows-first until it is stable); the other
+    platforms come with their backends.
+*/
 #include "ide_shell.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -753,8 +754,10 @@ void ide_detect_include_dirs(void (*add)(void* ctx, const char* dir), void* ctx,
             add(ctx, dir);
     }
 #else
-    /* The platform compiler's own "-v -E" output, between
-     * "#include <...> search starts here:" and "End of search list." (ide.c's). */
+    /*
+        The platform compiler's own "-v -E" output, between
+        "#include <...> search starts here:" and "End of search list." (ide.c's).
+    */
 #ifdef __APPLE__
     const char* cmd = "echo | clang -v -E - 2>&1";
 #else

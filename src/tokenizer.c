@@ -34,7 +34,7 @@
                     final, the one seen by the parser.
 
 */
-//#pragma safety enable
+
 
 #include "cake_compat.h"
 #include <ctype.h>
@@ -519,9 +519,11 @@ const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
         {
             full_path_out[0] = '\0';
 
-            /* macOS framework layout: <CoreFoundation/CFBase.h> lives at
-               dir/CoreFoundation.framework/Headers/CFBase.h - the first
-               path component names the framework. */
+            /*
+                macOS framework layout: <CoreFoundation/CFBase.h> lives at
+                dir/CoreFoundation.framework/Headers/CFBase.h - the first
+                path component names the framework.
+            */
             const char* _Opt slash = strchr(path, '/');
             if (slash != NULL)
             {
@@ -2314,9 +2316,11 @@ static const char* clang_query_operator_value(const struct platform* target, con
 {
     if (strcmp(op, "__has_builtin") == 0)
     {
-        /* The target-detection builtins are the ones the SDK probes for
-       (e.g. TargetConditionals.h). Report those as available; other
-       codegen builtins are reported unavailable so headers fall back. */
+        /*
+            The target-detection builtins are the ones the SDK probes for
+            (e.g. TargetConditionals.h). Report those as available; other
+            codegen builtins are reported unavailable so headers fall back.
+        */
         if (strcmp(arg, "__is_target_arch") == 0 ||
             strcmp(arg, "__is_target_os") == 0 ||
             strcmp(arg, "__is_target_vendor") == 0 ||
@@ -2362,9 +2366,11 @@ static const char* clang_query_operator_value(const struct platform* target, con
         return "0";
     }
 
-    /* __has_feature / __has_extension / __has_attribute /
-   __has_cpp_attribute / __has_declspec_attribute / __has_warning /
-   __building_module: cake models none of these. */
+    /*
+        __has_feature / __has_extension / __has_attribute /
+        __has_cpp_attribute / __has_declspec_attribute / __has_warning /
+        __building_module: cake models none of these.
+    */
     return "0";
 }
 
@@ -3534,8 +3540,10 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
         if (list3.head == NULL)
         {
-            /* process_defined() hit something malformed enough that it
-        already reported its own diagnostic*/
+            /*
+                process_defined() hit something malformed enough that it
+                already reported its own diagnostic
+            */
         }
         else
         {
@@ -4126,10 +4134,11 @@ struct token_list replacement_group(struct preprocessor_ctx* ctx, struct token_l
 {
     //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
 
-    /*replacement-group:
-    pp-tokens(opt) new-line
-    replacement-group pp-tokens(opt) new-line
-*/
+    /*
+        replacement-group:
+        pp-tokens(opt) new-line
+        replacement-group pp-tokens(opt) new-line
+    */
     struct token_list r = { 0 };
     try
     {
@@ -5251,8 +5260,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             struct token_list r5 = pp_tokens_opt(ctx, input_list, level, is_active);
 
-            /* is_active is necessarily true here: the function returns early when it
-               is false (see the `if (!is_active)` at the top of control_line). */
+            /*
+                is_active is necessarily true here: the function returns early when it
+                is false (see the `if (!is_active)` at the top of control_line).
+            */
             struct token* _Opt p_line_number = NULL;
             struct token* _Opt p_filename = NULL;
             for (struct token* _Opt p = r5.head; p; p = p->next)
@@ -5626,14 +5637,15 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
 
 struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, const struct macro* macro, const struct token* _Opt origin);
 
-/*#define hash_hash # ## #
-#define mkstr(a) # a
-#define in_between(a) mkstr(a)
-#define join(c, d) in_between(c hash_hash d)
+/*
+    #define hash_hash # ## #
+    #define mkstr(a) # a
+    #define in_between(a) mkstr(a)
+    #define join(c, d) in_between(c hash_hash d)
 
-hash_hash
+    hash_hash
 
-join(x, y)
+    join(x, y)
 */
 static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* input_list)
 {
@@ -6077,10 +6089,12 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
 
         prematch(ctx, &r, input_list, is_active);
 
-        /* Inside an inactive block prematch DELETES the token instead of
-           appending it (unless -keep-inactive-tokens), so there may be
-           nothing here to mark. `#if 0 / _Pragma("once") / #endif` used to
-           dereference a null r.tail and crash. */
+        /*
+            Inside an inactive block prematch DELETES the token instead of
+            appending it (unless -keep-inactive-tokens), so there may be
+            nothing here to mark. `#if 0 / _Pragma("once") / #endif` used to
+            dereference a null r.tail and crash.
+        */
         if (r.tail != NULL)
         {
             r.tail->type = TK_PRAGMA;
@@ -6134,11 +6148,13 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
         }
         else
         {
-            /* An inactive block produces nothing. Letting the pragma's own
-               tokens through left them in the stream for the parser to trip
-               over ("expected declaration not 'once'"), and printing that
-               diagnostic read the token_origin popped just above -- a
-               use-after-free. See `#if 0 / _Pragma("once") / #endif`. */
+            /*
+                An inactive block produces nothing. Letting the pragma's own
+                tokens through left them in the stream for the parser to trip
+                over ("expected declaration not 'once'"), and printing that
+                diagnostic read the token_origin popped just above -- a
+                use-after-free. See `#if 0 / _Pragma("once") / #endif`.
+            */
             token_list_destroy(&r0);
         }
 
@@ -6155,8 +6171,10 @@ static struct token_list operator_pragma(struct preprocessor_ctx* ctx, struct to
 
         prematch(ctx, &r, input_list, is_active); //)
 
-        /* Same as the opening token above: nothing was appended when the
-           block is inactive. */
+        /*
+            Same as the opening token above: nothing was appended when the
+            block is inactive.
+        */
         if (r.tail != NULL)
         {
             r.tail->type = TK_PRAGMA_END;
@@ -6869,7 +6887,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     }
                     else
                     {
-                        token_list_pop_front(input_list); /* TODO: delete */
+                        token_list_pop_front(input_list);
                     }
                 }
                 else
@@ -6881,7 +6899,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             prematch(ctx, &r, input_list, is_active);
                         }
                         else
-                            token_list_pop_front(input_list); /* TODO: delete */
+                            token_list_pop_front(input_list);
                     }
                     else
                     {
@@ -6904,7 +6922,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             }
                             else
                             {
-                                token_list_pop_front(input_list); /* TODO: delete */
+                                token_list_pop_front(input_list);
                             }
                         }
                     }
@@ -7095,8 +7113,10 @@ int preprocessor_load_config(struct preprocessor_ctx* ctx)
 {
     ctx->cake_config_found = false;
 
-    /* cake's own headers (<exe dir>/include) are always the first include
-       directory - built in, not listed in cake.json. */
+    /*
+        cake's own headers (<exe dir>/include) are always the first include
+        directory - built in, not listed in cake.json.
+    */
     char executable_path[FS_MAX_PATH - sizeof("/include")] = { 0 };
     get_self_path(executable_path, sizeof(executable_path));
     dirname(executable_path);

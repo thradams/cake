@@ -1,11 +1,12 @@
-/* ide_shell.c - the Cake IDE 2, an app of the ide GUI framework.
- *
- * Builds the old IDE's screen - same menus, panels and dialogs - and runs
- * the commands that do not need the compiler yet: opening and saving
- * files, the Folder panel, the Edit commands, windows, themes, zoom, Go to
- * Line. Everything else says so in the statusbar until Cake is wired in
- * (see GUI_IDE_SPEC.md, section 11).
- */
+/*
+    ide_shell.c - the Cake IDE 2, an app of the ide GUI framework.
+
+    Builds the old IDE's screen - same menus, panels and dialogs - and runs
+    the commands that do not need the compiler yet: opening and saving
+    files, the Folder panel, the Edit commands, windows, themes, zoom, Go to
+    Line. Everything else says so in the statusbar until Cake is wired in
+    (see GUI_IDE_SPEC.md, section 11).
+*/
 #include "ide_shell.h"
 #include "../version.h"
 #include "../json.h"
@@ -313,8 +314,10 @@ struct output_panel
     int to_stdin;              /* the prompt shown is "stdin>" */
 };
 
-/* Find Results: shares the bottom dock with Output; each search goes above
- * the previous ones. */
+/*
+    Find Results: shares the bottom dock with Output; each search goes above
+    the previous ones.
+*/
 /* Back/Forward (Alt+Left/Right): where a jump left from - the old IDE's g_nav. */
 #define NAV_STACK_MAX 64
 
@@ -344,9 +347,11 @@ struct find_results
     char* previous;   /* the panel's text when this search began */
 };
 
-/* Search > Find in Files: the Find and Replace panel, docked right - the
- * old IDE's. Its content is rebuilt when the mode (tab) changes; the
- * settings live here between rebuilds. */
+/*
+    Search > Find in Files: the Find and Replace panel, docked right - the
+    old IDE's. Its content is rebuilt when the mode (tab) changes; the
+    settings live here between rebuilds.
+*/
 enum look_in
 {
     LOOK_IN_FILE,
@@ -355,8 +360,10 @@ enum look_in
     LOOK_IN_PROJECT,
 };
 
-/* The Find and Replace buttons, 2 + 11 + 1 + 11 + 2: the panel's minimum
- * width, and the width it first opens at. */
+/*
+    The Find and Replace buttons, 2 + 11 + 1 + 11 + 2: the panel's minimum
+    width, and the width it first opens at.
+*/
 #define FIF_MIN_COLS 27
 
 struct find_in_files
@@ -580,9 +587,11 @@ struct copts_dialog
     int name_new;                         /* New, else Rename */
 };
 
-/* A Build (F7) or F5 in steps: the Pre-Build Event, the Build, the
- * Post-Build Event, then, for F5, the debugger. Each step starts only when
- * the one before ends without errors (a tool: exit code 0). */
+/*
+    A Build (F7) or F5 in steps: the Pre-Build Event, the Build, the
+    Post-Build Event, then, for F5, the debugger. Each step starts only when
+    the one before ends without errors (a tool: exit code 0).
+*/
 enum build_stage
 {
     STAGE_NONE,
@@ -678,8 +687,10 @@ struct ext_dialog
 };
 
 
-/* The External Tools macros, as the old IDE offers them; picking one
- * appends it to the field its "  >  " button sits by. */
+/*
+    The External Tools macros, as the old IDE offers them; picking one
+    appends it to the field its "  >  " button sits by.
+*/
 static const struct macro
 {
     const char* name;
@@ -860,9 +871,11 @@ struct ide
     struct new_folder_dialog new_folder;
     struct git_clone_dialog clone;
     struct git_panel git;
-    /* A program running in the background - an External Tool, a git command -
-     * its output streamed into the Output panel; its steps run one after
-     * the other, a failed one stops them. The old IDE's g_job / g_gitjob. */
+    /*
+        A program running in the background - an External Tool, a git command -
+        its output streamed into the Output panel; its steps run one after
+        the other, a failed one stops them. The old IDE's g_job / g_gitjob.
+    */
     struct
     {
         struct ide_process* proc;
@@ -948,8 +961,10 @@ static const char* const theme_names[] = { "Ambar", "Dark", "White", "Nebula", "
 
 /* --- Small helpers --- */
 
-/* A message in the statusbar, right after its hotkeys - the version keeps
- * the right corner, as in the old IDE. */
+/*
+    A message in the statusbar, right after its hotkeys - the version keeps
+    the right corner, as in the old IDE.
+*/
 static void status(struct ide* ide, const char* text)
 {
     gui_set_label(ide->status_message, text);
@@ -994,8 +1009,10 @@ static struct gui_node* create(struct ide* ide, enum gui_kind kind, const char* 
     return n;
 }
 
-/* A node `cols` x `rows` cells at (col, row) cells of its parent - how the
- * old IDE's dialogs are laid out. */
+/*
+    A node `cols` x `rows` cells at (col, row) cells of its parent - how the
+    old IDE's dialogs are laid out.
+*/
 static struct gui_node* add_at(struct ide* ide, struct gui_node* parent, enum gui_kind kind,
                                int col, int row, int cols, int rows, const char* label)
 {
@@ -1061,9 +1078,11 @@ static struct gui_node* add_label(struct ide* ide, struct gui_node* parent, int 
     return n;
 }
 
-/* `n` placed `cols` x `rows` cells at (col, row) of a `w` x `h` dialog,
- * kept at its distance from the edges in `anchors` when the dialog resizes;
- * left and right both: it stretches. */
+/*
+    `n` placed `cols` x `rows` cells at (col, row) of a `w` x `h` dialog,
+    kept at its distance from the edges in `anchors` when the dialog resizes;
+    left and right both: it stretches.
+*/
 static void anchor_in(struct gui_node* n, int anchors, int col, int row, int cols, int rows, int w, int h)
 {
     struct gui_layout l = { anchors };
@@ -1100,8 +1119,10 @@ static void show_dialog(struct ide* ide, struct gui_node* win, int cols, int row
         gui_focus(ide->app, first);
 }
 
-/* A resizable dialog: sized `cols` x `rows` the first time, then it keeps
- * the size the user gave it. */
+/*
+    A resizable dialog: sized `cols` x `rows` the first time, then it keeps
+    the size the user gave it.
+*/
 static void show_resizable_dialog(struct ide* ide, struct gui_node* win, int cols, int rows,
                                   struct gui_node* first)
 {
@@ -1176,9 +1197,11 @@ static struct gui_node* focused_editor(struct ide* ide)
     return d ? d->editor : NULL;
 }
 
-/* Opens `path` in a new document window, or raises the one it is in -
- * placed like the old IDE's make_editor_window: 70 x 20 cells, each new
- * one shifted down-right, maximized into the desktop. */
+/*
+    Opens `path` in a new document window, or raises the one it is in -
+    placed like the old IDE's make_editor_window: 70 x 20 cells, each new
+    one shifted down-right, maximized into the desktop.
+*/
 static void project_open(struct ide* ide, const char* path);
 
 static void open_file(struct ide* ide, const char* name)
@@ -1284,8 +1307,10 @@ static void folder_refresh(struct ide* ide)
     gui_set_label(f->window, file_name(f->dir));
 }
 
-/* A double click or Enter on a row: ".." goes up, a folder goes in, a file
- * opens. */
+/*
+    A double click or Enter on a row: ".." goes up, a folder goes in, a file
+    opens.
+*/
 static void folder_open_selected(struct ide* ide)
 {
     struct folder_panel* f = &ide->folder;
@@ -1420,9 +1445,11 @@ static void build_statusbar(struct ide* ide)
 }
 
 /* A docked panel `size` cells thick, with the dock popup. */
-/* The panels' first sizes, in cells: panels_size turns them into pixels
- * once settings_load has set the UI font - before it, the cells are the
- * default font's. */
+/*
+    The panels' first sizes, in cells: panels_size turns them into pixels
+    once settings_load has set the UI font - before it, the cells are the
+    default font's.
+*/
 static struct
 {
     struct gui_node* win;
@@ -1532,8 +1559,10 @@ static void build_panels(struct ide* ide)
     gui_append(ide->output.window, ide->output.editor);
     gui_window_open(ide->app, ide->output.window);
 
-    /* Project: docked left in the Folder panel's place, shown when a project
-     * opens - the old IDE's. */
+    /*
+        Project: docked left in the Folder panel's place, shown when a project
+        opens - the old IDE's.
+    */
     ide->project_window = new_panel(ide, "Project", GUI_DOCK_LEFT, 20);
     ide->project_list = create(ide, GUI_LISTBOX, NULL);
     fill_frame(ide->project_list);
@@ -2017,9 +2046,11 @@ static void save_as_commit(struct ide* ide)
     }
 }
 
-/* The OK button (or Enter in Name). Open Folder: the folder shown becomes
- * the Folder panel's. Otherwise the name typed, or the selected row when
- * nothing is typed. */
+/*
+    The OK button (or Enter in Name). Open Folder: the folder shown becomes
+    the Folder panel's. Otherwise the name typed, or the selected row when
+    nothing is typed.
+*/
 /* `p` without trailing separators (a root keeps its own). */
 static void strip_separators(char* p)
 {
@@ -2028,8 +2059,10 @@ static void strip_separators(char* p)
         p[--n] = '\0';
 }
 
-/* Add Existing File with several files picked: all of them added; 0 when
- * fewer than two are picked (one goes the usual way, Name and all). */
+/*
+    Add Existing File with several files picked: all of them added; 0 when
+    fewer than two are picked (one goes the usual way, Name and all).
+*/
 static int open_add_picked(struct ide* ide)
 {
     struct open_dialog* o = &ide->open;
@@ -2130,12 +2163,14 @@ static void open_list_pick(struct ide* ide)
     open_accept(ide, o->entries[row - 1].name);
 }
 
-/* The folder every path dialog starts in, the same order as
- * resolve_referenced_path:
- *   1. the active document's folder
- *   2. the open project's folder
- *   3. the Folder panel's folder
- *   4. the current directory */
+/*
+    The folder every path dialog starts in, the same order as
+    resolve_referenced_path:
+      1. the active document's folder
+      2. the open project's folder
+      3. the Folder panel's folder
+      4. the current directory
+*/
 static void start_dir(struct ide* ide, char* out, size_t cap)
 {
     struct doc* d = active_doc(ide);
@@ -2175,8 +2210,10 @@ static void build_newfile(struct ide* ide)
     gui_set_id(add_at(ide, nf->window, GUI_BUTTON, 28, 6, 10, 1, "Cancel"), EV_NEWFILE_CANCEL);
 }
 
-/* A .c file starts with a Hello World, a .h with #pragma once, a .md with a
- * title, anything else empty - as in the old IDE. */
+/*
+    A .c file starts with a Hello World, a .h with #pragma once, a .md with a
+    title, anything else empty - as in the old IDE.
+*/
 static void newfile_create(struct ide* ide);
 static struct doc* find_doc(struct ide* ide, const char* name);
 
@@ -2202,8 +2239,10 @@ static void newfile_accept(struct ide* ide)
     newfile_create(ide);
 }
 
-/* Writes pending_path with a starting text for its extension and opens it;
- * an overwritten file that is open gets the new text too. */
+/*
+    Writes pending_path with a starting text for its extension and opens it;
+    an overwritten file that is open gets the new text too.
+*/
 static void newfile_create(struct ide* ide)
 {
     const char* path = ide->pending_path;
@@ -2328,9 +2367,11 @@ static void build_wrap(struct ide* ide)
     gui_set_id(add_at(ide, w->window, GUI_BUTTON, 21, 6, 10, 1, "Cancel"), EV_WRAP_CANCEL);
 }
 
-/* Rewraps the selected lines (or the paragraph around the caret) to
- * `columns`, keeping the first line's indentation; with `justify`, every
- * line but the last is padded with spaces to the full width. */
+/*
+    Rewraps the selected lines (or the paragraph around the caret) to
+    `columns`, keeping the first line's indentation; with `justify`, every
+    line but the last is padded with spaces to the full width.
+*/
 static void wrap_text(struct gui_node* ed, int columns, int justify)
 {
     const char* text = gui_get_value(ed);
@@ -2488,8 +2529,10 @@ static int same_char(char a, char b, int match_case)
     return a == b;
 }
 
-/* The first match of `pattern` in text[from, to) going forward (or the
- * last one going backward), honoring case and whole words; -1 if none. */
+/*
+    The first match of `pattern` in text[from, to) going forward (or the
+    last one going backward), honoring case and whole words; -1 if none.
+*/
 static int find_in(const char* text, int from, int to, const char* pattern, int forward,
                    int match_case, int whole)
 {
@@ -2512,8 +2555,10 @@ static int find_in(const char* text, int from, int to, const char* pattern, int 
     return -1;
 }
 
-/* One search with the dialog's settings in the active document; selects
- * the match. `restart` searches the whole scope rather than from the caret. */
+/*
+    One search with the dialog's settings in the active document; selects
+    the match. `restart` searches the whole scope rather than from the caret.
+*/
 static int search(struct ide* ide, const struct search_state* st, int restart)
 {
     struct doc* d = active_doc(ide);
@@ -2561,8 +2606,10 @@ static void read_search(struct ide* ide, struct gui_node* input, struct gui_node
         gui_editor_get_selection(d->editor, &st->scope_lo, &st->scope_hi);
 }
 
-/* Replace: the next match is replaced; Change All replaces every match in
- * the scope. Returns how many were replaced. */
+/*
+    Replace: the next match is replaced; Change All replaces every match in
+    the scope. Returns how many were replaced.
+*/
 static int replace(struct ide* ide, int all)
 {
     struct doc* d = active_doc(ide);
@@ -2653,8 +2700,10 @@ static struct doc* doc_of_editor(struct ide* ide, const struct gui_node* ed)
     return NULL;
 }
 
-/* The editor popup opens over a document: Read-only shows its state, and
- * the C-only items are enabled only for a .c or .h file. */
+/*
+    The editor popup opens over a document: Read-only shows its state, and
+    the C-only items are enabled only for a .c or .h file.
+*/
 static void editor_menu_refresh(struct ide* ide)
 {
     struct doc* d = doc_of_editor(ide, gui_context_target(ide->app));
@@ -2796,8 +2845,10 @@ static void build_edit_string(struct ide* ide)
     }
 }
 
-/* The closing quote of the "..." whose opening quote is at `open`; -1 when
- * the line ends first. */
+/*
+    The closing quote of the "..." whose opening quote is at `open`; -1 when
+    the line ends first.
+*/
 static int literal_close(const char* text, int open)
 {
     int i = open + 1;
@@ -2806,8 +2857,10 @@ static int literal_close(const char* text, int open)
     return text[i] == '"' ? i : -1;
 }
 
-/* The opening quote of the "..." on `pos`'s line that holds `pos` - its
- * quotes included - or -1. Skips '...' and stops at a // comment. */
+/*
+    The opening quote of the "..." on `pos`'s line that holds `pos` - its
+    quotes included - or -1. Skips '...' and stops at a // comment.
+*/
 static int literal_around(const char* text, int pos)
 {
     int i = pos;
@@ -2842,9 +2895,11 @@ static int literal_around(const char* text, int pos)
     return -1;
 }
 
-/* The run of adjacent "..." "..." around the caret - only blanks and line
- * ends between them, as C concatenates them: [*lo, *hi) from the first
- * opening quote to past the last closing one. 0 when the caret is in none. */
+/*
+    The run of adjacent "..." "..." around the caret - only blanks and line
+    ends between them, as C concatenates them: [*lo, *hi) from the first
+    opening quote to past the last closing one. 0 when the caret is in none.
+*/
 static int string_at_caret(struct gui_node* ed, int* lo, int* hi)
 {
     const char* text = gui_get_value(ed);
@@ -2944,9 +2999,11 @@ static void edit_string_open(struct ide* ide, struct gui_node* ed)
     show_resizable_dialog(ide, e->window, 70, 18, e->editor);
 }
 
-/* The document may have changed since Edit String opened: [lo, hi) must
- * still begin with a '"' and be exactly one run of adjacent literals -
- * none just before it, none just after. */
+/*
+    The document may have changed since Edit String opened: [lo, hi) must
+    still begin with a '"' and be exactly one run of adjacent literals -
+    none just before it, none just after.
+*/
 static int edit_string_still_there(const char* text, int lo, int hi)
 {
     int len = (int)strlen(text);
@@ -2972,9 +3029,11 @@ static int edit_string_still_there(const char* text, int lo, int hi)
     return close == hi - 1;
 }
 
-/* `enc` (already escaped, `len` bytes) as "..." literals of at most `room`
- * bytes each, cut after a space - never inside an escape; each one after
- * the very first starts on a new line, `prefix` (a line end and indent). */
+/*
+    `enc` (already escaped, `len` bytes) as "..." literals of at most `room`
+    bytes each, cut after a space - never inside an escape; each one after
+    the very first starts on a new line, `prefix` (a line end and indent).
+*/
 static void append_split_literal(struct ide_text* out, const char* enc, int len, int room,
                                  const char* prefix, int* first)
 {
@@ -3027,9 +3086,11 @@ static void edit_string_accept(struct ide* ide)
     gui_window_close(ide->app, e->window);
     struct gui_node* target = d->editor;
     const char* plain = gui_get_value(e->editor);
-    /* one literal per line of the text - split at spaces to stay within
-     * EDIT_STRING_COLUMNS - each on its own source line under the first
-     * one's opening quote */
+    /*
+        one literal per line of the text - split at spaces to stay within
+        EDIT_STRING_COLUMNS - each on its own source line under the first
+        one's opening quote
+    */
     const char* src = gui_get_value(target);
     int line_start = e->lo;
     while (line_start > 0 && src[line_start - 1] != '\n')
@@ -3106,8 +3167,10 @@ static void new_folder_accept(struct ide* ide)
     output(ide, msg);
 }
 
-/* Delete on the Folder panel's selected row: a file, or an empty folder,
- * after a confirmation that names it. */
+/*
+    Delete on the Folder panel's selected row: a file, or an empty folder,
+    after a confirmation that names it.
+*/
 static void folder_delete_ask(struct ide* ide)
 {
     struct folder_panel* f = &ide->folder;
@@ -3206,8 +3269,10 @@ static struct gui_node* add_select_of(struct ide* ide, struct gui_node* parent, 
     return s;
 }
 
-/* Project Properties: the target being edited on top, the pages on the
- * left, the selected page on the right - Visual Studio's Property Pages. */
+/*
+    Project Properties: the target being edited on top, the pages on the
+    left, the selected page on the right - Visual Studio's Property Pages.
+*/
 static const char* const copts_pages[COPTS_PAGES] = { "Compiler", "Includes", "Build", "Debugger" };
 
 /* The dialog is resizable: fields grow to the right, `right` cells from the edge. */
@@ -3318,8 +3383,10 @@ static void build_compiler_options(struct ide* ide)
         gui_set_id(b, inc_ids[i]);
     }
     copts_page_take(c, 1, first);
-    /* the Build page: the Output, and the Pre-Build and Post-Build Events -
-     * commands run before a Build (F7, or F5's) and after it ends without errors */
+    /*
+        the Build page: the Output, and the Pre-Build and Post-Build Events -
+        commands run before a Build (F7, or F5's) and after it ends without errors
+    */
     first = gui_child_count(c->window);
     struct gui_node* output_label = add_label(ide, c->window, 18, 4, "Output");
     c->output = add_at(ide, c->window, GUI_INPUT, 30, 4, 28, 1, NULL);
@@ -3597,8 +3664,10 @@ static void set3(char (*f)[512], const char* a, const char* b, const char* c)
     snprintf(f[2], sizeof f[2], "%s", c);
 }
 
-/* The compilers Auto Config knows: the name of their configurations and
- * the target Cake is given. */
+/*
+    The compilers Auto Config knows: the name of their configurations and
+    the target Cake is given.
+*/
 struct auto_config_target
 {
     const char* name;
@@ -3617,9 +3686,11 @@ static const struct auto_config_target auto_config_targets[] = {
     { "Clang macOS ARM64", "aarch64-apple-darwin-clang" },
 };
 
-/* The compiler of Cake target `slug` as the Post-Build Event, its headers
- * as the include directories, the built program as the Debugger's command -
- * Debug or Release. 0 when the compiler is not on this machine. */
+/*
+    The compiler of Cake target `slug` as the Post-Build Event, its headers
+    as the include directories, the built program as the Debugger's command -
+    Debug or Release. 0 when the compiler is not on this machine.
+*/
 static int auto_config_one(const struct auto_config_found* f, const char* slug, int debug, struct target_settings* s)
 {
     char args[2048] = { 0 };
@@ -3664,8 +3735,10 @@ static int auto_config_one(const struct auto_config_found* f, const char* slug, 
 #else
         if (debug)
         {
-            /* -gdwarf: plain -g is stabs, which lldb does not read; one file per
-             * tcc run: tcc gives every unit of a multi-file run the same low_pc */
+            /*
+                -gdwarf: plain -g is stabs, which lldb does not read; one file per
+                tcc run: tcc gives every unit of a multi-file run the same low_pc
+            */
             char command[1100] = { 0 };
             snprintf(command, sizeof command, "rm -f *.o && %s", f->tcc);
             snprintf(args, sizeof args, "-gdwarf -c $(CakeOutput) && %s -gdwarf *.o -o $(TargetFileName)", f->tcc);
@@ -3711,9 +3784,11 @@ static int auto_config_one(const struct auto_config_found* f, const char* slug, 
     return 1;
 }
 
-/* Auto Config: a Debug and a Release configuration for every compiler on
- * this machine - created, or updated when one has the same name; the other
- * configurations are left as they are. A report says which. */
+/*
+    Auto Config: a Debug and a Release configuration for every compiler on
+    this machine - created, or updated when one has the same name; the other
+    configurations are left as they are. A report says which.
+*/
 static void copts_auto_config(struct ide* ide)
 {
     struct copts_dialog* c = &ide->copts;
@@ -3851,8 +3926,10 @@ static void macro_event(struct ide* ide, int id)
     gui_focus(ide->app, m->target);
 }
 
-/* --- External Tools: 66 x 22, a list of tools and the selected one's
- * fields. The dialog edits a copy; OK keeps it. --- */
+/*
+    --- External Tools: 66 x 22, a list of tools and the selected one's
+    fields. The dialog edits a copy; OK keeps it. ---
+*/
 
 static void build_external_tools(struct ide* ide)
 {
@@ -4016,8 +4093,10 @@ static void ext_event(struct ide* ide, int id)
     }
 }
 
-/* The Tools menu: one item per external tool, then - when there are any -
- * a line, then its own items. */
+/*
+    The Tools menu: one item per external tool, then - when there are any -
+    a line, then its own items.
+*/
 /* The settings whose configuration Build > Configuration picks: the open project's, else the global ones. */
 static struct compiler_settings* config_settings_in_use(struct ide* ide)
 {
@@ -4087,8 +4166,10 @@ static const char* platform_for(struct ide* ide, const char* path);
 static int file_uses_project(struct ide* ide, const char* path);
 static const struct target_settings* settings_in_use(const struct compiler_settings* cs);
 
-/* $(TargetFileName): the Build page's Output when set, else the project's
- * name or the document's, with .exe for an MSVC target - the old IDE's. */
+/*
+    $(TargetFileName): the Build page's Output when set, else the project's
+    name or the document's, with .exe for an MSVC target - the old IDE's.
+*/
 static void target_file_name(struct ide* ide, const char* path, const char* doc_base, char* out, size_t cap)
 {
     int project = file_uses_project(ide, path);
@@ -4159,8 +4240,10 @@ static void append_cake_input(struct ide* ide, struct ide_text* out, const char*
     }
 }
 
-/* $(CakeOutput) / $(CakeOutputChanged): the C89 files Cake writes - under
- * <project dir>/<platform>/ for a project, else next to the document. */
+/*
+    $(CakeOutput) / $(CakeOutputChanged): the C89 files Cake writes - under
+    <project dir>/<platform>/ for a project, else next to the document.
+*/
 static void append_cake_output(struct ide* ide, struct ide_text* out, const char* path, const char* dir,
                                const char* name, const char* ext, int only_changed)
 {
@@ -4203,12 +4286,14 @@ static void append_include_arg(struct ide_text* out, const char* dir)
     ide_text_printf(out, "%s-I\"%.*s\"", out->len > 0 ? " " : "", (int)len, dir);
 }
 
-/* `in` with the External Tools macros replaced - the old IDE's
- * exttool_expand: $(FilePath) $(FileDir) $(FileName) $(FileExt) (and the
- * $(Item...) spellings), $(CakeOutput[Changed]), $(CakeInput{Files,Changed}),
- * $(Target{Dir,FileName,Name,Ext,Path}), $(Platform), $(Target),
- * $(ProjectName), $(ProjectDir), $(InstallDir), $(IncludeDirs); "$$"
- * is a '$'. An unknown macro expands to nothing. */
+/*
+    `in` with the External Tools macros replaced - the old IDE's
+    exttool_expand: $(FilePath) $(FileDir) $(FileName) $(FileExt) (and the
+    $(Item...) spellings), $(CakeOutput[Changed]), $(CakeInput{Files,Changed}),
+    $(Target{Dir,FileName,Name,Ext,Path}), $(Platform), $(Target),
+    $(ProjectName), $(ProjectDir), $(InstallDir), $(IncludeDirs); "$$"
+    is a '$'. An unknown macro expands to nothing.
+*/
 static void expand_macros(struct ide* ide, const char* in, struct ide_text* out, int quote)
 {
     struct doc* d = active_doc(ide);
@@ -4562,8 +4647,10 @@ static void dirs_refresh(struct ide* ide, struct gui_node* list, const struct in
 
 static void project_save(struct ide* ide);
 
-/* A project's entries are relative to its folder; the global lists keep
- * the path as picked. */
+/*
+    A project's entries are relative to its folder; the global lists keep
+    the path as picked.
+*/
 static void dirs_add(struct ide* ide, struct gui_node* list, struct include_dirs* l, int project, const char* dir)
 {
     char entry[1024] = { 0 };
@@ -5564,8 +5651,10 @@ static void build_help(struct ide* ide)
 #endif
 }
 
-/* `node`'s help: `hint` in the statusbar under the mouse, `topic` on F1 -
- * as the old IDE's ui_set_help(node, hint, text). */
+/*
+    `node`'s help: `hint` in the statusbar under the mouse, `topic` on F1 -
+    as the old IDE's ui_set_help(node, hint, text).
+*/
 static void set_help(struct ide* ide, struct gui_node* node, const char* hint, enum help_id topic)
 {
     struct help_window* h = &ide->help;
@@ -5631,10 +5720,12 @@ static enum help_id help_history_pop(struct help_history* h)
     return h->count > 0 ? h->items[--h->count] : HELP_NONE;
 }
 
-/* Display width of a Markdown table cell as the read-only Markdown editor
- * draws it: inline `code` backticks and **bold** markers are hidden there
- * (the Markdown highlighter's GUI_SPAN_HIDDEN), and a UTF-8 sequence is
- * one column. */
+/*
+    Display width of a Markdown table cell as the read-only Markdown editor
+    draws it: inline `code` backticks and **bold** markers are hidden there
+    (the Markdown highlighter's GUI_SPAN_HIDDEN), and a UTF-8 sequence is
+    one column.
+*/
 static int md_cell_width(const char* s, size_t len)
 {
     int w = 0;
@@ -5658,8 +5749,10 @@ static int md_cell_width(const char* s, size_t len)
 #define MD_TABLE_MAX_ROWS 64
 #define MD_TABLE_MAX_COLS 8
 
-/* Splits one "| a | b |" row into trimmed cells (pointers into `line`).
- * Returns the cell count. */
+/*
+    Splits one "| a | b |" row into trimmed cells (pointers into `line`).
+    Returns the cell count.
+*/
 static int md_table_cells(const char* line, size_t len, const char** cell, size_t* cell_len)
 {
     size_t i = 0;
@@ -5695,11 +5788,13 @@ static int md_is_table_rule(const char* line, size_t len)
     return len > 0;
 }
 
-/* Writes the table whose rows are `lines[0..count)` into out[*o..] with
- * its "|" columns aligned: every cell padded to its column's widest display
- * width (md_cell_width - the hidden backticks/bold marks don't count), and
- * the "|---|" rule stretched to match. Still plain Markdown table syntax -
- * the editor just shows it as text, now lined up. */
+/*
+    Writes the table whose rows are `lines[0..count)` into out[*o..] with
+    its "|" columns aligned: every cell padded to its column's widest display
+    width (md_cell_width - the hidden backticks/bold marks don't count), and
+    the "|---|" rule stretched to match. Still plain Markdown table syntax -
+    the editor just shows it as text, now lined up.
+*/
 static void md_emit_table(const char** lines, const size_t* lens, int count,
                           char* out, size_t* o, size_t cap)
 {
@@ -5754,13 +5849,15 @@ static void md_emit_table(const char** lines, const size_t* lens, int count,
     }
 }
 
-/* Breaks each Markdown paragraph or list-item line of `src` longer than
- * `width` at spaces into `out`. A list item's ("- ", "* ", "1. ")
- * continuation lines are indented under its text, which Markdown reads as
- * the same item. Tables ("|" rows) get their columns aligned instead
- * (md_emit_table) - the Markdown editor draws them as plain text. Headings ("#") and
- * fenced ``` code blocks are copied unchanged - wrapping those would break
- * their syntax. A single word longer than `width` stays whole. */
+/*
+    Breaks each Markdown paragraph or list-item line of `src` longer than
+    `width` at spaces into `out`. A list item's ("- ", "* ", "1. ")
+    continuation lines are indented under its text, which Markdown reads as
+    the same item. Tables ("|" rows) get their columns aligned instead
+    (md_emit_table) - the Markdown editor draws them as plain text. Headings ("#") and
+    fenced ``` code blocks are copied unchanged - wrapping those would break
+    their syntax. A single word longer than `width` stays whole.
+*/
 static void md_wrap_paragraphs(const char* src, int width, char* out, size_t cap)
 {
     size_t o = 0;
@@ -5865,9 +5962,11 @@ static void md_wrap_paragraphs(const char* src, int width, char* out, size_t cap
     out[o] = 0;
 }
 
-/* `md` in the help window: its paragraphs wrapped to the window and its
- * tables lined up (md_wrap_paragraphs), read-only so the delimiters are
- * hidden - the old IDE's. */
+/*
+    `md` in the help window: its paragraphs wrapped to the window and its
+    tables lined up (md_wrap_paragraphs), read-only so the delimiters are
+    hidden - the old IDE's.
+*/
 static void help_set_markdown(struct ide* ide, const char* md)
 {
     size_t cap = strlen(md) * 2 + 4096;   /* wrapping and padding only add spaces and line ends */
@@ -5879,8 +5978,10 @@ static void help_set_markdown(struct ide* ide, const char* md)
     free(wrapped);
 }
 
-/* The Open dialog's F1, by what it was opened for - the old IDE's
- * open_dialog_overview. NULL where it explains itself. */
+/*
+    The Open dialog's F1, by what it was opened for - the old IDE's
+    open_dialog_overview. NULL where it explains itself.
+*/
 static const char* open_overview(struct ide* ide)
 {
     const struct open_dialog* o = &ide->open;
@@ -5963,8 +6064,10 @@ static void help_open(struct ide* ide)
     show_resizable_dialog(ide, ide->help.window, 80, 20, ide->help.editor);
 }
 
-/* The Open dialog as a picker: a folder (or, with `file`, a file) goes
- * into `input`, or with `input` NULL into the include list being edited. */
+/*
+    The Open dialog as a picker: a folder (or, with `file`, a file) goes
+    into `input`, or with `input` NULL into the include list being edited.
+*/
 static void pick_path(struct ide* ide, struct gui_node* input, int file, const char* dir)
 {
     struct open_dialog* o = &ide->open;
@@ -6127,8 +6230,10 @@ static void build_help_texts(struct ide* ide)
              HELP_POST_BUILD);
 }
 
-/* --- Window > Tile / Cascade: the old IDE's algorithms, in whole cells,
- * on the windows that are not docked. --- */
+/*
+    --- Window > Tile / Cascade: the old IDE's algorithms, in whole cells,
+    on the windows that are not docked. ---
+*/
 
 static int floating_windows(struct ide* ide, struct gui_node** out, int max)
 {
@@ -6191,8 +6296,10 @@ static void cascade(struct ide* ide)
     }
 }
 
-/* Dock Left/Right/Bottom on the panel the popup opened over: refused when
- * another panel holds that side (the old IDE's dock_panel_to). */
+/*
+    Dock Left/Right/Bottom on the panel the popup opened over: refused when
+    another panel holds that side (the old IDE's dock_panel_to).
+*/
 static void dock_panel(struct ide* ide, enum gui_dock side)
 {
     struct gui_node* win = gui_context_target(ide->app);
@@ -6216,8 +6323,10 @@ static void dock_panel(struct ide* ide, enum gui_dock side)
     gui_window_set_dock(win, side, size);
 }
 
-/* --- Compile: the active file, with its project's Properties (or the
- * Playground project's), as the old IDE's do_compile --- */
+/*
+    --- Compile: the active file, with its project's Properties (or the
+    Playground project's), as the old IDE's do_compile ---
+*/
 
 static const char* const style_slugs[] = { "", "cake", "gnu", "microsoft" };
 static const char* const diag_slugs[] = { "ide", "gcc", "msvc" };
@@ -6239,8 +6348,10 @@ static void compiler_settings_default(struct compiler_settings* s)
     snprintf(s->configurations[0].name, sizeof s->configurations[0].name, "Default");
 }
 
-/* The command line the Properties of the target and configuration in use
- * say, as the old job_argv_from_settings. */
+/*
+    The command line the Properties of the target and configuration in use
+    say, as the old job_argv_from_settings.
+*/
 static void compile_args(struct ide* ide, const struct compiler_settings* cs)
 {
     const struct target_settings* s = settings_in_use(cs);
@@ -6304,8 +6415,10 @@ static void strip_ansi(char* s)
     *w = '\0';
 }
 
-/* Output and Find Results share the bottom dock, which holds one window:
- * showing one closes the other, which keeps its text. */
+/*
+    Output and Find Results share the bottom dock, which holds one window:
+    showing one closes the other, which keeps its text.
+*/
 static void bottom_panel_show(struct ide* ide, struct gui_node* show, struct gui_node* hide)
 {
     if (is_open(ide, hide) && gui_window_get_dock(hide) == GUI_DOCK_BOTTOM &&
@@ -6318,8 +6431,10 @@ static void bottom_panel_show(struct ide* ide, struct gui_node* show, struct gui
     gui_window_open(ide->app, show);
 }
 
-/* `text` with every line starting with the project folder made relative to
- * it - a double click finds them again through resolve_referenced_path. */
+/*
+    `text` with every line starting with the project folder made relative to
+    it - a double click finds them again through resolve_referenced_path.
+*/
 static char* project_relative_paths(struct ide* ide, const char* text)
 {
     size_t n = strlen(text);
@@ -6370,8 +6485,10 @@ static char* project_relative_paths(struct ide* ide, const char* text)
     return out;
 }
 
-/* The current search's results begin: the panel's text is kept to show
- * below them. */
+/*
+    The current search's results begin: the panel's text is kept to show
+    below them.
+*/
 static void findresults_begin(struct ide* ide)
 {
     free(ide->fr.previous);
@@ -6382,8 +6499,10 @@ static void findresults_begin(struct ide* ide)
         memcpy(ide->fr.previous, now, n + 1);
 }
 
-/* `text` - this search's results - above the previous searches, one blank
- * line between them. */
+/*
+    `text` - this search's results - above the previous searches, one blank
+    line between them.
+*/
 static void findresults_set(struct ide* ide, const char* text_in)
 {
     char* shortened = project_relative_paths(ide, text_in);
@@ -6498,11 +6617,15 @@ static void nav_go(struct ide* ide, struct nav_stack* from, struct nav_stack* to
     ide->nav.restoring = 0;
 }
 
-/* --- Diagnostics and going to them: the old IDE's parse_diagnostic_line,
- * apply_diagnostics and output_goto_source --- */
+/*
+    --- Diagnostics and going to them: the old IDE's parse_diagnostic_line,
+    apply_diagnostics and output_goto_source ---
+*/
 
-/* Case-insensitive comparison by file name: the output may name a file
- * with no path while the document has one, or the other way round. */
+/*
+    Case-insensitive comparison by file name: the output may name a file
+    with no path while the document has one, or the other way round.
+*/
 static int paths_match(const char* a, const char* b)
 {
     a = file_name(a);
@@ -6529,9 +6652,11 @@ static const char* ci_strstr(const char* haystack, const char* needle)
     return NULL;
 }
 
-/* The "file:line:col" (gcc/ide) or "file(line,col)" / "file(line)" (msvc)
- * position in `line`: returns the separator before the line number, NULL
- * if there is none. The first ':' followed by a digit skips drive letters. */
+/*
+    The "file:line:col" (gcc/ide) or "file(line,col)" / "file(line)" (msvc)
+    position in `line`: returns the separator before the line number, NULL
+    if there is none. The first ':' followed by a digit skips drive letters.
+*/
 static char* position_separator(char* line, int* src_line)
 {
     for (char* p = line; *p; p++)
@@ -6555,9 +6680,11 @@ static char* position_separator(char* line, int* src_line)
     return NULL;
 }
 
-/* One diagnostic line: its file (cut in place), mark type, line, code
- * ("" when none: "82" from Cake, "C4133" from msvc) and message. 0 if
- * `line` is not a diagnostic. */
+/*
+    One diagnostic line: its file (cut in place), mark type, line, code
+    ("" when none: "82" from Cake, "C4133" from msvc) and message. 0 if
+    `line` is not a diagnostic.
+*/
 static int parse_diagnostic_line(char* line, char** file, enum gui_mark* type, int* src_line,
                                  char** code, char** message)
 {
@@ -6623,10 +6750,12 @@ static int parse_diagnostic_line(char* line, char** file, enum gui_mark* type, i
     return 1;
 }
 
-/* Each diagnostic line of `text` marked on the document of the file it
- * names, after clearing every document's marks when `clear` - Cake's
- * compile clears, an External Tool's output (msvc, gcc) adds to it.
- * Changes `text`. */
+/*
+    Each diagnostic line of `text` marked on the document of the file it
+    names, after clearing every document's marks when `clear` - Cake's
+    compile clears, an External Tool's output (msvc, gcc) adds to it.
+    Changes `text`.
+*/
 static void apply_diagnostics(struct ide* ide, char* text, int clear)
 {
     for (int i = 0; clear && i < ide->doc_count; i++)
@@ -6657,8 +6786,10 @@ static void apply_diagnostics(struct ide* ide, char* text, int clear)
     }
 }
 
-/* Every document without unsaved edits takes what is on disk now, if that
- * changed - a build may have rewritten files. The caret stays. */
+/*
+    Every document without unsaved edits takes what is on disk now, if that
+    changed - a build may have rewritten files. The caret stays.
+*/
 static void refresh_open_docs(struct ide* ide)
 {
     for (int i = 0; i < ide->doc_count; i++)
@@ -6685,11 +6816,13 @@ static void refresh_open_docs(struct ide* ide)
     }
 }
 
-/* A bare file name, tried in this order:
- *   1. the active document's folder
- *   2. the open project's folder
- *   3. the Folder panel's folder
- * else as it is. */
+/*
+    A bare file name, tried in this order:
+      1. the active document's folder
+      2. the open project's folder
+      3. the Folder panel's folder
+    else as it is.
+*/
 static void resolve_referenced_path(struct ide* ide, const char* name, char* out, size_t cap)
 {
     char candidate[1400] = { 0 };
@@ -6724,10 +6857,12 @@ static void resolve_referenced_path(struct ide* ide, const char* name, char* out
     snprintf(out, cap, "%s", name);
 }
 
-/* A line that is not a diagnostic ("dir" or "git status" output): the name
- * at its end, which may have spaces - each suffix after a blank, longest
- * first, against the Folder panel's folder. A file opens; a folder becomes
- * the Folder panel's. */
+/*
+    A line that is not a diagnostic ("dir" or "git status" output): the name
+    at its end, which may have spaces - each suffix after a blank, longest
+    first, against the Folder panel's folder. A file opens; a folder becomes
+    the Folder panel's.
+*/
 static void output_open_listed_path(struct ide* ide, const char* line)
 {
     for (const char* p = line; *p; p++)
@@ -6763,8 +6898,10 @@ static void output_open_listed_path(struct ide* ide, const char* line)
     }
 }
 
-/* A double click on an Output line: a "file:line" there opens the file at
- * that line. */
+/*
+    A double click on an Output line: a "file:line" there opens the file at
+    that line.
+*/
 static void output_goto_source(struct ide* ide, struct gui_node* panel)
 {
     int row = 0, col = 0;
@@ -6819,8 +6956,10 @@ static void output_goto_source(struct ide* ide, struct gui_node* panel)
     gui_focus(ide->app, target->editor);
 }
 
-/* A file outside the open project is compiled with the playground
- * project's settings: its include directories are passed. */
+/*
+    A file outside the open project is compiled with the playground
+    project's settings: its include directories are passed.
+*/
 static void playground_args(struct ide* ide)
 {
     const struct compiler_settings* cs = &ide->global_options;
@@ -6833,8 +6972,10 @@ static void playground_args(struct ide* ide)
     }
 }
 
-/* A project's compile: its output goes under the project folder, and its
- * include directories are passed. */
+/*
+    A project's compile: its output goes under the project folder, and its
+    include directories are passed.
+*/
 static void project_args(struct ide* ide)
 {
     struct ide_project* p = &ide->project;
@@ -6865,15 +7006,19 @@ static int compile_start(struct ide* ide, const char* what)
     return 1;
 }
 
-/* Compile: the active file, with its project's settings when it is one of
- * the project's files, else the global ones. */
+/*
+    Compile: the active file, with its project's settings when it is one of
+    the project's files, else the global ones.
+*/
 static int is_path_char(int c)
 {
     return isalnum((unsigned char)c) || c == '_' || c == '-' || c == '.' || c == '/' || c == '\\';
 }
 
-/* Ctrl+click: the .c/.h/.md file name (or relative path) under the caret
- * opens - looked for as Find Results' names are. The old IDE's. */
+/*
+    Ctrl+click: the .c/.h/.md file name (or relative path) under the caret
+    opens - looked for as Find Results' names are. The old IDE's.
+*/
 /* A "[text](dest)" link around `cursor` on its line: dest into `link`. */
 static int markdown_link_at(const char* text, int len, int cursor, char* link, int cap)
 {
@@ -6927,8 +7072,10 @@ static void ask_open_url(struct ide* ide, const char* url)
     free(msg.data);
 }
 
-/* The bare http(s) URL around `cursor` - up to the blanks and brackets
- * around it - into `link`. 0 if there is none. */
+/*
+    The bare http(s) URL around `cursor` - up to the blanks and brackets
+    around it - into `link`. 0 if there is none.
+*/
 static int bare_url_at(const char* text, int len, int cursor, char* link, int cap)
 {
     static const char stops[] = " \t\r\n()<>[]\"'`";
@@ -6943,8 +7090,10 @@ static int bare_url_at(const char* text, int len, int cursor, char* link, int ca
     return is_web_link(link);
 }
 
-/* Ctrl+click in the Help window: a [text](help:<slug>) link shows that
- * topic; a web link, Markdown or bare, opens in the browser. */
+/*
+    Ctrl+click in the Help window: a [text](help:<slug>) link shows that
+    topic; a web link, Markdown or bare, opens in the browser.
+*/
 static void help_ctrlclick(struct ide* ide)
 {
     struct gui_node* ed = ide->help.editor;
@@ -7028,8 +7177,10 @@ static void editor_ctrlclick(struct ide* ide)
     open_file(ide, path);
 }
 
-/* Edit > Format (Ctrl+Shift+F): cake_format with the Playground project's style;
- * a selection formats just its lines. The caret stays. The old IDE's. */
+/*
+    Edit > Format (Ctrl+Shift+F): cake_format with the Playground project's style;
+    a selection formats just its lines. The caret stays. The old IDE's.
+*/
 static void format_doc(struct ide* ide)
 {
     struct doc* d = active_doc(ide);
@@ -7101,8 +7252,10 @@ static int compile_active(struct ide* ide)
     return compile_start(ide, "Compiling...");
 }
 
-/* The worker thread's view of a project Build: each header a source
- * includes, and each source's error count. */
+/*
+    The worker thread's view of a project Build: each header a source
+    includes, and each source's error count.
+*/
 static void build_on_include(void* ctx, const char* source, const char* header)
 {
     struct ide_build_state* pending = ctx;
@@ -7126,11 +7279,13 @@ static int is_playground(struct ide* ide, const struct doc* d);
 static void debug_launch(struct ide* ide);
 static void post_build(struct ide* ide);
 
-/* Build (F7): with a project open, the project's .c files changed since
- * the last successful Build - the file or a header it included - unless
- * the settings changed; Rebuild compiles them all. Without a project, or
- * with the Playground active, Build is Compile. 0 on an error: no .c
- * files, or the compile could not start; all files up to date is not one. */
+/*
+    Build (F7): with a project open, the project's .c files changed since
+    the last successful Build - the file or a header it included - unless
+    the settings changed; Rebuild compiles them all. Without a project, or
+    with the Playground active, Build is Compile. 0 on an error: no .c
+    files, or the compile could not start; all files up to date is not one.
+*/
 static int build(struct ide* ide, int rebuild)
 {
     struct ide_project* p = &ide->project;
@@ -7230,8 +7385,10 @@ static int build(struct ide* ide, int rebuild)
     return compile_start(ide, "Building...");
 }
 
-/* The Build Events of the target in use: the project's, or the global ones
- * for a Compile of a file outside it, or with no project. */
+/*
+    The Build Events of the target in use: the project's, or the global ones
+    for a Compile of a file outside it, or with no project.
+*/
 static const struct target_settings* chain_settings(struct ide* ide)
 {
     struct doc* d = active_doc(ide);
@@ -7242,8 +7399,10 @@ static const struct target_settings* chain_settings(struct ide* ide)
     return settings_in_use(cs);
 }
 
-/* F7 (or Rebuild), Ctrl+F7 with `compile` (the active file only), and F5
- * with `debug`: the Pre-Build Event, then Cake - see struct build_chain. */
+/*
+    F7 (or Rebuild), Ctrl+F7 with `compile` (the active file only), and F5
+    with `debug`: the Pre-Build Event, then Cake - see struct build_chain.
+*/
 static void build_then(struct ide* ide, int rebuild, int compile, int debug)
 {
     if (ide_compile_running(ide->job) || run_busy(ide))
@@ -7261,8 +7420,10 @@ static void build_then(struct ide* ide, int rebuild, int compile, int debug)
     run_command(ide, "Pre-Build", s->pre_build[0], s->pre_build[1], s->pre_build[2]);
 }
 
-/* The Build step: Cake. Any error stops the pipeline; nothing to compile
- * (up to date) goes on to the Post-Build Event at once. */
+/*
+    The Build step: Cake. Any error stops the pipeline; nothing to compile
+    (up to date) goes on to the Post-Build Event at once.
+*/
 static void chain_build(struct ide* ide)
 {
     ide->chain.stage = STAGE_BUILD;
@@ -7291,10 +7452,12 @@ static void post_build(struct ide* ide)
     run_command(ide, "Post-Build", s->post_build[0], s->post_build[1], s->post_build[2]);
 }
 
-/* --- Find Definition / Declaration / Usages: the old IDE's - a compile
- * with -find-definition (or -find-declaration, -find-usages) line col,
- * streamed into Find Results; when the compiler finds nothing, a text
- * search for the word. --- */
+/*
+    --- Find Definition / Declaration / Usages: the old IDE's - a compile
+    with -find-definition (or -find-declaration, -find-usages) line col,
+    streamed into Find Results; when the compiler finds nothing, a text
+    search for the word. ---
+*/
 
 static const struct
 {
@@ -7308,13 +7471,17 @@ static const struct
     [FIND_UNUSED] = { "Report Unused", "-unused-extern-report", "Reporting unused..." },
 };
 
-/* Build > Report Unused: the project's .c files compiled with
- * -unused-extern-report - the compiler then reports only the unused
- * functions - into Find Results. As the old IDE. */
+/*
+    Build > Report Unused: the project's .c files compiled with
+    -unused-extern-report - the compiler then reports only the unused
+    functions - into Find Results. As the old IDE.
+*/
 static void find_push_files(struct ide* ide, const char* file);
 
-/* Search > Rename (F2): the identifier under the caret - its file, line
- * and column kept - and the dialog with its name. The old IDE's. */
+/*
+    Search > Rename (F2): the identifier under the caret - its file, line
+    and column kept - and the dialog with its name. The old IDE's.
+*/
 static void rename_open(struct ide* ide)
 {
     if (ide_compile_running(ide->job))
@@ -7366,8 +7533,10 @@ static int is_identifier(const char* s)
     return 1;
 }
 
-/* Its OK: a compile with -rename line col new_name over the files Find
- * Definition looks in; the compiler rewrites them on disk. */
+/*
+    Its OK: a compile with -rename line col new_name over the files Find
+    Definition looks in; the compiler rewrites them on disk.
+*/
 static void rename_run(struct ide* ide)
 {
     struct rename_dialog* r = &ide->rename;
@@ -7455,8 +7624,10 @@ static void report_unused(struct ide* ide)
     gui_set_timer(ide->app, 50, EV_TICK);
 }
 
-/* `word`, whole and with case, in the project's .c/.h files (the open
- * documents' text, else the disk's), or else in the active file's folder. */
+/*
+    `word`, whole and with case, in the project's .c/.h files (the open
+    documents' text, else the disk's), or else in the active file's folder.
+*/
 static void find_definition_text_search(struct ide* ide, const char* word)
 {
     struct ide_search s = { "", 1, 1 };
@@ -7538,10 +7709,12 @@ static void find_definition_text_search(struct ide* ide, const char* word)
     bottom_panel_show(ide, ide->fr.window, ide->output.window);
 }
 
-/* The files to look in, by the chance of finding the symbol: the file (the
- * caret is in it), for a header its .c, then the project's other .c files.
- * A file outside the project goes alone. Open project files are saved -
- * the compiler reads the disk. */
+/*
+    The files to look in, by the chance of finding the symbol: the file (the
+    caret is in it), for a header its .c, then the project's other .c files.
+    A file outside the project goes alone. Open project files are saved -
+    the compiler reads the disk.
+*/
 static void find_push_files(struct ide* ide, const char* file)
 {
     struct ide_project* p = &ide->project;
@@ -7640,8 +7813,10 @@ static void find_definition(struct ide* ide, enum find_kind kind)
     gui_set_timer(ide->app, 50, EV_TICK);
 }
 
-/* The lookup ended: its result, with the time at the end of its first
- * line, or the text search when the compiler found nothing. */
+/*
+    The lookup ended: its result, with the time at the end of its first
+    line, or the text search when the compiler found nothing.
+*/
 static void find_finish(struct ide* ide)
 {
     enum find_kind kind = ide->find_kind;
@@ -7682,10 +7857,12 @@ static void find_finish(struct ide* ide)
     free(shown);
 }
 
-/* --- Complete Word (Ctrl+Space): the compiler, with -complete line col,
- * prints what can be written at the caret, name<TAB>kind<TAB>type per line;
- * those starting with the prefix left of the caret are offered - one is
- * inserted, more open a list at the caret. The old IDE's. --- */
+/*
+    --- Complete Word (Ctrl+Space): the compiler, with -complete line col,
+    prints what can be written at the caret, name<TAB>kind<TAB>type per line;
+    those starting with the prefix left of the caret are offered - one is
+    inserted, more open a list at the caret. The old IDE's. ---
+*/
 
 static int complete_cmp(const void* a, const void* b)
 {
@@ -7933,8 +8110,10 @@ static void compile_poll(struct ide* ide)
     }
 }
 
-/* --- Playground: a scratch C file, always the same one, independent of any
- * project - the old IDE's. It starts as a Hello World. --- */
+/*
+    --- Playground: a scratch C file, always the same one, independent of any
+    project - the old IDE's. It starts as a Hello World. ---
+*/
 
 static int playground_path(char* out, size_t cap)
 {
@@ -7964,8 +8143,10 @@ static int is_playground(struct ide* ide, const struct doc* d)
     return playground_path(path, sizeof path) && ide_path_equal(path, d->path);
 }
 
-/* View > Playground: the open one comes to the front, else it is opened
- * (and created when missing). */
+/*
+    View > Playground: the open one comes to the front, else it is opened
+    (and created when missing).
+*/
 static void open_playground(struct ide* ide)
 {
     char path[1400] = { 0 };
@@ -7991,11 +8172,15 @@ static void open_playground(struct ide* ide)
         gui_set_label(d->window, "Playground");
 }
 
-/* --- Show Generated Code: the C89 file Cake wrote for the document, in
- * <its folder>/<platform>/<name>, opened like any other file --- */
+/*
+    --- Show Generated Code: the C89 file Cake wrote for the document, in
+    <its folder>/<platform>/<name>, opened like any other file ---
+*/
 
-/* A file outside the open project is compiled on its own; no file at all
- * means the open project - the old IDE's file_uses_project. */
+/*
+    A file outside the open project is compiled on its own; no file at all
+    means the open project - the old IDE's file_uses_project.
+*/
 static int file_uses_project(struct ide* ide, const char* path)
 {
     return ide_project_is_open(&ide->project) && (!path[0] || ide_project_contains(&ide->project, path));
@@ -8027,9 +8212,11 @@ static void show_generated_code(struct ide* ide)
     if (!src)
         return;
 
-    /* where the compile wrote it: a project file under <project>/<platform>/<its
-     * path in the project>, any other file under <its folder>/<platform>/ -
-     * the platform of the target its settings use */
+    /*
+        where the compile wrote it: a project file under <project>/<platform>/<its
+        path in the project>, any other file under <its folder>/<platform>/ -
+        the platform of the target its settings use
+    */
     const char* platform = platform_for(ide, src->path);
     char dir[1024] = { 0 }, rel[1024] = { 0 };
     snprintf(dir, sizeof dir, "%s", src->path);
@@ -8103,8 +8290,10 @@ static void fif_sync(struct ide* ide)
     f->file_type = gui_get_selected(f->file_types);
 }
 
-/* The panel's content for its mode: tabs, Find (and Replace), options,
- * Look in, File Types, the buttons - as the old IDE's fr_rebuild_content. */
+/*
+    The panel's content for its mode: tabs, Find (and Replace), options,
+    Look in, File Types, the buttons - as the old IDE's fr_rebuild_content.
+*/
 static void fif_build(struct ide* ide)
 {
     struct find_in_files* f = &ide->fif;
@@ -8207,10 +8396,12 @@ static void fif_open(struct ide* ide)
     fif_build(ide);
 }
 
-/* One file's search or replace: the open document's text when it is open
- * (unsaved changes included), else the disk's. A replace changes the open
- * document, or opens the file with the new text - never the disk. Returns
- * the count; *searched counts the file. */
+/*
+    One file's search or replace: the open document's text when it is open
+    (unsaved changes included), else the disk's. A replace changes the open
+    document, or opens the file with the new text - never the disk. Returns
+    the count; *searched counts the file.
+*/
 static int fif_file(struct ide* ide, const char* path, const char* name, int replace,
                     const struct ide_search* s, struct ide_text* out, int* searched)
 {
@@ -8249,8 +8440,10 @@ static int fif_file(struct ide* ide, const char* path, const char* name, int rep
     return count;
 }
 
-/* The .c/.h... files of one folder (not its subfolders). Returns the count,
- * -1 when the folder cannot be read. */
+/*
+    The .c/.h... files of one folder (not its subfolders). Returns the count,
+    -1 when the folder cannot be read.
+*/
 static int fif_dir(struct ide* ide, const char* dir, int full_names, int replace,
                    const struct ide_search* s, struct ide_text* out, int* searched, int* changed)
 {
@@ -8277,8 +8470,10 @@ static int fif_dir(struct ide* ide, const char* dir, int full_names, int replace
     return total;
 }
 
-/* Find or Replace with the panel's settings; the result in Find Results,
- * worded as the old IDE's. */
+/*
+    Find or Replace with the panel's settings; the result in Find Results,
+    worded as the old IDE's.
+*/
 static void fif_run(struct ide* ide, int replace)
 {
     struct find_in_files* f = &ide->fif;
@@ -8427,9 +8622,11 @@ static void fif_run(struct ide* ide, int replace)
     bottom_panel_show(ide, ide->fr.window, ide->output.window);
 }
 
-/* --- Outside changes: every 2 s, with no modal open, the .cakeproj and the
- * active document are checked against their times; a change asks to
- * reload - one prompt at a time, as the old IDE's file_watch_check. --- */
+/*
+    --- Outside changes: every 2 s, with no modal open, the .cakeproj and the
+    active document are checked against their times; a change asks to
+    reload - one prompt at a time, as the old IDE's file_watch_check. ---
+*/
 
 static void file_watch_check(struct ide* ide)
 {
@@ -8490,12 +8687,16 @@ static void file_reload(struct ide* ide)
     free(text);
 }
 
-/* --- Settings: ide.json beside the executable - the IDE's own file, not
- * the old IDE's cake.json. Saved whenever a dialog's OK changes them. --- */
+/*
+    --- Settings: ide.json beside the executable - the IDE's own file, not
+    the old IDE's cake.json. Saved whenever a dialog's OK changes them. ---
+*/
 
-/* The playground project: playground.cakeproj, next to playground.c. Its
- * settings are global_options - Project > Properties edits them, and every file
- * outside the open project (the playground among them) compiles with them. */
+/*
+    The playground project: playground.cakeproj, next to playground.c. Its
+    settings are global_options - Project > Properties edits them, and every file
+    outside the open project (the playground among them) compiles with them.
+*/
 static int playground_project_path(char* out, size_t cap)
 {
     char dir[1024] = { 0 };
@@ -8582,8 +8783,10 @@ static int clamp_index(int i, int count)
     return i >= 0 && i < count ? i : 0;
 }
 
-/* The "compile" object, in the old IDE's .cakeproj keys, so both IDEs read
- * each other's projects. */
+/*
+    The "compile" object, in the old IDE's .cakeproj keys, so both IDEs read
+    each other's projects.
+*/
 static const char* const flag_keys[] = { "line_directives", "flow", "const_literal", "wall", "default_nonnull", "check_annotations" };
 
 static int slug_index(const char* slug, const char* const* slugs, int count);
@@ -8685,8 +8888,10 @@ static void target_from_json(const struct json_value* c, struct target_settings*
     dirs_from_json(json_find_member(c, "include_dirs"), &s->include_dirs);
 }
 
-/* "compile": the configuration in use, by its name, and "configurations",
- * each with its name and options. */
+/*
+    "compile": the configuration in use, by its name, and "configurations",
+    each with its name and options.
+*/
 static void compile_to_json(struct json_value* c, const struct compiler_settings* s)
 {
     if (!c)
@@ -8730,9 +8935,11 @@ static void compile_from_json(const struct json_value* c, struct compiler_settin
         s->current = 0;
 }
 
-/* --- Projects: the old IDE's - a .cakeproj (JSON) with the name, the
- * compile settings, the include directories and the files, the last two
- * relative to the project folder --- */
+/*
+    --- Projects: the old IDE's - a .cakeproj (JSON) with the name, the
+    compile settings, the include directories and the files, the last two
+    relative to the project folder ---
+*/
 
 static void project_refresh(struct ide* ide, int selected)
 {
@@ -8793,16 +9000,20 @@ static void project_save(struct ide* ide)
 }
 
 /* The Project panel takes the Folder panel's place when that is on the left. */
-/* Folder, Project and Git are one place: the same side and size, only one
- * of them shown. The place follows the shown one when it is resized,
- * redocked or dragged. */
+/*
+    Folder, Project and Git are one place: the same side and size, only one
+    of them shown. The place follows the shown one when it is resized,
+    redocked or dragged.
+*/
 static struct gui_node* side_panel(struct ide* ide, int i)
 {
     return i == 0 ? ide->folder.window : i == 1 ? ide->project_window : ide->git.window;
 }
 
-/* The place, from the panel shown now - or, when all are closed, from the
- * one shown last, which keeps its place while closed. */
+/*
+    The place, from the panel shown now - or, when all are closed, from the
+    one shown last, which keeps its place while closed.
+*/
 static void side_capture(struct ide* ide)
 {
     int found = ide->side.active;
@@ -8870,8 +9081,10 @@ static void project_show_panel(struct ide* ide)
     show_side_panel(ide, ide->project_window);
 }
 
-/* Loads `path`, replacing any open project. 0 if it cannot be read; then
- * `why` says what is wrong. */
+/*
+    Loads `path`, replacing any open project. 0 if it cannot be read; then
+    `why` says what is wrong.
+*/
 static int project_load(struct ide* ide, const char* path, char* why, size_t why_cap)
 {
     int crlf = 0;
@@ -8974,8 +9187,10 @@ static void recent_project_add(struct ide* ide, const char* path)
     recent_menu_refresh(ide);
 }
 
-/* A running compile: a Build commits its results into ide->project when it
- * ends, so the project cannot change under it. 1 (and says so) when busy. */
+/*
+    A running compile: a Build commits its results into ide->project when it
+    ends, so the project cannot change under it. 1 (and says so) when busy.
+*/
 static int project_switch_busy(struct ide* ide)
 {
     if (!ide_compile_running(ide->job))
@@ -8984,8 +9199,10 @@ static int project_switch_busy(struct ide* ide)
     return 1;
 }
 
-/* The open project's files that have no unsaved changes, closed - before
- * another project takes its place, so its tabs do not stay behind. */
+/*
+    The open project's files that have no unsaved changes, closed - before
+    another project takes its place, so its tabs do not stay behind.
+*/
 static void project_close_docs(struct ide* ide)
 {
     if (!ide_project_is_open(&ide->project))
@@ -9039,8 +9256,10 @@ static void project_create(struct ide* ide, const char* path)
     project_show_panel(ide);
 }
 
-/* Project files order: by name without extension, then by extension,
- * so a.c and a.h stay together. */
+/*
+    Project files order: by name without extension, then by extension,
+    so a.c and a.h stay together.
+*/
 static int project_file_cmp(const void* a, const void* b)
 {
     const char* x = *(const char* const*)a;
@@ -9093,9 +9312,11 @@ static void project_remove_at(struct ide* ide, int index)
     project_refresh(ide, index);
 }
 
-/* New Project's OK: Folder and Name; with Create Folder the project goes
- * into a new <Name> folder; with Hello World a main.c is written (never
- * over an existing one) and added. */
+/*
+    New Project's OK: Folder and Name; with Create Folder the project goes
+    into a new <Name> folder; with Hello World a main.c is written (never
+    over an existing one) and added.
+*/
 static void new_project_accept(struct ide* ide)
 {
     struct new_project_dialog* d = &ide->new_project;
@@ -9151,8 +9372,10 @@ static void new_project_accept(struct ide* ide)
     }
 }
 
-/* Rename Project's OK: the .cakeproj renamed on disk, in its same folder,
- * so the files and include directories relative to it stay valid. */
+/*
+    Rename Project's OK: the .cakeproj renamed on disk, in its same folder,
+    so the files and include directories relative to it stay valid.
+*/
 static void project_rename_accept(struct ide* ide)
 {
     struct ide_project* p = &ide->project;
@@ -9196,8 +9419,10 @@ static void project_rename_accept(struct ide* ide)
     project_refresh(ide, gui_get_selected(ide->project_list));
 }
 
-/* Close Project: documents without unsaved changes close, the Playground
- * and the Folder panel come back. */
+/*
+    Close Project: documents without unsaved changes close, the Playground
+    and the Folder panel come back.
+*/
 static void project_close(struct ide* ide)
 {
     if (!ide_project_is_open(&ide->project))
@@ -9217,8 +9442,10 @@ static void project_close(struct ide* ide)
     show_side_panel(ide, ide->folder.window);
 }
 
-/* The Project panel's Delete (and the Del key): asks Remove - from the
- * project only - or Delete - from the project and from disk. */
+/*
+    The Project panel's Delete (and the Del key): asks Remove - from the
+    project only - or Delete - from the project and from disk.
+*/
 static void project_delete_ask(struct ide* ide)
 {
     struct ide_project* p = &ide->project;
@@ -9367,11 +9594,23 @@ static void add_default_tools(struct ide* ide)
 {
 #ifdef _WIN32
     const char* loc = "$(InstallDir)/tools/loc.exe";
+    const char* amalgamator = "$(InstallDir)/tools/amalgamator.exe";
+    const char* maketest = "$(InstallDir)/tools/maketest.exe";
 #else
     const char* loc = "$(InstallDir)/tools/loc";
+    const char* amalgamator = "$(InstallDir)/tools/amalgamator";
+    const char* maketest = "$(InstallDir)/tools/maketest";
 #endif
     if (ide->ext_tools.count < MAX_EXT_TOOLS)
         ext_tool_init(&ide->ext_tools.tools[ide->ext_tools.count++], "Lines of code", loc, "$(CakeInputFiles)", "$(ProjectDir)");
+    /* the project's .c files and their local headers in one file */
+    if (ide->ext_tools.count < MAX_EXT_TOOLS)
+        ext_tool_init(&ide->ext_tools.tools[ide->ext_tools.count++], "Amalgamate", amalgamator,
+                      "\"-o$(ProjectDir)/$(ProjectName)_amalgamated.c\" $(CakeInputFiles)", "$(ProjectDir)");
+    /* test_main() calling the functions under #ifdef TEST in the project's .c files */
+    if (ide->ext_tools.count < MAX_EXT_TOOLS)
+        ext_tool_init(&ide->ext_tools.tools[ide->ext_tools.count++], "Make tests", maketest,
+                      "\"$(ProjectDir)/$(ProjectName)_tests.c\" $(CakeInputFiles)", "$(ProjectDir)");
     tools_menu_refresh(ide);
 }
 
@@ -9450,10 +9689,12 @@ static void settings_load(struct ide* ide)
     tools_menu_refresh(ide);
 }
 
-/* --- Session: %APPDATA%\cake_ide\session.json - the Folder panel's folder,
- * the open project, the font size, the current document (caret, window
- * rect), the Folder and Output docks. Saved on exit, restored at start;
- * as the old IDE's save_session/load_session. --- */
+/*
+    --- Session: %APPDATA%\cake_ide\session.json - the Folder panel's folder,
+    the open project, the font size, the current document (caret, window
+    rect), the Folder and Output docks. Saved on exit, restored at start;
+    as the old IDE's save_session/load_session. ---
+*/
 
 static void session_path(char* out, size_t cap)
 {
@@ -9654,8 +9895,10 @@ static void doc_close_request(struct ide* ide)
     gui_message_box(ide->app, "Close", msg, labels, ids, 2);
 }
 
-/* File > Exit (and the window's close button): asks about the first
- * modified document, or quits when there is none. */
+/*
+    File > Exit (and the window's close button): asks about the first
+    modified document, or quits when there is none.
+*/
 static void exit_check(struct ide* ide)
 {
     ide->exit_window = NULL;
@@ -9684,11 +9927,15 @@ static void exit_check(struct ide* ide)
 
 /* --- Events --- */
 
-/* --- Git: the Git Changes panel, its diff, commit, branch and clone - the
- * old IDE's, running git synchronously in the repository's root --- */
+/*
+    --- Git: the Git Changes panel, its diff, commit, branch and clone - the
+    old IDE's, running git synchronously in the repository's root ---
+*/
 
-/* `git <args>` in `dir`; echoed with its output to the Output panel unless
- * quiet. The output, malloc'ed ("" when git cannot run). */
+/*
+    `git <args>` in `dir`; echoed with its output to the Output panel unless
+    quiet. The output, malloc'ed ("" when git cannot run).
+*/
 static char* git_run(struct ide* ide, const char* dir, const char* args, int quiet)
 {
     char cmd[2400] = { 0 };
@@ -9914,9 +10161,11 @@ static void git_diff_goto_change(struct ide* ide, int dir)
     git_diff_counter_refresh(ide);
 }
 
-/* A double click on a row: the file's diff - working tree, else staged,
- * else (untracked) the file itself - the whole file (-U100000) in the diff
- * window, maximized, at the first change. */
+/*
+    A double click on a row: the file's diff - working tree, else staged,
+    else (untracked) the file itself - the whole file (-U100000) in the diff
+    window, maximized, at the first change.
+*/
 static void git_show_diff(struct ide* ide)
 {
     struct git_panel* g = &ide->git;
@@ -9980,8 +10229,10 @@ static void git_show_diff(struct ide* ide)
     git_diff_counter_refresh(ide);
 }
 
-/* Edit: the file itself, at the caret's line - for a "+" or " " row the
- * new file's line, the rows "-" skipped. */
+/*
+    Edit: the file itself, at the caret's line - for a "+" or " " row the
+    new file's line, the rows "-" skipped.
+*/
 static void git_diff_edit(struct ide* ide)
 {
     struct git_panel* g = &ide->git;
@@ -10093,8 +10344,10 @@ static void git_discard_all(struct ide* ide)
     git_refresh(ide);
 }
 
-/* Add to Ignore List: one line appended to the repository's .gitignore -
- * the selected path, "*.ext" or its folder ("dir/"). */
+/*
+    Add to Ignore List: one line appended to the repository's .gitignore -
+    the selected path, "*.ext" or its folder ("dir/").
+*/
 static void git_ignore(struct ide* ide, int id)
 {
     const char* path = git_selected(ide, NULL);
@@ -10284,8 +10537,10 @@ static void git_branch_run(struct ide* ide, int create_new)
     run_start(ide, RUN_GIT, "Branch", git_dir(ide), steps, 1);
 }
 
-/* Git Clone's Path, unless typed by the user: the parent folder plus the
- * URL's last part without ".git" - the folder a plain `git clone` makes. */
+/*
+    Git Clone's Path, unless typed by the user: the parent folder plus the
+    URL's last part without ".git" - the folder a plain `git clone` makes.
+*/
 static void git_clone_fill_path(struct ide* ide)
 {
     struct git_clone_dialog* c = &ide->clone;
@@ -10306,8 +10561,10 @@ static void git_clone_fill_path(struct ide* ide)
     gui_set_value(c->path, dest);
 }
 
-/* Git Clone's OK: `git clone <url> <path>` from Path's parent, then the
- * Folder panel there. */
+/*
+    Git Clone's OK: `git clone <url> <path>` from Path's parent, then the
+    Folder panel there.
+*/
 static void git_clone(struct ide* ide)
 {
     struct git_clone_dialog* c = &ide->clone;
@@ -10417,8 +10674,10 @@ static void git_event(struct ide* ide, int id)
     }
 }
 
-/* --- Debugging: ide_debugger.c's lldb (cdb on Windows) session, polled by the
- * 50 ms tick while it lasts --- */
+/*
+    --- Debugging: ide_debugger.c's lldb (cdb on Windows) session, polled by the
+    50 ms tick while it lasts ---
+*/
 
 static void debug_output(void* ctx, const char* line, size_t len)
 {
@@ -10621,10 +10880,12 @@ static void debug_launch(struct ide* ide)
     free(dir.data);
 }
 
-/* The debugger's breakpoints made the open C files' - at the start and on
- * every tick, so a breakpoint toggled during the session (F9, a click on
- * the line number) takes effect at once. By file name: the line directives
- * map them through Cake's output. */
+/*
+    The debugger's breakpoints made the open C files' - at the start and on
+    every tick, so a breakpoint toggled during the session (F9, a click on
+    the line number) takes effect at once. By file name: the line directives
+    map them through Cake's output.
+*/
 static void debug_sync_breakpoints(struct ide* ide)
 {
     struct debug_session* s = &ide->session;
@@ -10707,8 +10968,10 @@ static void debug_stop_session(struct ide* ide)
     debug_end_session(ide);
 }
 
-/* The menu as the session allows: Start when idle, Stop while it runs,
- * Continue and the steps when stopped - F5 is Start or Continue. */
+/*
+    The menu as the session allows: Start when idle, Stop while it runs,
+    Continue and the steps when stopped - F5 is Start or Continue.
+*/
 static void debug_menu_refresh(struct ide* ide)
 {
     enum debug_state st = ide->session.state;
@@ -10746,17 +11009,21 @@ static void debug_info_refresh(struct ide* ide)
     }
 }
 
-/* Stopped, the mouse over a variable or field in a C file: its value in a
- * tooltip. A local comes from the Locals the stop already asked for; the
- * rest (globals, fields) is asked once per name and stop. */
+/*
+    Stopped, the mouse over a variable or field in a C file: its value in a
+    tooltip. A local comes from the Locals the stop already asked for; the
+    rest (globals, fields) is asked once per name and stop.
+*/
 static void debug_hover(struct ide* ide)
 {
     struct debug_session* s = &ide->session;
     char word[128] = { 0 }, tip[400] = { 0 };
     int x = 0, y = 0;
     tip[0] = 0;
-    /* only in the stopped frame's file, and not before this stop's Locals
-     * are asked: a name elsewhere may be another function's */
+    /*
+        only in the stopped frame's file, and not before this stop's Locals
+        are asked: a name elsewhere may be another function's
+    */
     struct doc* d = s->state == DBG_STOPPED && !s->refresh_pending ? doc_for_debug_file(ide, s->cur_file) : NULL;
     if (d && !gui_modal_open(ide->app) &&
         gui_editor_word_at_mouse(ide->app, d->editor, word, sizeof word, &x, &y))
@@ -10815,10 +11082,12 @@ static void debug_tick(struct ide* ide)
 
 static void on_event(void* ctx, int id);
 
-/* --- The Output's command line: an IDE command ("help"), an External
- * Tool's title or a menu item's name runs it; anything else - or a line
- * starting with "!" - runs in the shell, in the Folder's directory. While
- * a program runs, a line goes to its input. The old IDE's. --- */
+/*
+    --- The Output's command line: an IDE command ("help"), an External
+    Tool's title or a menu item's name runs it; anything else - or a line
+    starting with "!" - runs in the shell, in the Folder's directory. While
+    a program runs, a line goes to its input. The old IDE's. ---
+*/
 
 static void cmdline_layout(struct ide* ide)
 {
@@ -11314,8 +11583,10 @@ static void on_event(void* ctx, int id)
         break;
     case EV_PROJECT_OPTIONS:
     {
-        /* the active file outside the project (the playground, a loose file), or no
-         * project: the playground project's, used by every file outside a project */
+        /*
+            the active file outside the project (the playground, a loose file), or no
+            project: the playground project's, used by every file outside a project
+        */
         struct doc* d = active_doc(ide);
         if (ide_project_is_open(&ide->project) && (!d || file_uses_project(ide, d->path)))
             copts_open(ide, &ide->project.compile, "Properties (Project)", 0);
@@ -11690,8 +11961,10 @@ void gui_main(struct gui_app* app, int argc, char** argv)
     recent_menu_refresh(ide);
     gui_set_timer(app, 2000, EV_TICK);   /* the outside-change check */
 
-    /* Files named on the command line open at start; without any, the
-     * Playground - the old IDE's start when there is no session. */
+    /*
+        Files named on the command line open at start; without any, the
+        Playground - the old IDE's start when there is no session.
+    */
     for (int i = 1; i < argc; i++)
         open_file(ide, argv[i]);
     if (argc < 2 && !session_load(ide))

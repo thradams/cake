@@ -50,8 +50,10 @@ struct platform
 {
     const char* _Opt name;   /* a zeroed struct options has none until fill_options */
 
-    /* __CAKE_TARGET_COMPILER_<compiler>, __CAKE_TARGET_OS_<os>, __CAKE_TARGET_ARCH_<arch>;
-       NULL defines nothing */
+    /*
+        __CAKE_TARGET_COMPILER_<compiler>, __CAKE_TARGET_OS_<os>, __CAKE_TARGET_ARCH_<arch>;
+        NULL defines nothing
+    */
     const char* _Opt compiler;
     const char* _Opt os;
     const char* _Opt arch;

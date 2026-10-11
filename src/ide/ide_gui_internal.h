@@ -1,24 +1,29 @@
-/* ide_gui_internal.h - the framework's internal data structures and the
- * helpers ide_gui_core.c shares with ide_gui_widgets.c. Not for apps
- * (they include ide_gui.h) nor backends (ide_gui_backend.h).
- */
+/*
+    ide_gui_internal.h - the framework's internal data structures and the
+    helpers ide_gui_core.c shares with ide_gui_widgets.c. Not for apps
+    (they include ide_gui.h) nor backends (ide_gui_backend.h).
+*/
 #ifndef IDE_GUI_INTERNAL_H
 #define IDE_GUI_INTERNAL_H
 
 #include "ide_gui_backend.h"
 #include <stddef.h>
 
-/* The core's drawing goes through the frame recorder, which hands the
- * backend only what changed since the last paint (ide_gui_frame.c). */
+/*
+    The core's drawing goes through the frame recorder, which hands the
+    backend only what changed since the last paint (ide_gui_frame.c).
+*/
 #include "ide_gui_frame.h"
 #define gui_fill_rect frame_fill_rect
 #define gui_shade_rect frame_shade_rect
 #define gui_set_clip frame_set_clip
 #define gui_draw_text frame_draw_text
 
-/* The modifier of the primary shortcuts - copy, paste, every "Ctrl+..."
- * menu shortcut: Command on macOS, Ctrl elsewhere (the old IDE's). Words
- * move with Option there (Ctrl+arrows are the system's), Ctrl elsewhere. */
+/*
+    The modifier of the primary shortcuts - copy, paste, every "Ctrl+..."
+    menu shortcut: Command on macOS, Ctrl elsewhere (the old IDE's). Words
+    move with Option there (Ctrl+arrows are the system's), Ctrl elsewhere.
+*/
 #ifdef __APPLE__
 #define GUI_MOD_PRIMARY GUI_MOD_CMD
 #define GUI_MOD_WORD GUI_MOD_ALT
@@ -96,9 +101,11 @@ enum drag_mode
     DRAG_DOCK,   /* the free border of a docked window: its thickness */
 };
 
-/* The frame edges a resize moves - the left, right and bottom borders and
- * the corners between them. The top border is the title row, which moves
- * the window instead. */
+/*
+    The frame edges a resize moves - the left, right and bottom borders and
+    the corners between them. The top border is the title row, which moves
+    the window instead.
+*/
 enum resize_edge
 {
     EDGE_LEFT = 1,
@@ -159,8 +166,10 @@ struct app_timer
     int elapsed;   /* ms since id last fired */
 };
 
-/* The text caret's blink - it shares the backend's one timer with
- * app_timer (see core_timer_interval). */
+/*
+    The text caret's blink - it shares the backend's one timer with
+    app_timer (see core_timer_interval).
+*/
 #define GUI_CARET_BLINK_MS 700
 struct caret_blink
 {
@@ -182,10 +191,12 @@ struct app_fonts
     int rescale;     /* ui_fonts: family or size picked - windows follow the new cell */
 };
 
-/* What one OS window shows: the main one, or a window the user detached
- * into its own OS window. The active surface's state lives in struct
- * gui_app itself (root, windows, ui, ...), so the core works on it
- * unchanged; the others wait in their struct gui_surface. */
+/*
+    What one OS window shows: the main one, or a window the user detached
+    into its own OS window. The active surface's state lives in struct
+    gui_app itself (root, windows, ui, ...), so the core works on it
+    unchanged; the others wait in their struct gui_surface.
+*/
 struct gui_surface
 {
     /* swapped in and out of struct gui_app (surface_enter) */
@@ -255,8 +266,10 @@ struct gui_app
     struct surface_list surfaces;
 };
 
-/* What every paint function needs: the app (theme, metrics) and where to
- * draw. */
+/*
+    What every paint function needs: the app (theme, metrics) and where to
+    draw.
+*/
 struct paint
 {
     const struct gui_app* app;
@@ -272,8 +285,10 @@ int core_rect_contains(const struct gui_rect* r, int x, int y);
 int core_utf8_decode(const char* s, uint32_t* cp);
 int core_utf8_cells(const char* s, int bytes);
 int core_utf8_prefix_bytes(const char* s, int cells);
-/* A symbol some fonts lack (arrows, triangles, bullet, square, blocks) drawn
- * as shapes in the cell; 0 when `cp` is not one of them. */
+/*
+    A symbol some fonts lack (arrows, triangles, bullet, square, blocks) drawn
+    as shapes in the cell; 0 when `cp` is not one of them.
+*/
 int core_draw_symbol(const struct paint* p, int x, int y, int cw, int ch, uint32_t cp, uint32_t fg, uint32_t bg);
 /* The width core_draw_utf8 gives the text in `font`, px. */
 int core_utf8_width(const struct gui_app* app, enum gui_font font, const char* s, int bytes);
@@ -295,18 +310,22 @@ struct gui_node* core_top_modal(const struct gui_app* app);   /* the top window 
 /* The surface whose open window holds `n`, or NULL. */
 struct gui_surface* core_surface_of_node(const struct gui_app* app, const struct gui_node* n);
 
-/* A scrollbar: a `track` px long bar for `total` items of which `visible`
- * show, scrolled by `scroll` items. The thumb is sized and placed in px -
- * its length is the track times visible / total - while the content moves
- * by whole items. Shared by every scrolling widget. */
+/*
+    A scrollbar: a `track` px long bar for `total` items of which `visible`
+    show, scrolled by `scroll` items. The thumb is sized and placed in px -
+    its length is the track times visible / total - while the content moves
+    by whole items. Shared by every scrolling widget.
+*/
 struct scrollbar
 {
     int track, total, visible, scroll;
 };
 
 void core_scrollbar_thumb(const struct gui_app* app, const struct scrollbar* sb, int* pos, int* len);
-/* A press at `at` px along the track: on the thumb it grabs it there, off
- * it the thumb jumps to center on the press. Returns the new scroll. */
+/*
+    A press at `at` px along the track: on the thumb it grabs it there, off
+    it the thumb jumps to center on the press. Returns the new scroll.
+*/
 int core_scrollbar_press(struct gui_app* app, const struct scrollbar* sb, int at);
 /* A drag to `at`: the grabbed point stays under the mouse. Returns the new scroll. */
 int core_scrollbar_drag(const struct gui_app* app, const struct scrollbar* sb, int at);

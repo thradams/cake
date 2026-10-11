@@ -1,10 +1,11 @@
-/* ide_gui_core.c - the portable part of the ide GUI framework: the node
- * tree, layout (anchors), input and painting. See GUI_IDE_SPEC.md.
- *
- * Painting is a full repaint of the window whenever anything is dirty; the
- * backend presents the painted rect. Nothing is painted while nothing
- * changes.
- */
+/*
+    ide_gui_core.c - the portable part of the ide GUI framework: the node
+    tree, layout (anchors), input and painting. See GUI_IDE_SPEC.md.
+
+    Painting is a full repaint of the window whenever anything is dirty; the
+    backend presents the painted rect. Nothing is painted while nothing
+    changes.
+*/
 #include "ide_gui_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,9 +37,11 @@ int core_rect_contains(const struct gui_rect* r, int x, int y)
 
 /* --- UTF-8 --- */
 
-/* Decodes one code point at s (which must not be at its terminator) into
- * *cp; returns the number of bytes used. Malformed bytes decode as
- * themselves, one byte each, so text never stalls on bad input. */
+/*
+    Decodes one code point at s (which must not be at its terminator) into
+    *cp; returns the number of bytes used. Malformed bytes decode as
+    themselves, one byte each, so text never stalls on bad input.
+*/
 int core_utf8_decode(const char* s, uint32_t* cp)
 {
     const unsigned char* u = (const unsigned char*)s;
@@ -68,8 +71,10 @@ int core_utf8_decode(const char* s, uint32_t* cp)
     return 1;
 }
 
-/* Number of code points in the first `bytes` bytes of s (all of it if
- * bytes < 0) - its width in cells, for a monospaced font. */
+/*
+    Number of code points in the first `bytes` bytes of s (all of it if
+    bytes < 0) - its width in cells, for a monospaced font.
+*/
 int core_utf8_cells(const char* s, int bytes)
 {
     int n = 0;
@@ -96,9 +101,11 @@ int core_utf8_prefix_bytes(const char* s, int cells)
     return (int)(p - s);
 }
 
-/* The symbols the interface uses that some fonts lack - arrows, triangles,
- * the bullet, the square, blocks - drawn as shapes in the cell at (x, y)
- * instead. 0 when `cp` is not one of them. */
+/*
+    The symbols the interface uses that some fonts lack - arrows, triangles,
+    the bullet, the square, blocks - drawn as shapes in the cell at (x, y)
+    instead. 0 when `cp` is not one of them.
+*/
 int core_draw_symbol(const struct paint* p, int x, int y, int cw, int ch, uint32_t cp, uint32_t fg, uint32_t bg)
 {
     void* c = p->frame;
@@ -186,9 +193,11 @@ int core_draw_symbol(const struct paint* p, int x, int y, int cw, int ch, uint32
     }
 }
 
-/* Draws the first `bytes` bytes of s (all of it if bytes < 0) at (x, y), in
- * runs of up to 256 code points - one backend call per run, the symbols of
- * core_draw_symbol drawn as shapes. Returns the x after the last cell. */
+/*
+    Draws the first `bytes` bytes of s (all of it if bytes < 0) at (x, y), in
+    runs of up to 256 code points - one backend call per run, the symbols of
+    core_draw_symbol drawn as shapes. Returns the x after the last cell.
+*/
 int core_utf8_width(const struct gui_app* app, enum gui_font font, const char* s, int bytes)
 {
     int width = 0;
@@ -245,8 +254,10 @@ int core_draw_utf8(const struct paint* p, int x, int y, const char* s, int bytes
                 x += frame_text_width(p->frame, run, count, p->font);
                 count = 0;
             }
-            /* the Command sign takes the space after it too: one cell is
-             * half as wide as tall, too small for its loops */
+            /*
+                the Command sign takes the space after it too: one cell is
+                half as wide as tall, too small for its loops
+            */
             if (cp == 0x2318 && s < end && *s == ' ' &&
                 core_draw_symbol(p, x, y, 2 * cell_w, m->cell_h, cp, fg, bg))
             {
@@ -679,9 +690,11 @@ static void layout_anchored(const struct gui_app* app, struct gui_node* n,
 
 static void layout_children(const struct gui_app* app, struct gui_node* n);
 
-/* The menubar's titles flow left to right from column 1, each " label "
- * wide; the statusbar's hotkeys likewise, 2 columns apart. Same as the old
- * IDE's layout_menubar / layout_statusbar. */
+/*
+    The menubar's titles flow left to right from column 1, each " label "
+    wide; the statusbar's hotkeys likewise, 2 columns apart. Same as the old
+    IDE's layout_menubar / layout_statusbar.
+*/
 static void layout_bar(const struct gui_app* app, struct gui_node* bar)
 {
     int cw = app->ui_metrics.cell_w;
@@ -793,8 +806,10 @@ static struct gui_node* docked_on(const struct gui_app* app, enum gui_dock side)
     return NULL;
 }
 
-/* The area minus the open docked windows - where maximized windows go.
- * Same as the old IDE's maximized_rect. */
+/*
+    The area minus the open docked windows - where maximized windows go.
+    Same as the old IDE's maximized_rect.
+*/
 static struct gui_rect desktop_rect(const struct gui_app* app)
 {
     int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
@@ -810,8 +825,10 @@ static struct gui_rect desktop_rect(const struct gui_app* app)
     return r;
 }
 
-/* The largest thickness a dock may have: a side one leaves 8 columns, the
- * bottom one 4 rows, so it never hides the rest (the old IDE's caps). */
+/*
+    The largest thickness a dock may have: a side one leaves 8 columns, the
+    bottom one 4 rows, so it never hides the rest (the old IDE's caps).
+*/
 static int dock_cap(const struct gui_app* app, enum gui_dock side)
 {
     struct gui_rect area = area_rect(app);
@@ -824,9 +841,11 @@ static int dock_cap(const struct gui_app* app, enum gui_dock side)
     return cap >= app->ui_metrics.cell_w ? cap : area.w;
 }
 
-/* Pins every open docked window to its side - the old IDE's dock_layout:
- * left/right span the area top to bottom, bottom fills the width between
- * them. Run on every layout, so resizes and docks shown/hidden reflow. */
+/*
+    Pins every open docked window to its side - the old IDE's dock_layout:
+    left/right span the area top to bottom, bottom fills the width between
+    them. Run on every layout, so resizes and docks shown/hidden reflow.
+*/
 static void dock_layout(struct gui_app* app)
 {
     int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
@@ -1028,8 +1047,10 @@ void gui_window_set_modal(struct gui_node* win, int modal)
     win->window->modal = modal != 0;
 }
 
-/* Centered on the screen, on a whole cell - the old IDE's
- * center_modal_window. */
+/*
+    Centered on the screen, on a whole cell - the old IDE's
+    center_modal_window.
+*/
 void gui_window_center(struct gui_app* app, struct gui_node* win)
 {
     int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
@@ -1088,9 +1109,11 @@ void gui_window_set_ask_close(struct gui_node* win, int ask)
 
 /* --- Message box --- */
 
-/* Sized like the old IDE's ui_message_box: text lines with 2 cells of
- * padding, a gap, then the buttons (each its label plus 4, at least 8 wide,
- * 2 apart) centered on their own row. */
+/*
+    Sized like the old IDE's ui_message_box: text lines with 2 cells of
+    padding, a gap, then the buttons (each its label plus 4, at least 8 wide,
+    2 apart) centered on their own row.
+*/
 void gui_message_box(struct gui_app* app, const char* caption, const char* text,
                      const char* const labels[], const int ids[], int count)
 {
@@ -1217,8 +1240,10 @@ static void surface_load(struct gui_app* app, const struct gui_surface* s)
     app->frame = s->frame;
 }
 
-/* Makes `s` the one the core works on; returns the one that was, to go
- * back to. */
+/*
+    Makes `s` the one the core works on; returns the one that was, to go
+    back to.
+*/
 static struct gui_surface* surface_enter(struct gui_app* app, struct gui_surface* s)
 {
     struct gui_surface* prev = app->active;
@@ -1240,8 +1265,10 @@ static void surface_free(struct gui_surface* s)
     free(s);
 }
 
-/* needs_layout / needs_paint concern every surface: each gets its own
- * flag, cleared when it is laid out / painted. */
+/*
+    needs_layout / needs_paint concern every surface: each gets its own
+    flag, cleared when it is laid out / painted.
+*/
 static void surface_spread_dirty(struct gui_app* app)
 {
     if (!app->needs_layout && !app->needs_paint)
@@ -1284,8 +1311,10 @@ static struct gui_surface* surface_of_window(const struct gui_app* app, const st
     return NULL;
 }
 
-/* The menus and the statusbar live in the main surface; a detached one
- * runs their shortcuts too. */
+/*
+    The menus and the statusbar live in the main surface; a detached one
+    runs their shortcuts too.
+*/
 static struct gui_node* main_root(const struct gui_app* app)
 {
     return app->main_surface.root;
@@ -1516,9 +1545,11 @@ static void toggle_maximize(struct gui_app* app, struct gui_node* win)
     }
 }
 
-/* Grows `win` on each side until it meets the desktop edge or the nearest
- * other window overlapping it on the other axis - the old IDE's fit_window,
- * run by a double click on the title row. */
+/*
+    Grows `win` on each side until it meets the desktop edge or the nearest
+    other window overlapping it on the other axis - the old IDE's fit_window,
+    run by a double click on the title row.
+*/
 static void fit_window(struct gui_app* app, struct gui_node* win)
 {
     struct gui_rect d = desktop_rect(app);
@@ -1549,9 +1580,11 @@ static void fit_window(struct gui_app* app, struct gui_node* win)
     app->needs_paint = 1;
 }
 
-/* The OS window was resized: a window whose right or bottom edge touched
- * the old desktop's edge keeps touching it (the old IDE's
- * reflow_on_screen_resize). */
+/*
+    The OS window was resized: a window whose right or bottom edge touched
+    the old desktop's edge keeps touching it (the old IDE's
+    reflow_on_screen_resize).
+*/
 static void reflow_windows(struct gui_app* app, const struct gui_rect* old_desktop)
 {
     struct gui_rect d = desktop_rect(app);
@@ -1571,9 +1604,11 @@ static void reflow_windows(struct gui_app* app, const struct gui_rect* old_deskt
     }
 }
 
-/* The close icon "[■]" one cell in from the top-left corner, if the window
- * is wide enough; the maximize icon "[↑]" one cell in from the top-right
- * corner, for resizable windows. Shared by hit testing and painting. */
+/*
+    The close icon "[■]" one cell in from the top-left corner, if the window
+    is wide enough; the maximize icon "[↑]" one cell in from the top-right
+    corner, for resizable windows. Shared by hit testing and painting.
+*/
 static int has_close_icon(const struct gui_app* app, const struct gui_node* win)
 {
     return win->rect.w >= 5 * app->ui_metrics.cell_w;
@@ -1601,9 +1636,11 @@ struct gui_node* core_window_at_point(const struct gui_app* app, int x, int y)
     return NULL;
 }
 
-/* Which frame edges (enum resize_edge) the point is on: the outer cell of
- * the left, right and bottom borders, below the title row. 0 when the
- * window cannot be resized now. */
+/*
+    Which frame edges (enum resize_edge) the point is on: the outer cell of
+    the left, right and bottom borders, below the title row. 0 when the
+    window cannot be resized now.
+*/
 static int resize_edges_at(const struct gui_app* app, const struct gui_node* win, int x, int y)
 {
     int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
@@ -1618,9 +1655,11 @@ static int resize_edges_at(const struct gui_app* app, const struct gui_node* win
     return edges;
 }
 
-/* Whether the point is on a docked window's free border - the one that
- * changes its thickness: the right column of a left dock, the left column
- * of a right dock, the title row of a bottom dock. */
+/*
+    Whether the point is on a docked window's free border - the one that
+    changes its thickness: the right column of a left dock, the left column
+    of a right dock, the title row of a bottom dock.
+*/
 static int on_dock_handle(const struct gui_app* app, const struct gui_node* win, int x, int y)
 {
     int cw = app->ui_metrics.cell_w, ch = app->ui_metrics.cell_h;
@@ -1640,8 +1679,10 @@ static int on_dock_handle(const struct gui_app* app, const struct gui_node* win,
     }
 }
 
-/* A left button press that no menu took: on a window it raises it and may
- * hit an icon, start a move (title row) or a resize (a border). */
+/*
+    A left button press that no menu took: on a window it raises it and may
+    hit an icon, start a move (title row) or a resize (a border).
+*/
 static void window_mouse_down(struct gui_app* app, int double_click)
 {
     int x = app->mouse_x, y = app->mouse_y;
@@ -1742,8 +1783,10 @@ static void window_drag_to(struct gui_app* app)
     }
     else if (d->mode == DRAG_DOCK)
     {
-        /* At least 8 cells thick, at most dock_cap; dock_layout puts it
-         * back against its side. */
+        /*
+            At least 8 cells thick, at most dock_cap; dock_layout puts it
+            back against its side.
+        */
         enum gui_dock side = d->win->window->dock;
         int dx = app->mouse_x - d->start_x, dy = app->mouse_y - d->start_y;
         int size = side == GUI_DOCK_LEFT ? d->start.w + dx
@@ -1761,9 +1804,11 @@ static void window_drag_to(struct gui_app* app)
     }
     else
     {
-        /* Each moved edge follows the mouse by how far it moved since the
-         * press; the left edge keeps the right edge fixed. Never smaller
-         * than 12 x 5 cells or the window's own minimum. */
+        /*
+            Each moved edge follows the mouse by how far it moved since the
+            press; the left edge keeps the right edge fixed. Never smaller
+            than 12 x 5 cells or the window's own minimum.
+        */
         int min_w = (d->win->window->min_cols > 12 ? d->win->window->min_cols : 12) * cw;
         int min_h = (d->win->window->min_rows > 5 ? d->win->window->min_rows : 5) * ch;
         int dx = app->mouse_x - d->start_x, dy = app->mouse_y - d->start_y;
@@ -1785,10 +1830,12 @@ static void window_drag_to(struct gui_app* app)
 
 /* --- Menus: shortcut text --- */
 
-/* The shortcut as shown in a dropdown: every '+' between keys becomes a
- * space ("Ctrl+Shift+S" -> "Ctrl Shift S", "Ctrl++" -> "Ctrl +"), and on
- * macOS "Ctrl" is the Command sign, "⌘ S" - what is pressed there (Ctrl+Space
- * stays Ctrl). As the old IDE. */
+/*
+    The shortcut as shown in a dropdown: every '+' between keys becomes a
+    space ("Ctrl+Shift+S" -> "Ctrl Shift S", "Ctrl++" -> "Ctrl +"), and on
+    macOS "Ctrl" is the Command sign, "⌘ S" - what is pressed there (Ctrl+Space
+    stays Ctrl). As the old IDE.
+*/
 static void shortcut_display(const char* shortcut, char* buf, size_t cap)
 {
     size_t n = 0;
@@ -1806,9 +1853,11 @@ static void shortcut_display(const char* shortcut, char* buf, size_t cap)
     buf[n] = '\0';
 }
 
-/* Whether key + mods is `shortcut` ("Ctrl+Shift+S", "F7", "Ctrl++",
- * "Alt+Left", "Ctrl+Space"). The modifiers must match exactly, so Ctrl+S
- * never fires a Ctrl+Shift+S binding. */
+/*
+    Whether key + mods is `shortcut` ("Ctrl+Shift+S", "F7", "Ctrl++",
+    "Alt+Left", "Ctrl+Space"). The modifiers must match exactly, so Ctrl+S
+    never fires a Ctrl+Shift+S binding.
+*/
 static int shortcut_matches(const char* shortcut, int key, int mods)
 {
     int want = 0;
@@ -1854,10 +1903,12 @@ static int item_is_submenu(const struct gui_node* it)
     return it->kind == GUI_ITEM && !it->separator && it->child_count > 0;
 }
 
-/* Lays out the dropdown of `menu` (a GUI_MENU, or a submenu parent item)
- * with its top-left at (x, y): one row per item inside a one-cell frame,
- * wide enough for the longest "label  shortcut". Kept on screen and above
- * the statusbar. Sets every item's rect; returns the whole box. */
+/*
+    Lays out the dropdown of `menu` (a GUI_MENU, or a submenu parent item)
+    with its top-left at (x, y): one row per item inside a one-cell frame,
+    wide enough for the longest "label  shortcut". Kept on screen and above
+    the statusbar. Sets every item's rect; returns the whole box.
+*/
 static struct gui_rect layout_dropdown(const struct gui_app* app, struct gui_node* menu,
                                        int x, int y)
 {
@@ -1901,8 +1952,10 @@ static struct gui_rect layout_dropdown(const struct gui_app* app, struct gui_nod
     return box;
 }
 
-/* The open menu's dropdown box: under its title, or for a context menu at
- * the point it was opened. */
+/*
+    The open menu's dropdown box: under its title, or for a context menu at
+    the point it was opened.
+*/
 static struct gui_rect layout_open_menu(const struct gui_app* app)
 {
     const struct gui_node* title = app->menu.open;
@@ -1911,8 +1964,10 @@ static struct gui_rect layout_open_menu(const struct gui_app* app)
     return layout_dropdown(app, app->menu.open, app->menu.popup_x, app->menu.popup_y);
 }
 
-/* The open submenu's box, to the right of the parent dropdown `parent_box`,
- * its first item level with the parent item. */
+/*
+    The open submenu's box, to the right of the parent dropdown `parent_box`,
+    its first item level with the parent item.
+*/
 static struct gui_rect layout_open_sub(const struct gui_app* app, const struct gui_rect* parent_box)
 {
     const struct gui_node* item = app->menu.open_sub;
@@ -1940,10 +1995,12 @@ void core_fire(struct gui_app* app, int id)
     app->needs_paint = 1;
 }
 
-/* Recomputes what is under the mouse: a menubar title (which also switches
- * the open menu, if one is open) or an item of the open dropdowns (a
- * submenu parent opens its submenu). Returns whether the mouse is over the
- * menubar or an open dropdown at all. */
+/*
+    Recomputes what is under the mouse: a menubar title (which also switches
+    the open menu, if one is open) or an item of the open dropdowns (a
+    submenu parent opens its submenu). Returns whether the mouse is over the
+    menubar or an open dropdown at all.
+*/
 static int update_menu_hover(struct gui_app* app)
 {
     struct menu_state* m = &app->menu;
@@ -2036,9 +2093,11 @@ static int item_can_fire(const struct gui_node* it)
 
 static void window_mouse_down(struct gui_app* app, int double_click);
 
-/* A right click: the widget under the mouse, or the nearest of its
- * parents up to its window, that has a context menu opens it. The window's
- * own menu opens only where no child covers it. */
+/*
+    A right click: the widget under the mouse, or the nearest of its
+    parents up to its window, that has a context menu opens it. The window's
+    own menu opens only where no child covers it.
+*/
 static void context_menu_at(struct gui_app* app)
 {
     struct gui_node* win = core_window_at_point(app, app->mouse_x, app->mouse_y);
@@ -2157,8 +2216,10 @@ static void mouse_up(struct gui_app* app, int button)
 }
 
 /* A shortcut of any menu item (menus open or not). */
-/* The statusbar's hotkeys: "Alt+Left" for Back, say. With a modal open only
- * the plain keys - F1 for Help works over any dialog. */
+/*
+    The statusbar's hotkeys: "Alt+Left" for Back, say. With a modal open only
+    the plain keys - F1 for Help works over any dialog.
+*/
 static int run_statusbar_hotkey(struct gui_app* app, int key, int mods, int modal)
 {
     struct gui_node* statusbar = core_find_kind(main_root(app), GUI_STATUSBAR);
@@ -2212,9 +2273,11 @@ static int run_shortcut(struct gui_app* app, int key, int mods)
     return 0;
 }
 
-/* The keyboard on an open menu (a popup list, say): Up / Down move the
- * highlight over the items that can fire, Enter picks, Escape closes. 0:
- * another key - the menu closes and the key goes on (typing continues). */
+/*
+    The keyboard on an open menu (a popup list, say): Up / Down move the
+    highlight over the items that can fire, Enter picks, Escape closes. 0:
+    another key - the menu closes and the key goes on (typing continues).
+*/
 static int menu_key(struct gui_app* app, int key)
 {
     struct menu_state* m = &app->menu;
@@ -2332,8 +2395,10 @@ void gui_app_event(struct gui_app* app, const struct gui_event* ev)
         break;
     case GUI_EVENT_KEY:
     {
-        /* Escape closes the innermost thing open: a menu, a select list
-         * (widget_key), then the modal on top. */
+        /*
+            Escape closes the innermost thing open: a menu, a select list
+            (widget_key), then the modal on top.
+        */
         caret_restart(app);
         struct gui_node* modal = core_top_modal(app);
         struct gui_node* focused = app->ui.focused;
@@ -2372,8 +2437,10 @@ int core_line_weight(const struct gui_app* app)
     return t < 1 ? 1 : t;
 }
 
-/* The outline of a rect whose corners are (x0, y0) .. (x1, y1), each line
- * `t` thick and growing right/down from its coordinate. */
+/*
+    The outline of a rect whose corners are (x0, y0) .. (x1, y1), each line
+    `t` thick and growing right/down from its coordinate.
+*/
 static void draw_outline(const struct paint* p, int x0, int y0, int x1, int y1, int t,
                          uint32_t color)
 {
@@ -2383,9 +2450,11 @@ static void draw_outline(const struct paint* p, int x0, int y0, int x1, int y1, 
     gui_fill_rect(p->frame, x1, y0, t, y1 - y0 + t, color);   /* right */
 }
 
-/* A one-cell frame around `r`: the border cells filled with `bg`, then the
- * line through the middle of them - where the old IDE's box-drawing glyphs
- * put it (single, or two lines for double). */
+/*
+    A one-cell frame around `r`: the border cells filled with `bg`, then the
+    line through the middle of them - where the old IDE's box-drawing glyphs
+    put it (single, or two lines for double).
+*/
 void core_draw_frame(const struct paint* p, const struct gui_rect* r,
                        enum gui_border_style style, uint32_t fg, uint32_t bg)
 {
@@ -2410,9 +2479,11 @@ void core_draw_frame(const struct paint* p, const struct gui_rect* r,
     }
 }
 
-/* The drop shadow of a raised rect: one cell to the right and half a cell
- * below, tapering at the top-right and bottom-left - the four pieces of
- * the old IDE's render_button/render_window shadow. */
+/*
+    The drop shadow of a raised rect: one cell to the right and half a cell
+    below, tapering at the top-right and bottom-left - the four pieces of
+    the old IDE's render_button/render_window shadow.
+*/
 void core_draw_shadow(const struct paint* p, const struct gui_rect* r)
 {
     int cw = p->app->ui_metrics.cell_w, ch = p->app->ui_metrics.cell_h;
@@ -2511,8 +2582,10 @@ static void paint_menubar(const struct paint* p, const struct gui_node* bar)
     }
 }
 
-/* "key:label" - the key part in hotkey_key_fg, the rest in hotkey_fg; a
- * label with no ':' is plain text. Same as the old IDE's render_hotkey. */
+/*
+    "key:label" - the key part in hotkey_key_fg, the rest in hotkey_fg; a
+    label with no ':' is plain text. Same as the old IDE's render_hotkey.
+*/
 static void paint_hotkey(const struct paint* p, const struct gui_node* h)
 {
     const struct gui_theme* t = &p->app->theme;
@@ -2539,10 +2612,12 @@ static void paint_hotkey(const struct paint* p, const struct gui_node* h)
     gui_set_clip(p->frame, 0, 0, 0, 0);
 }
 
-/* Walks a hint as the app's hint highlighter colors it: hidden spans
- * skipped, other colored text in the hotkey key color. Draws it, or with
- * `draw` 0 only measures it. Returns its width, px, and in *x the x after
- * the text. */
+/*
+    Walks a hint as the app's hint highlighter colors it: hidden spans
+    skipped, other colored text in the hotkey key color. Draws it, or with
+    `draw` 0 only measures it. Returns its width, px, and in *x the x after
+    the text.
+*/
 static int paint_hint_text(const struct paint* p, int* x, int y, const char* hint, int draw)
 {
     const struct gui_theme* t = &p->app->theme;
@@ -2575,9 +2650,11 @@ static int paint_hint_text(const struct paint* p, int* x, int y, const char* hin
     return width;
 }
 
-/* While the node under the mouse has a hint, the bar reads
- * "F1:Help | hint": the first hotkey stays, the rest give way to the hint,
- * cut with "..." if it does not fit. Same as the old IDE. */
+/*
+    While the node under the mouse has a hint, the bar reads
+    "F1:Help | hint": the first hotkey stays, the rest give way to the hint,
+    cut with "..." if it does not fit. Same as the old IDE.
+*/
 static void paint_statusbar_hint(const struct paint* p, const struct gui_node* bar,
                                  const char* hint)
 {
@@ -2639,9 +2716,11 @@ static void paint_statusbar(const struct paint* p, const struct gui_node* bar)
     for (int i = 0; i < bar->child_count; i++)
         paint_hotkey(p, bar->children[i]);
 
-    /* The bar's own label, right-aligned one column from the edge, and only
-     * if it clears the last hotkey by more than a column - left out rather
-     * than cut, like the old IDE. */
+    /*
+        The bar's own label, right-aligned one column from the edge, and only
+        if it clears the last hotkey by more than a column - left out rather
+        than cut, like the old IDE.
+    */
     if (bar->label[0])
     {
         int used_x = bar->rect.x + cw;
@@ -2683,9 +2762,11 @@ static void paint_node(const struct paint* p, const struct gui_node* n)
         paint_node(p, n->children[i]);
 }
 
-/* The title centered in the top border, one space each side, between the
- * icons; cut with "..." when it does not fit. Same as the old IDE's
- * render_window. */
+/*
+    The title centered in the top border, one space each side, between the
+    icons; cut with "..." when it does not fit. Same as the old IDE's
+    render_window.
+*/
 static void paint_window_title(const struct paint* p, const struct gui_node* win,
                                uint32_t fg, uint32_t bg)
 {
@@ -2789,8 +2870,10 @@ static void paint_window(const struct paint* p, const struct gui_node* win, int 
     core_draw_frame(p, r, style, border_fg, border_bg);
     paint_window_title(p, win, border_fg, border_bg);
 
-    /* The icons: the symbol in the middle cell of three, between drawn
-     * brackets - not a font's "[" "]" - centered on it both ways, whatever the font. */
+    /*
+        The icons: the symbol in the middle cell of three, between drawn
+        brackets - not a font's "[" "]" - centered on it both ways, whatever the font.
+    */
     for (int icon = 0; icon < 2; icon++)
     {
         if (icon == 0 ? !has_close_icon(app, win) : !has_zoom_icon(app, win))
@@ -3023,8 +3106,10 @@ static int gcd(int a, int b)
     return a;
 }
 
-/* The backend's one timer serves both the app's timer and the caret blink:
- * it ticks at a period that divides both. */
+/*
+    The backend's one timer serves both the app's timer and the caret blink:
+    it ticks at a period that divides both.
+*/
 static int core_timer_interval(const struct gui_app* app)
 {
     return app->timer.ms > 0 ? gcd(app->timer.ms, GUI_CARET_BLINK_MS) : GUI_CARET_BLINK_MS;
@@ -3058,8 +3143,10 @@ static void caret_restart(struct gui_app* app)
     app->caret.elapsed = 0;
 }
 
-/* One tick of the backend timer: the caret toggles every
- * GUI_CARET_BLINK_MS, repainting only when an editor or input has focus. */
+/*
+    One tick of the backend timer: the caret toggles every
+    GUI_CARET_BLINK_MS, repainting only when an editor or input has focus.
+*/
 static void caret_tick(struct gui_app* app, int interval)
 {
     app->caret.elapsed += interval;

@@ -1,4 +1,4 @@
-//#pragma safety enable
+
 #include "cake_compat.h"
 #include <stdlib.h>
 #include <string.h>
@@ -409,9 +409,11 @@ static char * _Opt _Owner json_parse_string(struct parser *parser)
             }
         }
 
-        /* Reserve before taking the buffer over, so the hand-over itself
-           cannot fail and the buffer is never both moved-from and freed on
-           one path. */
+        /*
+            Reserve before taking the buffer over, so the hand-over itself
+            cannot fail and the buffer is never both moved-from and freed on
+            one path.
+        */
         if (!json_buffer_reserve(&buffer, 0))
         {
             json_fail(parser, "out of memory");
@@ -784,8 +786,10 @@ static struct json_value * _Opt _Owner json_parse_value(struct parser *parser)
 struct json_value * _Opt _Owner json_parse(const char * _Opt text, struct json_error * _Opt error)
 {
     struct json_value * _Opt _Owner result = NULL;
-    /* Cleared as a whole object rather than just message[0], so the caller's
-     struct is fully initialized before parser.error starts pointing at it. */
+    /*
+        Cleared as a whole object rather than just message[0], so the caller's
+        struct is fully initialized before parser.error starts pointing at it.
+    */
     const struct json_error cleared = { "", 1, 1 };
     struct parser parser = {0};
     struct json_error local = cleared;
@@ -852,9 +856,11 @@ void json_delete(struct json_value * _Owner _Opt value)
         free(value->key);
         free(value->string);
 
-        /* value->next belongs to whoever held this node in their list, and is
-           always unlinked before the node reaches here - see json_remove_member
-           and the loop above. */
+        /*
+            value->next belongs to whoever held this node in their list, and is
+            always unlinked before the node reaches here - see json_remove_member
+            and the loop above.
+        */
         free(value); //lint 29
     }
 }
@@ -921,9 +927,11 @@ static void json_remove_member(struct json_value *object, const char *key)
     {
         if (child->key != NULL && strcmp(child->key, key) == 0)
         {
-            /* The list links are _Owner, but the walk above is a plain
-               observer pointer, so cake cannot see that unlinking `child`
-               hands its ownership over to json_delete right below. */
+            /*
+                The list links are _Owner, but the walk above is a plain
+                observer pointer, so cake cannot see that unlinking `child`
+                hands its ownership over to json_delete right below.
+            */
             if (previous != NULL)
             {
                 previous->next = child->next; //lint 26
@@ -972,8 +980,10 @@ struct json_value * _Opt json_set_string(struct json_value *object, const char *
             throw;
         }
 
-        /* Only now that nothing else can fail: replacing the old member of
-           the same name must not happen on a path that then gives up. */
+        /*
+            Only now that nothing else can fail: replacing the old member of
+            the same name must not happen on a path that then gives up.
+        */
         json_remove_member(object, key);
 
         value->type = JSON_STRING;
@@ -1013,8 +1023,10 @@ struct json_value * _Opt json_set_number(struct json_value *object, const char *
             throw;
         }
 
-        /* Only now that nothing else can fail: replacing the old member of
-           the same name must not happen on a path that then gives up. */
+        /*
+            Only now that nothing else can fail: replacing the old member of
+            the same name must not happen on a path that then gives up.
+        */
         json_remove_member(object, key);
 
         value->type = JSON_NUMBER;
@@ -1052,8 +1064,10 @@ struct json_value * _Opt json_set_bool(struct json_value *object, const char *ke
             throw;
         }
 
-        /* Only now that nothing else can fail: replacing the old member of
-           the same name must not happen on a path that then gives up. */
+        /*
+            Only now that nothing else can fail: replacing the old member of
+            the same name must not happen on a path that then gives up.
+        */
         json_remove_member(object, key);
 
         value->type = boolean_value ? JSON_TRUE : JSON_FALSE;
@@ -1090,8 +1104,10 @@ struct json_value * _Opt json_set_null(struct json_value *object, const char *ke
             throw;
         }
 
-        /* Only now that nothing else can fail: replacing the old member of
-           the same name must not happen on a path that then gives up. */
+        /*
+            Only now that nothing else can fail: replacing the old member of
+            the same name must not happen on a path that then gives up.
+        */
         json_remove_member(object, key);
 
         value->type = JSON_NULL;
@@ -1128,8 +1144,10 @@ struct json_value * _Opt json_set_object(struct json_value *object, const char *
             throw;
         }
 
-        /* Only now that nothing else can fail: replacing the old member of
-           the same name must not happen on a path that then gives up. */
+        /*
+            Only now that nothing else can fail: replacing the old member of
+            the same name must not happen on a path that then gives up.
+        */
         json_remove_member(object, key);
 
         value->type = JSON_OBJECT;
@@ -1166,8 +1184,10 @@ struct json_value * _Opt json_set_array(struct json_value *object, const char *k
             throw;
         }
 
-        /* Only now that nothing else can fail: replacing the old member of
-           the same name must not happen on a path that then gives up. */
+        /*
+            Only now that nothing else can fail: replacing the old member of
+            the same name must not happen on a path that then gives up.
+        */
         json_remove_member(object, key);
 
         value->type = JSON_ARRAY;

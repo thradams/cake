@@ -1,7 +1,8 @@
-/* ide_highlight.c - the IDE's syntax highlighters for the framework's
- * editor (struct gui_highlighter). The keyword lists are the old IDE's
- * (ide_ui.c), copied unchanged.
- */
+/*
+    ide_highlight.c - the IDE's syntax highlighters for the framework's
+    editor (struct gui_highlighter). The keyword lists are the old IDE's
+    (ide_ui.c), copied unchanged.
+*/
 #include "ide_shell.h"
 #include <stdlib.h>
 #include <string.h>
@@ -160,10 +161,12 @@ static int is_c_keyword2(const char* word, int len)
     return 0;
 }
 
-/* True for exactly "struct", "union", or "enum" - the three keywords that
- * introduce a tag name (e.g. the X in "struct X"). Used by
- * render_editor_line to color that following identifier via
- * g_theme.editor_tag_fg instead of the ordinary identifier color. */
+/*
+    True for exactly "struct", "union", or "enum" - the three keywords that
+    introduce a tag name (e.g. the X in "struct X"). Used by
+    render_editor_line to color that following identifier via
+    g_theme.editor_tag_fg instead of the ordinary identifier color.
+*/
 static int is_c_tag_keyword(const char* word, int len)
 {
     return (len == 6 && memcmp(word, "struct", 6) == 0) ||
@@ -171,10 +174,12 @@ static int is_c_tag_keyword(const char* word, int len)
         (len == 4 && memcmp(word, "enum", 4) == 0);
 }
 
-/* --- The C highlighter ---
- *
- * The state carried from line to line: bit 0 is "inside a block comment",
- * the rest the ( [ { nesting depth, for the bracket colors. */
+/*
+    --- The C highlighter ---
+
+    The state carried from line to line: bit 0 is "inside a block comment",
+    the rest the ( [ { nesting depth, for the bracket colors.
+*/
 
 #define IN_COMMENT 1
 
@@ -346,16 +351,22 @@ int ide_highlight_c(void* ctx, const char* line, int len, int* state,
     return n;
 }
 
-/* --- Markdown: the old IDE's UI_SYNTAX_MARKDOWN. Headings ("# ") and
- * blockquotes ("> ") color their whole line, ``` fences color the lines
- * between them, and `code`, **bold** and [link](dest) their own bit, in the
- * theme's md_* colors. Editing shows the delimiters, colored; a read-only
- * editor hides them (GUI_SPAN_HIDDEN). --- */
+/*
+    --- Markdown: the old IDE's UI_SYNTAX_MARKDOWN. Headings ("# ") and
+    blockquotes ("> ") color their whole line, ``` fences color the lines
+    between them, and `code`, **bold** and [link](dest) their own bit, in the
+    theme's md_* colors. Editing shows the delimiters, colored; a read-only
+    editor hides them (GUI_SPAN_HIDDEN). ---
+*/
 
-/* One line, byte by byte: `emit(i, n, fg, delim)` for bytes i .. i+n-1;
- * delim: Markdown punctuation, not text. *in_block: inside a ``` block. */
-/* The length of the bare http(s) URL at `p`, up to a blank, quote or
- * bracket, without a trailing '.', ',', ';' or ':'; 0 if none starts there. */
+/*
+    One line, byte by byte: `emit(i, n, fg, delim)` for bytes i .. i+n-1;
+    delim: Markdown punctuation, not text. *in_block: inside a ``` block.
+*/
+/*
+    The length of the bare http(s) URL at `p`, up to a blank, quote or
+    bracket, without a trailing '.', ',', ';' or ':'; 0 if none starts there.
+*/
 static int md_url_len(const char* p, int len)
 {
     int k = len >= 7 && memcmp(p, "http://", 7) == 0 ? 7 : len >= 8 && memcmp(p, "https://", 8) == 0 ? 8 : 0;

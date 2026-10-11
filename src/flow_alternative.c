@@ -1,4 +1,4 @@
-//#pragma safety enable
+
 
 #include "flow_alternative.h"
 #include "error.h"
@@ -66,17 +66,21 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
 
     union flow_alt_pool_node* node = pool->free_list;
     pool->free_list = node->next;
-    /* Recycled nodes carry stale bytes from their previous life (only the
-       leading `next` field was written while parked on the free list).
-       Callers rely on calloc-style zero defaults for fields they don't set
-       explicitly (e.g. value_kind/value), so zero the node every time it is
-       handed out, not just on first carve from a fresh block. */
+    /*
+        Recycled nodes carry stale bytes from their previous life (only the
+        leading `next` field was written while parked on the free list).
+        Callers rely on calloc-style zero defaults for fields they don't set
+        explicitly (e.g. value_kind/value), so zero the node every time it is
+        handed out, not just on first carve from a fresh block.
+    */
     memset(&node->alt, 0, sizeof(node->alt));
     pool->live_count++;
-    /* Not actually heap-owned -- recycled from the pool above and returned
-       to it by flow_alt_pool_release, never freed individually. The _Owner
-       cast is the established idiom (see free-opt-owner-cast.c) for opting
-       a pointer into the ownership contract at the use site. */
+    /*
+        Not actually heap-owned -- recycled from the pool above and returned
+        to it by flow_alt_pool_release, never freed individually. The _Owner
+        cast is the established idiom (see free-opt-owner-cast.c) for opting
+        a pointer into the ownership contract at the use site.
+    */
     return (struct flow_alternative* _Opt _Owner) & node->alt;
 }
 
@@ -116,11 +120,13 @@ static bool flow_alternatives_grow(struct flow_alternatives* vs)
     if (vs->size < vs->capacity)
         return true;
 
-    /* Doubling forever means a list that has grown large doubles again --
-       e.g. 100k -> 200k entries in one realloc. That is fine for the pointer
-       array itself (8 bytes/entry) but risky because it briefly holds both
-       the old and new blocks live at once. Past a threshold, grow by half
-       instead of doubling, so big lists creep up rather than jump. */
+    /*
+        Doubling forever means a list that has grown large doubles again --
+        e.g. 100k -> 200k entries in one realloc. That is fine for the pointer
+        array itself (8 bytes/entry) but risky because it briefly holds both
+        the old and new blocks live at once. Past a threshold, grow by half
+        instead of doubling, so big lists creep up rather than jump.
+    */
     enum { FLOW_ALT_GROW_DOUBLE_LIMIT = 1024 };
     try
     {
@@ -151,8 +157,10 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
 {
     try
     {
-        /* O(vs->size) dedup scan. To add many alternatives use
-           flow_alternatives_push and one flow_alternatives_remove_duplicates. */
+        /*
+            O(vs->size) dedup scan. To add many alternatives use
+            flow_alternatives_push and one flow_alternatives_remove_duplicates.
+        */
         for (int i = 0; i < vs->size; i++)
         {
             if (flow_value_is_same(vs->data[i], p_alternative) &&
@@ -228,9 +236,11 @@ static int flow_alt_compare_ptr(const void* _Opt p_left, const void* _Opt p_righ
     return result;
 }
 
-/* Orders by the same fields flow_alternatives_add compares, origin last, then by index,
-   so equal alternatives are adjacent with the first-added one leading, and so are
-   the ones that differ only in origin. */
+/*
+    Orders by the same fields flow_alternatives_add compares, origin last, then by index,
+    so equal alternatives are adjacent with the first-added one leading, and so are
+    the ones that differ only in origin.
+*/
 static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_right_void)
 {
     const struct flow_alt_sort_item* p_left_item = p_left_void;
@@ -319,15 +329,19 @@ static bool flow_alternative_same_except_origin(const struct flow_alternative* a
 
 void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
 {
-    /* One value reached through many arms (an arm that did not write the object
-       re-tags it with the arm) keeps one copy per origin. Past this many the
-       copies become one, tagged with the origins' common ancestor: a value on
-       more paths, never on fewer. Without it an else-if chain of n arms grows
-       each object by one copy per arm. */
+    /*
+        One value reached through many arms (an arm that did not write the object
+        re-tags it with the arm) keeps one copy per origin. Past this many the
+        copies become one, tagged with the origins' common ancestor: a value on
+        more paths, never on fewer. Without it an else-if chain of n arms grows
+        each object by one copy per arm.
+    */
     enum { FLOW_ALT_MAX_ORIGINS_PER_VALUE = 8 };
 
-    /* O(n log n): sort (alternative, index) pairs, mark every entry that equals
-       its sorted predecessor, then compact keeping the original order. */
+    /*
+        O(n log n): sort (alternative, index) pairs, mark every entry that equals
+        its sorted predecessor, then compact keeping the original order.
+    */
     struct flow_alt_sort_item* _Owner _Opt items = NULL;
     bool* _Owner _Opt is_duplicate = NULL;
     try
@@ -414,8 +428,10 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
 
 void flow_alternatives_append(struct flow_alternatives* dst, const struct flow_alternatives* src)
 {
-    /* Small lists: the linear dedup scan in flow_alternatives_add is cheaper
-       than sorting. Big ones: push everything and dedup once, O(n log n). */
+    /*
+        Small lists: the linear dedup scan in flow_alternatives_add is cheaper
+        than sorting. Big ones: push everything and dedup once, O(n log n).
+    */
     enum { FLOW_ALT_APPEND_LINEAR_LIMIT = 256 };
     if ((long long)dst->size * src->size <= FLOW_ALT_APPEND_LINEAR_LIMIT)
     {
@@ -464,9 +480,11 @@ bool flow_alternative_is_true(const struct flow_alternative* alt)
 
 bool flow_alternative_is_dead(const struct flow_alternative* alt)
 {
-    /* The whole parent chain, not just the origin itself: the value is
-       usually recorded in a map nested inside the dead arm (the assignment's
-       own map), which is not flagged -- only the arm the fold killed is. */
+    /*
+        The whole parent chain, not just the origin itself: the value is
+        usually recorded in a map nested inside the dead arm (the assignment's
+        own map), which is not flagged -- only the arm the fold killed is.
+    */
     for (const struct flow_branch* _Opt m = alt->p_origin_map; m != NULL; m = m->p_parent_map)
     {
         if (m->is_unreachable)
@@ -733,13 +751,15 @@ bool flow_alt_negate(const struct flow_alternative* in,
     enum flow_relation r = FLOW_RELATION_UNINITIALIZED;
     switch (in->value_relation)
     {
-        /* Deliberately NOT mapping FLOW_RELATION_EQUAL. A genuinely constant
-    operand is already folded by the object_has_constant_value branch above;
-    an EQUAL here comes from flow state, which may be a stale seed that no
-    write-effect has invalidated yet -- e.g. `int ids[32] = {0};` passed to a
-    function that fills it in. Propagating that through `-ids[i]` folded
-    `ids[i] < 0` to always-false and reported live code as unreachable
-    (parser.c:2064). The half-line relations below are what this fix needs. */
+        /*
+            Deliberately NOT mapping FLOW_RELATION_EQUAL. A genuinely constant
+            operand is already folded by the object_has_constant_value branch above;
+            an EQUAL here comes from flow state, which may be a stale seed that no
+            write-effect has invalidated yet -- e.g. `int ids[32] = {0};` passed to a
+            function that fills it in. Propagating that through `-ids[i]` folded
+            `ids[i] < 0` to always-false and reported live code as unreachable
+            (parser.c:2064). The half-line relations below are what this fix needs.
+        */
         case FLOW_RELATION_NOT_EQUAL:
             r = FLOW_RELATION_NOT_EQUAL;
         break;
@@ -785,9 +805,11 @@ bool flow_alternative_can_be_zero(const struct flow_alternative* alt)
     {
         return true;
     }
-    /* Relational (half-line) constraints: zero is reachable iff it lies
-       inside the permitted interval. e.g. `> 0` excludes zero, `>= 0` and
-       `< 5` include it. */
+    /*
+        Relational (half-line) constraints: zero is reachable iff it lies
+        inside the permitted interval. e.g. `> 0` excludes zero, `>= 0` and
+        `< 5` include it.
+    */
     {
         long long lo = 0;
         long long hi = 0;

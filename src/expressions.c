@@ -3,7 +3,7 @@
 *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+
 
 #include "cake_compat.h"
 #include <limits.h>
@@ -232,8 +232,9 @@ void expression_mark_discarded_write(const struct expression* _Opt p_expression)
         case EXPR_ASSIGNMENT_NOT_ASSIGN:
         case EXPR_ASSIGNMENT_OR_ASSIGN:
         {
-            /* prefix ++/-- keep the operand on `right`; postfix and compound
-            * assignment keep the destination on `left`.
+            /*
+                prefix ++/-- keep the operand on `right`; postfix and compound
+                assignment keep the destination on `left`.
             */
             const bool is_prefix =
             p_expression->expression_type == EXPR_UNARY_INCREMENT ||
@@ -304,8 +305,9 @@ static void mark_pointee_escaped(const struct type* _Opt p_dest_type_opt,
 
         if (dest_pointee_is_const(p_dest_type_opt))
         {
-            /* `gc(p)` with `void gc(const struct X*)` is not an escape -- but
-            * it IS a use, and one that already proves const would work.
+            /*
+                `gc(p)` with `void gc(const struct X*)` is not an escape -- but
+                it IS a use, and one that already proves const would work.
             */
             struct declarator* _Opt p_used = expression_named_declarator(p_source);
             if (p_used != NULL && type_is_pointer_or_array(&p_source->object.type))
@@ -333,10 +335,11 @@ static void mark_pointee_escaped(const struct type* _Opt p_dest_type_opt,
 
     if (p_e->expression_type == EXPR_CONDITIONAL)
     {
-        /* `q = c ? p : other` hands out whichever arm is taken, so BOTH escape.
-        * (The composite type is const-correct since the 6.5.15p6 fix, but the
-        * suggestion has to hold even when the destination is what makes it
-        * legal.) For elvis (`c ?: x`) the true arm is the condition itself.
+        /*
+            `q = c ? p : other` hands out whichever arm is taken, so BOTH escape.
+            (The composite type is const-correct since the 6.5.15p6 fix, but the
+            suggestion has to hold even when the destination is what makes it
+            legal.) For elvis (`c ?: x`) the true arm is the condition itself.
         */
         mark_pointee_escaped(p_dest_type_opt,
                              p_e->left != NULL ? p_e->left : p_e->condition_expr);
@@ -353,8 +356,9 @@ static void mark_pointee_escaped(const struct type* _Opt p_dest_type_opt,
 
     if (p_e->expression_type == EXPR_UNARY_ADDRESSOF)
     {
-        /* `&p->m` hands out a pointer into *p; `&p` hands out p itself, and
-        * through it anything reachable from p -- both are escapes.
+        /*
+            `&p->m` hands out a pointer into *p; `&p` hands out p itself, and
+            through it anything reachable from p -- both are escapes.
         */
         struct declarator* _Opt p_declarator = expression_pointee_owner(p_e->right);
         if (p_declarator == NULL)
@@ -407,10 +411,11 @@ static void check_binary_operator_space_style(const struct parser_ctx* ctx,
 
     if (format_active_for(ctx, op_token))
     {
-        /* op_token->next, not the next_token parameter: at some call sites
-        * next_token is passed before parser_match() runs, while it still
-        * equals op_token itself - it is only ever used as a diagnostic
-        * location, never as "the token after the operator"
+        /*
+            op_token->next, not the next_token parameter: at some call sites
+            next_token is passed before parser_match() runs, while it still
+            equals op_token itself - it is only ever used as a diagnostic
+            location, never as "the token after the operator"
         */
         format_ensure_one_space_before((struct token*)op_token);
         struct token* _Opt after = format_next_real((struct token*)op_token);
@@ -565,9 +570,10 @@ static struct osstream build_printf_format_text(const struct expression* p_fmt_e
 * the suggestion say "%zu" instead of the equally valid but less portable
 * "%lu".
 */
-/* The typedef one step further in: `typedef size_t my_size;` declares
-* my_size THROUGH size_t, so a my_size argument still deserves "%zu" even
-* though the name the declaration mentions is my_size.
+/*
+    The typedef one step further in: `typedef size_t my_size;` declares
+    my_size THROUGH size_t, so a my_size argument still deserves "%zu" even
+    though the name the declaration mentions is my_size.
 */
 static const struct declarator* _Opt printf_next_typedef_declarator(const struct declarator* p_declarator)
 {
@@ -588,9 +594,10 @@ static const struct declarator* _Opt printf_typedef_declarator(const struct expr
 {
     const struct declarator* _Opt p_typedef_declarator = NULL;
 
-    /* A member access carries no declarator of its own; the member's own
-    * declaration is where its typedef was written (`struct s { size_t n; }`
-    * printed as `p->n`).
+    /*
+        A member access carries no declarator of its own; the member's own
+        declaration is where its typedef was written (`struct s { size_t n; }`
+        printed as `p->n`).
     */
     if (p_expression->expression_type == EXPR_POSTFIX_DOT ||
         p_expression->expression_type == EXPR_POSTFIX_ARROW)
@@ -903,8 +910,9 @@ static int printf_expected_object_type(char conv, const char* length_text, const
             return -1;
     }
 
-    /* 'hh' and 'h' tell printf to narrow the value it prints; the argument
-    * still arrives promoted to int, so int is what is expected here.
+    /*
+        'hh' and 'h' tell printf to narrow the value it prints; the argument
+        still arrives promoted to int, so int is what is expected here.
     */
     if (length_text[0] == '\0' ||
         strcmp(length_text, "hh") == 0 ||
@@ -918,11 +926,12 @@ static int printf_expected_object_type(char conv, const char* length_text, const
         return is_signed_conv ? TYPE_SIGNED_LONG : TYPE_UNSIGNED_LONG;
     }
 
-    /* intmax_t is the widest integer the target has: long long on the Windows
-    * targets, but the LP64 ones make long just as wide and typedef intmax_t
-    * to it. Either spelling is the widest integer there, so 'j' names long
-    * long here and the comparison lets long stand in for it when the two
-    * have the same width -- see printf_object_type_matches.
+    /*
+        intmax_t is the widest integer the target has: long long on the Windows
+        targets, but the LP64 ones make long just as wide and typedef intmax_t
+        to it. Either spelling is the widest integer there, so 'j' names long
+        long here and the comparison lets long stand in for it when the two
+        have the same width -- see printf_object_type_matches.
     */
     if (strcmp(length_text, "ll") == 0 || strcmp(length_text, "j") == 0)
     {
@@ -958,9 +967,10 @@ static bool printf_object_type_matches(const struct platform* target,
     if ((actual & ~1) == (expected & ~1))
         return true;
 
-    /* 'j' asked for the widest integer, spelled long long above. On a target
-    * where long is just as wide it is the same type, and that is the one
-    * intmax_t is a typedef for there.
+    /*
+        'j' asked for the widest integer, spelled long long above. On a target
+        where long is just as wide it is the same type, and that is the one
+        intmax_t is a typedef for there.
     */
     if (strcmp(length_text, "j") == 0 &&
         (actual & ~1) == TYPE_SIGNED_LONG &&
@@ -1065,12 +1075,13 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
         break;
 
         case 'p':
-            /* An array argument decays to a pointer, exactly as it does for '%s'
-        * just above -- checking type_is_pointer alone reported
-        * `printf("%p", buffer)` for `char buffer[10]` as a type mismatch.
-        * A function designator decays too, but to a function pointer, which
-        * %p is not defined for; that one is still reported.
-        */
+            /*
+                An array argument decays to a pointer, exactly as it does for '%s'
+                just above -- checking type_is_pointer alone reported
+                `printf("%p", buffer)` for `char buffer[10]` as a type mismatch.
+                A function designator decays too, but to a function pointer, which
+                %p is not defined for; that one is still reported.
+            */
             ok = type_is_pointer_or_array(p_type);
             expected = "a pointer";
         break;
@@ -1087,9 +1098,10 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
 
     if (ok)
     {
-        /* Right kind of argument, but possibly not the type the length
-        * modifier names -- see printf_expected_object_type. Reported with
-        * the same wording, since for the caller it is the same mistake.
+        /*
+            Right kind of argument, but possibly not the type the length
+            modifier names -- see printf_expected_object_type. Reported with
+            the same wording, since for the caller it is the same mistake.
         */
         const int expected_object_type =
             printf_expected_object_type(conv, length_text, &ctx->options.platform);
@@ -1102,8 +1114,9 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
                 type_to_object_type(&promoted, &ctx->options.platform);
             type_destroy(&promoted);
 
-            /* A bitfield arrives promoted to int like everything narrower;
-            * its own declared width says nothing about the va_list.
+            /*
+                A bitfield arrives promoted to int like everything narrower;
+                its own declared width says nothing about the va_list.
             */
             if (actual_object_type < TYPE_UNSIGNED_BITFIELD_1 &&
                 !printf_object_type_matches(&ctx->options.platform,
@@ -1117,10 +1130,11 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
                 expected = expected_phrase;
             }
 
-            /* A typedef that owns a length modifier has to be printed with
-            * it. This is what the type comparison above cannot see: on a
-            * target where size_t is unsigned int, "%d" names the very type
-            * the argument has and is still the wrong way to print it.
+            /*
+                A typedef that owns a length modifier has to be printed with
+                it. This is what the type comparison above cannot see: on a
+                target where size_t is unsigned int, "%d" names the very type
+                the argument has and is still the wrong way to print it.
             */
             if (ok && !type_is_pointer(p_type) && !type_is_array(p_type))
             {
@@ -1150,8 +1164,9 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
         }
         else if (type_is_floating_point(p_type))
         {
-            /* Only 'L' selects long double; passing one to '%f' (or a double
-            * to '%Lf') reads the wrong number of bytes just the same.
+            /*
+                Only 'L' selects long double; passing one to '%f' (or a double
+                to '%Lf') reads the wrong number of bytes just the same.
             */
             const bool expects_long_double = (strcmp(length_text, "L") == 0);
 
@@ -1168,9 +1183,10 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
         struct osstream ss = { 0 };
         print_type_no_names(&ss, p_type, &ctx->options.platform);
 
-        /* print_type_no_names spells a type in flag order ("unsigned int long
-        * long"), which reads badly right next to the typedef it explains.
-        * For an arithmetic type the object type has the ordinary name.
+        /*
+            print_type_no_names spells a type in flag order ("unsigned int long
+            long"), which reads badly right next to the typedef it explains.
+            For an arithmetic type the object type has the ordinary name.
         */
         const char* _Opt resolved_name = NULL;
 
@@ -1191,18 +1207,20 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
 
         const char* _Opt suggestion = NULL;
 
-        /* Prefer the typedef's own conversion when the argument was written
-        * with one -- "%zu" says size_t, "%lu" only says "as wide as this
-        * target's size_t happens to be".
+        /*
+            Prefer the typedef's own conversion when the argument was written
+            with one -- "%zu" says size_t, "%lu" only says "as wide as this
+            target's size_t happens to be".
         */
         char macro_buffer[32] = { 0 };
         bool suggestion_is_macro = false;
         bool no_direct_format = false;
 
-        /* Follow the typedef chain the argument was declared through, and take
-        * the first name the standard gives a conversion for. A pointer or an
-        * array is left out of this: the typedef found there names the base
-        * type, not what is being passed.
+        /*
+            Follow the typedef chain the argument was declared through, and take
+            the first name the standard gives a conversion for. A pointer or an
+            array is left out of this: the typedef found there names the base
+            type, not what is being passed.
         */
         const char* _Opt written_typedef_name = NULL;
         const char* _Opt matched_typedef_name = NULL;
@@ -1245,12 +1263,13 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
             suggestion = printf_specifier_for_type(p_type, &ctx->options.platform);
         }
 
-        /* Name the type the way the call site writes it. A typedef that is
-        * only reported by what it resolves to ("unsigned long") tells the
-        * reader nothing about why %zu is the answer, so the typedef is named
-        * and then explained: 'size_t' (unsigned long). When the conversion
-        * was found further down a chain of typedefs, the link that carries
-        * it is named too: 'my_size' (size_t = unsigned long).
+        /*
+            Name the type the way the call site writes it. A typedef that is
+            only reported by what it resolves to ("unsigned long") tells the
+            reader nothing about why %zu is the answer, so the typedef is named
+            and then explained: 'size_t' (unsigned long). When the conversion
+            was found further down a chain of typedefs, the link that carries
+            it is named too: 'my_size' (size_t = unsigned long).
         */
         struct osstream type_ss = { 0 };
 
@@ -1273,8 +1292,9 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
 
         if (suggestion != NULL && suggestion_is_macro)
         {
-            /* The fixed-width types have no portable conversion of their own,
-            * so the answer is the macro, not a specifier.
+            /*
+                The fixed-width types have no portable conversion of their own,
+                so the answer is the macro, not a specifier.
             */
             diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
                        "format for %s is \"%%\" %s, not '%%%s%c'",
@@ -1336,10 +1356,11 @@ static void check_fmt(const struct parser_ctx* ctx,
         // width
         if (*p == '*')
         {
-            /* A '*' takes an argument of its own, so it counts for the
-            * numbering the "missing argument N" message uses -- and running
-            * out of arguments here is the same error as running out at the
-            * conversion, not something to pass over in silence.
+            /*
+                A '*' takes an argument of its own, so it counts for the
+                numbering the "missing argument N" message uses -- and running
+                out of arguments here is the same error as running out at the
+                conversion, not something to pass over in silence.
             */
             n_specifiers++;
             if (p_arg == NULL)
@@ -1390,12 +1411,13 @@ static void check_fmt(const struct parser_ctx* ctx,
             }
         }
 
-        /* Length modifier. Only a lone 'l' changes what the conversion expects
-        * ("%ls" takes a wchar_t *); the others are kept as text so the
-        * diagnostic echoes what was written -- "%lld" used to be reported as
-        * "%d". C23's wN / wfN (%w32d, %wf16d) are consumed here as well:
-        * left unparsed, 'w' was taken for the conversion itself and the
-        * argument went unchecked.
+        /*
+            Length modifier. Only a lone 'l' changes what the conversion expects
+            ("%ls" takes a wchar_t *); the others are kept as text so the
+            diagnostic echoes what was written -- "%lld" used to be reported as
+            "%d". C23's wN / wfN (%w32d, %wf16d) are consumed here as well:
+            left unparsed, 'w' was taken for the conversion itself and the
+            argument went unchecked.
         */
         char length_text[8] = { 0 };
         int length_len = 0;
@@ -1800,9 +1822,10 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
 
         p_generic_association->first_token = ctx->current;
 
-        /* generic - association:
-        * type-name : assignment-expression
-        * default : assignment-expression
+        /*
+            generic - association:
+            type-name : assignment-expression
+            default : assignment-expression
         */
         if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
@@ -2074,9 +2097,10 @@ void generic_selection_delete(struct generic_selection* _Owner _Opt p)
 
 struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx, bool is_discarded)
 {
-    /* C23
-    * generic-selection:
-    * _Generic ( assignment-expression , generic-assoc-ctx )
+    /*
+        C23
+        generic-selection:
+        _Generic ( assignment-expression , generic-assoc-ctx )
     */
 
     /*
@@ -3060,41 +3084,27 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                         !(p_declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                         !(p_declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL))
                     {
-                        /* see . dot and arrow -> */
-                        p_expression_node->lvalue_disabled = true;
-
-                        if (type_is_constexpr(&p_declarator->object.type))
-                        {
-                            /*
-                            * Scalars are inlined as literals; struct/array
-                            * objects are copied from their compile-time value
-                            * (see EXPR_PRIMARY_DECLARATOR in codegen.c), so no
-                            * reference to the enclosing function's object
-                            * remains in the generated code either way.
-                            *
-                            * int main()
-                            * {
-                            * constexpr int i = 2;
-                            * static int dup(int a) { return i * a; }
-                            * return dup(1);
-                            * }
-                            */
-                        }
-                        else if (type_is_const(&p_declarator->object.type) &&
-                            object_has_all_members_constants(&p_declarator->object))
-                        {
-                            /*
-                            * const int i = 2;
-                            * static int dup(int a) { return i * a; }
-                            */
-                        }
-                        else
-                        {
-                            diagnostic(C_ERROR_OUTER_SCOPE,
+                        if (diagnostic(C_ERROR_OUTER_SCOPE,
                                        ctx,
                                        p_expression_node->first_token,
                                 NULL,
-                                       "'%s' cannot be evaluated in this scope", ctx->current->lexeme);
+                                       "local function cannot use '%s' from the enclosing function", ctx->current->lexeme))
+                        {
+                            if (p_declarator->name_opt)
+                            {
+                                const bool is_constant =
+                                    type_is_constexpr(&p_declarator->object.type) ||
+                                    (type_is_const(&p_declarator->object.type) &&
+                                     object_has_all_members_constants(&p_declarator->object));
+
+                                diagnostic(W_LOCATION,
+                                           ctx,
+                                           p_declarator->name_opt,
+                                    NULL,
+                                           is_constant ?
+                                           "declared here (use 'static' to share it with local functions)" :
+                                           "declared here");
+                            }
                         }
                     }
                 }
@@ -3758,8 +3768,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 {
                     p_expression_node_new->object.type = get_array_item_type(&p_expression_node->object.type);
 
-                    /* an element of an object of the enclosing function (N3884) */
-                    p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 }
 
                 parser_match(ctx);
@@ -3946,17 +3954,17 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
                 p_expression_node->last_token = ctx->current;
-                /* Inherit the left operand's first token (matching EXPR_POSTFIX_ARROW
-                * just below), not the '.' token itself -- otherwise
-                * flow_expression_to_string() renders only the tail of the
-                * expression starting at the dot (e.g. ".head->p_declarator"
-                * instead of "list.head->p_declarator"), since it walks the
-                * node's own [first_token, last_token] range verbatim.
+                /*
+                    Inherit the left operand's first token (matching EXPR_POSTFIX_ARROW
+                    just below), not the '.' token itself -- otherwise
+                    flow_expression_to_string() renders only the tail of the
+                    expression starting at the dot (e.g. ".head->p_declarator"
+                    instead of "list.head->p_declarator"), since it walks the
+                    node's own [first_token, last_token] range verbatim.
                 */
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = EXPR_POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
-                p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 p_expression_node = NULL; /* MOVED */
 
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
@@ -4372,7 +4380,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     }
                 }
 
-                p_expression_node_new->lvalue_disabled = p_expression_node->lvalue_disabled;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
@@ -4390,9 +4397,10 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (type_is_const_recursive(&p_expression_node->object.type))
                 {
-                    /* C11 6.5.2.4p1: the operand of postfix ++ shall be a
-                    * modifiable lvalue. Only the assignment operators used to
-                    * check this, so `const int ci; ci++;` was accepted.
+                    /*
+                        C11 6.5.2.4p1: the operand of postfix ++ shall be a
+                        modifiable lvalue. Only the assignment operators used to
+                        check this, so `const int ci; ci++;` was accepted.
                     */
                     struct osstream ss_name = { 0 };
                     flow_expression_to_string(p_expression_node, &ss_name);
@@ -4499,8 +4507,9 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 break;
             }
 
-            /* One call covers `[]`, `.` and `->`: the helper only reacts to the
-            * shapes that actually reach into a pointee.
+            /*
+                One call covers `[]`, `.` and `->`: the helper only reacts to the
+                shapes that actually reach into a pointee.
             */
             mark_pointee_used(ctx, p_expression_node);
         }
@@ -5076,8 +5085,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
             if (type_is_const_recursive(&new_expression->right->object.type))
             {
-                /* C11 6.5.3.1p1: same modifiable-lvalue requirement for the
-                * prefix form.
+                /*
+                    C11 6.5.3.1p1: same modifiable-lvalue requirement for the
+                    prefix form.
                 */
                 struct osstream ss_name = { 0 };
                 flow_expression_to_string(new_expression->right, &ss_name);
@@ -5306,17 +5316,6 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                         type_swap(&new_expression->object.type, &t);
                         type_destroy(&t);
                     }
-                }
-
-                if (new_expression->right->lvalue_disabled)
-                {
-                    /* lvalue_disabled is set only for objects of the enclosing function (N3884) */
-                    diagnostic(C_ERROR_ADDRESS_OF_REGISTER,
-                               ctx,
-                               new_expression->right->first_token,
-                        NULL,
-                               "cannot take the address of '%s' from the enclosing function",
-                               new_expression->right->first_token->lexeme);
                 }
 
                 /*
@@ -6837,8 +6836,10 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
                             object_destroy(&p_expression_node->object);
                             if (type_is_bool(&t))
                             {
-                                /* 6.3.1.2: any nonzero value converts to 1, it is
-                                   not a truncation to the bool storage type */
+                                /*
+                                    6.3.1.2: any nonzero value converts to 1, it is
+                                    not a truncation to the bool storage type
+                                */
                                 p_expression_node->object = object_make_bool(&ctx->options.platform, !object_is_zero(&p_expression_node->left->object));
                             }
                             else
@@ -7104,27 +7105,6 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
     return p_expression_node;
 }
 
-/*
-  constexpr int a[2] = {1, 2};
-  static int local() { return *(a + 1); }
-  The array decays to a pointer to the object of the enclosing function (N3884).
-*/
-static void check_array_decay_from_enclosing_function(struct parser_ctx* ctx, const struct expression* p_expression)
-{
-    if (!p_expression->lvalue_disabled || !type_is_array(&p_expression->object.type))
-        return;
-
-    struct osstream ss_name = { 0 };
-    flow_expression_to_string(p_expression, &ss_name);
-    diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
-               ctx,
-               p_expression->first_token,
-               NULL,
-               "the usage of '%s' would require access to the object from the enclosing function, which is not allowed",
-               ss_name.c_str ? ss_name.c_str : "");
-    ss_close(&ss_name);
-}
-
 struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool is_discarded)
 {
     /*
@@ -7157,10 +7137,11 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
                 throw;
             }
 
-            /* first_token must be the LEFT operand's first token, not the
-            * operator: otherwise serializing the expression (e.g. for the
-            * "possible null pointer" message) starts at '+' and drops the
-            * left operand -- reporting `+2` instead of `p + 2`.
+            /*
+                first_token must be the LEFT operand's first token, not the
+                operator: otherwise serializing the expression (e.g. for the
+                "possible null pointer" message) starts at '+' and drops the
+                left operand -- reporting `+2` instead of `p + 2`.
             */
             new_expression->first_token = p_expression_node->first_token;
 
@@ -7187,8 +7168,6 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx, bool 
 
             new_expression->last_token = new_expression->right->last_token;
 
-            check_array_decay_from_enclosing_function(ctx, new_expression->left);
-            check_array_decay_from_enclosing_function(ctx, new_expression->right);
 
             if (!type_is_scalar_decay(&new_expression->left->object.type))
             {
@@ -8085,11 +8064,12 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
             if (new_expression == NULL)
                 throw;
 
-            /* Left operand's first token, not the operator -- same reason
-            * spelled out at the additive_expression call site: serializing
-            * from the operator drops the left operand, so a flow3 branch
-            * note reads "(=='?')" instead of
-            * "(ctx->current->type == '?')".
+            /*
+                Left operand's first token, not the operator -- same reason
+                spelled out at the additive_expression call site: serializing
+                from the operator drops the left operand, so a flow3 branch
+                note reads "(=='?')" instead of
+                "(ctx->current->type == '?')".
             */
             new_expression->first_token = p_expression_node->first_token;
 
@@ -8138,10 +8118,11 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx, bool 
             }
 
             new_expression->last_token = new_expression->right->last_token;
-            /* first_token is already the left operand's (set above); it must
-            * NOT be re-pointed at the operator here -- that is what made
-            * the expression serialize as "=='?'" with the left operand
-            * dropped.
+            /*
+                first_token is already the left operand's (set above); it must
+                NOT be re-pointed at the operator here -- that is what made
+                the expression serialize as "=='?'" with the left operand
+                dropped.
             */
 
             if (object_has_constant_value(&new_expression->left->object) &&
@@ -8834,8 +8815,9 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
                            "lvalue required as left operand of assignment");
             }
 
-            /* Every assignment operator writes the destination, not just `=`;
-            * only `=` is a pure set (see mark_pointee_written).
+            /*
+                Every assignment operator writes the destination, not just `=`;
+                only `=` is a pure set (see mark_pointee_written).
             */
             mark_pointee_written(new_expression->left, op_token->type == '=');
 
@@ -9129,10 +9111,11 @@ void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
 
     if (is_malloc)
     {
-        /* Real malloc takes exactly one argument. A local mock declared
-        * under the same name with a different arity (seen in some flow
-        * test fixtures) doesn't use its first argument as a byte count,
-        * so guessing at it there would misfire.
+        /*
+            Real malloc takes exactly one argument. A local mock declared
+            under the same name with a different arity (seen in some flow
+            test fixtures) doesn't use its first argument as a byte count,
+            so guessing at it there would misfire.
         */
         const struct argument_expression* _Opt p_size_argument = p_right_expression->argument_expression_list.head;
         if (p_size_argument == NULL || p_size_argument->expression == NULL || p_size_argument->next != NULL)
@@ -9152,12 +9135,13 @@ void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
     }
     else
     {
-        /* calloc(nmemb, size): unlike malloc, `size` is the per-element
-        * size, so it must match the pointee size exactly rather than just
-        * be a multiple of it -- EXCEPT when nmemb is 1, which is the
-        * common "single blob" idiom (calloc(1, N), just like malloc(N)),
-        * where `size` legitimately covers more than one pointee element
-        * (e.g. calloc(1, sizeof(int[4])) for an int*).
+        /*
+            calloc(nmemb, size): unlike malloc, `size` is the per-element
+            size, so it must match the pointee size exactly rather than just
+            be a multiple of it -- EXCEPT when nmemb is 1, which is the
+            common "single blob" idiom (calloc(1, N), just like malloc(N)),
+            where `size` legitimately covers more than one pointee element
+            (e.g. calloc(1, sizeof(int[4])) for an int*).
         */
         const struct argument_expression* _Opt p_nmemb_argument = p_right_expression->argument_expression_list.head;
         const struct argument_expression* _Opt p_size_argument = p_nmemb_argument ? p_nmemb_argument->next : NULL;
@@ -9165,8 +9149,9 @@ void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
             p_size_argument == NULL || p_size_argument->expression == NULL ||
             p_size_argument->next != NULL)
         {
-            /* Real calloc takes exactly two arguments; a differently-shaped
-            * local mock isn't guaranteed to use (nmemb, size) in this order.
+            /*
+                Real calloc takes exactly two arguments; a differently-shaped
+                local mock isn't guaranteed to use (nmemb, size) in this order.
             */
             type_destroy(&pointee_type);
             return;
@@ -9231,11 +9216,12 @@ void expression_delete(struct expression* _Owner _Opt p)
 }
 struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discarded)
 {
-    /* expression:
-    * assignment-expression
-    * static_assert
-    * expression, assignment-expression
-    * expression, static_assert
+    /*
+        expression:
+        assignment-expression
+        static_assert
+        expression, assignment-expression
+        expression, static_assert
     */
 
     struct expression* _Owner _Opt p_expression_node = NULL;
@@ -9878,8 +9864,9 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
 
     if (!type_is_owner(p_a_type) && type_is_owner_or_pointer_to_dtor(p_b_type))
     {
-        /* The source is a temporary owner (a function return value): storing it
-        * in a non-owner would leak it, since nothing takes ownership.
+        /*
+            The source is a temporary owner (a function return value): storing it
+            in a non-owner would leak it, since nothing takes ownership.
         */
         if (p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
@@ -10016,29 +10003,6 @@ void check_assigment(const struct parser_ctx* ctx,
 
     if (type_is_pointer(p_a_type))
     {
-        if (type_is_array(p_b_type))
-        {
-            if (p_b_expression->lvalue_disabled)
-            {
-                /*
-                * constexpr struct {int a[2];} c = {};
-                * static int* local() {
-                * int * p = c.a;
-                * return c.a;
-                * }
-                */
-                struct osstream ss_name = { 0 };
-                flow_expression_to_string(p_b_expression, &ss_name);
-                diagnostic(C_ERROR_INCOMPATIBLE_TYPES,
-                           ctx,
-                           p_b_expression->first_token,
-                           NULL,
-                           "the usage of '%s' would require access to the object from the enclosing function, which is not allowed",
-                           ss_name.c_str ? ss_name.c_str : "");
-                ss_close(&ss_name);
-            }
-        }
-
         if (type_is_function(p_b_type) &&
             !(p_a_type->next && type_is_function(p_a_type->next)))
         {
@@ -10529,9 +10493,10 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
         current = current->next;
     }
 
-    /* Nothing was FINAL -- a macro-expanded or synthesized expression, and
-    * the case that produced the "(null)" names. The text is still the best
-    * description available, so take it without the FINAL requirement.
+    /*
+        Nothing was FINAL -- a macro-expanded or synthesized expression, and
+        the case that produced the "(null)" names. The text is still the best
+        description available, so take it without the FINAL requirement.
     */
     if (ss->c_str == NULL)
     {

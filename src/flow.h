@@ -14,8 +14,10 @@ struct flow_label_state
     struct flow_branch* p_flow_branch;
 };
 
-/* A pointee write-effect of a function call, deferred until after all
-   arguments are evaluated (C evaluates arguments first, then the callee runs). */
+/*
+    A pointee write-effect of a function call, deferred until after all
+    arguments are evaluated (C evaluates arguments first, then the callee runs).
+*/
 enum flow_pointee_effect_kind
 {
     FLOW_EFFECT_NONE = 0,             /* no write-effect on the pointee */
@@ -36,10 +38,12 @@ struct flow_deferred_pointee_effect
     enum flow_pointee_effect_kind kind;
     const struct token* _Opt p_token; /* where the call is, for the state it sets */
 
-    /* The pointer value the pointee came from: its origin, the object whose
-       values it is one of, and the argument. Effects with the same object and
-       argument are alternatives (the pointer points to one of them) and are
-       applied in pointer target arms; the others all happen. */
+    /*
+        The pointer value the pointee came from: its origin, the object whose
+        values it is one of, and the argument. Effects with the same object and
+        argument are alternatives (the pointer points to one of them) and are
+        applied in pointer target arms; the others all happen.
+    */
     const struct flow_branch* _Opt p_target_origin;
     const struct object* _Opt p_pointer_object;
     int argument_serial;
@@ -120,8 +124,10 @@ struct flow_ctx
     int labels_size;
 
 
-    /* Function-call pointee write-effects, deferred until after all arguments
-       are evaluated (see flow_visit_function_arguments). */
+    /*
+        Function-call pointee write-effects, deferred until after all arguments
+        are evaluated (see flow_visit_function_arguments).
+    */
     struct flow_deferred_pointee_effect deferred_effects[64];
     int deferred_effects_count;
     bool collect_deferred_effects;
@@ -131,8 +137,10 @@ struct flow_ctx
     struct flow_branch_arena flow_branch_arena;
     struct flow_branch* _Opt p_current_flow_branch;
 
-    /* Findings accumulated or already reported, so one fact is reported once
-       (see flow_finding_record); cleared per assignment. */
+    /*
+        Findings accumulated or already reported, so one fact is reported once
+        (see flow_finding_record); cleared per assignment.
+    */
     struct flow_reported_finding* _Owner _Opt p_reported_findings; /* FLOW_MAX_REPORTED_FINDINGS entries, allocated on first use */
     int findings_depth; /* nested assignment checks sharing p_reported_findings */
     struct osstream findings_text; /* pending messages, each ending in '\0' */

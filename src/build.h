@@ -17,9 +17,11 @@
 #include <string.h>
 #include <stdlib.h>
 
-/* ============================================================
- * COMPILER DETECTION
- * ============================================================ */
+/*
+    ============================================================
+    COMPILER DETECTION
+    ============================================================
+*/
 
 #if defined(__clang__)
 #  define COMPILER_CLANG 1
@@ -65,9 +67,11 @@
 #endif
 
 
-/* ============================================================
- * PLATFORM DETECTION
- * ============================================================ */
+/*
+    ============================================================
+    PLATFORM DETECTION
+    ============================================================
+*/
 
 #if defined(_WIN32) || defined(_WIN64)
 #  define PLATFORM_WINDOWS 1
@@ -98,9 +102,11 @@
 #endif
 
 
-/* ============================================================
- * ARCHITECTURE DETECTION
- * ============================================================ */
+/*
+    ============================================================
+    ARCHITECTURE DETECTION
+    ============================================================
+*/
 
 #if defined(__x86_64__) || defined(_M_X64)
 #  define ARCH_X86_64 1
@@ -129,9 +135,11 @@
 #endif
 
 
-/* ============================================================
- * LIBC DETECTION
- * ============================================================ */
+/*
+    ============================================================
+    LIBC DETECTION
+    ============================================================
+*/
 
 #if defined(__GLIBC__)
 #  define LIBC_GLIBC 1
@@ -154,12 +162,14 @@
 #endif
 
 
-/* ============================================================
- * DERIVED API GROUPS
- *
- * API_WINDOWS - Windows API available (Win32/MSVCRT/MinGW)
- * API_POSIX   - POSIX API available (Linux, macOS, BSDs, etc.)
- * ============================================================ */
+/*
+    ============================================================
+    DERIVED API GROUPS
+
+    API_WINDOWS - Windows API available (Win32/MSVCRT/MinGW)
+    API_POSIX   - POSIX API available (Linux, macOS, BSDs, etc.)
+    ============================================================
+*/
 
 #if defined(PLATFORM_WINDOWS) || defined(LIBC_MSVCRT) || defined(LIBC_MINGW)
 #  define API_WINDOWS 1
@@ -175,9 +185,11 @@
 #endif
 
 
-/* ============================================================
- * PLATFORM-SPECIFIC SETUP
- * ============================================================ */
+/*
+    ============================================================
+    PLATFORM-SPECIFIC SETUP
+    ============================================================
+*/
 
 #ifdef PLATFORM_WINDOWS
 
@@ -191,10 +203,12 @@
 #define mkdir(A,B) _mkdir(A)
 #define chdir      _chdir
 
-/* cmd.exe (used by system()) does not search the current directory for a
- * bare executable name, so a prefix is required just like on POSIX. It
- * does not accept a forward-slash "./" prefix either (it tries to run "."
- * as a command), so ".\" is used here. */
+/*
+    cmd.exe (used by system()) does not search the current directory for a
+    bare executable name, so a prefix is required just like on POSIX. It
+    does not accept a forward-slash "./" prefix either (it tries to run "."
+    as a command), so ".\" is used here.
+*/
 #define RUN " .\\"
 
 static int system_like(const char* command)
@@ -247,9 +261,11 @@ static int system_like(const char* command)
 #endif /* API_POSIX */
 
 
-/* ============================================================
- * EXECUTABLE NAME HELPER
- * ============================================================ */
+/*
+    ============================================================
+    EXECUTABLE NAME HELPER
+    ============================================================
+*/
 
 #ifdef PLATFORM_WINDOWS
 #  define EXE(name) name ".exe"
@@ -258,9 +274,11 @@ static int system_like(const char* command)
 #endif
 
 
-/* ============================================================
- * FILE UTILITIES
- * ============================================================ */
+/*
+    ============================================================
+    FILE UTILITIES
+    ============================================================
+*/
 
 /*
  * copy_file() - copy a file byte-by-byte from src to dst.
@@ -303,9 +321,11 @@ static int copy_file(const char* src, const char* dst)
 }
 
 
-/* ============================================================
- * BUILD COMMAND HELPERS
- * ============================================================ */
+/*
+    ============================================================
+    BUILD COMMAND HELPERS
+    ============================================================
+*/
 
 /*
  * execute_cmd() - run a shell command, print it first, exit on failure.

@@ -1,15 +1,16 @@
-/* ide_gui.h - public interface of the ide GUI framework.
- *
- * A small retained-mode UI framework: an app builds a tree of nodes (menubar,
- * statusbar, windows, widgets...), the framework lays it out, paints it and
- * routes input to it. It knows nothing about C, Cake or IDEs - the IDE is just
- * one app written with it (see GUI_IDE_SPEC.md).
- *
- * Everything is in device pixels. Distances an app gives are gui_len values:
- * a number of cells of the main monospaced font plus a number of pixels, so
- * a layout keeps its proportions when the font changes (zoom) and is
- * recomputed, never rescaled.
- */
+/*
+    ide_gui.h - public interface of the ide GUI framework.
+
+    A small retained-mode UI framework: an app builds a tree of nodes (menubar,
+    statusbar, windows, widgets...), the framework lays it out, paints it and
+    routes input to it. It knows nothing about C, Cake or IDEs - the IDE is just
+    one app written with it (see GUI_IDE_SPEC.md).
+
+    Everything is in device pixels. Distances an app gives are gui_len values:
+    a number of cells of the main monospaced font plus a number of pixels, so
+    a layout keeps its proportions when the font changes (zoom) and is
+    recomputed, never rescaled.
+*/
 #ifndef IDE_GUI_H
 #define IDE_GUI_H
 
@@ -58,8 +59,10 @@ enum gui_anchor
     GUI_ANCHOR_BOTTOM = 8,
 };
 
-/* cells * (cell size of the main font) + px + percent of the parent's size
- * on that axis (two tabs, each half of a panel, say) */
+/*
+    cells * (cell size of the main font) + px + percent of the parent's size
+    on that axis (two tabs, each half of a panel, say)
+*/
 struct gui_len
 {
     int cells;
@@ -67,9 +70,11 @@ struct gui_len
     int percent;
 };
 
-/* Where a node sits inside its parent's client area. Per axis: anchored on
- * both sides it stretches with the parent; on one side it keeps its
- * width/height at that distance from that side; on neither it is centered. */
+/*
+    Where a node sits inside its parent's client area. Per axis: anchored on
+    both sides it stretches with the parent; on one side it keeps its
+    width/height at that distance from that side; on neither it is centered.
+*/
 struct gui_layout
 {
     int anchors;                              /* enum gui_anchor flags */
@@ -86,16 +91,20 @@ enum gui_border_style
     GUI_BORDER_DOUBLE,
 };
 
-/* Number of colors in a theme's editor_bracket_fg[] cycle - see its own
- * comment below. */
+/*
+    Number of colors in a theme's editor_bracket_fg[] cycle - see its own
+    comment below.
+*/
 #define GUI_EDITOR_BRACKET_COLORS 4
 
-/* The whole visual palette, one field per color role - every render_*()
- * function in ui.c reads its colors from here instead of hardcoded
- * constants, so a whole new look (a "theme") is just a different filled-in
- * gui_theme passed to gui_set_theme(), swappable at runtime (e.g. from a
- * menu item) without rebuilding anything. Same fields, names and meanings as the old
- * IDE's ui_theme, so its themes copied over unchanged. */
+/*
+    The whole visual palette, one field per color role - every render_*()
+    function in ui.c reads its colors from here instead of hardcoded
+    constants, so a whole new look (a "theme") is just a different filled-in
+    gui_theme passed to gui_set_theme(), swappable at runtime (e.g. from a
+    menu item) without rebuilding anything. Same fields, names and meanings as the old
+    IDE's ui_theme, so its themes copied over unchanged.
+*/
 struct gui_theme
 {
     uint32_t desktop_bg;  /* the general backdrop behind everything else -
@@ -179,9 +188,11 @@ struct gui_theme
     uint32_t editor_attribute_fg;  /* a C23 [[attribute]] */
     uint32_t editor_caret_fg;  /* the caret bar; a theme with no dedicated
                                  * caret color sets this equal to editor_fg */
-    /* editor_keyword_fg colors type/storage keywords (is_c_keyword1 - int,
-     * struct, const, ...); editor_keyword2_fg colors control-flow keywords
-     * (is_c_keyword2 - if, for, return, ...). */
+    /*
+        editor_keyword_fg colors type/storage keywords (is_c_keyword1 - int,
+        struct, const, ...); editor_keyword2_fg colors control-flow keywords
+        (is_c_keyword2 - if, for, return, ...).
+    */
 
     uint32_t editor_lint_fg;  /* a "//lint" line comment - same idea as
                                * editor_comment_fg but its own color so a
@@ -275,10 +286,12 @@ struct gui_theme
                                   * A theme with no dedicated Output look sets
                                   * this equal to editor_fg. */
 
-    /* UI_SYNTAX_MARKDOWN only - see render_editor_line_markdown(). Its own
-     * knobs rather than reusing the UI_SYNTAX_C colors above, so a theme can
-     * restyle a Markdown document (help viewer, README preview, ...)
-     * independently of how it colors C source. */
+    /*
+        UI_SYNTAX_MARKDOWN only - see render_editor_line_markdown(). Its own
+        knobs rather than reusing the UI_SYNTAX_C colors above, so a theme can
+        restyle a Markdown document (help viewer, README preview, ...)
+        independently of how it colors C source.
+    */
     uint32_t md_heading_fg;      /* an ATX heading line ("# ..." through
                                    * "###### ...") */
     uint32_t md_blockquote_fg;   /* a "> ..." blockquote line */
@@ -315,21 +328,25 @@ struct gui_theme
                                    * reads as "code", not "current line". */
 
     uint32_t listbox_fg, listbox_bg, listbox_sel_fg, listbox_sel_bg;
-    /* The selected row while the <listbox> does NOT have keyboard focus -
-     * a muted stand-in for listbox_sel_* so the selection stays readable
-     * without competing with whichever widget is actually focused (the
-     * convention every desktop toolkit follows). */
+    /*
+        The selected row while the <listbox> does NOT have keyboard focus -
+        a muted stand-in for listbox_sel_* so the selection stays readable
+        without competing with whichever widget is actually focused (the
+        convention every desktop toolkit follows).
+    */
     uint32_t listbox_sel_inactive_fg, listbox_sel_inactive_bg;
     uint32_t panel_fg, panel_bg;  /* the <listbox> of a docked panel (Folder,
                           * Project, Git Changes, Debug Info) - the app colors
                           * it with gui_set_colors; a theme with no dedicated
                           * panel look sets these equal to listbox_fg/_bg */
 
-    /* Project panel only: the leading file-type marker prepended to each
-     * row's label (see project_window_refresh() in ide.c) - one color per
-     * extension it recognizes, so a theme can keep them legible against its
-     * own listbox_bg. A file type not listed here gets no marker (just
-     * reserved blank space, no color needed). */
+    /*
+        Project panel only: the leading file-type marker prepended to each
+        row's label (see project_window_refresh() in ide.c) - one color per
+        extension it recognizes, so a theme can keep them legible against its
+        own listbox_bg. A file type not listed here gets no marker (just
+        reserved blank space, no color needed).
+    */
     uint32_t project_icon_c_fg;   /* ".c" rows */
     uint32_t project_icon_h_fg;   /* ".h" rows */
     uint32_t project_icon_md_fg;  /* ".md" rows */
@@ -352,9 +369,11 @@ void gui_set_hint_highlighter(struct gui_app* app, const struct gui_highlighter*
 
 struct gui_node* gui_root(struct gui_app* app);
 
-/* A new node, not attached to anything yet. Menubars and statusbars come
- * with their usual layout (full width, top / bottom row); every other node
- * starts anchored LEFT|TOP at 0,0 with no size. */
+/*
+    A new node, not attached to anything yet. Menubars and statusbars come
+    with their usual layout (full width, top / bottom row); every other node
+    starts anchored LEFT|TOP at 0,0 with no size.
+*/
 struct gui_node* gui_create(struct gui_app* app, enum gui_kind kind);
 
 void gui_append(struct gui_node* parent, struct gui_node* child);
@@ -365,17 +384,21 @@ const char* gui_get_label(const struct gui_node* n);
 enum gui_kind gui_get_kind(const struct gui_node* n);
 struct gui_node* gui_get_parent(const struct gui_node* n);
 void gui_set_layout(struct gui_node* n, const struct gui_layout* layout);
-/* `n` starts one cell after the widest label of `label`'s column (the
- * sibling labels at its x that controls follow), its right edge kept: the
- * labels' measured width, whatever the font. */
+/*
+    `n` starts one cell after the widest label of `label`'s column (the
+    sibling labels at its x that controls follow), its right edge kept: the
+    labels' measured width, whatever the font.
+*/
 void gui_set_after_label(struct gui_node* n, struct gui_node* label);
 /* A GUI_TEXT draws its label centered in its rect, by its measured width. */
 void gui_set_centered(struct gui_node* n, int centered);
 
-/* Like HTML: a node draws in the normal or the small font, or inherits its
- * parent's (the default). Rows, columns and text inside it follow its
- * font; its own place in the parent (the anchors) is measured in the
- * parent's font. */
+/*
+    Like HTML: a node draws in the normal or the small font, or inherits its
+    parent's (the default). Rows, columns and text inside it follow its
+    font; its own place in the parent (the anchors) is measured in the
+    parent's font.
+*/
 enum gui_font_size
 {
     GUI_FONT_SIZE_INHERIT,
@@ -386,16 +409,22 @@ enum gui_font_size
 
 void gui_set_font_size(struct gui_node* n, enum gui_font_size size);
 
-/* The number an activated node fires (see gui_set_on_event); 0 fires
- * nothing. */
+/*
+    The number an activated node fires (see gui_set_on_event); 0 fires
+    nothing.
+*/
 void gui_set_id(struct gui_node* n, int id);
-/* GUI_INPUT: the number fired each time the user edits its text (typing,
- * delete, cut, paste); gui_set_value does not fire it. 0 fires nothing. */
+/*
+    GUI_INPUT: the number fired each time the user edits its text (typing,
+    delete, cut, paste); gui_set_value does not fire it. 0 fires nothing.
+*/
 void gui_set_change_id(struct gui_node* n, int id);
 
-/* A menu item's (or a statusbar hotkey's) shortcut, as shown in its dropdown and matched against
- * keys: "Ctrl+O", "Ctrl+Shift+S", "F7", "Shift+F5", "Ctrl++", "Alt+Left",
- * "Ctrl+Space". It works whether the menu is open or not. */
+/*
+    A menu item's (or a statusbar hotkey's) shortcut, as shown in its dropdown and matched against
+    keys: "Ctrl+O", "Ctrl+Shift+S", "F7", "Shift+F5", "Ctrl++", "Alt+Left",
+    "Ctrl+Space". It works whether the menu is open or not.
+*/
 void gui_set_shortcut(struct gui_node* n, const char* shortcut);
 
 void gui_set_enabled(struct gui_node* n, int enabled);  /* default 1 */
@@ -405,53 +434,67 @@ void gui_set_mark(struct gui_node* item, int marked);  /* a menu item with a dot
 /* One line shown in the statusbar while the node is under the mouse. */
 void gui_set_hint(struct gui_node* n, const char* utf8);
 
-/* --- Windows ---
- *
- * A GUI_WINDOW is placed by the user (moved, resized, maximized), so its rect
- * is stored in px - the one kind of node that has no anchors. Its children
- * are laid out with anchors relative to the window's whole rect (the frame
- * is the outer cell on each side). The label is the title. */
+/*
+    --- Windows ---
 
-/* Makes the main font `delta` points bigger (or smaller, negative). Every
- * font-derived size follows on the next frame; windows keep their rects. */
+    A GUI_WINDOW is placed by the user (moved, resized, maximized), so its rect
+    is stored in px - the one kind of node that has no anchors. Its children
+    are laid out with anchors relative to the window's whole rect (the frame
+    is the outer cell on each side). The label is the title.
+*/
+
+/*
+    Makes the main font `delta` points bigger (or smaller, negative). Every
+    font-derived size follows on the next frame; windows keep their rects.
+*/
 void gui_zoom(struct gui_app* app, int delta);
 int gui_get_zoom(const struct gui_app* app);   /* the sum of every gui_zoom, points */
 
-/* Fires `id` every `ms` milliseconds, until called again; 0 ms stops it.
- * One timer per app - for polling work that runs outside the UI thread.
- * A tick repaints nothing by itself: a handler that changed what is shown
- * calls gui_repaint. */
+/*
+    Fires `id` every `ms` milliseconds, until called again; 0 ms stops it.
+    One timer per app - for polling work that runs outside the UI thread.
+    A tick repaints nothing by itself: a handler that changed what is shown
+    calls gui_repaint.
+*/
 void gui_set_timer(struct gui_app* app, int ms, int id);
 
 /* Lays out and paints again after the current event. */
 void gui_repaint(struct gui_app* app);
 
-/* The monospaced font families the backend offers (those installed of its
- * shortlist), and the one in use: gui_set_font changes it after the
- * current event, as gui_zoom does the size. */
+/*
+    The monospaced font families the backend offers (those installed of its
+    shortlist), and the one in use: gui_set_font changes it after the
+    current event, as gui_zoom does the size.
+*/
 int gui_font_count(const struct gui_app* app);
 const char* gui_font_name(const struct gui_app* app, int index);
 int gui_get_font(const struct gui_app* app);
 void gui_set_font(struct gui_app* app, int index);
 
-/* The font families the backend offers for every control but the editors
- * (GUI_FONT_UI), proportional and monospaced, and the one in use. */
+/*
+    The font families the backend offers for every control but the editors
+    (GUI_FONT_UI), proportional and monospaced, and the one in use.
+*/
 int gui_ui_font_count(const struct gui_app* app);
 const char* gui_ui_font_name(const struct gui_app* app, int index);
 int gui_get_ui_font(const struct gui_app* app);
 void gui_set_ui_font(struct gui_app* app, int index);
-/* The dialogs' font (GUI_FONT_UI) is the base size, the one gui_zoom
- * changes; the editor font is a little smaller (-1), the same size (0, the
- * default) or a little larger (1). */
+/*
+    The dialogs' font (GUI_FONT_UI) is the base size, the one gui_zoom
+    changes; the editor font is a little smaller (-1), the same size (0, the
+    default) or a little larger (1).
+*/
 int gui_get_editor_size(const struct gui_app* app);
 void gui_set_editor_size(struct gui_app* app, int size);
 
 /* Ends the program after the current event. */
 void gui_quit(struct gui_app* app);
 
-/* The OS window's close button (or Alt+F4) fires `id` instead of ending
- * the program, so the app can ask first and then call gui_quit. 0: it just
- * ends (the default). */
+/*
+    The OS window's close button (or Alt+F4) fires `id` instead of ending
+    the program, so the app can ask first and then call gui_quit. 0: it just
+    ends (the default).
+*/
 void gui_set_quit_id(struct gui_app* app, int id);
 
 /* The main font's cell, px - to size a window in cells when opening it. */
@@ -463,17 +506,21 @@ struct gui_rect gui_desktop_rect(const struct gui_app* app);
 void gui_window_set_rect(struct gui_node* win, const struct gui_rect* r);
 struct gui_rect gui_window_get_rect(const struct gui_node* win);
 
-/* Shows `win` on top of every other window, or brings it to the top if it
- * is already open. */
+/*
+    Shows `win` on top of every other window, or brings it to the top if it
+    is already open.
+*/
 void gui_window_open(struct gui_app* app, struct gui_node* win);
 void gui_window_close(struct gui_app* app, struct gui_node* win);
 
 /* Closes `win` (not part of any tree) and frees it with all it holds. */
 void gui_window_free(struct gui_app* app, struct gui_node* win);
 
-/* The close icon only fires the window's id, without closing it - the app
- * decides (asks about unsaved changes, say). When it fires, `win` is the
- * top window. */
+/*
+    The close icon only fires the window's id, without closing it - the app
+    decides (asks about unsaved changes, say). When it fires, `win` is the
+    top window.
+*/
 void gui_window_set_ask_close(struct gui_node* win, int ask);
 int gui_window_count(const struct gui_app* app);           /* open windows */
 struct gui_node* gui_window_at(const struct gui_app* app, int i);  /* 0 = bottom */
@@ -484,23 +531,27 @@ void gui_window_set_min_size(struct gui_node* win, int cols, int rows);
 void gui_window_maximize(struct gui_app* app, struct gui_node* win);
 int gui_window_get_maximized(const struct gui_node* win);
 
-/* Detaching moves a window into an OS window of its own, filling it;
- * attaching brings it back where it was. Closing that OS window attaches
- * it. Only where the backend can (gui_can_detach); elsewhere both do
- * nothing. */
+/*
+    Detaching moves a window into an OS window of its own, filling it;
+    attaching brings it back where it was. Closing that OS window attaches
+    it. Only where the backend can (gui_can_detach); elsewhere both do
+    nothing.
+*/
 int gui_can_detach(const struct gui_app* app);
 void gui_window_detach(struct gui_app* app, struct gui_node* win);
 void gui_window_attach(struct gui_app* app, struct gui_node* win);
 int gui_window_get_detached(const struct gui_app* app, const struct gui_node* win);
 
-/* --- Docked windows ---
- *
- * A docked window is pinned to one side of the area between the menubar and
- * the statusbar; each side holds one. Left and right span that area's
- * height; the bottom one fills the width the side ones leave. Only its
- * thickness is its own: `size` px (width for left/right, height for
- * bottom), changed by dragging its free border; 0 keeps the current one.
- * Maximized windows, gui_desktop_rect and Tile/Cascade use what is left. */
+/*
+    --- Docked windows ---
+
+    A docked window is pinned to one side of the area between the menubar and
+    the statusbar; each side holds one. Left and right span that area's
+    height; the bottom one fills the width the side ones leave. Only its
+    thickness is its own: `size` px (width for left/right, height for
+    bottom), changed by dragging its free border; 0 keeps the current one.
+    Maximized windows, gui_desktop_rect and Tile/Cascade use what is left.
+*/
 enum gui_dock
 {
     GUI_DOCK_NONE,
@@ -512,43 +563,55 @@ enum gui_dock
 void gui_window_set_dock(struct gui_node* win, enum gui_dock side, int size);
 enum gui_dock gui_window_get_dock(const struct gui_node* win);
 
-/* --- Context menus ---
- *
- * A right click on `n` (for a window: on its frame or anywhere no child
- * covers) opens `menu` (a GUI_MENU not in the menubar) at the mouse. While
- * it is open, and in the handler of the item picked, gui_context_target
- * says which node it was opened over. */
+/*
+    --- Context menus ---
+
+    A right click on `n` (for a window: on its frame or anywhere no child
+    covers) opens `menu` (a GUI_MENU not in the menubar) at the mouse. While
+    it is open, and in the handler of the item picked, gui_context_target
+    says which node it was opened over.
+*/
 void gui_set_context_menu(struct gui_node* n, struct gui_node* menu);
-/* A context menu with an id fires it as it opens - gui_context_target
- * already set - so the app can update its items (labels, enabled). */
+/*
+    A context menu with an id fires it as it opens - gui_context_target
+    already set - so the app can update its items (labels, enabled).
+*/
 struct gui_node* gui_context_target(const struct gui_app* app);
 
-/* Opens `menu` right below the node `below` (a button, say), as if it were
- * its context menu: gui_context_target says `below` until it closes. */
+/*
+    Opens `menu` right below the node `below` (a button, say), as if it were
+    its context menu: gui_context_target says `below` until it closes.
+*/
 void gui_popup_menu(struct gui_app* app, struct gui_node* menu, struct gui_node* below);
 /* The same at (x, y), over `target`. */
 void gui_popup_menu_at(struct gui_app* app, struct gui_node* menu, struct gui_node* target, int x, int y);
 
 /* Puts `utf8` ('\n' line ends) on the system clipboard. */
 void gui_set_clipboard(struct gui_app* app, const char* utf8);
-/* One line in a box over everything, its top left at (x, y) px - moved up
- * or left to stay inside the window. NULL or "" hides it. */
+/*
+    One line in a box over everything, its top left at (x, y) px - moved up
+    or left to stay inside the window. NULL or "" hides it.
+*/
 void gui_set_tooltip(struct gui_app* app, int x, int y, const char* utf8);
 
 void gui_window_set_modal(struct gui_node* win, int modal);  /* blocks everything else */
 int gui_modal_open(const struct gui_app* app);   /* a modal window is open */
 void gui_window_center(struct gui_app* app, struct gui_node* win);
 
-/* A modal box with `text` (lines split on '
-') and a row of buttons;
- * a button closes the box and fires its id. Sized to fit, centered. */
+/*
+    A modal box with `text` (lines split on '
+    ') and a row of buttons;
+     * a button closes the box and fires its id. Sized to fit, centered.
+*/
 void gui_message_box(struct gui_app* app, const char* caption, const char* text,
                      const char* const labels[], const int ids[], int count);
 
 /* --- Widgets --- */
 
-/* GUI_TEXT, GUI_BOX; on a listbox's GUI_ITEM, `fg` colors just the label's
- * first glyph (a file-type marker), bg is unused. */
+/*
+    GUI_TEXT, GUI_BOX; on a listbox's GUI_ITEM, `fg` colors just the label's
+    first glyph (a file-type marker), bg is unused.
+*/
 void gui_set_colors(struct gui_node* n, uint32_t fg, uint32_t bg);
 void gui_set_value(struct gui_node* n, const char* utf8);           /* GUI_INPUT */
 void gui_input_insert(struct gui_node* n, const char* utf8);        /* GUI_INPUT: replaces the selection, at the caret */
@@ -571,35 +634,43 @@ struct gui_node* gui_focused(const struct gui_app* app);
 /* The item a focused select, listbox or group is on (a group's keyboard row), else the focused node. */
 struct gui_node* gui_focused_item(const struct gui_app* app);
 
-/* --- Editor ---
- *
- * GUI_EDITOR holds UTF-8 text with '
-' line ends, set and read with
- * gui_set_value / gui_get_value. Scrolling is always by whole lines and
- * columns. Colors come from a highlighter: for each line it gets the line's
- * bytes and the state the previous line ended in (0 for the first line),
- * fills spans and sets *state to the state this line ends in - so a block
- * comment can carry over. The editor keeps each line's start state and only
- * recomputes from the first edited line on. */
+/*
+    --- Editor ---
+     *
+     * GUI_EDITOR holds UTF-8 text with '
+    ' line ends, set and read with
+     * gui_set_value / gui_get_value. Scrolling is always by whole lines and
+     * columns. Colors come from a highlighter: for each line it gets the line's
+     * bytes and the state the previous line ended in (0 for the first line),
+     * fills spans and sets *state to the state this line ends in - so a block
+     * comment can carry over. The editor keeps each line's start state and only
+     * recomputes from the first edited line on.
+*/
 struct gui_span
 {
     int start;     /* byte offset in the line */
     int len;       /* bytes */
     uint32_t fg;
 };
-/* In fg: the bytes are hidden in a read-only editor - no glyph, no column
- * (a rendered Markdown's delimiters). Shown, colored fg, while editing. */
+/*
+    In fg: the bytes are hidden in a read-only editor - no glyph, no column
+    (a rendered Markdown's delimiters). Shown, colored fg, while editing.
+*/
 #define GUI_SPAN_HIDDEN 0x01000000u
 
 struct gui_highlighter
 {
-    /* Returns how many spans it filled (at most `max`); bytes no span covers
-     * use the theme's editor_fg. */
+    /*
+        Returns how many spans it filled (at most `max`); bytes no span covers
+        use the theme's editor_fg.
+    */
     int (*highlight)(void* ctx, const char* line, int len, int* state,
                      struct gui_span* spans, int max);
     void* ctx;
-    /* Optional: the row's background (0: the editor's), given the state the
-     * line starts in - a Markdown code block's tint, say. */
+    /*
+        Optional: the row's background (0: the editor's), given the state the
+        line starts in - a Markdown code block's tint, say.
+    */
     uint32_t (*row_bg)(void* ctx, const char* line, int len, int state);
 };
 
@@ -608,29 +679,37 @@ void gui_editor_set_line_numbers(struct gui_node* ed, int on);  /* else a one-co
 void gui_editor_set_read_only(struct gui_node* ed, int read_only);
 int gui_editor_get_read_only(const struct gui_node* ed);
 
-/* `id` fires on a Ctrl+click in the editor - and on any click when it is
- * read-only and not VT100 - after the caret moved there. 0: none. */
+/*
+    `id` fires on a Ctrl+click in the editor - and on any click when it is
+    read-only and not VT100 - after the caret moved there. 0: none.
+*/
 void gui_editor_set_click_id(struct gui_node* ed, int id);
 
-/* VT100 text, as a compiler prints it: "\x1b[...m" color codes take no
- * column and color what follows (each line starts in editor_output_fg),
- * on the theme's editor_output_bg; no caret is drawn. For an Output panel. */
+/*
+    VT100 text, as a compiler prints it: "\x1b[...m" color codes take no
+    column and color what follows (each line starts in editor_output_fg),
+    on the theme's editor_output_bg; no caret is drawn. For an Output panel.
+*/
 void gui_editor_set_vt100(struct gui_node* ed, int on);
 
-/* A git diff: "+" rows on editor_diff_add_bg, "-" rows on editor_diff_remove_bg,
- * and the line numbers are the new file's (none on a "-" row). */
+/*
+    A git diff: "+" rows on editor_diff_add_bg, "-" rows on editor_diff_remove_bg,
+    and the line numbers are the new file's (none on a "-" row).
+*/
 void gui_editor_set_diff(struct gui_node* ed, int on);
 int gui_editor_get_dirty(const struct gui_node* ed);      /* edited since set_value / set_dirty(0) */
 void gui_editor_set_dirty(struct gui_node* ed, int dirty);
 void gui_editor_goto_line(struct gui_node* ed, int line);  /* 1-based; caret there, line in view */
 void gui_editor_goto_line_center(struct gui_node* ed, int line);  /* the same, line in the middle */
 
-/* Marks: text shown right after a line's text ("Error Lens"), in the
- * theme's diag_* colors of the worst mark on that line; a line's marks are
- * drawn side by side, cut with "..." at the editor's border. They stay on
- * their line numbers until cleared, or until the text is edited (they were
- * about the text before the edit). A double click on an editor with an id
- * fires it (after selecting the word), so an app can act on the line. */
+/*
+    Marks: text shown right after a line's text ("Error Lens"), in the
+    theme's diag_* colors of the worst mark on that line; a line's marks are
+    drawn side by side, cut with "..." at the editor's border. They stay on
+    their line numbers until cleared, or until the text is edited (they were
+    about the text before the edit). A double click on an editor with an id
+    fires it (after selecting the word), so an app can act on the line.
+*/
 enum gui_mark
 {
     GUI_MARK_INFO,
@@ -640,9 +719,11 @@ enum gui_mark
 
 void gui_editor_add_mark(struct gui_node* ed, enum gui_mark type, int line, const char* utf8);  /* 1-based */
 
-/* Breakpoints (1-based lines): an editor with line numbers draws a line
- * that has one with its number in the theme's editor_breakpoint_fg; a
- * click on the number toggles it. They stay on their line numbers. */
+/*
+    Breakpoints (1-based lines): an editor with line numbers draws a line
+    that has one with its number in the theme's editor_breakpoint_fg; a
+    click on the number toggles it. They stay on their line numbers.
+*/
 int gui_editor_toggle_breakpoint(struct gui_node* ed, int line);   /* 1 = now set */
 int gui_editor_get_breakpoints(const struct gui_node* ed, int* out, int max);   /* how many */
 void gui_editor_clear_breakpoints(struct gui_node* ed);
@@ -652,15 +733,19 @@ void gui_editor_set_exec_line(struct gui_node* ed, int line);
 void gui_editor_clear_marks(struct gui_node* ed);
 void gui_editor_get_caret(const struct gui_node* ed, int* line, int* col);  /* 1-based */
 /* The caret's cell, bottom left, in pixels - where a popup under it goes. */
-/* The identifier under the mouse - with the fields it is in, "p->a.b" on
- * b - when it is over `ed`: copied to buf, 1
- * returned, (*x, *y) the px just below its first letter. Else 0. */
+/*
+    The identifier under the mouse - with the fields it is in, "p->a.b" on
+    b - when it is over `ed`: copied to buf, 1
+    returned, (*x, *y) the px just below its first letter. Else 0.
+*/
 int gui_editor_word_at_mouse(const struct gui_app* app, const struct gui_node* ed,
                              char* buf, int cap, int* x, int* y);
 void gui_editor_caret_point(const struct gui_app* app, const struct gui_node* ed, int* x, int* y);
 
-/* The Edit menu's commands, for when they come from a menu rather than
- * the keyboard. */
+/*
+    The Edit menu's commands, for when they come from a menu rather than
+    the keyboard.
+*/
 void gui_editor_undo(struct gui_node* ed);
 void gui_editor_redo(struct gui_node* ed);
 void gui_editor_cut(struct gui_app* app, struct gui_node* ed);
@@ -676,14 +761,18 @@ void gui_editor_replace(struct gui_node* ed, int lo, int hi, const char* text);
 
 /* --- Events --- */
 
-/* `fn(ctx, id)` runs when a node with a non-zero id is activated (a menu
- * item clicked or its shortcut pressed). */
+/*
+    `fn(ctx, id)` runs when a node with a non-zero id is activated (a menu
+    item clicked or its shortcut pressed).
+*/
 void gui_set_on_event(struct gui_app* app, void (*fn)(void* ctx, int id), void* ctx);
 
-/* --- The app ---
- *
- * The framework owns main()/WinMain: it creates the window and the gui_app,
- * then calls gui_main once, where the app builds its tree. */
+/*
+    --- The app ---
+
+    The framework owns main()/WinMain: it creates the window and the gui_app,
+    then calls gui_main once, where the app builds its tree.
+*/
 void gui_main(struct gui_app* app, int argc, char** argv);
 
 #endif

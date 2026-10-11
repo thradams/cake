@@ -1,9 +1,10 @@
-/* ide_project.c - the open project's data, as the old IDE keeps it
- * (g_project in ide.c): its .cakeproj path, name, files and include
- * directories (stored relative to the project folder), and what the last
- * successful Builds compiled, for the incremental Build. Reading and writing
- * the .cakeproj is in ide_shell.c, next to the other settings.
- */
+/*
+    ide_project.c - the open project's data, as the old IDE keeps it
+    (g_project in ide.c): its .cakeproj path, name, files and include
+    directories (stored relative to the project folder), and what the last
+    successful Builds compiled, for the incremental Build. Reading and writing
+    the .cakeproj is in ide_shell.c, next to the other settings.
+*/
 #include "ide_shell.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -104,8 +105,10 @@ int ide_project_is_open(const struct ide_project* p)
     return p->file_path[0] != '\0';
 }
 
-/* `abs_path` relative to the project folder when it is inside it, with '/'
- * separators; anything else stays absolute. */
+/*
+    `abs_path` relative to the project folder when it is inside it, with '/'
+    separators; anything else stays absolute.
+*/
 void ide_project_relative(const struct ide_project* p, const char* abs_path, char* out, size_t cap)
 {
     char norm[1024] = { 0 };
@@ -249,9 +252,11 @@ void ide_build_state_add_dep(struct ide_build_state* s, int source, int header)
     deps_add(&s->items[source].deps, header);
 }
 
-/* Moves what the build `from` read into `to`: times, and each compiled .c's
- * headers. A file with errors is compiled again next time. Leaves `from`
- * empty. */
+/*
+    Moves what the build `from` read into `to`: times, and each compiled .c's
+    headers. A file with errors is compiled again next time. Leaves `from`
+    empty.
+*/
 void ide_build_state_commit(struct ide_build_state* to, struct ide_build_state* from)
 {
     int* map = malloc((size_t)(from->count > 0 ? from->count : 1) * sizeof *map);

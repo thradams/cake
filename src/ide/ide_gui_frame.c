@@ -200,8 +200,10 @@ int frame_end(struct frame_recorder* r, int width, int height, struct gui_rect* 
             if (b)
                 unite(&dirty, b->x, b->y, b->w, b->h);
         }
-        /* a clip change alone draws nothing; one that changed what showed
-         * also changed a call above */
+        /*
+            a clip change alone draws nothing; one that changed what showed
+            also changed a call above
+        */
         struct gui_rect screen = { 0, 0, width, height };
         if (!intersect(&screen, dirty.x, dirty.y, dirty.w, dirty.h, &dirty))
         {

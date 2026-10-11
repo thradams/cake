@@ -3,7 +3,7 @@
 *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+
 
 #include "cake_compat.h"
 #include "type.h"
@@ -91,16 +91,17 @@ static bool format_token_in_range(const struct parser_ctx* ctx, const struct tok
 
 bool format_active_for(const struct parser_ctx* ctx, const struct token* token)
 {
-    /* level==0: not from an #include - a header's own formatting isn't this
-    * file's to change. TK_FLAG_ACTIVE: not inside an inactive #if/#ifdef
-    * branch - one is never actually parsed (nothing in it reaches
-    * ctx->current), so nothing should try to mutate it either; it must
-    * print exactly as written. TK_FLAG_MACRO_EXPANDED: token text came
-    * from a macro body, not from this exact spot in the source - there is
-    * no "this line's indentation" to fix. Centralized here, not repeated
-    * per call site, specifically because the comment-fixers in
-    * parser_skip_blanks() once forgot the TK_FLAG_ACTIVE half of this and
-    * silently reformatted comments inside inactive branches.
+    /*
+        level==0: not from an #include - a header's own formatting isn't this
+        file's to change. TK_FLAG_ACTIVE: not inside an inactive #if/#ifdef
+        branch - one is never actually parsed (nothing in it reaches
+        ctx->current), so nothing should try to mutate it either; it must
+        print exactly as written. TK_FLAG_MACRO_EXPANDED: token text came
+        from a macro body, not from this exact spot in the source - there is
+        no "this line's indentation" to fix. Centralized here, not repeated
+        per call site, specifically because the comment-fixers in
+        parser_skip_blanks() once forgot the TK_FLAG_ACTIVE half of this and
+        silently reformatted comments inside inactive branches.
     */
     return ctx->options.format &&
         token->level == 0 &&
@@ -230,11 +231,13 @@ static void format_ensure_brace_own_line_indented(struct token* t, const char* i
 
 void format_align_if_already_wrapped(struct token* t, const char* indent)
 {
-    /* Unlike format_ensure_brace_own_line_indented(), this never forces a
-    * token onto its own line - it only re-indents a token that source
-    * already put on a new line. A plain space (TK_BLANKS whose previous
-    * token is not a newline) means the token is a same-line continuation,
-    * which must be left untouched. */
+    /*
+        Unlike format_ensure_brace_own_line_indented(), this never forces a
+        token onto its own line - it only re-indents a token that source
+        already put on a new line. A plain space (TK_BLANKS whose previous
+        token is not a newline) means the token is a same-line continuation,
+        which must be left untouched.
+    */
     if (t->prev && t->prev->type == TK_BLANKS &&
         t->prev->prev && t->prev->prev->type == TK_NEWLINE)
     {
@@ -250,8 +253,10 @@ void format_align_if_already_wrapped(struct token* t, const char* indent)
 
 void format_align_to_column_if_already_wrapped(struct token* t, int column)
 {
-    /* column is 1-based (struct token::col convention) - the number of
-    * leading spaces to reproduce is one less. */
+    /*
+        column is 1-based (struct token::col convention) - the number of
+        leading spaces to reproduce is one less.
+    */
     char indent[256] = { 0 };
     int spaces = column > 0 ? column - 1 : 0;
     if (spaces > (int)sizeof(indent) - 1)
@@ -345,9 +350,10 @@ static void check_open_brace_style(const struct parser_ctx* ctx, const struct to
         {
             if (ctx->options.style.open_brace_style == BRACE_STYLE_ALLMAN)
             {
-                /* not gated on !allman_ok: that check only asks whether the
-                * brace is on its own line, not whether its indentation
-                * matches the statement that controls it
+                /*
+                    not gated on !allman_ok: that check only asks whether the
+                    brace is on its own line, not whether its indentation
+                    matches the statement that controls it
                 */
                 format_ensure_brace_own_line((struct token*)token);
             }
@@ -500,31 +506,34 @@ static void check_indentation_style(const struct parser_ctx* ctx, const struct t
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
 
-    /* Unlike the other format_active_for()-gated fixers, this one never
-     * rewrites `token` itself - only token->prev, the blanks/newline
-     * before it, which is always literal source text even when `token`
-     * is a macro's expansion (e.g. `bool`/`true`/`false` from
-     * stdbool.h). A line starting with one of those must still be
-     * reindented, so - unlike format_active_for() - TK_FLAG_MACRO_EXPANDED
-     * is not checked here. */
+    /*
+        Unlike the other format_active_for()-gated fixers, this one never
+        rewrites `token` itself - only token->prev, the blanks/newline
+        before it, which is always literal source text even when `token`
+        is a macro's expansion (e.g. `bool`/`true`/`false` from
+        stdbool.h). A line starting with one of those must still be
+        reindented, so - unlike format_active_for() - TK_FLAG_MACRO_EXPANDED
+        is not checked here.
+    */
     if (token->level != 0)
     {
         return;
     }
 
-    /* We only care about the first token on a line - either an indentation
-    * run (TK_BLANKS) right after a TK_NEWLINE, or the newline directly
-    * (a token sitting at column 0). Anything else is a continuation of the
-    * line above and is left alone.
-    *
-    * A macro-expanded token (e.g. `bool` expanding to `_Bool`) sits right
-    * after the original, non-final invocation token - kept in the list
-    * for tooling but never printed - instead of directly after the
-    * line's real TK_BLANKS/TK_NEWLINE. Skip over any such non-final,
-    * non-whitespace tokens to reach the genuine previous blanks/newline;
-    * TK_BLANKS/TK_NEWLINE themselves are excluded from the skip because
-    * they are never marked final (the compiler doesn't see whitespace),
-    * so stop at the first one found either way.
+    /*
+        We only care about the first token on a line - either an indentation
+        run (TK_BLANKS) right after a TK_NEWLINE, or the newline directly
+        (a token sitting at column 0). Anything else is a continuation of the
+        line above and is left alone.
+
+        A macro-expanded token (e.g. `bool` expanding to `_Bool`) sits right
+        after the original, non-final invocation token - kept in the list
+        for tooling but never printed - instead of directly after the
+        line's real TK_BLANKS/TK_NEWLINE. Skip over any such non-final,
+        non-whitespace tokens to reach the genuine previous blanks/newline;
+        TK_BLANKS/TK_NEWLINE themselves are excluded from the skip because
+        they are never marked final (the compiler doesn't see whitespace),
+        so stop at the first one found either way.
     */
     struct token* _Opt prev = token->prev;
     while (prev != NULL &&
@@ -547,9 +556,11 @@ static void check_indentation_style(const struct parser_ctx* ctx, const struct t
     if (!has_indent_run && !at_column_zero)
         return;
 
-    /* Same conditions as format_active_for(), minus the
-     * TK_FLAG_MACRO_EXPANDED check - see the comment above this
-     * function for why that check doesn't apply here. */
+    /*
+        Same conditions as format_active_for(), minus the
+        TK_FLAG_MACRO_EXPANDED check - see the comment above this
+        function for why that check doesn't apply here.
+    */
     const bool active =
         ctx->options.format &&
         token->level == 0 &&
@@ -558,9 +569,10 @@ static void check_indentation_style(const struct parser_ctx* ctx, const struct t
 
     if (active)
     {
-        /* format_indent_level counts '{'/'}' nesting as the parser walks the
-        * file (see compound_statement()), which is exactly the depth a
-        * block-item's line should be indented to
+        /*
+            format_indent_level counts '{'/'}' nesting as the parser walks the
+            file (see compound_statement()), which is exactly the depth a
+            block-item's line should be indented to
         */
         char buf[256] = { 0 };
         format_indent_string(ctx, ctx->format_indent_level, buf, sizeof buf);
@@ -572,10 +584,11 @@ static void check_indentation_style(const struct parser_ctx* ctx, const struct t
         }
         else if (buf[0] != '\0')
         {
-            /* at_column_zero: prev is a bare newline (see the checks
-            * above) - fold the indent into ITS lexeme instead of inserting
-            * a separate token for it (see format_ensure_one_space_before()'s
-            * comment on why -format never inserts).
+            /*
+                at_column_zero: prev is a bare newline (see the checks
+                above) - fold the indent into ITS lexeme instead of inserting
+                a separate token for it (see format_ensure_one_space_before()'s
+                comment on why -format never inserts).
             */
             if (prev)
             {
@@ -636,11 +649,12 @@ static void check_indentation_style(const struct parser_ctx* ctx, const struct t
 
 static void format_refix_preceding_comments(const struct parser_ctx* ctx, const struct token* _Opt boundary)
 {
-    /* -format only: outside it this is pure extra work, and worse than
-    * that, check_indentation_style() would diagnose the same comment a
-    * second time in plain -style mode (no -format), duplicating whatever
-    * warning it already produced during parser_skip_blanks()'s own pass
-    * over the same token.
+    /*
+        -format only: outside it this is pure extra work, and worse than
+        that, check_indentation_style() would diagnose the same comment a
+        second time in plain -style mode (no -format), duplicating whatever
+        warning it already produced during parser_skip_blanks()'s own pass
+        over the same token.
     */
     if (!ctx->options.format)
         return;
@@ -821,13 +835,14 @@ static void check_else_placement_style(const struct parser_ctx* ctx, const struc
 
     if (format_active_for(ctx, token))
     {
-        /* format_ensure_brace_own_line_indented()/_same_line() aren't
-        * brace-specific despite the name - they just put a token on its own
-        * line (at this exact indent) or on the previous line (with one
-        * space), which is exactly what 'else' needs too. ctx->format_indent_level
-        * is already back to the level of the controlling 'if' by the time
-        * we get here (the if-branch's compound_statement/secondary_block
-        * already closed and decremented it).
+        /*
+            format_ensure_brace_own_line_indented()/_same_line() aren't
+            brace-specific despite the name - they just put a token on its own
+            line (at this exact indent) or on the previous line (with one
+            space), which is exactly what 'else' needs too. ctx->format_indent_level
+            is already back to the level of the controlling 'if' by the time
+            we get here (the if-branch's compound_statement/secondary_block
+            already closed and decremented it).
         */
         if (ctx->options.style.else_style == ELSE_STYLE_SAME_LINE)
         {
@@ -1254,8 +1269,9 @@ static void ss_append_indented(struct osstream* dest, const char* text)
     bool at_line_start = true;
     for (const char* p = text; *p != '\0'; p++)
     {
-        /* Nothing to indent on an empty line -- and the text ends with '\n',
-        * so this also avoids indenting past the last line.
+        /*
+            Nothing to indent on an empty line -- and the text ends with '\n',
+            so this also avoids indenting past the last line.
         */
         if (at_line_start && *p != '\n')
             ss_fprintf(dest, "  ");
@@ -1432,9 +1448,11 @@ _Bool diagnostic(enum diagnostic_id w,
         char sarif_message[200 * 6 + 1] = { 0 };
         stringfy(buffer, sarif_message, sizeof sarif_message);
 
-        /* an identifier needs no escaping, but "module"/"unnamed" aside this
-        is a lexeme straight from the source - route it through the same
-        escape so a surprising one cannot break the log */
+        /*
+            an identifier needs no escaping, but "module"/"unnamed" aside this
+            is a lexeme straight from the source - route it through the same
+            escape so a surprising one cannot break the log
+        */
         char sarif_func_name[200 * 6 + 1] = { 0 };
         stringfy(func_name, sarif_func_name, sizeof sarif_func_name);
 
@@ -1443,9 +1461,11 @@ _Bool diagnostic(enum diagnostic_id w,
         ss_fprintf(&sarif_ss, "   {\n");
         ss_fprintf(&sarif_ss, "     \"ruleId\":\"C%d\",\n", w);
 
-        /* W_LOCATION carries no severity of its own - it annotates the
-        diagnostic above it, so it reports as a note rather than
-        inheriting SARIF's "warning" default for a missing level */
+        /*
+            W_LOCATION carries no severity of its own - it annotates the
+            diagnostic above it, so it reports as a note rather than
+            inheriting SARIF's "warning" default for a missing level
+        */
         if (is_error) ss_fprintf(&sarif_ss, "     \"level\":\"error\",\n");
         else if (is_warning) ss_fprintf(&sarif_ss, "     \"level\":\"warning\",\n");
         else ss_fprintf(&sarif_ss, "     \"level\":\"note\",\n");
@@ -2691,20 +2711,21 @@ static void parser_skip_blanks(struct parser_ctx* ctx, struct token* _Opt* _Opt 
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
     {
-        /* Comments are never ctx->current for the rest of the parser - this
-        * skip loop is the only place that ever sees one - so this is the
-        * only place that can fix a comment sitting alone on its own line
-        * to ctx->format_indent_level, the same way check_indentation_style()
-        * fixes a real statement's line.
-        * 
-        * TK_FLAG_ACTIVE (not just level==0): an inactive #if/#ifdef branch
-        * is never actually parsed - nothing in it reaches ctx->current, so
-        * none of the token-mutating fixers ever run there - but its
-        * comments and blanks still get walked by *this* loop on the way to
-        * the next real token, same file, same level 0. Skipping them here
-        * is what keeps an inactive branch printed exactly as written
-        * (see the lint-suppression check right below, which already gates
-        * on this same flag for the same reason).
+        /*
+            Comments are never ctx->current for the rest of the parser - this
+            skip loop is the only place that ever sees one - so this is the
+            only place that can fix a comment sitting alone on its own line
+            to ctx->format_indent_level, the same way check_indentation_style()
+            fixes a real statement's line.
+
+            TK_FLAG_ACTIVE (not just level==0): an inactive #if/#ifdef branch
+            is never actually parsed - nothing in it reaches ctx->current, so
+            none of the token-mutating fixers ever run there - but its
+            comments and blanks still get walked by *this* loop on the way to
+            the next real token, same file, same level 0. Skipping them here
+            is what keeps an inactive branch printed exactly as written
+            (see the lint-suppression check right below, which already gates
+            on this same flag for the same reason).
         */
         if (ctx->current->level == 0 &&
             (ctx->current->flags & TK_FLAG_ACTIVE) &&
@@ -2717,8 +2738,10 @@ static void parser_skip_blanks(struct parser_ctx* ctx, struct token* _Opt* _Opt 
             (ctx->current->flags & TK_FLAG_ACTIVE) &&
             (ctx->current->type == TK_LINE_COMMENT || ctx->current->type == TK_COMMENT))
         {
-            /* Accept "//lint N", "// lint N" and block-comment "lint N" forms -- matches
-            * the prefix skipping done in parse_diagnostic_suppression. */
+            /*
+                Accept "//lint N", "// lint N" and block-comment "lint N" forms -- matches
+                the prefix skipping done in parse_diagnostic_suppression.
+            */
             const char* p_lint = ctx->current->lexeme;
             if (p_lint[0] == '/' && (p_lint[1] == '/' || p_lint[1] == '*'))
                 p_lint += 2;
@@ -3369,15 +3392,50 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                 const enum storage_class_specifier_flags new_flags =
                     p_declaration_specifier->storage_class_specifier->flags;
 
-                /* 6.7.1p2: at most one storage-class specifier may be given in the
-                   declaration specifiers in a declaration, except that thread_local
-                   may appear with static or extern. */
-                if (old_flags != STORAGE_SPECIFIER_NONE && old_flags != new_flags)
+                /*
+                    6.7.1p2: at most one storage-class specifier may be given in the
+                    declaration specifiers in a declaration, except that:
+                    - thread_local may appear with static or extern,
+                    - auto may appear with all the others except typedef,
+                    - constexpr may appear with auto, register, or static.
+                */
+                const enum storage_class_specifier_flags specifier_mask =
+                    STORAGE_SPECIFIER_TYPEDEF | STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_STATIC |
+                    STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_AUTO | STORAGE_SPECIFIER_REGISTER |
+                    STORAGE_SPECIFIER_CONSTEXPR;
+
+                const enum storage_class_specifier_flags old_specifiers = old_flags & specifier_mask;
+                const enum storage_class_specifier_flags new_specifiers = new_flags & specifier_mask;
+
+                if (old_specifiers != STORAGE_SPECIFIER_NONE && old_specifiers != new_specifiers)
                 {
-                    const enum storage_class_specifier_flags combined = old_flags | new_flags;
-                    const bool is_allowed_combo =
-                        combined == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_STATIC) ||
-                        combined == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_EXTERN);
+                    const enum storage_class_specifier_flags combined = old_specifiers | new_specifiers;
+                    bool is_allowed_combo;
+
+                    if (combined & STORAGE_SPECIFIER_AUTO)
+                    {
+                        /* auto may appear with all the others except typedef */
+                        is_allowed_combo = !(combined & STORAGE_SPECIFIER_TYPEDEF);
+                        if (is_allowed_combo)
+                        {
+                            /* the others must still form a valid set */
+                            const enum storage_class_specifier_flags rest = combined & ~STORAGE_SPECIFIER_AUTO;
+                            is_allowed_combo =
+                                (rest & (rest - 1)) == 0 ||
+                                rest == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_STATIC) ||
+                                rest == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_EXTERN) ||
+                                rest == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_CONSTEXPR | STORAGE_SPECIFIER_REGISTER) ||
+                                rest == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_CONSTEXPR | STORAGE_SPECIFIER_STATIC);
+                        }
+                    }
+                    else
+                    {
+                        is_allowed_combo =
+                            combined == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_STATIC) ||
+                            combined == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_EXTERN) ||
+                            combined == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_CONSTEXPR | STORAGE_SPECIFIER_REGISTER) ||
+                            combined == (enum storage_class_specifier_flags)(STORAGE_SPECIFIER_CONSTEXPR | STORAGE_SPECIFIER_STATIC);
+                    }
 
                     if (!is_allowed_combo)
                     {
@@ -3385,7 +3443,7 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
                             ctx,
                             p_declaration_specifier->storage_class_specifier->token,
                             NULL,
-                            "at most one storage-class specifier is allowed, except that 'thread_local' may appear with 'static' or 'extern'");
+                            "at most one storage-class specifier is allowed, except that 'thread_local' may appear with 'static' or 'extern', 'auto' with any other except 'typedef', and 'constexpr' with 'auto', 'register' or 'static'");
                     }
                 }
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
@@ -3678,14 +3736,15 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
         }
         else if (p_declaration->static_assertion && p_declaration->static_assertion->p_lint_token)
         {
-            /* The static_assertion branch above captures its `//lint N` into
-            * static_assertion->p_lint_token, a separate field from
-            * p_declaration->lint_token (which only the plain-declaration
-            * branch sets). Without this, a lint comment on a static_assert
-            * at this entry point was captured but never checked -- the
-            * same bug the comment above parser_match_tk_lint already
-            * documents as fixed here, but the fix only wired up capture,
-            * not the suppression check itself.
+            /*
+                The static_assertion branch above captures its `//lint N` into
+                static_assertion->p_lint_token, a separate field from
+                p_declaration->lint_token (which only the plain-declaration
+                branch sets). Without this, a lint comment on a static_assert
+                at this entry point was captured but never checked -- the
+                same bug the comment above parser_match_tk_lint already
+                documents as fixed here, but the fix only wired up capture,
+                not the suppression check itself.
             */
             check_compiler_dianostic_suppression(ctx, p_declaration->static_assertion->p_lint_token);
         }
@@ -4425,10 +4484,11 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         else
         {
             _Assert(p_init_declarator->p_declarator->object.type.type_specifier_flags == 0);
-            /* Through a temporary: make_type_using_declarator takes the
-            * declarator non-const and can write its ->type, so assigning
-            * the result straight back onto ->type would overwrite -- and
-            * leak -- whatever the callee had already stored there.
+            /*
+                Through a temporary: make_type_using_declarator takes the
+                declarator non-const and can write its ->type, so assigning
+                the result straight back onto ->type would overwrite -- and
+                leak -- whatever the callee had already stored there.
             */
             struct type t = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
             type_swap(&p_init_declarator->p_declarator->object.type, &t);
@@ -5225,8 +5285,9 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         /* 
         * checking usage of [static ] other than in function arguments
         */
-        /* p_declarator is not _Opt, so it is never null here -- the comment
-        * that used to sit on this `if` said as much.
+        /*
+            p_declarator is not _Opt, so it is never null here -- the comment
+            that used to sit on this `if` said as much.
         */
         if (type_is_array(&p_init_declarator->p_declarator->object.type))
             if (p_init_declarator->p_declarator->object.type.type_qualifier_flags != 0 ||
@@ -6136,8 +6197,10 @@ static void gcc_attribute(struct parser_ctx* ctx, struct attribute_specifier_seq
 
         if (p_out != NULL && is_aligned)
         {
-            /* aligned with no argument means the biggest alignment of the
-               target - 16 on every target cake has */
+            /*
+                aligned with no argument means the biggest alignment of the
+                target - 16 on every target cake has
+            */
             p_out->gcc_aligned = 16;
         }
 
@@ -6656,10 +6719,12 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* _Owner _
     }
 }
 
-/* struct __attribute__((packed)) X {...};  struct X {...} __attribute__((aligned(16)));
-   Both spellings apply to the struct definition. Only a definition (with a
-   body) takes them: on a bare "struct X" the attribute belongs to the
-   declaration, not to the type. */
+/*
+    struct __attribute__((packed)) X {...};  struct X {...} __attribute__((aligned(16)));
+    Both spellings apply to the struct definition. Only a definition (with a
+    body) takes them: on a bare "struct X" the attribute belongs to the
+    declaration, not to the type.
+*/
 static void apply_gcc_struct_attributes(struct struct_or_union_specifier* p_struct,
                                         const struct attribute_specifier_sequence* _Opt p_attributes)
 {
@@ -7590,8 +7655,10 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
                     p_member_declaration->specifier_qualifier_list);
                 if (p_member_declaration->member_declarator_list_opt == NULL) throw;
 
-                /* __attribute__((packed)) int a, b;  and  int __attribute__((packed)) a, b;
-                   apply to every declarator of the member declaration */
+                /*
+                    __attribute__((packed)) int a, b;  and  int __attribute__((packed)) a, b;
+                    apply to every declarator of the member declaration
+                */
                 const struct attribute_specifier_sequence* _Opt p_leading =
                     p_member_declaration->p_attribute_specifier_sequence;
                 const struct attribute_specifier_sequence* _Opt p_after_type =
@@ -7607,8 +7674,10 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
                     if ((p_leading && p_leading->gcc_packed) || (p_after_type && p_after_type->gcc_packed))
                         md->declarator->gcc_packed = true;
 
-                    /* MSVC has no per-member packed: the generated code cannot
-                       reproduce this layout there (see codegen). */
+                    /*
+                        MSVC has no per-member packed: the generated code cannot
+                        reproduce this layout there (see codegen).
+                    */
                     if (md->declarator->gcc_packed &&
                         ctx->options.platform.code_msvc_like_no_member_packed)
                     {
@@ -9139,9 +9208,11 @@ struct declarator* _Owner _Opt declarator(struct parser_ctx* ctx,
             p_declarator->first_token_opt = NULL; /* this is the way we can know...first is null */
         }
 
-        /* int i __attribute__((packed));  char buf[8] __attribute__((aligned(16)));
-           direct_declarator keeps the attributes that follow the name, each
-           array/function suffix its own - walk the chain and gather them. */
+        /*
+            int i __attribute__((packed));  char buf[8] __attribute__((aligned(16)));
+            direct_declarator keeps the attributes that follow the name, each
+            array/function suffix its own - walk the chain and gather them.
+        */
         const struct direct_declarator* _Opt p_dd = p_declarator->direct_declarator;
         while (p_dd != NULL)
         {
@@ -9411,8 +9482,9 @@ size_t array_declarator_is_vla(const struct array_declarator* p_array_declarator
 */
 static bool declarator_has_vm_type(const struct declarator* p_declarator)
 {
-    /* Every caller guards before recursing (`if (dd->declarator) ...`), and the
-    * parameter is not _Opt, so a null check here is dead.
+    /*
+        Every caller guards before recursing (`if (dd->declarator) ...`), and the
+        parameter is not _Opt, so a null check here is dead.
     */
     const struct direct_declarator* _Opt dd = p_declarator->direct_declarator;
     if (dd == NULL)
@@ -9745,9 +9817,11 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
             }
         }
 
-        /* '^' is a clang block pointer (typedef void (^cb)(int);) - Apple
-           SDK headers declare them unconditionally; treated as a plain
-           pointer to the function type. */
+        /*
+            '^' is a clang block pointer (typedef void (^cb)(int);) - Apple
+            SDK headers declare them unconditionally; treated as a plain
+            pointer to the function type.
+        */
         if (ctx->current != NULL && (ctx->current->type == '*' || ctx->current->type == '^'))
         {
             p_pointer = calloc(1, sizeof(struct pointer));
@@ -10681,9 +10755,10 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, bo
 
         if (p_initializer == NULL)
         {
-            /* p_designation, if any, is already stored in
-            * p_initializer_list_item->designation -- freed by
-            * initializer_list_item_delete below, not here.
+            /*
+                p_designation, if any, is already stored in
+                p_initializer_list_item->designation -- freed by
+                initializer_list_item_delete below, not here.
             */
             initializer_list_item_delete(p_initializer_list_item);
             p_initializer_list_item = NULL;
@@ -10731,9 +10806,10 @@ struct initializer_list* _Owner _Opt initializer_list(struct parser_ctx* ctx, bo
             struct initializer* _Owner _Opt p_initializer2 = initializer(ctx, is_discarded);
             if (p_initializer2 == NULL)
             {
-                /* p_designation2 is already stored in
-                * p_initializer_list_item->designation -- freed by
-                * initializer_list_item_delete below, not here.
+                /*
+                    p_designation2 is already stored in
+                    p_initializer_list_item->designation -- freed by
+                    initializer_list_item_delete below, not here.
                 */
                 initializer_list_item_delete(p_initializer_list_item);
                 p_initializer_list_item = NULL;
@@ -12534,9 +12610,10 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                         "case range '%s' ... '%s' overlaps a previous case", str1, str2);
 
                     _Assert(p_label->constant_expression != NULL); // because case have values
-                    /* case_label_list_find_range only matches labels whose own
-                    * constant_expression is non-null (see the p->constant_expression
-                    * && guard there), so a match guarantees this.
+                    /*
+                        case_label_list_find_range only matches labels whose own
+                        constant_expression is non-null (see the p->constant_expression
+                        && guard there), so a match guarantees this.
                     */
                     _Assert(p_existing_label->constant_expression != NULL);
                     diagnostic(W_LOCATION,
@@ -12563,9 +12640,10 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                         "duplicate case '%s'", str);
 
                     _Assert(p_label->constant_expression != NULL); // because case have values
-                    /* case_label_list_find only matches labels whose own
-                    * constant_expression is non-null (see the p->constant_expression
-                    * && guard there), so a match guarantees this.
+                    /*
+                        case_label_list_find only matches labels whose own
+                        constant_expression is non-null (see the p->constant_expression
+                        && guard there), so a match guarantees this.
                     */
                     _Assert(p_existing_label->constant_expression != NULL);
                     diagnostic(W_LOCATION,
@@ -12705,8 +12783,10 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                         "previous default");
                 }
 
-                /* diagnostics continue, don't throw: mirror the duplicate-case
-                   handling above and still push the label below. */
+                /*
+                    diagnostics continue, don't throw: mirror the duplicate-case
+                    handling above and still push the label below.
+                */
             }
 
             parser_match(ctx);
@@ -12748,8 +12828,9 @@ struct label* _Opt case_label_list_find_range(const struct parser_ctx* ctx, cons
     {
         if (p->constant_expression_end == NULL)
         {
-            /* single value (or a default label, which has no
-            * constant_expression at all -- skip it)
+            /*
+                single value (or a default label, which has no
+                constant_expression at all -- skip it)
             */
             if (p->constant_expression &&
                 object_is_greater_than_or_equal(&ctx->options.platform, &p->constant_expression->object, begin) &&
@@ -12916,22 +12997,24 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
 
         p_compound_statement->first_token = ctx->current;
 
-        /* Every compound statement's braces, not just the ones
-        * check_open/close_brace_style already covers (if/while/for/switch
-        * bodies, function bodies) - a bare block used as a statement body,
-        * like `case X: { ... }`, has no other check reaching it. Own-line
-        * placement only (K&R braces are a different, narrower rule that
-        * only applies to the control-flow/function-signature cases).
+        /*
+            Every compound statement's braces, not just the ones
+            check_open/close_brace_style already covers (if/while/for/switch
+            bodies, function bodies) - a bare block used as a statement body,
+            like `case X: { ... }`, has no other check reaching it. Own-line
+            placement only (K&R braces are a different, narrower rule that
+            only applies to the control-flow/function-signature cases).
         */
         char open_indent[256] = {0};
         format_indent_string(ctx, ctx->format_indent_level, open_indent, sizeof open_indent);
         const bool fix_open_brace = format_active_for(ctx, p_compound_statement->first_token);
 
-        /* Bumped BEFORE matching '{', not after: parser_match_tk() calls
-        * parser_skip_blanks() immediately, which is what fixes a comment's
-        * indentation (see there) - a comment sitting right after '{' needs
-        * the deeper level already active when that scan reaches it, or it
-        * gets fixed to this block's outer level instead of its own.
+        /*
+            Bumped BEFORE matching '{', not after: parser_match_tk() calls
+            parser_skip_blanks() immediately, which is what fixes a comment's
+            indentation (see there) - a comment sitting right after '{' needs
+            the deeper level already active when that scan reaches it, or it
+            gets fixed to this block's outer level instead of its own.
         */
         ctx->format_indent_level++;
 
@@ -13121,15 +13204,16 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error)
     struct block_item_list block_item_list = { 0 };
     struct block_item* _Owner _Opt p_block_item = NULL;
 
-    /* -format, cake style only: an unbraced case/default body (`case 1:
-    * stmt; break;`, no `{ }`) is indented one level deeper than its own
-    * label, for every block-item up to whatever ends it - the next
-    * case/default label at this same switch level, or the switch's own
-    * closing '}' (the while condition below already stops the loop there,
-    * so nothing needs to run the dedent for that side). A braced body
-    * (`case 1: { ... } break;`) needs none of this: compound_statement()
-    * places and levels its own braces, and break; sits right back at the
-    * label's level once it closes.
+    /*
+        -format, cake style only: an unbraced case/default body (`case 1:
+        stmt; break;`, no `{ }`) is indented one level deeper than its own
+        label, for every block-item up to whatever ends it - the next
+        case/default label at this same switch level, or the switch's own
+        closing '}' (the while condition below already stops the loop there,
+        so nothing needs to run the dedent for that side). A braced body
+        (`case 1: { ... } break;`) needs none of this: compound_statement()
+        places and levels its own braces, and break; sits right back at the
+        label's level once it closes.
     */
     bool case_indent_pending = false;
     try
@@ -13141,13 +13225,14 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error)
                     ctx->current->type == TK_KEYWORD_DEFAULT ||
                     ctx->current->type == TK_KEYWORD_BREAK))
             {
-                /* break; is also a boundary, not just the next label: a
-                * block-item that starts with the bare keyword 'break' here
-                * can only be this switch's own break (a loop's break is
-                * nested inside the loop's own body/block_item_list, never
-                * a direct block-item of the switch's), so it always ends
-                * the case's indent - dedent BEFORE parsing it so its own
-                * line prints back at the label's level, same as case/default.
+                /*
+                    break; is also a boundary, not just the next label: a
+                    block-item that starts with the bare keyword 'break' here
+                    can only be this switch's own break (a loop's break is
+                    nested inside the loop's own body/block_item_list, never
+                    a direct block-item of the switch's), so it always ends
+                    the case's indent - dedent BEFORE parsing it so its own
+                    line prints back at the label's level, same as case/default.
                 */
                 ctx->format_indent_level--;
                 case_indent_pending = false;
@@ -13168,11 +13253,13 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error)
                 ctx->format_indent_level++;
                 case_indent_pending = true;
 
-                /* Any comment sitting between the label's ':' and this
-                * first block-item of its (unbraced) body was already
-                * skipped - and indented - before this increment ran, so
-                * it printed one level too shallow, at the label's own
-                * indent. Re-fix it now that the right level is known. */
+                /*
+                    Any comment sitting between the label's ':' and this
+                    first block-item of its (unbraced) body was already
+                    skipped - and indented - before this increment ran, so
+                    it printed one level too shallow, at the label's own
+                    indent. Re-fix it now that the right level is known.
+                */
                 format_refix_preceding_comments(ctx, ctx->current);
             }
 
@@ -13828,28 +13915,29 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
     * "switch" ( expression ) secondary-block
     */
 
-    /* Extension
-    * 
-    * selection-statement: C2Y?
-    * "if" ( init-statement _Opt condition ) secondary-block
-    * "if" ( init-statement _Opt condition ) secondary-block "else" secondary-block
-    * switch ( init-statement _Opt condition ) secondary-block
-    * 
-    * C2Y
-    * 
-    * selection-statement:
-    * if ( selection-header ) secondary-block
-    * if ( selection-header ) secondary-block else secondary-block
-    * switch ( selection-header ) secondary-block
-    * 
-    * selection-header:
-    * expression
-    * declaration expression
-    * simple-declaration
-    * 
-    * simple-declaration:
-    * attribute-specifier-sequenceopt declaration-specifiers declarator = initializer
-    * 
+    /*
+        Extension
+
+        selection-statement: C2Y?
+        "if" ( init-statement _Opt condition ) secondary-block
+        "if" ( init-statement _Opt condition ) secondary-block "else" secondary-block
+        switch ( init-statement _Opt condition ) secondary-block
+
+        C2Y
+
+        selection-statement:
+        if ( selection-header ) secondary-block
+        if ( selection-header ) secondary-block else secondary-block
+        switch ( selection-header ) secondary-block
+
+        selection-header:
+        expression
+        declaration expression
+        simple-declaration
+
+        simple-declaration:
+        attribute-specifier-sequenceopt declaration-specifiers declarator = initializer
+
     */
 
     struct scope if_scope = { 0 };
@@ -15207,8 +15295,10 @@ void global_unused_functions_report(_Clear struct global_unused_list* p, const s
     {
         const struct global_unused_entry* e = &p->data[i];
 
-        /* only report functions that are actually defined somewhere in this
-           build and were never called in any file compiled in this run */
+        /*
+            only report functions that are actually defined somewhere in this
+            build and were never called in any file compiled in this run
+        */
         if (!e->has_definition || e->used)
             continue;
 
@@ -15399,8 +15489,10 @@ static void check_unused_declarators(const struct parser_ctx* ctx, struct declar
                     p_declarator_local->num_uses > 0 ||
                     declaration_is_maybe_unused(p);
 
-                /* the definition's name token when the body is in this file
-                   (level 0 excludes headers), otherwise this declaration's */
+                /*
+                    the definition's name token when the body is in this file
+                    (level 0 excludes headers), otherwise this declaration's
+                */
                 const struct token* location_token = name_token;
                 bool has_definition_here = false;
 
@@ -16432,12 +16524,13 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
             if (p_initializer_list_item->initializer->assignment_expression != NULL)
             {
-                /* `T x = { expr };` is still an initialization of x, so it gets
-                * the same checks as `T x = expr;` -- which the braced form
-                * used to skip entirely (object_set does not type-check).
-                * e.g. `char* s = {""};` under -const-literal.
-                * `T x = {0};` is the idiomatic zero-initializer though, so it
-                * is exempt just like the aggregate-member case below.
+                /*
+                    `T x = { expr };` is still an initialization of x, so it gets
+                    the same checks as `T x = expr;` -- which the braced form
+                    used to skip entirely (object_set does not type-check).
+                    e.g. `char* s = {""};` under -const-literal.
+                    `T x = {0};` is the idiomatic zero-initializer though, so it
+                    is exempt just like the aggregate-member case below.
                 */
                 if (!is_zero_braced_initializer(braced_initializer, p_initializer_list_item))
                 {
@@ -16681,16 +16774,18 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                     throw;
                 }
 
-                /* Same for each member/element initialized by an expression:
-                * `struct { char* s; } x = {""};` must report the discarded
-                * const that `struct { char* s; } x; x.s = "";` reports.
+                /*
+                    Same for each member/element initialized by an expression:
+                    `struct { char* s; } x = {""};` must report the discarded
+                    const that `struct { char* s; } x; x.s = "";` reports.
                 */
                 if (!is_zero_braced_initializer(braced_initializer, p_initializer_list_item))
                 {
-                    /* `T x = {0};` is the idiomatic way to zero-initialize an
-                    * entire aggregate; the literal 0 lands on the first
-                    * subobject only incidentally, so it should not be judged
-                    * as if the user wrote `first_member = 0` by hand.
+                    /*
+                        `T x = {0};` is the idiomatic way to zero-initialize an
+                        entire aggregate; the literal 0 lands on the first
+                        subobject only incidentally, so it should not be judged
+                        as if the user wrote `first_member = 0` by hand.
                     */
                     check_assigment(ctx,
                         &subobject_type,

@@ -1,6 +1,8 @@
-/* cake_icon.png (the 256 x 256 image of src/cake.ico) as bytes - the
- * macOS application icon, set at startup by ide_gui_cocoa.c.
- * Generated: regenerate from cake_icon.png if the icon changes. */
+/*
+    cake_icon.png (the 256 x 256 image of src/cake.ico) as bytes - the
+    macOS application icon, set at startup by ide_gui_cocoa.c.
+    Generated: regenerate from cake_icon.png if the icon changes.
+*/
 static const unsigned char cake_icon_png[] = {
     137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,1,0,
     0,0,1,0,8,6,0,0,0,92,114,168,102,0,0,187,175,73,68,65,

@@ -6,7 +6,7 @@
  *
  */
 
-//#pragma safety enable
+
 #include "cake_compat.h"
 #include "compile.h"
 #include <stdlib.h>
@@ -116,8 +116,10 @@ WINBASEAPI unsigned long WINAPI GetEnvironmentVariableA(const char* name,
 
 #endif
 
-/* Collects this machine's system include directories into `dirs` - the same
-   ones the platform compiler itself would search. Returns 0, or an error. */
+/*
+    Collects this machine's system include directories into `dirs` - the same
+    ones the platform compiler itself would search. Returns 0, or an error.
+*/
 static int collect_system_include_dirs(struct json_value* dirs)
 {
 #if defined(__TINYC__)
@@ -221,8 +223,10 @@ static int collect_system_include_dirs(struct json_value* dirs)
 
 #elif defined(__linux__) || defined(__APPLE__)
 
-    /* Parsed out of the platform compiler's own "-v -E" output, between
-       "#include <...> search starts here:" and "End of search list.". */
+    /*
+        Parsed out of the platform compiler's own "-v -E" output, between
+        "#include <...> search starts here:" and "End of search list.".
+    */
 #ifdef __linux__
     const char* command = "echo | LC_ALL=C gcc -v -E - 2>&1";   /* LC_ALL=C: gcc translates these lines */
 #else
@@ -254,8 +258,10 @@ static int collect_system_include_dirs(struct json_value* dirs)
             if (len > 0 && path[len - 1] == '\n')
                 path[len - 1] = '\0';
 
-            /* clang labels macOS framework search paths with a trailing
-               " (framework directory)" - it is not part of the path. */
+            /*
+                clang labels macOS framework search paths with a trailing
+                " (framework directory)" - it is not part of the path.
+            */
             char* _Opt framework_tag = strstr(p, " (framework directory)");
             if (framework_tag != NULL)
                 *framework_tag = '\0';
@@ -269,8 +275,10 @@ static int collect_system_include_dirs(struct json_value* dirs)
 
 #elif defined(_WIN32)
 
-    /* Read straight out of INCLUDE, which a Visual Studio command prompt
-       sets - hence the "run this inside one" message when it is absent. */
+    /*
+        Read straight out of INCLUDE, which a Visual Studio command prompt
+        sets - hence the "run this inside one" message when it is absent.
+    */
     char env[2000] = { 0 };
     int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
     if (n <= 0)
@@ -322,13 +330,15 @@ static int collect_system_include_dirs(struct json_value* dirs)
 #endif
 }
 
-/* cake -auto-config: writes this machine's system include directories into
-   cake.json's "include_dirs" array.
+/*
+    cake -auto-config: writes this machine's system include directories into
+    cake.json's "include_dirs" array.
 
-   The file is updated rather than overwritten: anything already in it -
-   notably the "compile" object the IDE writes (see global_settings_save() in
-   ide.c) - is read back and written out unchanged, so re-running auto-config
-   never costs the user their compiler options. */
+    The file is updated rather than overwritten: anything already in it -
+    notably the "compile" object the IDE writes (see global_settings_save() in
+    ide.c) - is read back and written out unchanged, so re-running auto-config
+    never costs the user their compiler options.
+*/
 int generate_config_file(const char* configpath)
 {
     struct json_value* _Opt _Owner root = NULL;
@@ -354,8 +364,10 @@ int generate_config_file(const char* configpath)
         return ENOMEM;
     }
 
-    /* Replaces any existing array - json_set_array() overwrites a member of
-       the same name rather than adding a second one. */
+    /*
+        Replaces any existing array - json_set_array() overwrites a member of
+        the same name rather than adding a second one.
+    */
     struct json_value* _Opt dirs = json_set_array(root, "include_dirs");
     if (dirs == NULL)
     {
@@ -1044,8 +1056,10 @@ static void find_definition_run(const char** files, int count, struct options* o
     compile_one_file(fullpath, options, "", argc, argv, &report_declaration);
 }
 
-/* -find-definition, phase 2: the definition of the declaration phase 1 found,
-   searched by name in the files; true when it was found (and reported) */
+/*
+    -find-definition, phase 2: the definition of the declaration phase 1 found,
+    searched by name in the files; true when it was found (and reported)
+*/
 static bool find_definition_search_by_name(const char** files, int count, int cursor_index,
     const struct report* p_report, struct options* options, int argc, const char* const* argv)
 {

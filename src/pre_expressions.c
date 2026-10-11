@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+
 
 /*
   For performance reasons we will separate expression from preprocessor from compiler.
@@ -965,9 +965,10 @@ static void pre_assignment_expression(struct preprocessor_ctx* ctx, struct pre_e
 
 static void pre_expression(struct preprocessor_ctx* ctx, struct pre_expression_ctx* ectx)
 {
-    /*expression:
-      assignment-expression
-      expression, assignment-expression
+    /*
+        expression:
+        assignment-expression
+        expression, assignment-expression
     */
     try
     {

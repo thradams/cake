@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
  */
 
-//#pragma safety enable
+
 
 #include "cake_compat.h"
 #include <stdlib.h>
@@ -477,9 +477,10 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
         return;
 
     _Assert(ctx->tail_block != NULL);
-    /* ctx is a const member, so it can only be set here; leaving it NULL left
-     * the label-search visit without a parser context.
-     */
+    /*
+        ctx is a const member, so it can only be set here; leaving it NULL left
+        the label-search visit without a parser context.
+    */
     struct defer_visit_ctx label_ctx = { .ctx = ctx->ctx };
     try
     {
@@ -543,8 +544,10 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 if (p->p_defer_block)
                 {
                     diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p->p_defer_block->first_token, NULL, "cannot jump out of a defer block");
-                    /* already an error: the defers outside, including the one
-                       whose body this is, must not join the jump's list */
+                    /*
+                        already an error: the defers outside, including the one
+                        whose body this is, must not join the jump's list
+                    */
                     break;
                 }
                 p = p->previous;
@@ -1121,12 +1124,13 @@ void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
         }
         p_defer->p_function_body = p_compound_statement;
 
-        /* Register each parameter declarator in the current scope, the same
-         * way defer_visit_direct_declarator does for a regular function's
-         * declarator -- otherwise an _Owner parameter never lands in the
-         * defer list, so leaking it goes unreported (see the parameter case
-         * of issue #269).
-         */
+        /*
+            Register each parameter declarator in the current scope, the same
+            way defer_visit_direct_declarator does for a regular function's
+            declarator -- otherwise an _Owner parameter never lands in the
+            defer list, so leaking it goes unreported (see the parameter case
+            of issue #269).
+        */
         for (struct parameter_declaration* _Opt p_parameter = p_parameter_list ? p_parameter_list->head : NULL;
              p_parameter;
              p_parameter = p_parameter->next)

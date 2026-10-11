@@ -403,7 +403,8 @@ void declaration_specifiers_add(struct declaration_specifiers* p, struct declara
 
 struct static_assertion
 {
-    /* C2Y
+    /*
+        C2Y
         static-assertion:
         static_assert ( constant-expression , string-literal )
         static_assert ( constant-expression )
@@ -459,9 +460,11 @@ struct attribute_specifier_sequence
     enum msvc_declspec_flags msvc_declspec_flags;
     enum attribute_flags  attributes_flags;
 
-    /* GCC __attribute__((packed)) / __attribute__((aligned(n))) - n in
-       bytes, 0 when absent. Applied to a struct or to one of its members
-       (see struct_or_union_specifier and declarator). */
+    /*
+        GCC __attribute__((packed)) / __attribute__((aligned(n))) - n in
+        bytes, 0 when absent. Applied to a struct or to one of its members
+        (see struct_or_union_specifier and declarator).
+    */
     bool gcc_packed;
     int gcc_aligned;
 
@@ -521,10 +524,11 @@ void storage_class_specifier_node_delete(_Dtor struct storage_class_specifier_no
 
 struct storage_class_specifiers
 {
-    /* C23
-         storage-class-specifiers:
-           storage-class-specifier
-           storage-class-specifiers storage-class-specifier
+    /*
+        C23
+        storage-class-specifiers:
+          storage-class-specifier
+          storage-class-specifiers storage-class-specifier
     */
     enum storage_class_specifier_flags storage_class_specifier_flags;
     struct storage_class_specifier_node* _Owner _Opt head;
@@ -871,13 +875,17 @@ struct struct_or_union_specifier
     int scope_level; /*nivel escopo 0 global*/
     int visit_moved; /*nivel escopo 0 global*/
 
-    /* #pragma pack in effect when the members were parsed, or 1 for
-       __attribute__((packed)): caps every member's alignment (0 = none).
-       See get_sizeof_struct. */
+    /*
+        #pragma pack in effect when the members were parsed, or 1 for
+        __attribute__((packed)): caps every member's alignment (0 = none).
+        See get_sizeof_struct.
+    */
     int pack_alignment;
 
-    /* __attribute__((aligned(n))) on the struct itself: raises its
-       alignment to at least n bytes (0 = none). */
+    /*
+        __attribute__((aligned(n))) on the struct itself: raises its
+        alignment to at least n bytes (0 = none).
+    */
     int aligned_attribute;
 
     /*
@@ -969,10 +977,12 @@ struct declarator
 
     struct token* _Opt name_opt; //shortcut , null for abstract declarator
 
-    /* GCC attributes written on this declarator or on its declaration:
-       packed gives a struct member alignment 1; aligned(n) is folded into
-       the type's alignment_specifier_flags (see
-       type_set_alignment_specifier_flags_using_declarator). */
+    /*
+        GCC attributes written on this declarator or on its declaration:
+        packed gives a struct member alignment 1; aligned(n) is folded into
+        the type's alignment_specifier_flags (see
+        type_set_alignment_specifier_flags_using_declarator).
+    */
     bool gcc_packed;
     int gcc_aligned;
 
@@ -1500,20 +1510,21 @@ struct selection_statement
     */
 
     //TODO rename
-    /*C2Y
-      selection-statement:
-         if ( selection-header ) secondary-block
-         if ( selection-header ) secondary-block else secondary-block
-         switch ( selection-header ) secondary-block
+    /*
+        C2Y
+         selection-statement:
+            if ( selection-header ) secondary-block
+            if ( selection-header ) secondary-block else secondary-block
+            switch ( selection-header ) secondary-block
 
-     selection-header:
-       expression
-       declaration expression
-       simple-declaration
+        selection-header:
+          expression
+          declaration expression
+          simple-declaration
 
 
-     simple-declaration:
-        attribute-specifier-sequenceopt declaration-specifiers declarator = initializer
+        simple-declaration:
+           attribute-specifier-sequenceopt declaration-specifiers declarator = initializer
     */
 
     struct init_statement* _Owner _Opt p_init_statement;

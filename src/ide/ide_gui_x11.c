@@ -1,15 +1,16 @@
-/* ide_gui_x11.c - X11/Xft backend of the ide GUI framework.
- *
- * Only translates X events into calls to the core and implements the
- * drawing primitives of ide_gui_backend.h. Everything about a window
- * lives in one struct x11_window; the canvas is its first member, so the
- * clipboard (which only gets the canvas) reaches the window - no globals.
- * The main window owns the detached ones (gui_window_detach): one more X
- * window each, on the same display, with its fonts and cursors.
- *
- * Build: gcc ... ide_gui_x11.c -lX11 -lXft -lXrender -lfontconfig
- *            $(pkg-config --cflags freetype2)
- */
+/*
+    ide_gui_x11.c - X11/Xft backend of the ide GUI framework.
+
+    Only translates X events into calls to the core and implements the
+    drawing primitives of ide_gui_backend.h. Everything about a window
+    lives in one struct x11_window; the canvas is its first member, so the
+    clipboard (which only gets the canvas) reaches the window - no globals.
+    The main window owns the detached ones (gui_window_detach): one more X
+    window each, on the same display, with its fonts and cursors.
+
+    Build: gcc ... ide_gui_x11.c -lX11 -lXft -lXrender -lfontconfig
+               $(pkg-config --cflags freetype2)
+*/
 #define _DEFAULT_SOURCE
 
 #include "ide_gui_backend.h"
@@ -153,8 +154,10 @@ static unsigned long to_pixel(struct gui_canvas* c, uint32_t rgb)
 
 /* --- Fonts --- */
 
-/* fontconfig substitutes instead of failing, so a family is installed only
- * if the match has that very name. */
+/*
+    fontconfig substitutes instead of failing, so a family is installed only
+    if the match has that very name.
+*/
 static int font_exists(struct gui_canvas* c, const char* name)
 {
     FcPattern* pat = FcNameParse((const FcChar8*)name);
@@ -195,8 +198,10 @@ static double screen_dpi(struct gui_canvas* c)
     return dpi > 0 ? dpi : 96;
 }
 
-/* A font of the chosen family at `pt`, measured: the advance of "M" and
- * ascent + descent. */
+/*
+    A font of the chosen family at `pt`, measured: the advance of "M" and
+    ascent + descent.
+*/
 static XftFont* make_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
 {
     const char* family = c->family ? c->family : pick_font(c);
@@ -216,8 +221,10 @@ static XftFont* make_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
     return font;
 }
 
-/* GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
- * cell_w is half its row height, as the monospaced fonts. */
+/*
+    GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
+    cell_w is half its row height, as the monospaced fonts.
+*/
 static XftFont* make_ui_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
 {
     XftFont* font = NULL;
@@ -482,8 +489,10 @@ static void ensure_back_buffer(struct gui_canvas* c, int w, int h)
     gui_set_clip(c, 0, 0, 0, 0);
 }
 
-/* The closest X11 gets to tinting the title bar: GTK-themed window
- * managers honor a dark or light variant. */
+/*
+    The closest X11 gets to tinting the title bar: GTK-themed window
+    managers honor a dark or light variant.
+*/
 static void sync_titlebar(struct x11_window* win)
 {
     uint32_t color = gui_app_titlebar_color(win->app);
@@ -590,8 +599,10 @@ static void detached_open(struct x11_window* main, struct gui_surface* s, int w,
     XMapWindow(c->dpy, c->win);
 }
 
-/* The X window and its back buffer go; the fonts and cursors are the main
- * window's. */
+/*
+    The X window and its back buffer go; the fonts and cursors are the main
+    window's.
+*/
 static void detached_destroy(struct x11_window* d)
 {
     struct gui_canvas* c = &d->canvas;
@@ -619,8 +630,10 @@ static void detached_close(struct x11_window* main, struct x11_window* d)
     detached_destroy(d);
 }
 
-/* The window an X event is for: the main one or a detached one; NULL for
- * one already gone. */
+/*
+    The window an X event is for: the main one or a detached one; NULL for
+    one already gone.
+*/
 static struct x11_window* window_for(struct x11_window* main, Window w)
 {
     if (w == main->canvas.win)
@@ -663,9 +676,11 @@ static void sync_detached(struct x11_window* main)
         detached_raise(native);
 }
 
-/* Applies what the app asked for (quit, timer, font, zoom), lets the core
- * paint whatever is dirty and copies just that rect to the window - the
- * main one and each detached one. */
+/*
+    Applies what the app asked for (quit, timer, font, zoom), lets the core
+    paint whatever is dirty and copies just that rect to the window - the
+    main one and each detached one.
+*/
 static void refresh(struct x11_window* win)
 {
     struct gui_canvas* c = &win->canvas;
@@ -719,10 +734,12 @@ static void refresh(struct x11_window* win)
     XFlush(c->dpy);
 }
 
-/* --- Clipboard (ide_gui_backend.h) ---
- * X11 has no clipboard service: setting it means owning the CLIPBOARD
- * selection and answering SelectionRequest; getting it means asking the
- * owner and waiting for the reply. */
+/*
+    --- Clipboard (ide_gui_backend.h) ---
+    X11 has no clipboard service: setting it means owning the CLIPBOARD
+    selection and answering SelectionRequest; getting it means asking the
+    owner and waiting for the reply.
+*/
 
 static void answer_selection_request(struct gui_canvas* c, const XSelectionRequestEvent* req)
 {
@@ -806,8 +823,10 @@ char* gui_clipboard_get(struct gui_canvas* c)
     }
     XConvertSelection(c->dpy, c->clipboard, c->utf8_string, c->paste_prop, c->win, CurrentTime);
     XFlush(c->dpy);
-    /* Waits for the reply, up to 1 s. Other events stay queued for the main
-     * loop; only requests for our own selection are answered meanwhile. */
+    /*
+        Waits for the reply, up to 1 s. Other events stay queued for the main
+        loop; only requests for our own selection are answered meanwhile.
+    */
     for (int tries = 0; tries < 1000; tries++)
     {
         XEvent ev;
@@ -880,9 +899,11 @@ static int utf8_len(unsigned char c)
     return c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 1;
 }
 
-/* The event to the app; the paint waits until every queued event is taken
- * (the main loop), so a burst of motion or key repeats costs one frame, not
- * one each - on XWayland every frame goes through the compositor. */
+/*
+    The event to the app; the paint waits until every queued event is taken
+    (the main loop), so a burst of motion or key repeats costs one frame, not
+    one each - on XWayland every frame goes through the compositor.
+*/
 static void post(struct x11_window* win, const struct gui_event* ev)
 {
     if (win->surface)
@@ -902,8 +923,10 @@ static void update_cursor(struct x11_window* win)
     XDefineCursor(win->canvas.dpy, win->canvas.win, win->cursors[cursor]);
 }
 
-/* Like Win32: a key event for keys and shortcuts, then a char event for
- * what the key types - none with Ctrl or Alt held. */
+/*
+    Like Win32: a key event for keys and shortcuts, then a char event for
+    what the key types - none with Ctrl or Alt held.
+*/
 static void key_press(struct x11_window* win, XKeyEvent* xkey)
 {
     int mods = mods_of(xkey->state);
@@ -1137,8 +1160,10 @@ int main(int argc, char** argv)
     c->clipboard = XInternAtom(c->dpy, "CLIPBOARD", False);
     c->utf8_string = XInternAtom(c->dpy, "UTF8_STRING", False);
 
-    /* "Cake <version>" in the title bar and the taskbar - left empty, the
-     * window manager writes its own "Untitled" */
+    /*
+        "Cake <version>" in the title bar and the taskbar - left empty, the
+        window manager writes its own "Untitled"
+    */
     static const char title[] = "Cake " CAKE_VERSION;
     XStoreName(c->dpy, c->win, title);
     XChangeProperty(c->dpy, c->win, XInternAtom(c->dpy, "_NET_WM_NAME", False), c->utf8_string, 8,

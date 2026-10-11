@@ -52,10 +52,12 @@ static int category_exists(const char *name)
     return 0;
 }
 
-/* Write a string as a double-quoted JS string literal, escaping
-   everything that could break out of the literal (backslash, quote,
-   control characters). Used for object keys such as category and
-   sample names, which are not run through write_file_contents. */
+/*
+    Write a string as a double-quoted JS string literal, escaping
+    everything that could break out of the literal (backslash, quote,
+    control characters). Used for object keys such as category and
+    sample names, which are not run through write_file_contents.
+*/
 static void write_js_string_literal(const char *s)
 {
     fputc('"', out);
@@ -183,12 +185,14 @@ static void process_file(const char *root, const char *path)
     if (relative[0] == '/' || relative[0] == '\\')
         memmove(relative, relative + 1, strlen(relative));
 
-    /* Split off just the first path component as the category. Any
-       further separators in "rest" (e.g. a nested sub-directory like
-       flow3\x86_64-linux-gnu-gcc\zz-try4.c) are kept as-is and become part of
-       the sample name/key rather than being split further -- they
-       just need to be escaped correctly for JS, which
-       write_js_string_literal now handles. */
+    /*
+        Split off just the first path component as the category. Any
+        further separators in "rest" (e.g. a nested sub-directory like
+        flow3\x86_64-linux-gnu-gcc\zz-try4.c) are kept as-is and become part of
+        the sample name/key rather than being split further -- they
+        just need to be escaped correctly for JS, which
+        write_js_string_literal now handles.
+    */
     char *slash = strpbrk(relative, "/\\");
     if (!slash)
         return;

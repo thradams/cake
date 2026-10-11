@@ -1,19 +1,20 @@
-/* ide_gui_cocoa.c - macOS Cocoa/CoreText backend of the ide GUI framework.
- *
- * Only translates Cocoa events into calls to the core and implements the
- * drawing primitives of ide_gui_backend.h. Everything about a window
- * lives in one struct cocoa_window, reached from the view and the delegate
- * through an instance variable - no globals. The main window owns the
- * detached ones (gui_window_detach): one more NSWindow each, sharing its
- * fonts.
- *
- * Plain C: AppKit is driven through the objc runtime (objc_msgSend);
- * CoreGraphics and CoreText are C APIs. Cocoa objects created here live as
- * long as the process and are never released.
- *
- * Build: clang ... ide_gui_cocoa.c -framework Cocoa -framework CoreText
- *            -framework CoreGraphics -lobjc
- */
+/*
+    ide_gui_cocoa.c - macOS Cocoa/CoreText backend of the ide GUI framework.
+
+    Only translates Cocoa events into calls to the core and implements the
+    drawing primitives of ide_gui_backend.h. Everything about a window
+    lives in one struct cocoa_window, reached from the view and the delegate
+    through an instance variable - no globals. The main window owns the
+    detached ones (gui_window_detach): one more NSWindow each, sharing its
+    fonts.
+
+    Plain C: AppKit is driven through the objc runtime (objc_msgSend);
+    CoreGraphics and CoreText are C APIs. Cocoa objects created here live as
+    long as the process and are never released.
+
+    Build: clang ... ide_gui_cocoa.c -framework Cocoa -framework CoreText
+               -framework CoreGraphics -lobjc
+*/
 #include "ide_gui_backend.h"
 #include "ide_icon.h"
 
@@ -80,8 +81,10 @@ struct offered_fonts
 
 struct cocoa_window;
 
-/* The main window's detached windows - open, or closed and waiting to be
- * freed (a handler of theirs may still be running). */
+/*
+    The main window's detached windows - open, or closed and waiting to be
+    freed (a handler of theirs may still be running).
+*/
 struct detached_list
 {
     struct cocoa_window** items;
@@ -132,8 +135,10 @@ static void set_fill(CGContextRef ctx, uint32_t rgb)
 
 /* --- Fonts --- */
 
-/* CoreText substitutes instead of failing, so a family is installed only
- * if the font it gives has that very name. */
+/*
+    CoreText substitutes instead of failing, so a family is installed only
+    if the font it gives has that very name.
+*/
 static CTFontRef open_font(const char* family, CGFloat pt)
 {
     CFStringRef name = cfstr(family);
@@ -174,8 +179,10 @@ static CTFontRef make_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
     return font;
 }
 
-/* GUI_FONT_UI: c->ui_family at `pt`, else the main family; cell_w is
- * half its row height, as the monospaced fonts. */
+/*
+    GUI_FONT_UI: c->ui_family at `pt`, else the main family; cell_w is
+    half its row height, as the monospaced fonts.
+*/
 static CTFontRef make_ui_font(struct gui_canvas* c, int pt, struct gui_metrics* m)
 {
     CTFontRef font = NULL;
@@ -457,8 +464,10 @@ static void ensure_back_buffer(struct cocoa_window* win, int w, int h)
         gui_app_invalidate(win->app);   /* a new buffer: everything drawn again */
 }
 
-/* Tints the title bar with the app's chrome color, and only when it
- * changed. */
+/*
+    Tints the title bar with the app's chrome color, and only when it
+    changed.
+*/
 static void sync_titlebar(struct cocoa_window* win)
 {
     uint32_t color = gui_app_titlebar_color(win->app);
@@ -596,9 +605,11 @@ static void detached_open(struct cocoa_window* main, struct gui_surface* s, int 
     MSG(void, id, SEL, id)(d->window, sel("makeKeyAndOrderFront:"), NULL);
 }
 
-/* Its surface is gone: the window goes off screen and stops reaching us;
- * the struct is freed on a later refresh, since a handler of it may be
- * running now. */
+/*
+    Its surface is gone: the window goes off screen and stops reaching us;
+    the struct is freed on a later refresh, since a handler of it may be
+    running now.
+*/
 static void detached_close(struct cocoa_window* main, struct cocoa_window* d)
 {
     list_remove(&main->detached, d);
@@ -640,9 +651,11 @@ static void sync_detached(struct cocoa_window* main)
     }
 }
 
-/* Applies what the app asked for (quit, timer, font, zoom), lets the core
- * paint whatever is dirty and invalidates just that rect - in the main
- * window and in each detached one. */
+/*
+    Applies what the app asked for (quit, timer, font, zoom), lets the core
+    paint whatever is dirty and invalidates just that rect - in the main
+    window and in each detached one.
+*/
 static void refresh(struct cocoa_window* win)
 {
     win = win->owner;
@@ -860,8 +873,10 @@ static void view_mouse_exited(id self, SEL cmd, id event)
     post(backend_of(self), &ev);
 }
 
-/* A notch is 120 units, as on Windows; a touchpad's precise deltas are
- * points, 40 units per row of the main font. */
+/*
+    A notch is 120 units, as on Windows; a touchpad's precise deltas are
+    points, 40 units per row of the main font.
+*/
 static void view_scroll_wheel(id self, SEL cmd, id event)
 {
     (void)cmd;
@@ -898,9 +913,11 @@ static void view_scroll_wheel(id self, SEL cmd, id event)
     post(win, &ev);
 }
 
-/* Like Win32: a key event for keys and shortcuts, then the text the key
- * types - through interpretKeyEvents:, so dead keys compose - unless Ctrl
- * or Cmd is held, or Option made it a shortcut. */
+/*
+    Like Win32: a key event for keys and shortcuts, then the text the key
+    types - through interpretKeyEvents:, so dead keys compose - unless Ctrl
+    or Cmd is held, or Option made it a shortcut.
+*/
 static void view_key_down(id self, SEL cmd, id event)
 {
     (void)cmd;
@@ -927,8 +944,10 @@ static void view_key_down(id self, SEL cmd, id event)
     MSG(void, id, SEL, id)(self, sel("interpretKeyEvents:"), events);
 }
 
-/* NSTextInputClient, reduced to what composition needs: the committed
- * text. Marked text (an unfinished dead key) is not shown. */
+/*
+    NSTextInputClient, reduced to what composition needs: the committed
+    text. Marked text (an unfinished dead key) is not shown.
+*/
 struct ns_range
 {
     unsigned long location, length;
@@ -1160,8 +1179,10 @@ static Class register_delegate_class(void)
     return c;
 }
 
-/* The window's content view, flipped, tracking the mouse - the first
- * responder. */
+/*
+    The window's content view, flipped, tracking the mouse - the first
+    responder.
+*/
 static id make_view(struct cocoa_window* win, CGRect frame)
 {
     id view = MSG(id, id, SEL)((id)objc_getClass("IdeGuiView"), sel("alloc"));
@@ -1193,16 +1214,20 @@ int main(int argc, char** argv)
     id app = MSG(id, id, SEL)(cls("NSApplication"), sel("sharedApplication"));
     MSG(void, id, SEL, long)(app, sel("setActivationPolicy:"), 0L);   /* Regular */
     {
-        /* the Dock's icon: Cake's, from the bytes built in - a plain
-         * executable has no bundle to take it from */
+        /*
+            the Dock's icon: Cake's, from the bytes built in - a plain
+            executable has no bundle to take it from
+        */
         id data = MSG(id, id, SEL, const void*, unsigned long)(cls("NSData"), sel("dataWithBytes:length:"),
                                                                cake_icon_png, (unsigned long)sizeof cake_icon_png);
         id image = MSG(id, id, SEL)(cls("NSImage"), sel("alloc"));
         image = data ? MSG(id, id, SEL, id)(image, sel("initWithData:"), data) : NULL;
         if (image)
         {
-            /* Apple's icon grid: the artwork is 824 of 1024 - a margin
-             * around it, or it looks bigger than every other icon */
+            /*
+                Apple's icon grid: the artwork is 824 of 1024 - a margin
+                around it, or it looks bigger than every other icon
+            */
             CGSize size = { 256, 256 };
             double margin = 256.0 * 100 / 1024;
             id icon = MSG(id, id, SEL)(cls("NSImage"), sel("alloc"));

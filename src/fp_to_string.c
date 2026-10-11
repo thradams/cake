@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+
 
 #include "cake_compat.h"
 #include "fp_to_string.h"
@@ -138,9 +138,11 @@ int float_to_string(float value, char* buffer, int size)
  *  No heap, no locale, no libc float formatting.
  */
 
-/*---------------------------------------------------------------------------
- *  diy_fp: a 64-bit significand with a binary exponent.  value = f * 2^e
- *-------------------------------------------------------------------------*/
+/*
+    ---------------------------------------------------------------------------
+     diy_fp: a 64-bit significand with a binary exponent.  value = f * 2^e
+    -------------------------------------------------------------------------
+*/
 
 struct fp_value
 {
@@ -286,7 +288,7 @@ static void fp_boundaries(struct fp_value v,
     mi.e = pl.e;
 
     /*
-      Member-wise rather than `*m_plus = pl;`: under //#pragma safety enable the
+      Member-wise rather than `*m_plus = pl;`: under  the
       flow analysis does not currently count a whole-struct assignment as
       initializing an _Out pointee, and reports warning 71.
     */
@@ -296,10 +298,12 @@ static void fp_boundaries(struct fp_value v,
     m_minus->e = mi.e;
 }
 
-/*---------------------------------------------------------------------------
- *  Cached powers of ten: 10^k for k = -348, -340, ... 340, as normalized
- *  diy_fp. Generated with exact integer arithmetic.
- *-------------------------------------------------------------------------*/
+/*
+    ---------------------------------------------------------------------------
+     Cached powers of ten: 10^k for k = -348, -340, ... 340, as normalized
+     diy_fp. Generated with exact integer arithmetic.
+    -------------------------------------------------------------------------
+*/
 
 static const uint64_t g_fp_cached_power_f[87] = {
     0xFA8FD5A0081C0288ULL, 0xBAAEE17FA23EBF76ULL, 0x8B16FB203055AC76ULL, 0xCF42894A5DCE35EAULL,
@@ -355,9 +359,11 @@ static struct fp_value fp_get_cached_power(int e, _Out int* K)
     return r;
 }
 
-/*---------------------------------------------------------------------------
- *  Digit generation
- *-------------------------------------------------------------------------*/
+/*
+    ---------------------------------------------------------------------------
+     Digit generation
+    -------------------------------------------------------------------------
+*/
 
 static const uint32_t g_fp_pow10[10] = {
     1, 10, 100, 1000, 10000, 100000,
@@ -522,9 +528,11 @@ static void fp_shortest_digits_float(float value, char* buffer, _Out int* length
     fp_digit_gen(W, Wp, Wp.f - Wm.f, buffer, length, K);
 }
 
-/*---------------------------------------------------------------------------
- *  Formatting
- *-------------------------------------------------------------------------*/
+/*
+    ---------------------------------------------------------------------------
+     Formatting
+    -------------------------------------------------------------------------
+*/
 
 static char* fp_write_exponent(int K, char* buffer)
 {
@@ -611,11 +619,13 @@ static char* fp_prettify(char* buffer, int length, int k)
     return fp_write_exponent(kk - 1, &buffer[length + 2]);
 }
 
-/*---------------------------------------------------------------------------
- *  Public entry point.
- *
- *  See fp_to_string.h for the contract.
- *-------------------------------------------------------------------------*/
+/*
+    ---------------------------------------------------------------------------
+     Public entry point.
+
+     See fp_to_string.h for the contract.
+    -------------------------------------------------------------------------
+*/
 
 
 int double_to_string(double value, char* buffer, int size)

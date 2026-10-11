@@ -1,12 +1,13 @@
-/* ide_compile.c - runs the Cake compiler, linked in, on a worker thread,
- * as the old IDE does (compile_stream_* in ide.c): stdout goes to a pipe
- * the UI thread drains with ide_compile_poll, from a gui timer.
- *
- * Two traps, both from the old IDE:
- *  1. A GUI program may start with no valid stdout, so it is reopened on
- *     NUL before being dup2'ed onto the pipe.
- *  2. stdout must be unbuffered or nothing streams until the end.
- */
+/*
+    ide_compile.c - runs the Cake compiler, linked in, on a worker thread,
+    as the old IDE does (compile_stream_* in ide.c): stdout goes to a pipe
+    the UI thread drains with ide_compile_poll, from a gui timer.
+
+    Two traps, both from the old IDE:
+     1. A GUI program may start with no valid stdout, so it is reopened on
+        NUL before being dup2'ed onto the pipe.
+     2. stdout must be unbuffered or nothing streams until the end.
+*/
 #include "ide_shell.h"
 #include "../compile.h"
 #include "../parser.h"

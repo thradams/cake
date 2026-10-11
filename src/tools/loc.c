@@ -1,4 +1,9 @@
-/* Counts lines of the files given on the command line and prints the total. */
+/*
+    This file is part of cake compiler
+    https://github.com/thradams/cake
+
+    Counts lines of the files given on the command line and prints the total.
+*/
 #include <stdio.h>
 
 static long count_lines(const char* filename)

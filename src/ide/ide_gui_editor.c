@@ -1,24 +1,27 @@
-/* ide_gui_editor.c - GUI_EDITOR, the framework's multi-line text editor.
- *
- * The text is one UTF-8 buffer with '\n' line ends plus an index of where
- * each line starts, rebuilt after every edit. The caret and the selection
- * are byte offsets. Scrolling is by whole lines and columns - nothing is
- * ever shown in part, and nothing animates. Colors come from a pluggable
- * highlighter (gui_editor_set_highlighter); the editor keeps the state each
- * line starts in, and only recomputes from the first edited line on.
- *
- * Behavior follows the old IDE's <editor> (ide_ui.c): caret movement,
- * selection, indentation with spaces, undo/redo with typing grouped, the
- * line-number gutter, the hover-only scrollbars.
- */
+/*
+    ide_gui_editor.c - GUI_EDITOR, the framework's multi-line text editor.
+
+    The text is one UTF-8 buffer with '\n' line ends plus an index of where
+    each line starts, rebuilt after every edit. The caret and the selection
+    are byte offsets. Scrolling is by whole lines and columns - nothing is
+    ever shown in part, and nothing animates. Colors come from a pluggable
+    highlighter (gui_editor_set_highlighter); the editor keeps the state each
+    line starts in, and only recomputes from the first edited line on.
+
+    Behavior follows the old IDE's <editor> (ide_ui.c): caret movement,
+    selection, indentation with spaces, undo/redo with typing grouped, the
+    line-number gutter, the hover-only scrollbars.
+*/
 #include "ide_gui_internal.h"
 #include <stdlib.h>
 #include <string.h>
 
 #define TAB_SIZE 4   /* a '\t' advances to the next multiple; indentation is spaces */
 
-/* One change: at `pos`, `removed` was replaced by `inserted`. Steps with the
- * same `group` undo and redo together (an indent of many lines is one). */
+/*
+    One change: at `pos`, `removed` was replaced by `inserted`. Steps with the
+    same `group` undo and redo together (an indent of many lines is one).
+*/
 struct undo_step
 {
     int pos;
@@ -96,8 +99,10 @@ struct editor_data
 
     /* Scratch for painting one line: a color per byte. */
     uint32_t* line_fg;
-    /* read-only: which bytes of `hidden_line` the highlighter hides
-     * (GUI_SPAN_HIDDEN) - they take no column, like a VT100 escape */
+    /*
+        read-only: which bytes of `hidden_line` the highlighter hides
+        (GUI_SPAN_HIDDEN) - they take no column, like a VT100 escape
+    */
     unsigned char* hidden;
     int hidden_cap;
     int hidden_line;       /* -1: not computed */
@@ -106,8 +111,10 @@ struct editor_data
 
 /* --- Text and lines --- */
 
-/* The length of the "\x1b[...<final>" sequence at text[k] in a VT100
- * editor (it takes no column), else 0. */
+/*
+    The length of the "\x1b[...<final>" sequence at text[k] in a VT100
+    editor (it takes no column), else 0.
+*/
 static int vt100_escape_len(const struct editor_data* e, int k, int end)
 {
     if (!e->vt100 || e->text[k] != '\x1b' || k + 1 >= end || e->text[k + 1] != '[')
@@ -122,8 +129,10 @@ static int line_of(const struct editor_data* e, int pos);
 static int line_end(const struct editor_data* e, int line);
 static void ensure_states(struct editor_data* e, int line);
 
-/* The run of hidden bytes at text[k] (a read-only Markdown document's
- * delimiters, say), else 0. */
+/*
+    The run of hidden bytes at text[k] (a read-only Markdown document's
+    delimiters, say), else 0.
+*/
 static int hidden_len(const struct editor_data* ce, int k, int end)
 {
     struct editor_data* e = (struct editor_data*)ce;   /* the mask is a cache */
@@ -233,9 +242,11 @@ static int span_cols(const struct editor_data* e, int start, int end)
     return cols;
 }
 
-/* After an edit that replaced old lines first..last: those lines read again
- * from the new text, the ones after shifted by `delta` bytes - an edit costs
- * the lines it touches, not the whole file. (No marks: an edit drops them.) */
+/*
+    After an edit that replaced old lines first..last: those lines read again
+    from the new text, the ones after shifted by `delta` bytes - an edit costs
+    the lines it touches, not the whole file. (No marks: an edit drops them.)
+*/
 static void update_lines(struct editor_data* e, int first, int last, int end_pos, int delta)
 {
     int start = e->line_starts[first];
@@ -442,9 +453,11 @@ static void free_marks(struct mark_list* l)
     l->count = 0;
 }
 
-/* Replaces bytes [pos, pos + remove_len) with `insert` - the one place the
- * text changes. The caret is not touched here. The marks go: they were
- * about the text before the edit. */
+/*
+    Replaces bytes [pos, pos + remove_len) with `insert` - the one place the
+    text changes. The caret is not touched here. The marks go: they were
+    about the text before the edit.
+*/
 static void splice(struct editor_data* e, int pos, int remove_len, const char* insert, int insert_len)
 {
     free_marks(&e->marks);
@@ -468,8 +481,10 @@ static void splice(struct editor_data* e, int pos, int remove_len, const char* i
     e->dirty = 1;
 }
 
-/* An edit made by the user: recorded for undo (in the current group),
- * clears redo. */
+/*
+    An edit made by the user: recorded for undo (in the current group),
+    clears redo.
+*/
 static void edit(struct editor_data* e, int pos, int remove_len, const char* insert, int insert_len)
 {
     struct undo_step step = { pos, copy_bytes(e->text + pos, remove_len), remove_len,
@@ -491,8 +506,10 @@ static void replace_selection(struct editor_data* e, const char* insert, int ins
     e->typing = 0;
 }
 
-/* A typed character joins the previous one in the same undo step while
- * typing continues on one line. */
+/*
+    A typed character joins the previous one in the same undo step while
+    typing continues on one line.
+*/
 static void type_text(struct editor_data* e, const char* s, int len)
 {
     int lo = 0, hi = 0;
@@ -650,10 +667,12 @@ static char diff_row(const struct editor_data* e, int line)
     return c;
 }
 
-/* The changed part [*from, *to) of a diff row, in text offsets: the row is
- * paired with the row at the same index in the opposite run next to it
- * ("-" run followed by a "+" run), and the common prefix and suffix are
- * cut. 0 when the row has no pair or nothing in common with it. */
+/*
+    The changed part [*from, *to) of a diff row, in text offsets: the row is
+    paired with the row at the same index in the opposite run next to it
+    ("-" run followed by a "+" run), and the common prefix and suffix are
+    cut. 0 when the row has no pair or nothing in common with it.
+*/
 static int diff_changed(const struct editor_data* e, int line, char dr, int* from, int* to)
 {
     char other = dr == '-' ? '+' : '-';
@@ -727,8 +746,10 @@ void gui_editor_get_caret(const struct gui_node* ed, int* line, int* col)
 
 /* --- Geometry --- */
 
-/* Line numbers take max(3, digits) columns plus a gap column; without them
- * a one-column margin keeps text off the left edge - as in the old IDE. */
+/*
+    Line numbers take max(3, digits) columns plus a gap column; without them
+    a one-column margin keeps text off the left edge - as in the old IDE.
+*/
 static int gutter_cols(const struct editor_data* e)
 {
     if (!e->line_numbers)
@@ -838,8 +859,10 @@ static int has_hbar(const struct gui_app* app, const struct gui_node* n)
     return n->editor->max_cols >= view_cols(app, n);
 }
 
-/* The vertical scrollbar: along the right edge, above the horizontal one
- * when both exist, lines as items. */
+/*
+    The vertical scrollbar: along the right edge, above the horizontal one
+    when both exist, lines as items.
+*/
 static struct scrollbar vbar(const struct gui_app* app, const struct gui_node* n)
 {
     const struct editor_data* e = n->editor;
@@ -848,8 +871,10 @@ static struct scrollbar vbar(const struct gui_app* app, const struct gui_node* n
     return sb;
 }
 
-/* The horizontal one: along the bottom edge, past the gutter, columns as
- * items. */
+/*
+    The horizontal one: along the bottom edge, past the gutter, columns as
+    items.
+*/
 static int hbar_x(const struct gui_app* app, const struct gui_node* n)
 {
     return n->rect.x + gutter_cols(n->editor) * core_node_metrics(app, n)->cell_w;
@@ -865,8 +890,10 @@ static struct scrollbar hbar(const struct gui_app* app, const struct gui_node* n
 
 /* --- Highlighting --- */
 
-/* Makes states[0 .. line] known, running the highlighter over the lines
- * before `line` that are not cached yet. */
+/*
+    Makes states[0 .. line] known, running the highlighter over the lines
+    before `line` that are not cached yet.
+*/
 static void ensure_states(struct editor_data* e, int line)
 {
     if (line + 1 > e->states_cap)
@@ -911,9 +938,11 @@ static int color_luma(uint32_t c)
     return (r * 299 + g * 587 + b * 114) / 1000;
 }
 
-/* On a light panel, the palette's bright colors are deepened, and any
- * color too close to the panel becomes editor_output_fg; a dark panel
- * keeps the palette. */
+/*
+    On a light panel, the palette's bright colors are deepened, and any
+    color too close to the panel becomes editor_output_fg; a dark panel
+    keeps the palette.
+*/
 static uint32_t ansi_readable_fg(const struct gui_theme* t, uint32_t fg)
 {
     uint32_t bg = t->editor_output_bg;
@@ -929,9 +958,11 @@ static uint32_t ansi_readable_fg(const struct gui_theme* t, uint32_t fg)
     return diff < 45 ? t->editor_output_fg : fg;
 }
 
-/* The colors of one VT100 line: each "\x1b[...m" changes the color of what
- * follows (0 resets, 1/22 bold on/off, 30-37 and 90-97 colors, 39 the
- * default); other attributes and other sequences are ignored. */
+/*
+    The colors of one VT100 line: each "\x1b[...m" changes the color of what
+    follows (0 resets, 1/22 bold on/off, 30-37 and 90-97 colors, 39 the
+    default); other attributes and other sequences are ignored.
+*/
 static void line_colors_vt100(struct editor_data* e, int start, int len, const struct gui_theme* t)
 {
     uint32_t fg = t->editor_output_fg;
@@ -1014,13 +1045,17 @@ static void line_colors(struct editor_data* e, int line, uint32_t default_fg, co
 
 /* --- Paint --- */
 
-/* One line's text from column hscroll on, in runs of equal colors: a run
- * breaks where the color or the selected state changes. Tabs show as
- * spaces up to the next stop. */
-/* The word the selection covers - ASCII word bytes only, not part of a
- * longer word - whose other occurrences are tinted: the old IDE's
- * editor_selected_word. 0 when there is none; else its length, *start its
- * offset. Not in a VT100 editor. */
+/*
+    One line's text from column hscroll on, in runs of equal colors: a run
+    breaks where the color or the selected state changes. Tabs show as
+    spaces up to the next stop.
+*/
+/*
+    The word the selection covers - ASCII word bytes only, not part of a
+    longer word - whose other occurrences are tinted: the old IDE's
+    editor_selected_word. 0 when there is none; else its length, *start its
+    offset. Not in a VT100 editor.
+*/
 static int selected_word(const struct editor_data* e, int* start)
 {
     int lo = 0, hi = 0;
@@ -1125,9 +1160,11 @@ static void paint_line(const struct paint* p, const struct gui_node* n, int line
                       t->editor_sel_bg);
 }
 
-/* The marks of one line, from `first` (all the marks on its line), drawn
- * from column `col` on in the colors of the worst one; "..." where they are
- * cut by the border. */
+/*
+    The marks of one line, from `first` (all the marks on its line), drawn
+    from column `col` on in the colors of the worst one; "..." where they are
+    cut by the border.
+*/
 static void paint_marks(const struct paint* p, const struct gui_node* n, int first, int y, int col)
 {
     const struct gui_theme* t = &p->app->theme;
@@ -1242,8 +1279,10 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
     int focused = app->ui.focused == n;
     if (e->reveal)
     {
-        /* Asked from outside (a find, a selection set by the app), where
-         * the view size is not known. */
+        /*
+            Asked from outside (a find, a selection set by the app), where
+            the view size is not known.
+        */
         e->reveal = 0;
         if (e->center)
         {
@@ -1252,8 +1291,10 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
         }
         ensure_caret_visible(app, (struct gui_node*)n);
     }
-    /* The view may have shrunk (resize, zoom) or a goto may have put the
-     * scroll past the end since the last change. */
+    /*
+        The view may have shrunk (resize, zoom) or a goto may have put the
+        scroll past the end since the last change.
+    */
     if (e->scroll > e->line_count - rows) e->scroll = e->line_count - rows;
     if (e->scroll < 0) e->scroll = 0;
     if (e->hscroll > e->max_cols - cols + 1) e->hscroll = e->max_cols - cols + 1;
@@ -1265,8 +1306,10 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
     uint32_t bg = e->vt100 ? t->editor_output_bg : t->editor_bg;
     gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h, bg);
     int mark = 0;   /* walks the marks along with the rows */
-    /* diff: the gutter shows the new file's line - the row's minus the
-     * removed rows before it - and nothing on a removed row */
+    /*
+        diff: the gutter shows the new file's line - the row's minus the
+        removed rows before it - and nothing on a removed row
+    */
     int removed = 0;
     for (int line = 0; e->diff && line < e->scroll && line < e->line_count; line++)
         removed += diff_row(e, line) == '-';
@@ -1320,8 +1363,10 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
             paint_marks(p, n, mark, y, col_of(e, line, line_end(e, line)));
     }
 
-    /* The caret: a thin bar over the left fifth of its cell, hidden while
-     * there is a selection or in the blink's off half - as in the old IDE. */
+    /*
+        The caret: a thin bar over the left fifth of its cell, hidden while
+        there is a selection or in the blink's off half - as in the old IDE.
+    */
     if (focused && lo == hi && !e->vt100 && !app->caret.off)
     {
         int col = col_of(e, caret_line, e->cursor) - e->hscroll;
@@ -1334,8 +1379,10 @@ void editor_paint(const struct paint* p, const struct gui_node* n)
         }
     }
 
-    /* The scrollbars: only while the mouse is over the editor or a thumb is
-     * dragged - they never reserve space. Their size is their own, in px. */
+    /*
+        The scrollbars: only while the mouse is over the editor or a thumb is
+        dragged - they never reserve space. Their size is their own, in px.
+    */
     int show = app->ui.hot == n || app->ui.scrolling == n || app->ui.hscrolling == n;
     int w = app->scrollbar_px;
     if (show && has_vbar(app, n))
@@ -1469,8 +1516,10 @@ void editor_mouse_down(struct gui_app* app, struct gui_node* n, int double_click
     }
 }
 
-/* A right click: the caret goes where it was, unless that is inside the
- * selection - the context menu then acts on the selection. */
+/*
+    A right click: the caret goes where it was, unless that is inside the
+    selection - the context menu then acts on the selection.
+*/
 void editor_context_click(struct gui_app* app, struct gui_node* n)
 {
     struct editor_data* e = n->editor;
@@ -1559,9 +1608,11 @@ static int indent_of(const struct editor_data* e, int line, int limit)
     return k - e->line_starts[line];
 }
 
-/* Tab / Shift+Tab over every line the selection touches (or the caret's
- * line): TAB_SIZE spaces added, or up to TAB_SIZE leading spaces removed,
- * as one undo step. */
+/*
+    Tab / Shift+Tab over every line the selection touches (or the caret's
+    line): TAB_SIZE spaces added, or up to TAB_SIZE leading spaces removed,
+    as one undo step.
+*/
 static void shift_lines(struct editor_data* e, int outdent)
 {
     int lo = 0, hi = 0;

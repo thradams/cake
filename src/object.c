@@ -3,7 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-//#pragma safety enable
+
 #include "cake_compat.h"
 #include <stdlib.h>
 #include "object.h"
@@ -1898,10 +1898,12 @@ int make_object_with_member_designator(const struct type* p_type,
         return 0;
     }
 
-    /* The build failed (an incomplete type, typically). The object stays
-       empty, but the type must still be the one that was asked for: it is
-       the declarator's or expression's own type, and dropping it would hide
-       the very incompleteness that made this fail. */
+    /*
+        The build failed (an incomplete type, typically). The object stays
+        empty, but the type must still be the one that was asked for: it is
+        the declarator's or expression's own type, and dropping it would hide
+        the very incompleteness that made this fail.
+    */
     type_destroy(&obj->type);
     obj->type = type_copy; /*moved*/
     return 1;
@@ -2004,11 +2006,13 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
         return TYPE_DOUBLE;
     }
 
-    /* Widest specifier first. `long long int` carries TYPE_SPECIFIER_INT as
-       well as TYPE_SPECIFIER_LONG_LONG, so testing INT before LONG_LONG made
-       every explicitly-spelled `long long int` (uint64_t among them) an int:
-       `long long int a = 5000000000;` was reported as not representable, and
-       "%lld" was reported as the wrong conversion for it. */
+    /*
+        Widest specifier first. `long long int` carries TYPE_SPECIFIER_INT as
+        well as TYPE_SPECIFIER_LONG_LONG, so testing INT before LONG_LONG made
+        every explicitly-spelled `long long int` (uint64_t among them) an int:
+        `long long int a = 5000000000;` was reported as not representable, and
+        "%lld" was reported as the wrong conversion for it.
+    */
     if (type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
         if (type_specifier_flags & TYPE_SPECIFIER_CHAR)

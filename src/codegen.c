@@ -1,4 +1,4 @@
-//#pragma safety enable
+
 #include "version.h"
 #include "cake_compat.h"
 #include <stdlib.h>
@@ -1466,35 +1466,6 @@ static void codegen_print_bitfield_tile_initializers(struct codegen_ctx* ctx,
     }
 }
 
-/* Emits 'name<designator>', or its value when p_object is a lowered bitfield */
-static void codegen_emit_object_bitfield_read_or_name(struct codegen_ctx* ctx,
-                                                      struct osstream* oss,
-                                                      const char* name,
-                                                      const struct object* p_object)
-{
-    struct osstream full = { 0 };
-    ss_fprintf(&full, "%s", name);
-    codegen_print_designator(&full, p_object, NULL);
-    const char* text = full.c_str ? full.c_str : "";
-    struct struct_or_union_specifier* _Opt p_owner = NULL;
-    struct member_declarator* _Opt p_member = NULL;
-    const char* _Opt last_dot = strrchr(text, '.');
-    if (last_dot && codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member) &&
-        p_owner && p_member)
-    {
-        struct osstream base = { 0 };
-        ss_fprintf(&base, "%.*s", (int)(last_dot - text) + 1, text);
-        if (base.c_str != NULL)
-            codegen_emit_bitfield_read(ctx, oss, base.c_str, p_owner, p_member);
-        ss_close(&base);
-    }
-    else
-    {
-        ss_fprintf(oss, "%s", text);
-    }
-    ss_close(&full);
-}
-
 /*
   Initializer statement 'prefix<designator> = init;' (or '= 0' when p_init
   is NULL) for a member object. Returns false, emitting nothing, when the
@@ -1909,8 +1880,10 @@ static void codegen_vm_ptr_advance(struct codegen_ctx* ctx, struct osstream* oss
     ss_fprintf(oss, ")");
 }
 
-/* Prefix ++p/--p: the expression's value IS the new pointer, so no temp is
-   needed -- the assignment expression itself yields it. */
+/*
+    Prefix ++p/--p: the expression's value IS the new pointer, so no temp is
+    needed -- the assignment expression itself yields it.
+*/
 static void codegen_vm_ptr_prefix_step(struct codegen_ctx* ctx, struct osstream* oss,
                                        struct expression* p_ptr_expr, const char* op)
 {
@@ -1921,11 +1894,13 @@ static void codegen_vm_ptr_prefix_step(struct codegen_ctx* ctx, struct osstream*
     ss_fprintf(oss, ")");
 }
 
-/* Postfix p++/p--: the expression's value is the OLD pointer, which is no
-   longer readable once p has been advanced. Hoist a hidden temp (same
-   pattern as EXPR_CHECKED above) to hold it, hand the temp back as the
-   expression's value, and move the read+advance statements into
-   ctx->add_this_before so they run before the enclosing statement. */
+/*
+    Postfix p++/p--: the expression's value is the OLD pointer, which is no
+    longer readable once p has been advanced. Hoist a hidden temp (same
+    pattern as EXPR_CHECKED above) to hold it, hand the temp back as the
+    expression's value, and move the read+advance statements into
+    ctx->add_this_before so they run before the enclosing statement.
+*/
 static void codegen_vm_ptr_postfix_step(struct codegen_ctx* ctx, struct osstream* oss,
                                         struct expression* p_ptr_expr, const char* op)
 {
@@ -1958,11 +1933,13 @@ static void codegen_vm_ptr_postfix_step(struct codegen_ctx* ctx, struct osstream
     ss_fprintf(oss, "%s", name);
 }
 
-/* True when p_type is a pointer whose pointee's size is only known at
-   runtime -- e.g. `int (*)[n]`. type_is_vm walks through the POINTER
-   category into ->next on its own, so this only adds the "is a pointer at
-   all" guard (a plain VM array object, not a pointer to one, must not take
-   this path -- ++/--/+ on an array isn't valid C to begin with). */
+/*
+    True when p_type is a pointer whose pointee's size is only known at
+    runtime -- e.g. `int (*)[n]`. type_is_vm walks through the POINTER
+    category into ->next on its own, so this only adds the "is a pointer at
+    all" guard (a plain VM array object, not a pointer to one, must not take
+    this path -- ++/--/+ on an array isn't valid C to begin with).
+*/
 static bool codegen_is_vm_pointer(const struct type* p_type)
 {
     return type_is_pointer(p_type) && type_is_vm(p_type);
@@ -2037,9 +2014,11 @@ static void codegen_emit_runtime_assert_expr(struct codegen_ctx* ctx, struct oss
     const char* text = p_sa->string_literal_opt
         ? p_sa->string_literal_opt->lexeme : "\"\"";
 
-    /* Wrap the whole conditional in parentheses: the ?: operator has low
-       precedence, so without them it could bind incorrectly when the
-       _Assert appears inside a larger expression. */
+    /*
+        Wrap the whole conditional in parentheses: the ?: operator has low
+        precedence, so without them it could bind incorrectly when the
+        _Assert appears inside a larger expression.
+    */
     ss_fprintf(oss, "((");
     codegen_visit_expression(ctx, oss, p_sa->constant_expression);
     ss_fprintf(oss, ") ? (void)0 : %s(\"%s\", %d, %s))",
@@ -2963,31 +2942,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 (!is_static && !is_extern) &&
                 p_expression->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE;
 
-            if (!is_function &&
-            p_expression->lvalue_disabled &&
-            (type_is_struct_or_union(&p_expression->object.type) || type_is_array(&p_expression->object.type)))
-            {
-                /*
-             This names a const/constexpr object from an enclosing
-             function. Its storage isn't reachable from here, so
-             materialize a copy of its compile-time value instead of
-             referencing it by name.
-            */
-                char name[100] = { 0 };
-                generate_file_scope_new_name(ctx, COMPOUND_LITERAL_BASE_NAME, sizeof(name), name);
-
-                struct osstream local = { 0 };
-                ss_fprintf(&local, "static ");
-                d_print_type(ctx, &local, &p_expression->object.type, name, false, false);
-                bool first = true;
-                ss_fprintf(&local, " = {");
-                object_print_initialization_list(ctx, &local, &p_expression->object, &first);
-                ss_fprintf(&local, "};\n");
-                ss_fprintf(&ctx->add_this_before_external_decl, "%s", local.c_str);
-                ss_close(&local);
-                ss_fprintf(oss, "%s", name);
-            }
-            else if (is_function)
+            if (is_function)
             {
                 ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme);
 
@@ -3031,14 +2986,18 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     const struct declarator* _Opt p_function_defined
                         = declarator_get_function_definition(p_expression->declarator);
 
-                    /* An inline function is emitted as static only when
-                       this unit defines it. A bare inline prototype
-                       (ownership.h: inline char* strrchr(...)) names
-                       the external one and must stay external. */
+                    /*
+                        An inline function is emitted as static only when
+                        this unit defines it. A bare inline prototype
+                        (ownership.h: inline char* strrchr(...)) names
+                        the external one and must stay external.
+                    */
                     const bool inline_defined_here = is_inline && p_function_defined != NULL;
 
-                    /* extern prototype, then a static (inline) definition - accepted
-                       for TCC, whose mingw headers do it: the definition decides */
+                    /*
+                        extern prototype, then a static (inline) definition - accepted
+                        for TCC, whose mingw headers do it: the definition decides
+                    */
                     const bool defined_static_or_inline =
                         p_function_defined != NULL &&
                         p_function_defined->declaration_specifiers != NULL &&
@@ -3226,14 +3185,16 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
             if (type_is_void(&p_expression->object.type))
             {
-                /* A void statement-expression (e.g. `({ ... });` with no
-               trailing value, or ending in a void expression) has no
-               result to hoist into a temporary. Declaring `void name;`
-               is not valid C, so just emit the compound statement's
-               side effects here. But this expression can still be used
-               as a subexpression (e.g. the right side of a comma
-               operator), so `oss` still needs a syntactically valid
-               void placeholder value instead of nothing. */
+                /*
+                    A void statement-expression (e.g. `({ ... });` with no
+                    trailing value, or ending in a void expression) has no
+                    result to hoist into a temporary. Declaring `void name;`
+                    is not valid C, so just emit the compound statement's
+                    side effects here. But this expression can still be used
+                    as a subexpression (e.g. the right side of a comma
+                    operator), so `oss` still needs a syntactically valid
+                    void placeholder value instead of nothing.
+                */
                 struct osstream local = { 0 };
 
                 codegen_visit_compound_statement_2(NULL, ctx, &local, p_expression->compound_statement);
@@ -3286,8 +3247,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             }
             else
             {
-                /* compile_assert / static_assert (and _Assert without the
-               -runtime-asserts flag) are compile-time only: a void no-op. */
+                /*
+                    compile_assert / static_assert (and _Assert without the
+                    -runtime-asserts flag) are compile-time only: a void no-op.
+                */
                 ss_fprintf(oss, "(void)0");
             }
             break;
@@ -3942,15 +3905,17 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             if (type_is_array(&p_expression->right->object.type) &&
             type_is_vm(&p_expression->right->object.type))
             {
-                /* A VLA object (e.g. `int a[n]`) is already lowered to a
-               plain pointer holding its base address, so `&a` is just
-               that pointer value -- not the address of the pointer
-               variable -- cast to the pointer-to-array type expected
-               here. The same holds for every other VM array-typed
-               operand: a sub-array `a[1]` / `p[1]` is emitted as
-               `&A[offset]` (see EXPR_POSTFIX_ARRAY) and `*p` on
-               `int (*p)[]` decays, so all of them already denote the
-               element pointer and only need the cast. */
+                /*
+                    A VLA object (e.g. `int a[n]`) is already lowered to a
+                    plain pointer holding its base address, so `&a` is just
+                    that pointer value -- not the address of the pointer
+                    variable -- cast to the pointer-to-array type expected
+                    here. The same holds for every other VM array-typed
+                    operand: a sub-array `a[1]` / `p[1]` is emitted as
+                    `&A[offset]` (see EXPR_POSTFIX_ARRAY) and `*p` on
+                    `int (*p)[]` decays, so all of them already denote the
+                    element pointer and only need the cast.
+                */
                 ss_fprintf(oss, "(");
                 d_print_type(ctx, oss, &p_expression->object.type, NULL, false, false);
                 ss_fprintf(oss, ")");
@@ -4098,8 +4063,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             if (p_expression->type_name != NULL &&
             type_is_vm(&p_expression->type_name->type))
             {
-                /* no snapshot: a type-name's dimensions are evaluated
-                   right here, every time (see vm_emit_dim) */
+                /*
+                    no snapshot: a type-name's dimensions are evaluated
+                    right here, every time (see vm_emit_dim)
+                */
                 ss_fprintf(oss, "(");
                 vm_emit_sizeof_expr(ctx, oss, &p_expression->type_name->type);
                 ss_fprintf(oss, ")");
@@ -4245,8 +4212,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             else if (codegen_is_vm_pointer(&p_expression->left->object.type) &&
             codegen_is_vm_pointer(&p_expression->right->object.type))
             {
-                /* pointer - pointer: byte distance divided by the
-               (runtime-known) pointee size. */
+                /*
+                    pointer - pointer: byte distance divided by the
+                    (runtime-known) pointee size.
+                */
                 ss_fprintf(oss, "(((char*)");
                 codegen_visit_expression(ctx, oss, p_expression->left);
                 ss_fprintf(oss, " - (char*)");
@@ -4346,11 +4315,13 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             if (type_is_struct_or_union(&p_expression->left->object.type) &&
             object_has_all_members_constants(&p_expression->right->object))
             {
-                /* The destination is turned into text here and each
-                   ".member"/"[i]" is appended to it below, so it has to be
-                   parenthesized unless it can already take such a suffix -
-                   otherwise `*p = c` emits "*p.m", which reparses as
-                   "*(p.m)". See codegen_expr_takes_postfix_suffix(). */
+                /*
+                    The destination is turned into text here and each
+                    ".member"/"[i]" is appended to it below, so it has to be
+                    parenthesized unless it can already take such a suffix -
+                    otherwise `*p = c` emits "*p.m", which reparses as
+                    "*(p.m)". See codegen_expr_takes_postfix_suffix().
+                */
                 struct osstream dest_prefix = { 0 };
                 const bool needs_parenthesis =
                     !codegen_expr_takes_postfix_suffix(p_expression->left);
@@ -4426,8 +4397,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             if (codegen_is_vm_pointer(&p_expression->left->object.type) &&
             !type_is_pointer(&p_expression->right->object.type))
             {
-                /* `p += n` / `p -= n` on a pointer to a VM array must scale
-               by the (runtime-known) pointee size, same as p+n/p++. */
+                /*
+                    `p += n` / `p -= n` on a pointer to a VM array must scale
+                    by the (runtime-known) pointee size, same as p+n/p++.
+                */
                 const char* op = p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-";
                 ss_fprintf(oss, "(");
                 codegen_visit_expression(ctx, oss, p_expression->left);
@@ -4773,10 +4746,12 @@ static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct o
             p_expr->left != NULL &&
             codegen_is_vm_pointer(&p_expr->left->object.type))
         {
-            /* The old-value temp that codegen_vm_ptr_postfix_step hoists is
-               unused here (the statement discards the expression's value),
-               so emit the equivalent prefix-style advance directly instead
-               of leaving a dead "temp;" statement behind. */
+            /*
+                The old-value temp that codegen_vm_ptr_postfix_step hoists is
+                unused here (the statement discards the expression's value),
+                so emit the equivalent prefix-style advance directly instead
+                of leaving a dead "temp;" statement behind.
+            */
             codegen_vm_ptr_prefix_step(ctx, &local, p_expr->left,
                                        p_expr->expression_type == EXPR_POSTFIX_INCREMENT ? "+" : "-");
         }
@@ -5635,10 +5610,12 @@ static bool block_item_is_empty(const struct codegen_ctx* ctx, const struct bloc
     if (p_block_item->declaration &&
         p_block_item->declaration->static_assertion)
     {
-        /* With -runtime-asserts, _Assert emits a real runtime check, so
-           it is NOT empty. Without the flag (and for every other static
-           assertion: static_assert / compile_assert / debug / state / set) it
-           is compile-time only and produces no code -- just like compile_assert. */
+        /*
+            With -runtime-asserts, _Assert emits a real runtime check, so
+            it is NOT empty. Without the flag (and for every other static
+            assertion: static_assert / compile_assert / debug / state / set) it
+            is compile-time only and produces no code -- just like compile_assert.
+        */
         if (p_block_item->declaration->static_assertion->first_token->type == TK_KEYWORD_RUNTIME_ASSERT &&
             ctx->options.runtime_asserts)
             return false;
@@ -5805,9 +5782,11 @@ static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct
         {
             /* last */
 
-            /* Hoist the result expression into a local: the three-deep member
-               chain is re-read at the call otherwise, and the narrowing from
-               the guard above does not reach it. */
+            /*
+                Hoist the result expression into a local: the three-deep member
+                chain is re-read at the call otherwise, and the narrowing from
+                the guard above does not reach it.
+            */
             struct expression* _Opt p_result_expression = NULL;
             if (p_block_item->unlabeled_statement &&
                 p_block_item->unlabeled_statement->expression_statement)
@@ -5826,9 +5805,11 @@ static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct
         }
         else
         {
-            /* var_name == NULL means this is a void statement-expression:
-               there is no result to capture, so the last item (if any) is
-               just emitted as a normal statement, like any other item. */
+            /*
+                var_name == NULL means this is a void statement-expression:
+                there is no result to capture, so the last item (if any) is
+                just emitted as a normal statement, like any other item.
+            */
             codegen_visit_block_item(ctx, &local, p_block_item);
         }
         p_block_item = p_block_item->next;
@@ -5882,10 +5863,12 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     int saved_cake_local_declarator_number = ctx->cake_local_declarator_number;
     ctx->cake_local_declarator_number = 0; /* reset */
 
-    /* vm_dim_id restarts at 0 in every function (see parser), and a
-       function body can be emitted on demand from inside another function's
-       visit (static functions), so it must start with no visible snapshots
-       and leave none behind. */
+    /*
+        vm_dim_id restarts at 0 in every function (see parser), and a
+        function body can be emitted on demand from inside another function's
+        visit (static functions), so it must start with no visible snapshots
+        and leave none behind.
+    */
     const int saved_vm_snapshot_count = ctx->vm_snapshot_count;
     ctx->vm_snapshot_count = 0; /* reset */
 
@@ -5894,11 +5877,13 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     const struct declarator* _Opt previous_func = ctx->p_current_function_opt;
     ctx->p_current_function_opt = function_definition;
 
-    /* __func__'s generated variable name is per-function (__cake_func_<name>),
-       so the "already added" flag must be reset for each function, otherwise
-       only the first function in the translation unit that uses __func__
-       gets its static const char[] declaration emitted, and every other
-       function that uses __func__ references an undeclared identifier. */
+    /*
+        __func__'s generated variable name is per-function (__cake_func_<name>),
+        so the "already added" flag must be reset for each function, otherwise
+        only the first function in the translation unit that uses __func__
+        gets its static const char[] declaration emitted, and every other
+        function that uses __func__ references an undeclared identifier.
+    */
     bool previous_is__func__predefined_identifier_added = ctx->is__func__predefined_identifier_added;
     ctx->is__func__predefined_identifier_added = false;
 
@@ -6329,10 +6314,12 @@ static void d_print_type_core(struct codegen_ctx* ctx,
         break;
         case TYPE_CATEGORY_ARRAY:
         {
-            /* A variably modified array (any dimension a non-constant
-               expression) is flattened to []. An unspecified size (char
-               names[][300]) is not VM: it prints [] and the inner
-               dimensions are kept. */
+            /*
+                A variably modified array (any dimension a non-constant
+                expression) is flattened to []. An unspecified size (char
+                names[][300]) is not VM: it prints [] and the inner
+                dimensions are kept.
+            */
             const struct type* _Opt it = p_type;
             bool vm = false;
             while (it && it->category == TYPE_CATEGORY_ARRAY)
@@ -6425,8 +6412,10 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                     param_name = generated_name;
                 }
 
-                /* only the parameters of the function itself are named,
-                   not those of parameters that are function pointers */
+                /*
+                    only the parameters of the function itself are named,
+                    not those of parameters that are function pointers
+                */
                 d_print_type_core(ctx, &local2, &pa->type, param_name, false);
 
                 ss_fprintf(&sslocal, "%s", local2.c_str);
@@ -6604,115 +6593,6 @@ static size_t count_zero_fill_leaves(const struct object* object, size_t* p_tota
     return object->p_init_expression == NULL ? 1 : 0;
 }
 
-static void object_print_source_object_non_constant_initialization(
-    struct codegen_ctx* ctx,
-    struct osstream* ss,
-    const struct object* object,
-    const struct object* source,
-    const char* dest_name,
-    const char* source_name)
-{
-    if (object_is_reference(object))
-        object = object_get_referenced(object);
-
-    if (object_is_reference(source))
-        source = object_get_referenced(source);
-
-    /* --- Composite types: recurse member-by-member --- */
-    if (object->members.head != NULL)
-    {
-        if (type_is_union(&object->type))
-        {
-            /*
-             * For unions only the first member is assigned.
-             * Pick the first non-empty source member that has a value.
-             */
-            struct object* _Opt dest_member = object->members.head;
-            struct object* _Opt source_member = source->members.head;
-
-            while (dest_member && source_member)
-            {
-                object_print_source_object_non_constant_initialization(
-                    ctx, ss, dest_member, source_member, dest_name, source_name);
-                /* unions: stop after first member */
-                break;
-            }
-        }
-        else
-        {
-            /* Struct / array: walk both member lists in lock-step */
-            struct object* _Opt dest_member = object->members.head;
-            struct object* _Opt source_member = source->members.head;
-
-            while (dest_member && source_member)
-            {
-                object_print_source_object_non_constant_initialization(
-                    ctx, ss, dest_member, source_member, dest_name, source_name);
-                dest_member = dest_member->next;
-                source_member = source_member->next;
-            }
-        }
-        return;
-    }
-
-    /* --- Scalar leaf: emit  dest_name.member = <source value>; --- */
-    print_identation_core(ss, ctx->indentation);
-
-    {
-        /* a lowered bitfield on either side */
-        struct osstream lvalue = { 0 };
-        struct osstream value = { 0 };
-        ss_fprintf(&lvalue, "%s", dest_name);
-        codegen_print_designator(&lvalue, object, NULL);
-        if (object_has_constant_value(source))
-            object_print_value(&ctx->options.platform, &value, source);
-        else
-            codegen_emit_object_bitfield_read_or_name(ctx, &value, source_name, source);
-
-        const bool stored = lvalue.c_str != NULL && value.c_str != NULL &&
-            codegen_emit_object_bitfield_store(ctx, ss, lvalue.c_str, object, value.c_str, false,
-                                               object_has_constant_value(source) ? source : NULL,
-                                               false, true);
-        ss_close(&lvalue);
-        if (stored)
-        {
-            ss_close(&value);
-            ss_fprintf(ss, ";\n");
-            return;
-        }
-        if (!object_has_constant_value(source) && value.c_str != NULL)
-        {
-            ss_fprintf(ss, "%s", dest_name);
-            codegen_print_designator(ss, object, NULL);
-            ss_fprintf(ss, " = %s;\n", value.c_str);
-            ss_close(&value);
-            return;
-        }
-        ss_close(&value);
-    }
-
-    ss_fprintf(ss, "%s", dest_name);
-    codegen_print_designator(ss, object, NULL);
-    ss_fprintf(ss, " = ");
-
-    if (object_has_constant_value(source))
-    {
-        /* folded int-to-pointer casts need the cast back */
-        if (type_is_pointer(&object->type) && !object_is_zero(source))
-        {
-            ss_fprintf(ss, "(void*)");
-        }
-        object_print_value(&ctx->options.platform, ss, source);
-    }
-    else
-    {
-        ss_fprintf(ss, "%s", source_name);
-        codegen_print_designator(ss, source, NULL);
-    }
-
-    ss_fprintf(ss, ";\n");
-}
-
 /*
  Initializes 'object' (destination) using the constant value from 'source'.
 */
@@ -6788,13 +6668,15 @@ static void assign_each_member_from_constexpr(
     }
 }
 
-/* Whether the emitted text of `p_expression` can carry a ".member" or
-   "[index]" suffix appended directly to it.
+/*
+    Whether the emitted text of `p_expression` can carry a ".member" or
+    "[index]" suffix appended directly to it.
 
-   codegen_emit_member_assignments_from_constexpr() builds each destination by
-   string concatenation, and postfix `.`/`[]` bind tighter than every prefix
-   operator - so "*p" + ".m" reparses as "*(p.m)". Anything that is not
-   already a primary or postfix expression has to be parenthesized first. */
+    codegen_emit_member_assignments_from_constexpr() builds each destination by
+    string concatenation, and postfix `.`/`[]` bind tighter than every prefix
+    operator - so "*p" + ".m" reparses as "*(p.m)". Anything that is not
+    already a primary or postfix expression has to be parenthesized first.
+*/
 static bool codegen_expr_takes_postfix_suffix(const struct expression* p_expression)
 {
     switch (p_expression->expression_type)
@@ -6853,8 +6735,10 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
             ss_fprintf(oss, ", ");
         *first = false;
 
-        /* Leaf: dest_prefix was already built up to the full correct path by
-           the recursion above. */
+        /*
+            Leaf: dest_prefix was already built up to the full correct path by
+            the recursion above.
+        */
         if (object_has_constant_value(source))
         {
             struct osstream value = { 0 };
@@ -6923,7 +6807,6 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
     {
         if (!(*first))
             ss_fprintf(ss, ",");
-
         *first = false;
 
         il_print_string(object->p_init_expression->first_token, object->p_init_expression->last_token, ss);
@@ -6977,12 +6860,10 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
                 object_print_initialization_list(ctx, ss, member, first);
                 member = member->next;
                 index++;
-#if defined(__CATALINA__)
                 if (index % 25 == 0)
                 {
-                   ss_fprintf(ss, "\n");
+                    ss_fprintf(ss, "\n");
                 }
-#endif
             }
         }
     }
@@ -6997,7 +6878,6 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
 
         if (!(*first))
             ss_fprintf(ss, ",");
-
         *first = false;
 
         if (object->p_init_expression)
@@ -7061,15 +6941,17 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 }
                 else if (object->p_init_expression)
                 {
-                    /* The initializer targets the UNION AS A WHOLE via a plain
-                       expression -- e.g. `.value = v.value`, copying another
-                       union variable, as opposed to a per-member designator
-                       like `.value = {.i = 5}`. In that case none of the
-                       individual members (.u/.i/.p) carry a p_init_expression
-                       of their own, so the loop below would find nothing and
-                       (when `all` is set) zero every member, silently
-                       discarding the real value. Emit a direct whole-union
-                       assignment from the source expression instead. */
+                    /*
+                        The initializer targets the UNION AS A WHOLE via a plain
+                        expression -- e.g. `.value = v.value`, copying another
+                        union variable, as opposed to a per-member designator
+                        like `.value = {.i = 5}`. In that case none of the
+                        individual members (.u/.i/.p) carry a p_init_expression
+                        of their own, so the loop below would find nothing and
+                        (when `all` is set) zero every member, silently
+                        discarding the real value. Emit a direct whole-union
+                        assignment from the source expression instead.
+                    */
                     print_identation_core(ss, ctx->indentation);
                     ss_fprintf(ss, "%s", declarator_name);
                     codegen_print_designator(ss, object, NULL);
@@ -7154,21 +7036,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     */
                     if (object->p_init_expression->declarator)
                     {
-                        if (object->p_init_expression->lvalue_disabled)
-                        {
-                            const char* name =
-                                object->p_init_expression->declarator->name_opt ?
-                                object->p_init_expression->declarator->name_opt->lexeme : "";
-
-                            object_print_source_object_non_constant_initialization(ctx,
-                                                                                   ss,
-                                                                                   object,
-                                                                                   &object->p_init_expression->declarator->object,
-                                                                                   declarator_name,
-                                                                                   name);
-                        }
-                        else
-                        {
+{
                             size_t sz2 = 0;
                             enum sizeof_result r = type_get_sizeof(&object->p_init_expression->object.type, &sz2, &ctx->options.platform);
                             if (r != SIZEOF_RESULT_OK) r = SIZEOF_RESULT_OK; //throw;
@@ -7338,102 +7206,31 @@ static void print_initializer(struct codegen_ctx* ctx,
                 else
                 {
                     bool done = false;
-                    if (type_is_struct_or_union(&p_init_declarator->p_declarator->object.type) &&
+                    if (type_is_array(&p_init_declarator->p_declarator->object.type) &&
                         p_init_declarator->initializer->assignment_expression->expression_type == EXPR_PRIMARY_DECLARATOR)
                     {
                         /*
+                        //extension
                         int main()
                         {
-                            struct X {
-                                int i;
-                                int j;
-                            } x = {1, 2};
-
-                            struct X x2 = x;
+                            int a[2] = {1, 2};
+                            int b[2] = a;
                         }
                         */
-                        if (p_init_declarator->initializer->assignment_expression->lvalue_disabled)
-                        {
-                            /*
-                            int main()
-                            {
-                                constexpr struct X { int i, j; } x = {1, 2};
-                                static void local() { struct X x2 = x; }
-                                local();
-                            }
-                            */
+                        size_t sz2 = 0;
+                        enum sizeof_result r = type_get_sizeof(&p_init_declarator->p_declarator->object.type, &sz2, &ctx->options.platform);
+                        if (r != SIZEOF_RESULT_OK) throw;
 
-                            if (p_init_declarator->initializer->assignment_expression->declarator == NULL)
-                                throw;
+                        emit_line_directive(ctx, oss, p_init_declarator->initializer->assignment_expression->first_token);
+                        print_identation_core(oss, ctx->indentation);
+                        ss_fprintf(oss, "%s(%s, %s, %zu);\n",
+                                   ctx->memcpy_function_name,
+                                   p_init_declarator->p_declarator->name_opt->lexeme,
+                                   source_name,
+                                   sz2);
 
-                            object_print_source_object_non_constant_initialization(ctx,
-                                                                                   oss,
-                                                                                   &p_init_declarator->p_declarator->object, /* destination - drives structure traversal */
-                                                                                   &p_init_declarator->initializer->assignment_expression->declarator->object,
-                                                                                   "",
-                                                                                   source_name);
-                            done = true;
-                        }
-                    }
-                    else if (type_is_array(&p_init_declarator->p_declarator->object.type) &&
-                        p_init_declarator->initializer->assignment_expression->expression_type == EXPR_PRIMARY_DECLARATOR)
-                    {
-                        /*
-                        int a[2] = {1, 2};
-                        int b[2] = a;
-                        */
-                        //extensions , can use memcpy             
-                        if (p_init_declarator->initializer->assignment_expression->lvalue_disabled)
-                        {
-                            if (object_has_all_members_constants(&p_init_declarator->initializer->assignment_expression->object))
-                            {
-                                /*
-                                int main()
-                                {
-                                  constexpr int a[2] = {1, 2};
-                                  static void local(){
-                                    int b[2] = a;
-                                  }
-                                  local();
-                                }
-                                */
-                                object_print_source_object_non_constant_initialization(
-                                    ctx,
-                                    oss,
-                                    &p_init_declarator->p_declarator->object, /* destination - drives structure traversal */
-                                    &p_init_declarator->initializer->assignment_expression->object, /* source      - provides the values        */
-                                    "", //arrya
-                                    source_name);
-
-                                done = true;
-                            }
-                        }
-                        else
-                        {
-
-                            /*
-                            //extension
-                            int main()
-                             {
-                               int a[2] = {1, 2};
-                               int b[2] = a;
-                             }
-                            */
-                            size_t sz2 = 0;
-                            enum sizeof_result r = type_get_sizeof(&p_init_declarator->p_declarator->object.type, &sz2, &ctx->options.platform);
-                            if (r != SIZEOF_RESULT_OK) throw;
-
-                            emit_line_directive(ctx, oss, p_init_declarator->initializer->assignment_expression->first_token);
-                            print_identation_core(oss, ctx->indentation);
-                            ss_fprintf(oss, "%s(%s, %s, %zu);\n",
-                                       ctx->memcpy_function_name,
-                                       p_init_declarator->p_declarator->name_opt->lexeme,
-                                       source_name,
-                                       sz2);
-
-                            ctx->memcpy_used = true;
-                            done = true;
-                        }
+                        ctx->memcpy_used = true;
+                        done = true;
                     }
 
                     if (!done)
@@ -7833,11 +7630,13 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                 ss_close(&ss);
             }
 
-            /* 3. Initializer (e.g. = malloc(sizeof *p) — sizeof rewritten).
-               A VLA's only legal braced initializer is the empty one, and
-               the alloca path above already emitted its memset; running
-               print_initializer on it would try a compile-time sizeof of
-               the VLA and fail. */
+            /*
+                3. Initializer (e.g. = malloc(sizeof *p) — sizeof rewritten).
+                A VLA's only legal braced initializer is the empty one, and
+                the alloca path above already emitted its memset; running
+                print_initializer on it would try a compile-time sizeof of
+                the VLA and fail.
+            */
             if (p_init_declarator->initializer &&
                 !(type_is_vla(decl_type) && p_init_declarator->initializer->braced_initializer))
             {
@@ -7949,11 +7748,13 @@ static void codegen_visit_declaration(struct codegen_ctx* ctx, struct osstream* 
     if (p_declaration->static_assertion &&
         p_declaration->static_assertion->first_token->type == TK_KEYWORD_RUNTIME_ASSERT)
     {
-        /* _Assert(cond [, "text"]) is not a function call: when the
-           condition is false it calls the emitted handler with the file name,
-           line number and message text. Whether any runtime code is generated
-           at all is controlled by the -runtime-asserts flag; otherwise only
-           the compile-time flow3 narrowing applies and nothing is emitted. */
+        /*
+            _Assert(cond [, "text"]) is not a function call: when the
+            condition is false it calls the emitted handler with the file name,
+            line number and message text. Whether any runtime code is generated
+            at all is controlled by the -runtime-asserts flag; otherwise only
+            the compile-time flow3 narrowing applies and nothing is emitted.
+        */
         if (ctx->options.runtime_asserts)
         {
             struct osstream local = { 0 };
@@ -8005,8 +7806,10 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
 
     ss_fprintf(ss, "\n");
 
-    /* The layout cake computed assumed this pack value (see get_sizeof_struct);
-       the host compiler must see the same one. */
+    /*
+        The layout cake computed assumed this pack value (see get_sizeof_struct);
+        the host compiler must see the same one.
+    */
     if (p_complete->pack_alignment > 0)
     {
         ss_fprintf(ss, "#pragma pack(push, %d)\n", p_complete->pack_alignment);
@@ -8098,9 +7901,11 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
                                      name,
                                      false, false);
 
-                        /* __attribute__((packed)) on one member: alignment 1 for
-                           it alone. MSVC has no per-member spelling; there the
-                           whole struct would need #pragma pack. */
+                        /*
+                            __attribute__((packed)) on one member: alignment 1 for
+                            it alone. MSVC has no per-member spelling; there the
+                            whole struct would need #pragma pack.
+                        */
                         if (member_declarator->declarator->gcc_packed && !msvc_target)
                         {
                             ss_fprintf(&body, " __attribute__((packed))");
@@ -8161,8 +7966,10 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
             aligned = (int)struct_align;
     }
 
-    /* __attribute__((aligned(n))) on the struct: MSVC spells it
-       __declspec(align(n)) and wants it before the keyword. */
+    /*
+        __attribute__((aligned(n))) on the struct: MSVC spells it
+        __declspec(align(n)) and wants it before the keyword.
+    */
     if (aligned > 0 && msvc_target)
     {
         ss_fprintf(ss, "__declspec(align(%d)) ", aligned);
@@ -8469,8 +8276,10 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
             ss_close(&declaration);
 
-            /* A nested codegen function flagged an unrecoverable error: stop
-               generating and unwind to codegen_visit's catch. */
+            /*
+                A nested codegen function flagged an unrecoverable error: stop
+                generating and unwind to codegen_visit's catch.
+            */
             if (ctx->error)
                 throw;
 
@@ -8595,10 +8404,12 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
         if (ctx->runtime_assert_used)
         {
-            /* Handler emitted for _Assert (like the memcpy helper): the real
-               function invoked on failure, receiving the file name, line number and
-               message text. Left empty for now -- the actual behaviour (report /
-               abort / trap) is compiler/platform specific and filled in later. */
+            /*
+                Handler emitted for _Assert (like the memcpy helper): the real
+                function invoked on failure, receiving the file name, line number and
+                message text. Left empty for now -- the actual behaviour (report /
+                abort / trap) is compiler/platform specific and filled in later.
+            */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
                        "static void %s(char * file, int line, char * text)\n"
@@ -8609,9 +8420,11 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
         if (ctx->assert_fail_used)
         {
-            /* Stub for __assert_fail (glibc's assert() failure handler), same
-               idea as the runtime_assert_failed handler above: left empty for
-               now, filled in later with the real report/abort behaviour. */
+            /*
+                Stub for __assert_fail (glibc's assert() failure handler), same
+                idea as the runtime_assert_failed handler above: left empty for
+                now, filled in later with the real report/abort behaviour.
+            */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
                        "static void __assert_fail(char * assertion, char * file, unsigned int line, char * function)\n"
@@ -8621,8 +8434,10 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
         if (ctx->assert_rtn_used)
         {
-            /* Stub for __assert_rtn (macOS/Apple's assert() failure handler).
-               Same idea as __assert_fail above. */
+            /*
+                Stub for __assert_rtn (macOS/Apple's assert() failure handler).
+                Same idea as __assert_fail above.
+            */
             ss_fprintf(oss, "\n");
             ss_fprintf(oss,
                        "static void __assert_rtn(char * function, char * file, int line, char * message)\n"
@@ -8632,10 +8447,11 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
         if (ctx->options.line_directives)
         {
-            /* Because Cake inserts text out of order recursively, it is hard
-             to produce minimal #line directives, so we perform an extra step
-             to remove unnecessary ones.
-             */
+            /*
+                Because Cake inserts text out of order recursively, it is hard
+                to produce minimal #line directives, so we perform an extra step
+                to remove unnecessary ones.
+            */
             if (oss->c_str)
                 oss->size = (int)clean_line_directives(oss->c_str);
         }

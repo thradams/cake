@@ -4,7 +4,7 @@
 */
 
 
-//#pragma safety enable
+
 
 #include "cake_compat.h"
 #include <assert.h>
@@ -678,8 +678,9 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
 {
     if (p_type->attributes_flags & attributes)
     {
-        /*like
-          [[maybe_unused]] int i;
+        /*
+            like
+            [[maybe_unused]] int i;
         */
         return true;
     }
@@ -688,9 +689,10 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
 
     if (p_type->struct_or_union_specifier)
     {
-        /*like
-          struct [[maybe_unused]] X { }
-          struct X x;
+        /*
+            like
+            struct [[maybe_unused]] X { }
+            struct X x;
         */
         p_attribute_specifier_sequence = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
 
@@ -1365,8 +1367,10 @@ static bool struct_or_union_specifier_is_same_content_impl(const struct struct_o
     return same;
 }
 
-/* same kind and tag; two visible definitions are the same type when they are the same definition
-   (the parser merges them, see parser.c) or, C23 6.2.7 (N3037), when they have the same content */
+/*
+    same kind and tag; two visible definitions are the same type when they are the same definition
+    (the parser merges them, see parser.c) or, C23 6.2.7 (N3037), when they have the same content
+*/
 bool struct_or_union_specifier_is_compatible(const struct struct_or_union_specifier* a,
                                              const struct struct_or_union_specifier* b)
 {
@@ -2422,12 +2426,14 @@ struct type type_dup(const struct type* p_type)
         */
         free(l.head);
 
-        /* type_dup deliberately steps outside the ownership rules: `*p_new = *p`
-           copies the whole struct so every field comes across, and the owner
-           members it brought along are immediately replaced (next nulled,
-           name_opt re-strdup'd, params rebuilt) -- see the "actually I was not
-           the _Owner of ..." notes above. p is const and is never consumed,
-           but each copied owner member reads as a move. */
+        /*
+            type_dup deliberately steps outside the ownership rules: `*p_new = *p`
+            copies the whole struct so every field comes across, and the owner
+            members it brought along are immediately replaced (next nulled,
+            name_opt re-strdup'd, params rebuilt) -- see the "actually I was not
+            the _Owner of ..." notes above. p is const and is never consumed,
+            but each copied owner member reads as a move.
+        */
         return r; 
     }
     catch
@@ -3452,9 +3458,11 @@ size_t type_get_alignof(const struct type* p_type, const struct platform* target
         type_destroy(&type);
     }
 
-    /* _Alignas(n) / __attribute__((aligned(n))) only ever raise the
-       alignment: _Alignas below the natural one is a constraint violation,
-       and GCC ignores a smaller aligned(n). */
+    /*
+        _Alignas(n) / __attribute__((aligned(n))) only ever raise the
+        alignment: _Alignas below the natural one is a constraint violation,
+        and GCC ignores a smaller aligned(n).
+    */
     if (category == TYPE_CATEGORY_ITSELF || category == TYPE_CATEGORY_ARRAY)
     {
         size_t requested = alignment_flags_to_value(p_type->alignment_specifier_flags);
@@ -3580,13 +3588,15 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, cons
             {
 #if !defined(__CATALINA__)
 #if SIZE_MAX < 0xFFFFFFFFFFFFFFFFULL
-                /* Only meaningful when size_t is narrower than unsigned long
-                   long -- on a 64-bit host SIZE_MAX == ULLONG_MAX, so
-                   `result` (itself an unsigned long long) can never exceed
-                   it and this branch is unreachable by construction. Left
-                   compiled in for a 64-bit `result` it confused the flow
-                   analyzer into also mis-marking the unrelated MSVC cap
-                   check below as unreachable. */
+                /*
+                    Only meaningful when size_t is narrower than unsigned long
+                    long -- on a 64-bit host SIZE_MAX == ULLONG_MAX, so
+                    `result` (itself an unsigned long long) can never exceed
+                    it and this branch is unreachable by construction. Left
+                    compiled in for a 64-bit `result` it confused the flow
+                    analyzer into also mis-marking the unrelated MSVC cap
+                    check below as unreachable.
+                */
                 if (result > SIZE_MAX)
                 {
                     return SIZEOF_RESULT_OVERLOW;

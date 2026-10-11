@@ -1,20 +1,21 @@
-/* ide_gui_wayland.c - Wayland backend of the ide GUI framework.
- *
- * Only translates Wayland events into calls to the core and implements the
- * drawing primitives of ide_gui_backend.h. Unlike X11, nobody draws for
- * us: the window is a buffer of pixels we fill ourselves - rects and
- * shadows directly, text with FreeType (the font found by fontconfig, its
- * glyphs cached) - and hand to the compositor, only the part that changed.
- * The title bar is the compositor's (xdg-decoration) where it offers one.
- * Key repeat is ours too: Wayland sends a key once.
- *
- * Each toplevel is a struct wl_view: the main one and one per detached
- * window (gui_window_detach). The seat is shared, so pointer and keyboard
- * events go to the view that has their focus.
- *
- * Build: gcc ... ide_gui_wayland.c -lwayland-client -lwayland-cursor
- *            -lxkbcommon -lfontconfig -lfreetype $(pkg-config --cflags freetype2)
- */
+/*
+    ide_gui_wayland.c - Wayland backend of the ide GUI framework.
+
+    Only translates Wayland events into calls to the core and implements the
+    drawing primitives of ide_gui_backend.h. Unlike X11, nobody draws for
+    us: the window is a buffer of pixels we fill ourselves - rects and
+    shadows directly, text with FreeType (the font found by fontconfig, its
+    glyphs cached) - and hand to the compositor, only the part that changed.
+    The title bar is the compositor's (xdg-decoration) where it offers one.
+    Key repeat is ours too: Wayland sends a key once.
+
+    Each toplevel is a struct wl_view: the main one and one per detached
+    window (gui_window_detach). The seat is shared, so pointer and keyboard
+    events go to the view that has their focus.
+
+    Build: gcc ... ide_gui_wayland.c -lwayland-client -lwayland-cursor
+               -lxkbcommon -lfontconfig -lfreetype $(pkg-config --cflags freetype2)
+*/
 #define _GNU_SOURCE   /* memfd_create */
 
 #include "ide_gui_backend.h"
@@ -195,8 +196,10 @@ static long long now_ms(void)
     return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-/* fontconfig substitutes instead of failing, so a family is installed only
- * if the match has that very name. Its file into *path (malloc'ed). */
+/*
+    fontconfig substitutes instead of failing, so a family is installed only
+    if the match has that very name. Its file into *path (malloc'ed).
+*/
 static int font_file(const char* name, char** path, int mono)
 {
     /* "System": the desktop's own sans-serif, whatever family it is */
@@ -250,8 +253,10 @@ static int font_open(struct gui_canvas* c, struct font* f, int pt)
     return font_load(c, f, pt, path, 'M');
 }
 
-/* GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
- * cell_w is half its row height, as the monospaced fonts. */
+/*
+    GUI_FONT_UI: c->ui_family at `pt`, proportional, else the main family;
+    cell_w is half its row height, as the monospaced fonts.
+*/
 static int font_open_ui(struct gui_canvas* c, struct font* f, int pt)
 {
     char* path = NULL;
@@ -630,8 +635,10 @@ static int buffer_create(struct wl_view* v, struct shm_buffer* b, int w, int h)
     return 1;
 }
 
-/* The canvas at the new size; its old contents are lost, so the core paints
- * everything next. */
+/*
+    The canvas at the new size; its old contents are lost, so the core paints
+    everything next.
+*/
 static void resize_canvas(struct wl_view* v, int w, int h)
 {
     struct gui_canvas* c = &v->canvas;
@@ -659,9 +666,11 @@ static void resize_canvas(struct wl_view* v, int w, int h)
     }
 }
 
-/* What changed goes to a free buffer, which is handed to the compositor.
- * Each buffer remembers what changed since it was last filled, so only
- * that is copied into it - not the whole window. */
+/*
+    What changed goes to a free buffer, which is handed to the compositor.
+    Each buffer remembers what changed since it was last filled, so only
+    that is copied into it - not the whole window.
+*/
 static void present(struct wl_view* v)
 {
     struct gui_canvas* c = &v->canvas;
@@ -707,8 +716,10 @@ int gui_backend_can_detach(void)
     return 1;
 }
 
-/* A detached view's fonts follow the main one's: its own copies, since
- * each keeps its own glyph cache. */
+/*
+    A detached view's fonts follow the main one's: its own copies, since
+    each keeps its own glyph cache.
+*/
 static void follow_fonts(struct wl_view* d, const struct wl_view* main)
 {
     struct gui_canvas* c = &d->canvas;
@@ -770,8 +781,10 @@ static void detached_close(struct wl_window* win, struct wl_view* d)
     free(d);
 }
 
-/* The toplevels the core asked for, made and closed. Wayland lets no
- * client raise its own window, so a raise is only taken. */
+/*
+    The toplevels the core asked for, made and closed. Wayland lets no
+    client raise its own window, so a raise is only taken.
+*/
 static void sync_detached(struct wl_window* win)
 {
     int w, h;
@@ -786,9 +799,11 @@ static void sync_detached(struct wl_window* win)
     }
 }
 
-/* Applies what the app asked for (quit, timer, font, zoom), lets the core
- * paint whatever changed and shows it - in the main view and each detached
- * one. */
+/*
+    Applies what the app asked for (quit, timer, font, zoom), lets the core
+    paint whatever changed and shows it - in the main view and each detached
+    one.
+*/
 static void refresh(struct wl_window* win)
 {
     struct gui_canvas* c = &win->main.canvas;
@@ -860,9 +875,11 @@ static void refresh(struct wl_window* win)
         set_cursor(win, p->detached ? gui_surface_cursor(win->app, p->detached) : gui_app_cursor(win->app));
 }
 
-/* The event to the app, for view `v` (NULL: the main one); the paint waits
- * until every queued event is taken (the main loop), so a burst costs one
- * frame. */
+/*
+    The event to the app, for view `v` (NULL: the main one); the paint waits
+    until every queued event is taken (the main loop), so a burst costs one
+    frame.
+*/
 static void post(struct wl_window* win, struct wl_view* v, const struct gui_event* ev)
 {
     if (v && v->detached)
@@ -1249,8 +1266,10 @@ static void post_chars(struct wl_window* win, const char* text)
     }
 }
 
-/* Like X11: a key event for keys and shortcuts, then a char event for what
- * the key types - none with Ctrl or Alt held. `xkb_key` is the evdev code + 8. */
+/*
+    Like X11: a key event for keys and shortcuts, then a char event for what
+    the key types - none with Ctrl or Alt held. `xkb_key` is the evdev code + 8.
+*/
 static void key_down(struct wl_window* win, uint32_t xkb_key)
 {
     xkb_keysym_t sym = xkb_state_key_get_one_sym(win->xkb_state, xkb_key);
@@ -1496,8 +1515,10 @@ static void registry_remove(void* data, struct wl_registry* reg, uint32_t name)
 
 static const struct wl_registry_listener registry_listener = { registry_global, registry_remove };
 
-/* A toplevel for `v`, its canvas `w` x `h`: drawn once the first configure
- * comes. */
+/*
+    A toplevel for `v`, its canvas `w` x `h`: drawn once the first configure
+    comes.
+*/
 static void view_open(struct wl_window* win, struct wl_view* v, int w, int h)
 {
     v->owner = win;
