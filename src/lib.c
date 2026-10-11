@@ -2414,7 +2414,7 @@ enum diagnostic_id {
     W_UNUSED_WARNING_123 = 123,
     W_UNUSED_WARNING_124 = 124,
     W_UNUSED_WARNING_125 = 125,
-    W_UNUSED_WARNING_126 = 126,
+    W_VA_START_REQUIRES_C23 = 126,
     W_UNARY_MINUS_ON_UNSIGNED = 127,
 
 
@@ -36117,6 +36117,24 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 expression_delete(new_expression);
                 throw;
             }
+            if (new_expression->right == NULL && ctx->p_current_function_opt)
+            {
+                /*
+                  va_start(ap) is converted to va_start(ap, last), using the
+                  last named parameter. Without one, the generated code keeps
+                  the C23 form.
+                */
+                const struct param* _Opt p_last_param = ctx->p_current_function_opt->object.type.params.tail;
+                if (p_last_param == NULL || p_last_param->type.name_opt == NULL)
+                {
+                    diagnostic(W_VA_START_REQUIRES_C23,
+                        ctx,
+                        new_expression->first_token,
+                        NULL,
+                        "function has no named last parameter; the generated va_start requires a C23 compiler");
+                }
+            }
+
             new_expression->object.type = make_void_type();
             new_expression->last_token = p_previous_token;
             return new_expression;
@@ -66246,9 +66264,9 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 else
                 {
                     /*
-                      f(...) has no named parameter (C23 only).
-                      TODO to convert to C89 we need to insert the first parameter
-                      at the caller and at the implementation
+                      f(...) has no named parameter (C23 only), or it is
+                      unnamed. The generated code needs a C23 compiler
+                      (warning W_VA_START_REQUIRES_C23).
                     */
                     ss_fprintf(oss, "__builtin_c23_va_start(");
                     codegen_visit_expression(ctx, oss, p_expression->left);
@@ -66783,6 +66801,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
             ss_fprintf(oss, "(");
             struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
+
             while (arg)
             {
                 bool to_bool = param &&

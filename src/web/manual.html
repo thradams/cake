@@ -2409,7 +2409,13 @@ conversion is always possible when the function has one. Cake generates:</p>
 
 <blockquote>
 <p><strong>Note:</strong> <code>void f(...)</code>, with no named parameter, cannot be converted; the
-output keeps <code>__builtin_c23_va_start(args)</code>, which needs a C23 compiler.</p>
+output keeps <code>__builtin_c23_va_start(args)</code>, which needs a C23 compiler.
+The same happens when the last parameter is unnamed. Cake reports
+warning 126 in both cases.</p>
+
+<p><strong>Note:</strong> msvc targets are not supported yet: the <code>va_start</code> of the msvc
+headers requires two arguments, and the generated <code>__builtin_va_start</code>
+does not exist in msvc.</p>
 </blockquote>
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2975.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2975.pdf</a></p>

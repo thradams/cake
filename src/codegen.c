@@ -3338,9 +3338,9 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 else
                 {
                     /*
-                      f(...) has no named parameter (C23 only).
-                      TODO to convert to C89 we need to insert the first parameter
-                      at the caller and at the implementation
+                      f(...) has no named parameter (C23 only), or it is
+                      unnamed. The generated code needs a C23 compiler
+                      (warning W_VA_START_REQUIRES_C23).
                     */
                     ss_fprintf(oss, "__builtin_c23_va_start(");
                     codegen_visit_expression(ctx, oss, p_expression->left);
@@ -3875,6 +3875,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
             ss_fprintf(oss, "(");
             struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
+
             while (arg)
             {
                 bool to_bool = param &&

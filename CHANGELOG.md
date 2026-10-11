@@ -10,7 +10,7 @@ as the GitHub Release notes.
 
 - `va_start` with one argument (C23) is converted to the old form, using the
   last named parameter. `void f(...)`, with no named parameter, cannot be
-  converted and still needs a C23 compiler.
+  converted and still needs a C23 compiler; warning 126 reports it.
   ```c
   va_start(args);                  // source
   __builtin_va_start(args, count); // generated

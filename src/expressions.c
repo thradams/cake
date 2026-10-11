@@ -5437,6 +5437,24 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 expression_delete(new_expression);
                 throw;
             }
+            if (new_expression->right == NULL && ctx->p_current_function_opt)
+            {
+                /*
+                  va_start(ap) is converted to va_start(ap, last), using the
+                  last named parameter. Without one, the generated code keeps
+                  the C23 form.
+                */
+                const struct param* _Opt p_last_param = ctx->p_current_function_opt->object.type.params.tail;
+                if (p_last_param == NULL || p_last_param->type.name_opt == NULL)
+                {
+                    diagnostic(W_VA_START_REQUIRES_C23,
+                        ctx,
+                        new_expression->first_token,
+                        NULL,
+                        "function has no named last parameter; the generated va_start requires a C23 compiler");
+                }
+            }
+
             new_expression->object.type = make_void_type();
             new_expression->last_token = p_previous_token;
             return new_expression;
