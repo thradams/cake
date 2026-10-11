@@ -1,9 +1,8 @@
 #pragma safety enable
 
 enum {
-    mtx_plain ,
-    mtx_timed,
     mtx_plain,
+    mtx_recursive,
     mtx_timed,
 };
 

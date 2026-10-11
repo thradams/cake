@@ -3322,13 +3322,30 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             }
             else
             {
-                //first argument is optional in C23
-                ss_fprintf(oss, "__builtin_c23_va_start(");
-                codegen_visit_expression(ctx, oss, p_expression->left);
-                ss_fprintf(oss, ")");
-                //TODO to convert to C89 we need to insert the first parameter
-                //at the caller and at the implementation
-                /* ss_fprintf(oss, ", __first_va_arg"); */
+                /*
+                  The second argument is optional in C23. Before C23 it is
+                  the last named parameter, so we insert it.
+                */
+                const struct param* _Opt p_last_param =
+                    ctx->p_current_function_opt ? ctx->p_current_function_opt->object.type.params.tail : NULL;
+
+                if (p_last_param && p_last_param->type.name_opt)
+                {
+                    ss_fprintf(oss, "__builtin_va_start(");
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ", %s)", p_last_param->type.name_opt);
+                }
+                else
+                {
+                    /*
+                      f(...) has no named parameter (C23 only).
+                      TODO to convert to C89 we need to insert the first parameter
+                      at the caller and at the implementation
+                    */
+                    ss_fprintf(oss, "__builtin_c23_va_start(");
+                    codegen_visit_expression(ctx, oss, p_expression->left);
+                    ss_fprintf(oss, ")");
+                }
             }
             break;
 

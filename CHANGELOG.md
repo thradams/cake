@@ -4,6 +4,27 @@ Newest version first. Changes not yet in a release go under **Unreleased**.
 On release, rename it to the version in `src/version.h` and use the section
 as the GitHub Release notes.
 
+## 0.15.20 - 2026-10-11
+
+### Code generation
+
+- `va_start` with one argument (C23) is converted to the old form, using the
+  last named parameter. `void f(...)`, with no named parameter, cannot be
+  converted and still needs a C23 compiler.
+  ```c
+  va_start(args);                  // source
+  __builtin_va_start(args, count); // generated
+  ```
+
+### Fixes
+
+- A whole-number `long double` constant was generated without the decimal
+  point (`9223372036854775808L` instead of `9223372036854775808.0L`) on
+  targets where `long double` is wider than `double` (gcc/clang x86),
+  turning it into an integer constant.
+- cake89 failed to link with gcc (`undefined reference to 'truncl'`); cake no
+  longer uses `truncl`.
+
 ## 0.15.19 - 2026-10-11
 
 ### Diagnostics

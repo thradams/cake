@@ -417,92 +417,95 @@
 <li>
 <a href="#toc_78">9.24 Compound Literals with Storage Specifier</a>
 </li>
+<li>
+<a href="#toc_79">9.25 <code>va_start</code> with One Argument</a>
+</li>
 </ul>
 </li>
 <li>
-<a href="#toc_79">10. C2Y Features</a>
+<a href="#toc_80">10. C2Y Features</a>
 <ul>
 <li>
-<a href="#toc_80">10.1 Octal Literals with <code>0o</code> / <code>0O</code> Prefix</a>
+<a href="#toc_81">10.1 Octal Literals with <code>0o</code> / <code>0O</code> Prefix</a>
 </li>
 <li>
-<a href="#toc_81">10.2 Case Range Expressions</a>
+<a href="#toc_82">10.2 Case Range Expressions</a>
 </li>
 <li>
-<a href="#toc_82">10.3 <code>#def</code> / <code>#enddef</code> Multi-Line Macro Blocks</a>
+<a href="#toc_83">10.3 <code>#def</code> / <code>#enddef</code> Multi-Line Macro Blocks</a>
 </li>
 <li>
-<a href="#toc_83">10.4 <code>_Countof</code> Operator</a>
+<a href="#toc_84">10.4 <code>_Countof</code> Operator</a>
 </li>
 <li>
-<a href="#toc_84">10.5 <code>_Defer</code> Statement</a>
+<a href="#toc_85">10.5 <code>_Defer</code> Statement</a>
 </li>
 <li>
-<a href="#toc_85">10.6 <code>if</code> and <code>switch</code> Declarations</a>
+<a href="#toc_86">10.6 <code>if</code> and <code>switch</code> Declarations</a>
 </li>
 <li>
-<a href="#toc_86">10.7 <code>typename</code> in <code>_Generic</code></a>
+<a href="#toc_87">10.7 <code>typename</code> in <code>_Generic</code></a>
 </li>
 <li>
-<a href="#toc_87">10.8 <code>__COUNTER__</code> Predefined Macro</a>
+<a href="#toc_88">10.8 <code>__COUNTER__</code> Predefined Macro</a>
 </li>
 <li>
-<a href="#toc_88">10.9 Local Functions</a>
+<a href="#toc_89">10.9 Local Functions</a>
 </li>
 <li>
-<a href="#toc_89">10.10 Function Literals</a>
+<a href="#toc_90">10.10 Function Literals</a>
 </li>
 <li>
-<a href="#toc_90">10.11 Statement Expressions</a>
+<a href="#toc_91">10.11 Statement Expressions</a>
 </li>
 <li>
-<a href="#toc_91">10.12 Elvis Operator (<code>?:</code>)</a>
+<a href="#toc_92">10.12 Elvis Operator (<code>?:</code>)</a>
 </li>
 <li>
-<a href="#toc_92">10.13 <code>static_assert</code> as an Expression</a>
+<a href="#toc_93">10.13 <code>static_assert</code> as an Expression</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_93">11. Cake Language Extensions</a>
+<a href="#toc_94">11. Cake Language Extensions</a>
 <ul>
 <li>
-<a href="#toc_94">11.1 Built-in <code>_Assert</code></a>
+<a href="#toc_95">11.1 Built-in <code>_Assert</code></a>
 </li>
 <li>
-<a href="#toc_95">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></a>
+<a href="#toc_96">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></a>
 </li>
 <li>
-<a href="#toc_96">11.3 Checked Expressions (<code>!</code> operator)</a>
+<a href="#toc_97">11.3 Checked Expressions (<code>!</code> operator)</a>
 </li>
 <li>
-<a href="#toc_97">11.4 <code>#pragma dir</code></a>
+<a href="#toc_98">11.4 <code>#pragma dir</code></a>
 </li>
 <li>
-<a href="#toc_98">11.5 <code>#pragma pack</code></a>
+<a href="#toc_99">11.5 <code>#pragma pack</code></a>
 </li>
 <li>
-<a href="#toc_99">11.6 <code>__attribute__((packed))</code> and <code>__attribute__((aligned(n)))</code></a>
+<a href="#toc_100">11.6 <code>__attribute__((packed))</code> and <code>__attribute__((aligned(n)))</code></a>
 </li>
 <li>
-<a href="#toc_100">11.7 <code>offsetof</code> Operator</a>
+<a href="#toc_101">11.7 <code>offsetof</code> Operator</a>
 </li>
 <li>
-<a href="#toc_101">11.8 Type Traits</a>
+<a href="#toc_102">11.8 Type Traits</a>
 </li>
 <li>
-<a href="#toc_102">11.9 Object Lifetime Checks (Ownership)</a>
+<a href="#toc_103">11.9 Object Lifetime Checks (Ownership)</a>
 </li>
 <li>
-<a href="#toc_103">11.10 Pre-defined Macros</a>
+<a href="#toc_104">11.10 Pre-defined Macros</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_104">12. GCC Compatibility</a>
+<a href="#toc_105">12. GCC Compatibility</a>
 </li>
 <li>
-<a href="#toc_105">13. MSVC Compatibility</a>
+<a href="#toc_106">13. MSVC Compatibility</a>
 </li>
 </ul>
 </li>
@@ -2378,13 +2381,46 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm</a></p>
 
+<h3 id="toc_79">9.25 <code>va_start</code> with One Argument</h3>
+
+<p>In C23 the second argument of <code>va_start</code> is optional, and a variadic
+function may have no named parameter: <code>void f(...)</code>.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#include &lt;stdarg.h&gt;
+
+int sum(int count, ...) {
+    int result = 0;
+    va_list args;
+    va_start(args);  /* C23 */
+    for (int i = 0; i &lt; count; i++)
+        result += va_arg(args, int);
+    va_end(args);
+    return result;
+}
+</code></pre>
+
+<p>Before C23, the second argument is the last named parameter, so the
+conversion is always possible when the function has one. Cake generates:</p>
+
+<pre><code class="language-c">__builtin_va_start(args, count);
+</code></pre>
+
+<blockquote>
+<p><strong>Note:</strong> <code>void f(...)</code>, with no named parameter, cannot be converted; the
+output keeps <code>__builtin_c23_va_start(args)</code>, which needs a C23 compiler.</p>
+</blockquote>
+
+<p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2975.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2975.pdf</a></p>
+
 <hr>
 
-<h2 id="toc_79">10. C2Y Features</h2>
+<h2 id="toc_80">10. C2Y Features</h2>
 
 <p>These features are from the current C2Y working draft. Support status is noted for each.</p>
 
-<h3 id="toc_80">10.1 Octal Literals with <code>0o</code> / <code>0O</code> Prefix</h3>
+<h3 id="toc_81">10.1 Octal Literals with <code>0o</code> / <code>0O</code> Prefix</h3>
 
 <!-- runnable -->
 
@@ -2398,7 +2434,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3353.htm</a></p>
 
-<h3 id="toc_81">10.2 Case Range Expressions</h3>
+<h3 id="toc_82">10.2 Case Range Expressions</h3>
 
 <!-- runnable -->
 
@@ -2417,7 +2453,7 @@ void f(int n) {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3370.htm</a></p>
 
-<h3 id="toc_82">10.3 <code>#def</code> / <code>#enddef</code> Multi-Line Macro Blocks</h3>
+<h3 id="toc_83">10.3 <code>#def</code> / <code>#enddef</code> Multi-Line Macro Blocks</h3>
 
 <p>This feature is implemented in Cake as an experimental extension while its inclusion in C2Y is evaluated.</p>
 
@@ -2437,7 +2473,7 @@ foo(2)
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt</a></p>
 
-<h3 id="toc_83">10.4 <code>_Countof</code> Operator</h3>
+<h3 id="toc_84">10.4 <code>_Countof</code> Operator</h3>
 
 <p>Returns the number of elements in the outermost dimension of an array type.</p>
 
@@ -2460,7 +2496,7 @@ static_assert(_Countof(enum E) == 6);
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3369.pdf</a></p>
 
-<h3 id="toc_84">10.5 <code>_Defer</code> Statement</h3>
+<h3 id="toc_85">10.5 <code>_Defer</code> Statement</h3>
 
 <p><code>_Defer</code> executes a statement or block when the enclosing scope exits, in reverse order of appearance. It is designed for deterministic resource cleanup.</p>
 
@@ -2505,7 +2541,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3734.pdf</a></p>
 
-<h3 id="toc_85">10.6 <code>if</code> and <code>switch</code> Declarations</h3>
+<h3 id="toc_86">10.6 <code>if</code> and <code>switch</code> Declarations</h3>
 
 <p>The controlling clause of <code>if</code> and <code>switch</code> (the <em>selection-header</em>) accepts three forms:</p>
 
@@ -2571,7 +2607,7 @@ in a <em>declaration-condition</em>: <code>if (static int once = 1)</code> is an
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3580.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3580.htm</a></p>
 
-<h3 id="toc_86">10.7 <code>typename</code> in <code>_Generic</code></h3>
+<h3 id="toc_87">10.7 <code>typename</code> in <code>_Generic</code></h3>
 
 <p>Allows type names as the controlling expression in <code>_Generic</code>.</p>
 
@@ -2587,7 +2623,7 @@ in a <em>declaration-condition</em>: <code>if (static int once = 1)</code> is an
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf</a></p>
 
-<h3 id="toc_87">10.8 <code>__COUNTER__</code> Predefined Macro</h3>
+<h3 id="toc_88">10.8 <code>__COUNTER__</code> Predefined Macro</h3>
 
 <!-- runnable -->
 
@@ -2599,7 +2635,7 @@ X(__COUNTER__)   /* 1 1 */
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3457.htm</a></p>
 
-<h3 id="toc_88">10.9 Local Functions</h3>
+<h3 id="toc_89">10.9 Local Functions</h3>
 
 <!-- runnable -->
 
@@ -2611,7 +2647,7 @@ X(__COUNTER__)   /* 1 1 */
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3678.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3678.pdf</a></p>
 
-<h3 id="toc_89">10.10 Function Literals</h3>
+<h3 id="toc_90">10.10 Function Literals</h3>
 
 <!-- runnable -->
 
@@ -2624,7 +2660,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3679.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3679.pdf</a></p>
 
-<h3 id="toc_90">10.11 Statement Expressions</h3>
+<h3 id="toc_91">10.11 Statement Expressions</h3>
 
 <!-- runnable -->
 
@@ -2640,7 +2676,7 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3643.htm</a></p>
 
-<h3 id="toc_91">10.12 Elvis Operator (<code>?:</code>)</h3>
+<h3 id="toc_92">10.12 Elvis Operator (<code>?:</code>)</h3>
 
 <p>The Elvis operator is a shorthand for the ternary operator where the middle 
 operand is omitted. When the condition is truthy, it is returned; 
@@ -2698,7 +2734,7 @@ int r = a ?: b ?: c;   /* 7 */
 #endif
 </code></pre>
 
-<h3 id="toc_92">10.13 <code>static_assert</code> as an Expression</h3>
+<h3 id="toc_93">10.13 <code>static_assert</code> as an Expression</h3>
 
 <p>In C2Y, <code>static_assert</code> is extended to work not only as a declaration 
 but also as an <strong>expression operator</strong> with type <code>void</code>. 
@@ -2776,9 +2812,9 @@ void func() {
 }
 </code></pre>
 
-<h2 id="toc_93">11. Cake Language Extensions</h2>
+<h2 id="toc_94">11. Cake Language Extensions</h2>
 
-<h3 id="toc_94">11.1 Built-in <code>_Assert</code></h3>
+<h3 id="toc_95">11.1 Built-in <code>_Assert</code></h3>
 
 <p>In Cake, <code>assert</code> is a built-in statement rather than a macro because flow analysis need it even in release builds.
 The effect of <code>assert(expression)</code> is equivalent of <code>if (!(expression)) exit(1);</code>.</p>
@@ -2796,7 +2832,7 @@ The effect of <code>assert(expression)</code> is equivalent of <code>if (!(expre
 }
 </code></pre>
 
-<h3 id="toc_95">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></h3>
+<h3 id="toc_96">11.2 <code>try</code> / <code>throw</code> / <code>catch</code></h3>
 
 <p>Cake provides a structured local-jump mechanism for error handling. <code>try</code>/<code>catch</code> is explicitly a <strong>local</strong> 
 jump - it cannot propagate across function boundaries. This is by design.</p>
@@ -2834,7 +2870,7 @@ int main() {
 
 </code></pre>
 
-<h3 id="toc_96">11.3 Checked Expressions (<code>!</code> operator)</h3>
+<h3 id="toc_97">11.3 Checked Expressions (<code>!</code> operator)</h3>
 
 <pre><code>checked-expression:
     assignment-expression
@@ -2886,7 +2922,7 @@ int main() {
 <p><strong>Note</strong> this is a very experimental feature</p>
 </blockquote>
 
-<h3 id="toc_97">11.4 <code>#pragma dir</code></h3>
+<h3 id="toc_98">11.4 <code>#pragma dir</code></h3>
 
 <p>Adds a path to the list of directories searched for include files. 
 This pragma declares an include directory from inside a source file.
@@ -2897,7 +2933,7 @@ System include directories come from <code>cake.json</code> instead (see 2.2), b
 #pragma dir &quot;./openssl/include&quot;
 </code></pre>
 
-<h3 id="toc_98">11.5 <code>#pragma pack</code></h3>
+<h3 id="toc_99">11.5 <code>#pragma pack</code></h3>
 
 <p>By default the compiler inserts padding bytes between struct members so that
 each member starts at an address that is a multiple of its natural alignment
@@ -3013,7 +3049,7 @@ effect, may straddle a storage unit of its type; a zero-width bit-field still
 aligns to the natural alignment of its type. MSVC keeps its storage-unit
 model with the unit&#39;s alignment capped at <code>n</code>.</p>
 
-<h3 id="toc_99">11.6 <code>__attribute__((packed))</code> and <code>__attribute__((aligned(n)))</code></h3>
+<h3 id="toc_100">11.6 <code>__attribute__((packed))</code> and <code>__attribute__((aligned(n)))</code></h3>
 
 <p>The GCC/Clang attributes that change struct layout are honored the same way
 <code>#pragma pack</code> is: they take part in <code>sizeof</code>, <code>_Alignof</code> and <code>offsetof</code>,
@@ -3074,7 +3110,7 @@ struct __attribute__((aligned(16))) block {
 };
 </code></pre>
 
-<h3 id="toc_100">11.7 <code>offsetof</code> Operator</h3>
+<h3 id="toc_101">11.7 <code>offsetof</code> Operator</h3>
 
 <p>In Cake, <code>offsetof</code> is a built-in operator rather than a macro, following
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3958.pdf">N3958</a>
@@ -3203,7 +3239,7 @@ instead of being rejected as a non-constant address.</p>
 <pre><code class="language-c">#define offsetof(type, member) ((size_t)&amp;(((type *)0)-&gt;member))
 </code></pre>
 
-<h3 id="toc_101">11.8 Type Traits</h3>
+<h3 id="toc_102">11.8 Type Traits</h3>
 
 <p>Cake provides compile-time type introspection functions that return boolean integer constant expressions:</p>
 
@@ -3225,7 +3261,7 @@ instead of being rejected as a non-constant address.</p>
 }
 </code></pre>
 
-<h3 id="toc_102">11.9 Object Lifetime Checks (Ownership)</h3>
+<h3 id="toc_103">11.9 Object Lifetime Checks (Ownership)</h3>
 
 <p>Cake includes a static analysis system for tracking object ownership and lifetime, activated with <code>#pragma safety enable</code> or <code>-flow -check-annotations -default-nonnull</code>.</p>
 
@@ -3241,7 +3277,7 @@ with <code>#include_next</code> (2.3).</p>
 
 <p>Full documentation: <a href="ownership.html">ownership.html</a></p>
 
-<h3 id="toc_103">11.10 Pre-defined Macros</h3>
+<h3 id="toc_104">11.10 Pre-defined Macros</h3>
 
 <p>Cake defines the following macros:</p>
 
@@ -3251,7 +3287,7 @@ with <code>#include_next</code> (2.3).</p>
 
 <hr>
 
-<h2 id="toc_104">12. GCC Compatibility</h2>
+<h2 id="toc_105">12. GCC Compatibility</h2>
 
 <p>Cake recognizes the following GCC built-ins and extensions:</p>
 
@@ -3273,7 +3309,7 @@ with <code>#include_next</code> (2.3).</p>
 
 <hr>
 
-<h2 id="toc_105">13. MSVC Compatibility</h2>
+<h2 id="toc_106">13. MSVC Compatibility</h2>
 
 <p>Cake recognizes the following MSVC extensions:</p>
 

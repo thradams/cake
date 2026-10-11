@@ -13,13 +13,13 @@ void login_async(void * data, void callback(void* data, int id))
 
 void get_data_async(void * data, void callback(const char* email, void * data))
 {
-  callback(data, "your data...");
+  callback("your data...", data);
 }
 
 int main()
 {
 	struct capture { int id; }* capture = calloc(1, sizeof * capture);
-    login_async(capture, (static void (int id, void * capture))
+    login_async(capture, (static void (void * capture, int id))
     {
         struct capture * cap1 = capture;
 
