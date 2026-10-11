@@ -14,11 +14,11 @@ void f(int n)
         break;
     }
 
-    (void)(static const int* (void)) { return &K; }; //lint 1220
-    (void)(static int (void)) { return *(s.a + 1); }; //lint 950
-    (void)(static const int* (void)) { return &s.a[1]; }; //lint 1220
+    (void)(static const int* (void)) { return &K; }; //lint 1870
+    (void)(static int (void)) { return *(s.a + 1); }; //lint 1870
+    (void)(static const int* (void)) { return &s.a[1]; }; //lint 1870
 
-    (void)(static int (int i)) { return K + s.a[1] + s.a[i]; };
+    (void)(static int (int i)) { return K + s.a[1] + s.a[i]; }; //lint 1870 1870 1870
     (void)(static void (int m)) { for (;;) { if (m) continue; break; } };
     (void)(static void (void)) { goto L; L:; };
 
