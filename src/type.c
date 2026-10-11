@@ -999,6 +999,70 @@ bool type_is_const(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
 }
 
+static bool struct_or_union_has_volatile_member(struct struct_or_union_specifier* p_complete)
+{
+    struct member_declaration* _Opt d = p_complete->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                if (md->declarator && type_is_volatile_recursive(&md->declarator->object.type))
+                    return true;
+
+                md = md->next;
+            }
+        }
+        else if (d->specifier_qualifier_list &&
+                 d->specifier_qualifier_list->struct_or_union_specifier)
+        {
+            /*anonymous struct/union member*/
+            struct struct_or_union_specifier* _Opt p_anonymous =
+                get_complete_struct_or_union_specifier(d->specifier_qualifier_list->struct_or_union_specifier);
+
+            if (p_anonymous && struct_or_union_has_volatile_member(p_anonymous))
+                return true;
+        }
+
+        d = d->next;
+    }
+    return false;
+}
+
+/*
+  Returns true if the type is volatile or if it is a structure/union (or array of)
+  that has, at any level, a volatile qualified member.
+
+    struct S { volatile int v; };
+    constexpr struct S s = {1}; //error
+*/
+bool type_is_volatile_recursive(const struct type* p_type)
+{
+    if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+        return true;
+
+    if (type_is_array(p_type))
+    {
+        struct type item_type = get_array_item_type(p_type);
+        const bool b = type_is_volatile_recursive(&item_type);
+        type_destroy(&item_type);
+        return b;
+    }
+
+    if (type_is_struct_or_union(p_type) && p_type->struct_or_union_specifier)
+    {
+        struct struct_or_union_specifier* _Opt p_complete =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_complete)
+            return struct_or_union_has_volatile_member(p_complete);
+    }
+
+    return false;
+}
+
 static bool struct_or_union_has_const_member(struct struct_or_union_specifier* p_complete)
 {
     /*
@@ -1078,10 +1142,30 @@ bool type_is_constexpr(const struct type* p_type)
     return (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
 }
 
+/*
+  Returns true if the object value can be used as a constant.
+  volatile objects can change outside the program, so they never are.
+
+    const volatile int x = 3;
+    int a[x]; //VLA
+*/
 bool type_is_const_or_constexpr(const struct type* p_type)
 {
-    return (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST) ||
-        (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
+    if (type_is_volatile_recursive(p_type))
+        return false;
+
+    if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+        return true;
+
+    /*
+      const int a[] = {1, 2};
+      the const is on the (possibly nested) element type, not on the array
+    */
+    const struct type* p_item_type = p_type;
+    while (type_is_array(p_item_type) && p_item_type->next)
+        p_item_type = p_item_type->next;
+
+    return p_item_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
 }
 
 bool type_is_pointer_to_const(const struct type* p_type)

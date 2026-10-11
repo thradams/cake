@@ -2576,6 +2576,7 @@ enum diagnostic_id {
     C_ERROR_DECLARATION_DOES_NOT_DECLARE_ANYTHING = 2350,
     C_ERROR_FLEXIBLE_ARRAY_MEMBER_IN_UNION = 2360,
     C_ERROR_ARRAY_DESIGNATOR_IN_NON_ARRAY = 2370,
+    C_ERROR_CONSTEXPR_POINTER_NOT_NULL = 2380,
 };
 
 
@@ -23862,6 +23863,7 @@ bool type_is_clear(const struct type* p_type);
 bool type_is_uninit(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_const_recursive(const struct type* p_type);
+bool type_is_volatile_recursive(const struct type* p_type);
 bool type_is_pointed_void(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);
 bool type_is_const_or_constexpr(const struct type* p_type);
@@ -28199,6 +28201,116 @@ int object_set(
                         rounded_buf);
                 }
             }
+            else if (from->state == CONSTANT_VALUE_STATE_CONSTANT &&
+                is_constant &&
+                (from->value_type == TYPE_FLOAT || from->value_type == TYPE_DOUBLE || from->value_type == TYPE_LONG_DOUBLE) &&
+                (object_type_is_signed_integer(to->value_type) || object_type_is_unsigned_integer(to->value_type)) &&
+                p_init_expression)
+            {
+                /*
+                  constexpr int i = 1.5;  error, value changes when converted
+                  const int k = 1.5;      warning
+                  constexpr int j = 2.0;  OK
+                */
+                const long double v = from->value.host_long_double;
+                const int dest_n_bits = target_get_num_of_bits(&ctx->options.platform, to->value_type);
+                const bool dest_is_signed = object_type_is_signed_integer(to->value_type);
+
+                const long double dest_min =
+                    !dest_is_signed ? 0.0L :
+                    dest_n_bits >= 64 ? (long double)LLONG_MIN : -(long double)(1ULL << (dest_n_bits - 1));
+
+                const long double dest_max =
+                    type_is_bool(&to->type) ? 1.0L :
+                    dest_n_bits >= 64 ?
+                        (dest_is_signed ? (long double)LLONG_MAX : (long double)ULLONG_MAX) :
+                        (long double)((dest_is_signed ? (1ULL << (dest_n_bits - 1)) : (1ULL << dest_n_bits)) - 1);
+
+                if (isnan(v) || truncl(v) != v || v < dest_min || v > dest_max)
+                {
+                    char value_buf[64] = { 0 };
+                    snprintf(value_buf, sizeof value_buf, "%.17g", (double)v);
+                    struct osstream ss = { 0 };
+                    print_type_no_names(&ss, &to->type, &ctx->options.platform);
+                    const enum diagnostic_id id =
+                        to->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR ?
+                        C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE :
+                        W_CONSTANT_VALUE_NOT_REPRESENTABLE;
+                    diagnostic(id,
+                        ctx,
+                        p_init_expression->first_token,
+                        NULL,
+                        "constant expression %s is not exactly representable in '%s'",
+                        value_buf,
+                        ss.c_str ? ss.c_str : "");
+                    ss_close(&ss);
+                }
+            }
+
+            else if (from->state == CONSTANT_VALUE_STATE_CONSTANT &&
+                is_constant &&
+                (object_type_is_signed_integer(from->value_type) || object_type_is_unsigned_integer(from->value_type)) &&
+                (to->value_type == TYPE_FLOAT || to->value_type == TYPE_DOUBLE || to->value_type == TYPE_LONG_DOUBLE) &&
+                p_init_expression)
+            {
+                /*
+                  constexpr float f = 16777217;  error, nearest float is 16777216
+                  const float g = 16777217;      warning
+                */
+                const int dest_n_bits = target_get_num_of_bits(&ctx->options.platform, to->value_type);
+                bool representable;
+                char value_buf[64] = { 0 };
+
+                if (object_type_is_signed_integer(from->value_type))
+                {
+                    const signed long long v = object_to_signed_long_long(from);
+                    const long double narrowed = resize_floating_point((long double)v, dest_n_bits);
+                    /* 2^63 does not fit back into long long */
+                    representable = narrowed < 9223372036854775808.0L && (signed long long)narrowed == v;
+                    snprintf(value_buf, sizeof value_buf, "%lld", v);
+                }
+                else
+                {
+                    const unsigned long long v = object_to_unsigned_long_long(from);
+                    const long double narrowed = resize_floating_point((long double)v, dest_n_bits);
+                    /* 2^64 does not fit back into unsigned long long */
+                    representable = narrowed < 18446744073709551616.0L && (unsigned long long)narrowed == v;
+                    snprintf(value_buf, sizeof value_buf, "%llu", v);
+                }
+
+                if (!representable)
+                {
+                    const enum diagnostic_id id =
+                        to->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR ?
+                        C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE :
+                        W_CONSTANT_VALUE_NOT_REPRESENTABLE;
+                    struct osstream ss = { 0 };
+                    print_type_no_names(&ss, &to->type, &ctx->options.platform);
+                    diagnostic(id,
+                        ctx,
+                        p_init_expression->first_token,
+                        NULL,
+                        "constant expression %s is not exactly representable in '%s'",
+                        value_buf,
+                        ss.c_str ? ss.c_str : "");
+                    ss_close(&ss);
+                }
+            }
+
+            if ((to->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR) &&
+                type_is_pointer(&to->type) &&
+                p_init_expression &&
+                !expression_is_null_pointer_constant(p_init_expression))
+            {
+                /*
+                  constexpr int* p = &g; the only pointer value allowed is null
+                */
+                diagnostic(C_ERROR_CONSTEXPR_POINTER_NOT_NULL,
+                    ctx,
+                    p_init_expression->first_token,
+                    NULL,
+                    "a constexpr pointer must be initialized with a null pointer constant");
+            }
 
             if (requires_constant_initialization &&
                 !object_has_constant_value(from))
@@ -28225,11 +28337,6 @@ int object_set(
                   int j = i;}
                 */
 
-                //TODO
-                /*
-                      struct X {int x;};
-                      int main() { constexpr struct X x = (struct X){ .x = 50 };}
-                */
                 to->state = CONSTANT_VALUE_STATE_CONSTANT;
             }
             else
@@ -33650,6 +33757,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                                 const bool is_constant =
                                     type_is_constexpr(&p_declarator->object.type) ||
                                     (type_is_const(&p_declarator->object.type) &&
+                                     !type_is_volatile_recursive(&p_declarator->object.type) &&
                                      object_has_all_members_constants(&p_declarator->object));
 
                                 diagnostic(W_LOCATION,
@@ -42644,7 +42752,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.17"
+#define CAKE_VERSION "0.15.18"
 
 
  
@@ -47293,13 +47401,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         {
             const struct type* p_constexpr_type = &p_init_declarator->p_declarator->object.type;
 
-            if (p_constexpr_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+            if (type_is_volatile_recursive(p_constexpr_type))
             {
                 diagnostic(C_ERROR_CONSTEXPR_INVALID_QUALIFIED_TYPE,
                     ctx,
                     tkname,
                     NULL,
-                    "a constexpr object cannot be volatile-qualified");
+                    "a constexpr object cannot be volatile-qualified or have volatile-qualified members");
             }
 
             if ((p_constexpr_type->type_qualifier_flags & TYPE_QUALIFIER__ATOMIC) ||
@@ -47934,10 +48042,32 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     const bool is_constant =
                         type_is_const_or_constexpr(&p_init_declarator->p_declarator->object.type);
 
+                    const struct type* p_object_type = &p_init_declarator->p_declarator->object.type;
+                    const struct expression* p_init_expression = p_init_declarator->initializer->assignment_expression;
+
+                    /*
+                      const struct P p = (struct P){1, 2};
+                      the compound literal is not constant (it is modifiable), but its
+                      values are. p is evaluated as if it were const struct P p = {1, 2};
+                    */
+                    _View struct initializer compound_literal_initializer = { 0 };
+                    const bool use_compound_literal_initializer =
+                        is_constant &&
+                        p_init_expression->expression_type == EXPR_POSTFIX_COMPOUND_LITERAL &&
+                        p_init_expression->braced_initializer != NULL &&
+                        ((type_is_struct_or_union(p_object_type) && type_is_struct_or_union(&p_init_expression->object.type)) ||
+                         (type_is_arithmetic(p_object_type) && type_is_arithmetic(&p_init_expression->object.type)));
+
+                    if (use_compound_literal_initializer)
+                    {
+                        compound_literal_initializer.braced_initializer = p_init_expression->braced_initializer;
+                        compound_literal_initializer.first_token = p_init_expression->first_token;
+                    }
+
                     if (initializer_init_new(ctx,
                         &p_init_declarator->p_declarator->object.type,
                         &p_init_declarator->p_declarator->object,
-                        p_init_declarator->initializer,
+                        use_compound_literal_initializer ? &compound_literal_initializer : p_init_declarator->initializer,
                         is_constant,
                         requires_constant_initialization) != 0)
                     {
@@ -62142,6 +62272,8 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                         diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "break cannot jump out of a defer block");
                     else
                         diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "continue cannot jump out of a defer block");
+                    /* already an error: the outer defers, including this one, must not join the list */
+                    break;
                 }
                 p = p->previous;
             }
@@ -89893,6 +90025,70 @@ bool type_is_const(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
 }
 
+static bool struct_or_union_has_volatile_member(struct struct_or_union_specifier* p_complete)
+{
+    struct member_declaration* _Opt d = p_complete->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                if (md->declarator && type_is_volatile_recursive(&md->declarator->object.type))
+                    return true;
+
+                md = md->next;
+            }
+        }
+        else if (d->specifier_qualifier_list &&
+                 d->specifier_qualifier_list->struct_or_union_specifier)
+        {
+            /*anonymous struct/union member*/
+            struct struct_or_union_specifier* _Opt p_anonymous =
+                get_complete_struct_or_union_specifier(d->specifier_qualifier_list->struct_or_union_specifier);
+
+            if (p_anonymous && struct_or_union_has_volatile_member(p_anonymous))
+                return true;
+        }
+
+        d = d->next;
+    }
+    return false;
+}
+
+/*
+  Returns true if the type is volatile or if it is a structure/union (or array of)
+  that has, at any level, a volatile qualified member.
+
+    struct S { volatile int v; };
+    constexpr struct S s = {1}; //error
+*/
+bool type_is_volatile_recursive(const struct type* p_type)
+{
+    if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+        return true;
+
+    if (type_is_array(p_type))
+    {
+        struct type item_type = get_array_item_type(p_type);
+        const bool b = type_is_volatile_recursive(&item_type);
+        type_destroy(&item_type);
+        return b;
+    }
+
+    if (type_is_struct_or_union(p_type) && p_type->struct_or_union_specifier)
+    {
+        struct struct_or_union_specifier* _Opt p_complete =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_complete)
+            return struct_or_union_has_volatile_member(p_complete);
+    }
+
+    return false;
+}
+
 static bool struct_or_union_has_const_member(struct struct_or_union_specifier* p_complete)
 {
     /*
@@ -89972,10 +90168,30 @@ bool type_is_constexpr(const struct type* p_type)
     return (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
 }
 
+/*
+  Returns true if the object value can be used as a constant.
+  volatile objects can change outside the program, so they never are.
+
+    const volatile int x = 3;
+    int a[x]; //VLA
+*/
 bool type_is_const_or_constexpr(const struct type* p_type)
 {
-    return (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST) ||
-        (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR);
+    if (type_is_volatile_recursive(p_type))
+        return false;
+
+    if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+        return true;
+
+    /*
+      const int a[] = {1, 2};
+      the const is on the (possibly nested) element type, not on the array
+    */
+    const struct type* p_item_type = p_type;
+    while (type_is_array(p_item_type) && p_item_type->next)
+        p_item_type = p_item_type->next;
+
+    return p_item_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
 }
 
 bool type_is_pointer_to_const(const struct type* p_type)

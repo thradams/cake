@@ -596,6 +596,8 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                         diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "break cannot jump out of a defer block");
                     else
                         diagnostic(C_ERROR_EXIT_DEFER, ctx->ctx, p_jump_statement->first_token, NULL, "continue cannot jump out of a defer block");
+                    /* already an error: the outer defers, including this one, must not join the list */
+                    break;
                 }
                 p = p->previous;
             }

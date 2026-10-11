@@ -4544,13 +4544,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         {
             const struct type* p_constexpr_type = &p_init_declarator->p_declarator->object.type;
 
-            if (p_constexpr_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+            if (type_is_volatile_recursive(p_constexpr_type))
             {
                 diagnostic(C_ERROR_CONSTEXPR_INVALID_QUALIFIED_TYPE,
                     ctx,
                     tkname,
                     NULL,
-                    "a constexpr object cannot be volatile-qualified");
+                    "a constexpr object cannot be volatile-qualified or have volatile-qualified members");
             }
 
             if ((p_constexpr_type->type_qualifier_flags & TYPE_QUALIFIER__ATOMIC) ||
@@ -5185,10 +5185,32 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     const bool is_constant =
                         type_is_const_or_constexpr(&p_init_declarator->p_declarator->object.type);
 
+                    const struct type* p_object_type = &p_init_declarator->p_declarator->object.type;
+                    const struct expression* p_init_expression = p_init_declarator->initializer->assignment_expression;
+
+                    /*
+                      const struct P p = (struct P){1, 2};
+                      the compound literal is not constant (it is modifiable), but its
+                      values are. p is evaluated as if it were const struct P p = {1, 2};
+                    */
+                    _View struct initializer compound_literal_initializer = { 0 };
+                    const bool use_compound_literal_initializer =
+                        is_constant &&
+                        p_init_expression->expression_type == EXPR_POSTFIX_COMPOUND_LITERAL &&
+                        p_init_expression->braced_initializer != NULL &&
+                        ((type_is_struct_or_union(p_object_type) && type_is_struct_or_union(&p_init_expression->object.type)) ||
+                         (type_is_arithmetic(p_object_type) && type_is_arithmetic(&p_init_expression->object.type)));
+
+                    if (use_compound_literal_initializer)
+                    {
+                        compound_literal_initializer.braced_initializer = p_init_expression->braced_initializer;
+                        compound_literal_initializer.first_token = p_init_expression->first_token;
+                    }
+
                     if (initializer_init_new(ctx,
                         &p_init_declarator->p_declarator->object.type,
                         &p_init_declarator->p_declarator->object,
-                        p_init_declarator->initializer,
+                        use_compound_literal_initializer ? &compound_literal_initializer : p_init_declarator->initializer,
                         is_constant,
                         requires_constant_initialization) != 0)
                     {

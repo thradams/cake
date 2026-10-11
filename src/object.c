@@ -1587,6 +1587,116 @@ int object_set(
                         rounded_buf);
                 }
             }
+            else if (from->state == CONSTANT_VALUE_STATE_CONSTANT &&
+                is_constant &&
+                (from->value_type == TYPE_FLOAT || from->value_type == TYPE_DOUBLE || from->value_type == TYPE_LONG_DOUBLE) &&
+                (object_type_is_signed_integer(to->value_type) || object_type_is_unsigned_integer(to->value_type)) &&
+                p_init_expression)
+            {
+                /*
+                  constexpr int i = 1.5;  error, value changes when converted
+                  const int k = 1.5;      warning
+                  constexpr int j = 2.0;  OK
+                */
+                const long double v = from->value.host_long_double;
+                const int dest_n_bits = target_get_num_of_bits(&ctx->options.platform, to->value_type);
+                const bool dest_is_signed = object_type_is_signed_integer(to->value_type);
+
+                const long double dest_min =
+                    !dest_is_signed ? 0.0L :
+                    dest_n_bits >= 64 ? (long double)LLONG_MIN : -(long double)(1ULL << (dest_n_bits - 1));
+
+                const long double dest_max =
+                    type_is_bool(&to->type) ? 1.0L :
+                    dest_n_bits >= 64 ?
+                        (dest_is_signed ? (long double)LLONG_MAX : (long double)ULLONG_MAX) :
+                        (long double)((dest_is_signed ? (1ULL << (dest_n_bits - 1)) : (1ULL << dest_n_bits)) - 1);
+
+                if (isnan(v) || truncl(v) != v || v < dest_min || v > dest_max)
+                {
+                    char value_buf[64] = { 0 };
+                    snprintf(value_buf, sizeof value_buf, "%.17g", (double)v);
+                    struct osstream ss = { 0 };
+                    print_type_no_names(&ss, &to->type, &ctx->options.platform);
+                    const enum diagnostic_id id =
+                        to->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR ?
+                        C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE :
+                        W_CONSTANT_VALUE_NOT_REPRESENTABLE;
+                    diagnostic(id,
+                        ctx,
+                        p_init_expression->first_token,
+                        NULL,
+                        "constant expression %s is not exactly representable in '%s'",
+                        value_buf,
+                        ss.c_str ? ss.c_str : "");
+                    ss_close(&ss);
+                }
+            }
+
+            else if (from->state == CONSTANT_VALUE_STATE_CONSTANT &&
+                is_constant &&
+                (object_type_is_signed_integer(from->value_type) || object_type_is_unsigned_integer(from->value_type)) &&
+                (to->value_type == TYPE_FLOAT || to->value_type == TYPE_DOUBLE || to->value_type == TYPE_LONG_DOUBLE) &&
+                p_init_expression)
+            {
+                /*
+                  constexpr float f = 16777217;  error, nearest float is 16777216
+                  const float g = 16777217;      warning
+                */
+                const int dest_n_bits = target_get_num_of_bits(&ctx->options.platform, to->value_type);
+                bool representable;
+                char value_buf[64] = { 0 };
+
+                if (object_type_is_signed_integer(from->value_type))
+                {
+                    const signed long long v = object_to_signed_long_long(from);
+                    const long double narrowed = resize_floating_point((long double)v, dest_n_bits);
+                    /* 2^63 does not fit back into long long */
+                    representable = narrowed < 9223372036854775808.0L && (signed long long)narrowed == v;
+                    snprintf(value_buf, sizeof value_buf, "%lld", v);
+                }
+                else
+                {
+                    const unsigned long long v = object_to_unsigned_long_long(from);
+                    const long double narrowed = resize_floating_point((long double)v, dest_n_bits);
+                    /* 2^64 does not fit back into unsigned long long */
+                    representable = narrowed < 18446744073709551616.0L && (unsigned long long)narrowed == v;
+                    snprintf(value_buf, sizeof value_buf, "%llu", v);
+                }
+
+                if (!representable)
+                {
+                    const enum diagnostic_id id =
+                        to->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR ?
+                        C_ERROR_CONSTANT_VALUE_NOT_REPRESENTABLE :
+                        W_CONSTANT_VALUE_NOT_REPRESENTABLE;
+                    struct osstream ss = { 0 };
+                    print_type_no_names(&ss, &to->type, &ctx->options.platform);
+                    diagnostic(id,
+                        ctx,
+                        p_init_expression->first_token,
+                        NULL,
+                        "constant expression %s is not exactly representable in '%s'",
+                        value_buf,
+                        ss.c_str ? ss.c_str : "");
+                    ss_close(&ss);
+                }
+            }
+
+            if ((to->type.storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR) &&
+                type_is_pointer(&to->type) &&
+                p_init_expression &&
+                !expression_is_null_pointer_constant(p_init_expression))
+            {
+                /*
+                  constexpr int* p = &g; the only pointer value allowed is null
+                */
+                diagnostic(C_ERROR_CONSTEXPR_POINTER_NOT_NULL,
+                    ctx,
+                    p_init_expression->first_token,
+                    NULL,
+                    "a constexpr pointer must be initialized with a null pointer constant");
+            }
 
             if (requires_constant_initialization &&
                 !object_has_constant_value(from))
@@ -1613,11 +1723,6 @@ int object_set(
                   int j = i;}
                 */
 
-                //TODO
-                /*
-                      struct X {int x;};
-                      int main() { constexpr struct X x = (struct X){ .x = 50 };}
-                */
                 to->state = CONSTANT_VALUE_STATE_CONSTANT;
             }
             else

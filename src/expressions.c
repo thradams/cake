@@ -3095,6 +3095,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                                 const bool is_constant =
                                     type_is_constexpr(&p_declarator->object.type) ||
                                     (type_is_const(&p_declarator->object.type) &&
+                                     !type_is_volatile_recursive(&p_declarator->object.type) &&
                                      object_has_all_members_constants(&p_declarator->object));
 
                                 diagnostic(W_LOCATION,
