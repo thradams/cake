@@ -204,7 +204,7 @@ void T8()
 
 void T9()
 {
-    constexpr int x[] = {1, 3, 5}, * p = x; //lint 15 warning: discarding const qualifier
+    constexpr int x[] = {1, 3, 5}, * p = x; //lint 15 2380 warning: discarding const qualifier; error: constexpr pointer must be null
     static_assert(x[0] == 1);
     static_assert(x[1] == 3);
     static_assert(x[2] == 5);

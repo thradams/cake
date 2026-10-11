@@ -14,6 +14,12 @@
 
 static int failures = 0;
 
+/*
+  the arrays below are const and initialized with constants, so cake
+  knows their elements: CHECK(decorated[0] == 0xAA) is a constant condition
+*/
+#pragma cake diagnostic ignored 44
+
 #define CHECK(cond) do { if (!(cond)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); failures++; } } while(0)
 
 static const unsigned char all[] = {
