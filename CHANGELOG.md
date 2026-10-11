@@ -4,6 +4,26 @@ Newest version first. Changes not yet in a release go under **Unreleased**.
 On release, rename it to the version in `src/version.h` and use the section
 as the GitHub Release notes.
 
+## 0.15.19 - 2026-10-11
+
+### Diagnostics
+
+- A diagnostic inside a `defer` body now has a note showing where the defer
+  runs (the `return`, `break`, `continue`, `goto` or end of block). The same
+  body runs at every exit and the problem may exist at only one of them.
+  ```
+  warning 30: using a possibly uninitialized object 'x'
+    note: uninitialized from here
+    note: defer executed here
+     16 |        return 1;
+  ```
+
+### Fixes
+
+- Flow analysis ran the defers again at the end of a block that is never
+  reached (e.g. after `return`), reporting false `unreachable code` (68) and
+  `'p' was moved` (32) inside the defer.
+
 ## 0.15.18 - 2026-10-11
 
 ### Language

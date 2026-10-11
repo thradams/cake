@@ -1612,7 +1612,10 @@ int object_set(
                         (dest_is_signed ? (long double)LLONG_MAX : (long double)ULLONG_MAX) :
                         (long double)((dest_is_signed ? (1ULL << (dest_n_bits - 1)) : (1ULL << dest_n_bits)) - 1);
 
-                if (isnan(v) || truncl(v) != v || v < dest_min || v > dest_max)
+                /* range is checked before the cast, so the cast is defined;
+                   the cast truncates toward zero (avoids truncl/libm, not C89) */
+                if (isnan(v) || v < dest_min || v > dest_max ||
+                    (dest_is_signed ? (long double)(long long)v : (long double)(unsigned long long)v) != v)
                 {
                     char value_buf[64] = { 0 };
                     snprintf(value_buf, sizeof value_buf, "%.17g", (double)v);
@@ -2705,6 +2708,21 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
                   accept the loss. Documented in manual.md, section 7.5.
                 */
                 snprintf(temp, sizeof temp, "%.21Lg", a->value.host_long_double);
+
+                /*
+                  %g drops the decimal point for whole numbers, and
+                  9223372036854775808L would be an integer constant.
+                */
+                if (strpbrk(temp, ".eE") == NULL)
+                {
+                    const size_t len = strlen(temp);
+                    if (len + 2 < sizeof temp)
+                    {
+                        temp[len] = '.';
+                        temp[len + 1] = '0';
+                        temp[len + 2] = '\0';
+                    }
+                }
             }
 
             ss_fprintf(ss, "%s", temp);

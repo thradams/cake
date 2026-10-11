@@ -496,18 +496,31 @@ static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct 
 {
     if (p_item->defer_statement)
     {
-        const int error_count = ctx->ctx->p_report->error_count;
-        const int warnings_count = ctx->ctx->p_report->warnings_count;
-        const int info_count = ctx->ctx->p_report->info_count;
+        /*
+          Diagnostics are queued, not printed, while flow runs. Each one reported
+          inside the defer body gets a note pointing where the defer runs
+          (the return, break, goto or end of block), because the same body runs
+          at every exit and the problem may exist only at one of them.
+        */
+        struct diagnostic_queue* q = &ctx->ctx->diagnostic_queue;
+        struct diagnostic_item* _Opt p_last_before = q->tail;
+        const int count_before = q->count;
 
         if (p_item->defer_statement->unlabeled_statement)
             flow_visit_unlabeled_statement(ctx, p_item->defer_statement->unlabeled_statement);
 
-        if (error_count != ctx->ctx->p_report->error_count ||
-                warnings_count != ctx->ctx->p_report->warnings_count ||
-                info_count != ctx->ctx->p_report->info_count)
+        if (q->count > count_before)
         {
-            diagnostic(W_LOCATION, ctx->ctx, position_token, NULL, "defer end of scope");
+            struct diagnostic_item* _Opt p_real_tail = q->tail;
+            struct diagnostic_item* _Opt it = p_last_before ? p_last_before->next : q->head;
+            while (it)
+            {
+                /* W_LOCATION attaches to the queue tail */
+                q->tail = it;
+                diagnostic(W_LOCATION, ctx->ctx, position_token, NULL, "defer executed here");
+                it = it->next;
+            }
+            q->tail = p_real_tail;
         }
     }
     else if (p_item->declarator)
@@ -539,6 +552,13 @@ static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
                                              const struct token* position_token)
 {
     if (ctx->stopped)
+        return;
+
+    /*
+      { defer free(p); return 0; }
+      the end of the block is never reached: the defers already ran at the return
+    */
+    if (ctx->p_current_flow_branch != NULL && ctx->p_current_flow_branch->is_unreachable)
         return;
 
     struct defer_list_item* _Opt p_item = p_defer_list->head;
