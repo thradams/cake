@@ -433,11 +433,11 @@ void platform_default(_Out struct platform* p)
     platform_tcc(p, "linux");
 #elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__)) && defined(__TINYC__)
     platform_tcc(p, "macos");
-#elif defined(_WIN32) && defined(_WIN64)
+#elif defined(_WIN32) && defined(_WIN64) && !defined(__CATALINA__)
     platform_msvc(p, "x64");
-#elif defined(_WIN32) && !defined(_WIN64)
+#elif defined(_WIN32) && !defined(_WIN64) && !defined(__CATALINA__)
     platform_msvc(p, "x86");
-#elif !defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64) || defined(__EMSCRIPTEN__))
+#elif !defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64) || defined(__EMSCRIPTEN__)) && !defined(__CATALINA__)
     platform_gcc(p, "x64");
 #elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
     platform_clang_macos_arm64(p);
