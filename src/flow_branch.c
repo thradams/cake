@@ -606,6 +606,47 @@ void flow_branch_set_object_uninitialized(struct flow_branch* _Opt m, const stru
     }
 }
 
+#ifdef FLOW_CALL_ENDS_OWNER_POINTEES
+/*
+    EXPERIMENT (2026-10-13), disabled by default.
+
+    Worst case for a call taking a non-const pointer: the callee may have
+    freed what the owner pointers reachable from the argument pointed to, so
+    aliases of those objects are dangling:
+
+        struct X x = f();
+        char* _Opt p = x.text;
+        g(&x);           // void g(struct X* p) { free(p->text); p->text = 0; }
+        if (p) *p;       // warning 31 only with this define
+
+    Result of the test: cake's own source went from 8 to 13 warnings
+    (hashmap_set(&map, k, &item) moving ownership in parser.c:7015 and
+    codegen.c:6014, an ss_swap loop in codegen.c:6500, and a misleading
+    "may be null" in parser.c:15648) and flow3/do-while-nested-if-unrelated-narrow.c
+    started warning on a plain list walk (ptk = ptk->next after f(ptk)).
+*/
+static void flow_branch_end_owner_pointees(struct flow_branch* m, const struct object* obj, const struct token* _Opt p_token)
+{
+    if (!type_is_owner(&obj->type) || !type_is_pointer(&obj->type))
+        return;
+
+    struct flow_key_alternatives* _Opt e = flow_branch_search_up(m, obj);
+    if (e == NULL)
+        return;
+
+    for (int i = 0; i < e->alternatives.size; i++)
+    {
+        struct flow_alternative* _Opt a = e->alternatives.data[i];
+        if (a &&
+                a->value_kind == FLOW_VALUE_KIND_PTR &&
+                a->value.p != NULL)
+        {
+            flow_branch_set_object_lifetime_ended(m, a->value.p, p_token);
+        }
+    }
+}
+#endif
+
 void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled)
 {
     if (m == NULL)
@@ -621,6 +662,12 @@ void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct objec
             }
             return;
         }
+
+#ifdef FLOW_CALL_ENDS_OWNER_POINTEES
+        /* the worst case: whoever set it to "any" may have freed the old pointee */
+        flow_branch_end_owner_pointees(m, obj, p_token);
+#endif
+
         struct flow_key_alternatives* _Opt p_flow_key_alternatives = flow_branch_find_add(m, obj);
         if (p_flow_key_alternatives == NULL) throw;
         flow_alternatives_clear(&p_flow_key_alternatives->alternatives);

@@ -172,81 +172,61 @@
 <a href="#toc_0">Cake annotations quick reference</a>
 <ul>
 <li>
-<a href="#toc_1">The invisible contract</a>
+<a href="#toc_1">Introduction by example</a>
 <ul>
 <li>
-<a href="#toc_2">Parameter: <code>void f(struct X * p)</code></a>
+<a href="#toc_2">1. <code>_Out</code></a>
 </li>
 <li>
-<a href="#toc_3">Return value: <code>struct X f(void)</code></a>
-</li>
-</ul>
+<a href="#toc_3">2. <code>_Opt</code></a>
 </li>
 <li>
-<a href="#toc_4"><code>_Opt</code></a>
-<ul>
-<li>
-<a href="#toc_5">On a pointer</a>
+<a href="#toc_4">3. <code>_Opt</code> on struct members</a>
 </li>
 <li>
-<a href="#toc_6">On the struct (pointee)</a>
+<a href="#toc_5">4. <code>_Owner</code></a>
 </li>
 <li>
-<a href="#toc_7">Zero-initialized objects are <code>_Opt</code> objects</a>
-</li>
-</ul>
+<a href="#toc_6">5. <code>_Owner</code> parameter</a>
 </li>
 <li>
-<a href="#toc_8"><code>_Owner</code></a>
+<a href="#toc_7">6. <code>_Owner</code> return</a>
 </li>
 <li>
-<a href="#toc_9">Assignment rules</a>
-<ul>
-<li>
-<a href="#toc_10"><code>_Opt</code></a>
+<a href="#toc_8">7. Pointers to deleted objects</a>
 </li>
 <li>
-<a href="#toc_11"><code>_Owner</code></a>
-</li>
-</ul>
+<a href="#toc_9">8. <code>_Dtor</code></a>
 </li>
 <li>
-<a href="#toc_12"><code>_View</code></a>
+<a href="#toc_10">9. Objects visible to the caller</a>
 </li>
 <li>
-<a href="#toc_13"><code>_Out</code></a>
+<a href="#toc_11">10. Not handled yet: pointers into a modified object</a>
 </li>
 <li>
-<a href="#toc_14"><code>_Dtor</code></a>
+<a href="#toc_12">11. <code>_Clear</code></a>
 </li>
 <li>
-<a href="#toc_15"><code>_Clear</code></a>
-<ul>
-<li>
-<a href="#toc_16">On a parameter&#39;s pointee: the reset contract</a>
+<a href="#toc_13">12. <code>_Out _Clear</code></a>
 </li>
 <li>
-<a href="#toc_17">On a return&#39;s pointee</a>
-</li>
-</ul>
+<a href="#toc_14">13. <code>_View</code></a>
 </li>
 <li>
-<a href="#toc_18"><code>_Out _Clear</code> together</a>
+<a href="#toc_15">14. <code>_Uninitialized</code></a>
 </li>
 <li>
-<a href="#toc_19"><code>_Uninitialized</code></a>
+<a href="#toc_16">15. Limits: <code>realloc</code></a>
 </li>
 <li>
-<a href="#toc_20">Summary</a>
-<ul>
-<li>
-<a href="#toc_21">Parameter pointee</a>
+<a href="#toc_17">16. The domino effect: fixing a leak</a>
 </li>
 <li>
-<a href="#toc_22">Pointer / return</a>
+<a href="#toc_18">17. Flow analysis</a>
 </li>
 <li>
-<a href="#toc_23">Object state</a>
+<a href="#toc_19">18. Not covered here</a>
 </li>
 </ul>
 </li>
@@ -255,40 +235,795 @@
 </ul>
 <h1 id="toc_0">Cake annotations quick reference</h1>
 
-<p>Every annotation is a <strong>contract</strong> with two sides:</p>
+<h2 id="toc_1">Introduction by example</h2>
 
-<ul>
-<li>the <strong>caller</strong>: what it must provide, and what it gets back;</li>
-<li>the <strong>implementation</strong>: what it may assume, and what it must guarantee at <em>every</em> exit.</li>
-</ul>
+<h3 id="toc_2">1. <code>_Out</code></h3>
 
-<p>Cake checks both sides: callers at the call site, implementations at every return path.</p>
+<p><code>_Out</code>: the function receives uninitialized storage and must initialize every member.</p>
 
-<hr>
+<!-- runnable -->
 
-<h2 id="toc_1">The invisible contract</h2>
+<pre><code class="language-c">#pragma safety enable
 
-<h3 id="toc_2">Parameter: <code>void f(struct X * p)</code></h3>
+struct point { int x; int y; };
 
-<p><strong>Caller</strong></p>
+void point_init(_Out struct point* p)
+{
+    p-&gt;x = 0;
+    p-&gt;y = 0;
+}
 
-<ul>
-<li>must pass a non-null <code>p</code>;</li>
-<li>must pass <code>*p</code> with every member initialized;</li>
-<li>keeps ownership: after the call <code>*p</code> is still complete and the caller still
-has to release its owners.</li>
-</ul>
+int main()
+{
+    struct point pt;  // uninitialized
+    point_init(&amp;pt);  // ok: _Out accepts uninitialized storage
+    static_debug(pt); // pt.x and pt.y are initialized
+}
+</code></pre>
 
-<p><strong>Implementation</strong></p>
+<p>A missing member is reported:</p>
 
-<ul>
-<li>assumes <code>p != NULL</code> ;</li>
-<li>assumes every member of <code>*p</code> is initialized;</li>
-<li>can read and modify <code>*p</code>;</li>
-<li>cannot mess <code>*p</code> ; zx fully initialized at <strong>every</strong> exit. If it releases an owner
-member, it must put a valid value back before returning, including on early returns;</li>
-<li>must not consume <code>*p</code>: only <code>_Dtor</code> may leave the caller&#39;s object consumed.</li>
-</ul>
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct point { int x; int y; };
+
+void point_init(_Out struct point* p)
+{
+    p-&gt;x = 0;
+} //warning 71 _Out parameter &#39;p-&gt;y&#39; is not initialized at exit
+</code></pre>
+
+<h3 id="toc_3">2. <code>_Opt</code></h3>
+
+<p><code>_Opt</code>: the pointer may be null. Check before use.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct point { int x; int y; };
+
+struct point* _Opt find_point(int id);
+
+int main()
+{
+    struct point* _Opt p = find_point(1);
+    p-&gt;x = 1;     //warning 33 possible null dereference
+    if (p)
+        p-&gt;x = 1; // ok, narrowed to non-null
+}
+</code></pre>
+
+<p>On a parameter: the caller may pass null.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct point { int x; int y; };
+
+void point_print(const struct point* _Opt p)
+{
+    if (p == 0) return;
+    int x = p-&gt;x;   // ok, p is non-null here
+}
+
+int main()
+{
+    point_print(0); // ok
+}
+</code></pre>
+
+<h3 id="toc_4">3. <code>_Opt</code> on struct members</h3>
+
+<p>Same rule for members: without <code>_Opt</code> the member is non-null.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct person {
+    const char* name;          // never null
+    const char* _Opt nickname; // may be null
+};
+
+void print(const char* s);
+
+void f(const struct person* p)
+{
+    print(p-&gt;name);            // ok
+    print(p-&gt;nickname);        //warning 35 may be null
+    if (p-&gt;nickname)
+        print(p-&gt;nickname);    // ok
+}
+
+void g(struct person* p)
+{
+    p-&gt;nickname = 0;           // ok
+    p-&gt;name = 0;               //warning 35 null assigned to non-nullable
+}
+</code></pre>
+
+<p>Exception: <code>= {}</code> may leave a non-<code>_Opt</code> member temporarily null.
+It must be set before the object is used.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct person {
+    const char* name;
+    const char* _Opt nickname;
+};
+
+void use(const struct person* p);
+
+void f1(void)
+{
+    struct person p = {}; // ok, p.name is null for now
+    p.name = &quot;Ana&quot;;
+    use(&amp;p);              // ok
+}
+
+void f2(void)
+{
+    struct person p = {};
+    use(&amp;p);              //warning 35 &#39;p.name&#39; may be null
+}
+</code></pre>
+
+<p><code>_Opt</code> on the pointed object: <code>_Opt struct X* p</code> means every member of <code>*p</code>
+may be null, even members declared without <code>_Opt</code>.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { char* text; };
+
+void use(char* s);
+
+void f(_Opt struct X* p)
+{
+    use(p-&gt;text);     //warning 35 &#39;p-&gt;text&#39; may be null
+    if (p-&gt;text)
+        use(p-&gt;text); // ok
+}
+</code></pre>
+
+<h3 id="toc_5">4. <code>_Owner</code></h3>
+
+<p><code>_Owner</code>: the pointer owns the resource and must release it.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+void f(void)
+{
+    char* _Owner _Opt s = strdup(&quot;a&quot;);
+    free(s); // ok, released
+}
+</code></pre>
+
+<p>Forgetting to release:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+
+void f(void)
+{
+    char* _Owner _Opt s = strdup(&quot;a&quot;);
+} //warning 29 &#39;s&#39; still owns its resource
+</code></pre>
+
+<p>Assignment moves ownership:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+void f(void)
+{
+    char* _Owner _Opt s = strdup(&quot;a&quot;);
+    char* _Owner _Opt t = s; // t is the owner now
+    free(t);
+}
+</code></pre>
+
+<p>After a move, the old owner cannot be used:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+void f(void)
+{
+    char* _Owner _Opt s = strdup(&quot;a&quot;);
+    free(s);
+    free(s); //warning 32 &#39;s&#39; was moved
+}
+</code></pre>
+
+<p>A pointer to a struct owns <strong>two resources</strong>: the memory and the object in it.
+<code>free(void*)</code> releases only the memory, so the object must be released first.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; };
+
+void x_delete_bad(struct X* _Owner p)
+{
+    free(p);       //warning 29 &#39;p-&gt;text&#39; still owns its resource
+}
+
+void x_delete(struct X* _Owner p)
+{
+    free(p-&gt;text); // the object
+    free(p);       // the memory
+}
+</code></pre>
+
+<h3 id="toc_6">5. <code>_Owner</code> parameter</h3>
+
+<p>The function receives ownership and must release it.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+
+void consume(char* _Owner _Opt p)
+{
+    free(p); // ok
+}
+
+void consume_bad(char* _Owner _Opt p)
+{
+}            //warning 29 &#39;p&#39; still owns its resource
+</code></pre>
+
+<h3 id="toc_7">6. <code>_Owner</code> return</h3>
+
+<p>The caller receives ownership.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+char* _Owner _Opt make(void)
+{
+    return strdup(&quot;a&quot;);
+}
+
+void f(void)
+{
+    char* _Owner _Opt s = make();
+    free(s); // ok
+}
+</code></pre>
+
+<p>Ignoring the result leaks it:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt make(void);
+
+void f(void)
+{
+    make(); //warning 9 ignoring the result of _Owner type
+}
+</code></pre>
+
+<h3 id="toc_8">7. Pointers to deleted objects</h3>
+
+<p>A non-owner pointer does not own the object, but cake still knows what it points
+to. After the owner is released, using the other pointer is detected.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+
+struct X { int i; };
+
+void f(struct X* _Owner p)
+{
+    struct X* view = p;
+    free(p);
+    view-&gt;i = 1; //warning 31 lifetime of &#39;view-&gt;i&#39; has ended
+}
+</code></pre>
+
+<h3 id="toc_9">8. <code>_Dtor</code></h3>
+
+<p><code>_Dtor</code>: the function releases the members of the object, but not its memory.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; };
+
+void x_destroy(_Dtor struct X* p)
+{
+    free(p-&gt;text);
+}
+
+void f(void)
+{
+    struct X x = {};
+    x.text = strdup(&quot;a&quot;);
+    x_destroy(&amp;x); // ok, x.text released
+}
+</code></pre>
+
+<p>Forgetting a member:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { char* _Owner _Opt text; };
+
+void x_destroy(_Dtor struct X* p)
+{
+} //warning 29 &#39;p-&gt;text&#39; still owns its resource
+</code></pre>
+
+<p>After the call, the members cannot be used:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; };
+
+void x_destroy(_Dtor struct X* p);
+
+void f(void)
+{
+    struct X x = {};
+    x.text = strdup(&quot;a&quot;);
+    x_destroy(&amp;x);
+    free(x.text); //warning 30 possibly uninitialized &#39;x.text&#39;
+}
+</code></pre>
+
+<p><code>_Dtor</code> implies <code>_Opt</code>: inside the destructor every member may be null, even
+members declared without <code>_Opt</code>. This is because objects can be partially
+constructed. If construction fails halfway, some members are still zero, and the
+destructor must accept that object too:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner _Opt _Clear calloc(unsigned long n, unsigned long size);
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct X {
+    char* _Owner name;
+    char* _Owner email;
+};
+
+void x_destroy(_Dtor struct X* p)
+{
+    free(p-&gt;name);    // ok, may be null
+    free(p-&gt;email);   // ok, may be null
+}
+
+struct X* _Owner _Opt x_create(const char* name, const char* email)
+{
+    struct X* _Owner _Opt p = calloc(1, sizeof * p);
+    if (p == 0)
+        return 0;
+
+    char* _Owner _Opt s = strdup(name);
+    if (s == 0)
+    {
+        free(p);
+        return 0;
+    }
+    p-&gt;name = s;
+
+    s = strdup(email);
+    if (s == 0)
+    {
+        x_destroy(p); // ok, p-&gt;email is still null
+        free(p);
+        return 0;
+    }
+    p-&gt;email = s;
+
+    return p;
+}
+</code></pre>
+
+<h3 id="toc_10">9. Objects visible to the caller</h3>
+
+<p>Objects the caller can see after the call cannot be left messed up. A member that
+is released must be set again (to <code>0</code> or a new value). <code>_Dtor</code> is the exception.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; };
+
+void f(struct X* p)
+{
+    free(p-&gt;text);
+}                          //warning 72 &#39;p-&gt;text&#39; was moved but never reassigned
+
+void g(struct X* p)
+{
+    free(p-&gt;text);
+    p-&gt;text = 0;           // ok
+}
+
+void h(struct X* p)
+{
+    free(p-&gt;text);
+    p-&gt;text = strdup(&quot;b&quot;); // ok
+}
+</code></pre>
+
+<h3 id="toc_11">10. Not handled yet: pointers into a modified object</h3>
+
+<p><code>g</code> releases <code>x.text</code>. <code>p</code> still points to the old text, but this is not
+detected yet.</p>
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; };
+
+struct X f();
+
+void g(struct X* p)
+{
+    free(p-&gt;text);
+    p-&gt;text = 0;
+}
+
+int main()
+{
+    struct X x = f();
+    char* _Opt p = x.text;
+    g(&amp;x);
+    if (p)
+    {
+        char c = *p; // should warn, not detected yet
+    }
+    free(x.text);
+}
+</code></pre>
+
+<p>Solution: read the pointer again after the call.</p>
+
+<pre><code class="language-c">int main()
+{
+    struct X x = f();
+    char* _Opt p = x.text;
+    /* uses p */
+
+    g(&amp;x);
+    p = x.text; // updated
+    /* uses p */
+
+    free(x.text);
+}
+</code></pre>
+
+<h3 id="toc_12">11. <code>_Clear</code></h3>
+
+<p><code>_Clear</code> on a parameter works like <code>_Dtor</code>, but every member is left zero.
+The function releases what it owns, then sets every member to zero.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; int n; };
+
+void x_clear(_Clear struct X* p)
+{
+    free(p-&gt;text);
+    p-&gt;text = 0;
+    p-&gt;n = 0;
+}
+</code></pre>
+
+<p>A member that is not zero at exit is reported:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { char* _Owner _Opt text; int n; };
+
+void x_clear(_Clear struct X* p)
+{
+    p-&gt;n = 0;
+} //warning 69 _Clear parameter &#39;p&#39; pointee (.text) is not zero at exit
+</code></pre>
+
+<p>After the call, the object can still be used, and all of its members are zero:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; int n; };
+
+void x_clear(_Clear struct X* p);
+
+void f(void)
+{
+    struct X x = {};
+    x.text = strdup(&quot;a&quot;);
+    x_clear(&amp;x);          // x.text released, x is all zero
+    x.text = strdup(&quot;b&quot;); // ok, x.text is zero
+    free(x.text);
+}
+</code></pre>
+
+<p>On a <strong>return value</strong>, <code>_Clear</code> means the same thing: the object that is returned
+is all zero, like memory from <code>calloc</code>.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+void use(int i);
+
+struct X { int a; int b; };
+
+struct X* _Owner _Opt _Clear x_create(void);
+
+void f(void)
+{
+    struct X* _Owner _Opt p = x_create();
+    if (p)
+    {
+        use(p-&gt;a); // ok, p-&gt;a is zero
+        free(p);
+    }
+}
+</code></pre>
+
+<h3 id="toc_13">12. <code>_Out _Clear</code></h3>
+
+<p><code>_Out _Clear</code>: the function receives uninitialized storage and leaves every member zero.
+Because the input is treated as uninitialized, the function does not release anything.
+If the caller passes an object that still owns something, the warning is at the call site:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+
+struct X { char* _Owner _Opt text; int n; };
+
+void x_init(_Out _Clear struct X* p);
+
+void f(void)
+{
+    struct X x; // uninitialized
+    x_init(&amp;x); // ok, x is all zero
+}
+
+void g(void)
+{
+    struct X x = {};
+    x.text = strdup(&quot;a&quot;);
+    x_init(&amp;x); //warning 26 x.text is overwritten without being released
+}
+</code></pre>
+
+<h3 id="toc_14">13. <code>_View</code></h3>
+
+<p>Passing a struct by value moves its <code>_Owner</code> members.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; };
+
+void show(struct X x);
+
+void f(void)
+{
+    struct X x = {};
+    show(x);      // x.text moved to show
+    free(x.text); //warning 32 &#39;x.text&#39; was moved
+}
+</code></pre>
+
+<p><code>_View</code>: the struct does not own its members. Nothing is moved.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; };
+
+void show(_View struct X x);
+
+void f(void)
+{
+    struct X x = {};
+    show(x);      // not moved
+    free(x.text); // ok, x is still the owner
+}
+</code></pre>
+
+<h3 id="toc_15">14. <code>_Uninitialized</code></h3>
+
+<p><code>_Uninitialized</code> on a return value: the object that is returned is uninitialized,
+like memory from <code>malloc</code>. Members must be written before they are read.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+void use(int i);
+
+struct X { int a; int b; };
+
+struct X* _Owner _Opt _Uninitialized x_alloc(void);
+
+void f(void)
+{
+    struct X* _Owner _Opt p = x_alloc();
+    if (p)
+    {
+        p-&gt;a = 1;
+        use(p-&gt;a); // ok, written first
+        use(p-&gt;b); //warning 30 &#39;p-&gt;b&#39; is uninitialized
+        free(p);
+    }
+}
+</code></pre>
+
+<h3 id="toc_16">15. Limits: <code>realloc</code></h3>
+
+<p>Some contracts cannot be expressed with these annotations yet; they will need a
+richer way to describe contracts in the future. The most common is <code>realloc</code>:
+ownership of <code>p</code> moves only if the call succeeds.</p>
+
+<pre><code class="language-c">void* _Owner _Opt realloc(void* _Opt p, size_t size);
+</code></pre>
+
+<p><code>p</code> is declared as non-owner, so after a successful call cake still sees <code>p</code> as
+the owner. Suppress the warning where the new pointer replaces the old one:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner _Opt realloc(void* _Opt p, unsigned long size);
+void free(void* _Owner _Opt p);
+
+void f(int* _Owner _Opt p)
+{
+    int* _Owner _Opt q = realloc(p, 10 * sizeof(int));
+    if (q == 0)
+    {
+        free(p); // failed: p still owns the memory
+        return;
+    }
+    p = q;       //lint 26 (realloc)
+    free(p);
+}
+</code></pre>
+
+<p><code>//lint N</code> marks the line where warning <code>N</code> is expected, and silences it.
+If the expected warning does not happen, that is also a warning.
+<code>//lint</code> is the safest way to silence a warning because it does not interfere
+with the analysis. It is not a command that overrides a rule.</p>
+
+<h3 id="toc_17">16. The domino effect: fixing a leak</h3>
+
+<p>Code with a leak compiles clean when the checks are disabled.</p>
+
+<pre><code class="language-c">char* strdup(const char* s);
+void free(void* p);
+
+struct person { char* name; };
+
+void person_set_name(struct person* p, const char* name)
+{
+    p-&gt;name = strdup(name);
+}
+
+int main()
+{
+    struct person p = {};
+    person_set_name(&amp;p, &quot;Ana&quot;);
+    person_set_name(&amp;p, &quot;Bia&quot;); // &quot;Ana&quot; leaks
+    free(p.name);
+}
+</code></pre>
+
+<p><strong>Step 1.</strong> Enable the checks and annotate <code>strdup</code> and <code>free</code>.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct person { char* name; };
+
+void person_set_name(struct person* p, const char* name)
+{
+    p-&gt;name = strdup(name);     //warning 79 assigning temporary owner to a non-owner
+                                //warning 35 may be null, assigned to non-nullable
+}
+
+int main()
+{
+    struct person p = {};
+    person_set_name(&amp;p, &quot;Ana&quot;); //warning 35 &#39;p.name&#39; may be null
+    person_set_name(&amp;p, &quot;Bia&quot;);
+    free(p.name);               //warning 78 passing non-owner to an owner parameter
+}
+</code></pre>
+
+<p><strong>Step 2.</strong> The warnings say <code>name</code> owns the string and may be null.</p>
 
 <!-- runnable -->
 
@@ -299,720 +1034,69 @@ void free(void* _Owner _Opt p);
 
 struct person { char* _Owner _Opt name; };
 
-void set_name(struct person* p, const char* name)
+void person_set_name(struct person* p, const char* name)
+{
+    p-&gt;name = strdup(name); //warning 26 discards _Owner &#39;p-&gt;name&#39; without releasing it
+}
+
+int main()
+{
+    struct person p = {};
+    person_set_name(&amp;p, &quot;Ana&quot;);
+    person_set_name(&amp;p, &quot;Bia&quot;);
+    free(p.name);
+}
+</code></pre>
+
+<p><strong>Step 3.</strong> Release the old name. No warnings, and the leak is gone.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner _Opt strdup(const char* s);
+void free(void* _Owner _Opt p);
+
+struct person { char* _Owner _Opt name; };
+
+void person_set_name(struct person* p, const char* name)
 {
     free(p-&gt;name);
-    char* _Owner _Opt tmp = strdup(name);
-    if (tmp == 0) return; //lint 72 p-&gt;name released but never reassigned
-    p-&gt;name = tmp;
+    p-&gt;name = strdup(name);
+}
+
+int main()
+{
+    struct person p = {};
+    person_set_name(&amp;p, &quot;Ana&quot;);
+    person_set_name(&amp;p, &quot;Bia&quot;);
+    free(p.name);
 }
 </code></pre>
 
-<p>Fix: set <code>p-&gt;name = 0;</code> before the early return (the member is <code>_Opt</code>), or
-allocate first and free after.</p>
-
-<h3 id="toc_3">Return value: <code>struct X f(void)</code></h3>
-
-<p><strong>Implementation</strong></p>
+<h3 id="toc_18">17. Flow analysis</h3>
 
 <ul>
-<li>must return an object with every member initialized;</li>
-<li>transfers its <code>_Owner</code> members to the caller, so it must not free them first.</li>
+<li><strong>One function at a time.</strong> Calls are not followed; a call is checked against
+the declaration of the function. That is why annotations matter: they are the
+contract between caller and implementation.</li>
+<li><strong>A state per object.</strong> For each variable, member and pointed object, cake
+keeps the set of states it may have: null, not null, uninitialized, moved,
+lifetime ended, ...</li>
+<li><strong>Each state keeps its origin.</strong> Cake remembers where each state came from,
+so a warning points to the line that caused it (for example, the <code>free</code>
+that ended the lifetime).</li>
+<li><strong>Warnings are questions.</strong> &quot;Can <code>p</code> be null here?&quot;, &quot;does <code>s</code> still own its
+resource at the end?&quot;. If any state says yes, the warning is reported.</li>
 </ul>
 
-<p><strong>Caller</strong></p>
+<p><code>static_debug(x)</code> prints the state of <code>x</code> at that point.</p>
+
+<h3 id="toc_19">18. Not covered here</h3>
 
 <ul>
-<li>may assume the result is complete;</li>
-<li>must release its owner members, or move them somewhere.</li>
+<li>The guarantees that are still missing: cases where the analysis fails.</li>
+<li>The details of how the flow analysis works.</li>
+<li>Other combinations and uses of each annotation.</li>
 </ul>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-struct X { char* text; };
-
-struct X f1(void)
-{
-    struct X x;
-    return x; //lint 30 returning uninitialized &#39;x.text&#39;
-}
-
-struct X f2(void)
-{
-    struct X x = {};
-    return x; //lint 35 returning possible null pointer &#39;x.text&#39;
-}
-</code></pre>
-
-<p>A returned pointer <code>struct X * f(void)</code> follows the same default: non-null, and
-the pointee is initialized. Returns that differ from the default are described
-with annotations: <code>_Opt</code>, <code>_Owner</code>, <code>_Uninitialized</code>, <code>_Clear</code>.</p>
-
-<hr>
-
-<h2 id="toc_4"><code>_Opt</code></h2>
-
-<h3 id="toc_5">On a pointer</h3>
-
-<p>The pointer may be null. Without <code>_Opt</code> a pointer is non-null.</p>
-
-<p><strong>Caller</strong>: may pass null to an <code>_Opt</code> parameter; must check an <code>_Opt</code> result before using it.
-<strong>Implementation</strong>: must check an <code>_Opt</code> parameter before dereferencing it; may return null.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt p);
-void print(const char* s);
-
-int main()
-{
-    char* _Owner _Opt s = strdup(&quot;a&quot;);
-    print(s);          //lint 35 s may be null
-    if (s) print(s);   // ok, narrowed to non-null
-    free(s);
-}
-</code></pre>
-
-<p>Rules of thumb: a variable initialized <code>= NULL</code> is <code>_Opt</code>; a parameter the body
-null-checks is <code>_Opt</code>.</p>
-
-<h3 id="toc_6">On the struct (pointee)</h3>
-
-<p><code>_Opt struct X *</code> means the object may be only partially built: every pointer
-member is treated as possibly null, even members declared non-null. Used by
-delete functions that must accept an object whose initialization failed halfway.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void free(void* _Owner _Opt p);
-
-struct X { char* _Owner text; }; // text normally non-null
-
-void x_delete(_Opt struct X* _Owner _Opt p)
-{
-    if (p)
-    {
-        free(p-&gt;text); // p-&gt;text treated as possibly null
-        free(p);
-    }
-}
-</code></pre>
-
-<h3 id="toc_7">Zero-initialized objects are <code>_Opt</code> objects</h3>
-
-<p><code>= {}</code> and <code>calloc</code> both produce an object whose members are all zero, including
-members declared non-null. Such an object is in the <code>_Opt</code> state: that is
-allowed, but it is not yet a complete object under the default contract.</p>
-
-<p>A zero-initialized object is valid to hold, to finish initializing, and to
-destroy, but members declared non-null must be assigned before it is used as a
-complete object (passed to a default parameter or returned).</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void* _Owner _Opt _Clear calloc(unsigned long n, unsigned long size);
-void free(void* _Owner _Opt p);
-
-struct X { char* text; }; // text is non-null
-
-void use(struct X* p);             // default: *p must be complete
-
-void f(void)
-{
-    struct X x = {};               // ok: x.text == 0, x is an _Opt object
-    static_debug(x);               // text == null
-    use(&amp;x);                       //lint 35 x.text is null
-}
-
-void g(void)
-{
-    struct X* _Owner _Opt p = calloc(1, sizeof * p); // p-&gt;text == 0
-    static_debug(p);
-    if (p)
-    {
-        p-&gt;text = &quot;a&quot;;             // now complete
-        use(p);                    // ok
-        free(p);
-    }
-}
-</code></pre>
-
-<hr>
-
-<h2 id="toc_8"><code>_Owner</code></h2>
-
-<p>The reference is responsible for the lifetime of the object. Assignment, or
-passing to an <code>_Owner</code> parameter, <strong>moves</strong> ownership. An owner must be
-released or moved before it goes out of scope.</p>
-
-<p>It can go on pointers, struct members and return types. Its placement follows
-the same rules as <code>const</code>: it belongs to the storage holding the reference,
-not to the pointed-to type.</p>
-
-<p><strong><code>_Owner</code> parameter</strong>
-- Caller: gives the object away; after the call the argument is moved and must not be used.
-- Implementation: receives a complete object and must release or move it at every exit.</p>
-
-<p><strong><code>_Owner</code> return</strong>
-- Implementation: returns an object it gives away.
-- Caller: must release it or move it.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void* _Owner _Opt malloc(unsigned long n); // returns ownership
-void free(void* _Owner _Opt p);            // takes ownership
-
-int main()
-{
-    void* _Owner _Opt p = malloc(1);
-    void* _Owner _Opt p2 = p;   // moved: p is no longer the owner
-    static_debug(p);
-    free(p2);                   // ok
-    free(p);                    //lint 32 p was moved
-}
-</code></pre>
-
-<hr>
-
-<h2 id="toc_9">Assignment rules</h2>
-
-<p>The same rules apply to <code>=</code>, to initialization, to passing an argument
-(argument -&gt; parameter) and to <code>return</code> (expression -&gt; return type).</p>
-
-<h3 id="toc_10"><code>_Opt</code></h3>
-
-<table>
-<thead>
-<tr>
-<th>Destination <code>=</code> source</th>
-<th>Result</th>
-</tr>
-</thead>
-
-<tbody>
-<tr>
-<td><code>_Opt</code> = non-null</td>
-<td>ok (widening)</td>
-</tr>
-<tr>
-<td><code>_Opt</code> = <code>_Opt</code></td>
-<td>ok</td>
-</tr>
-<tr>
-<td>non-null = non-null</td>
-<td>ok</td>
-</tr>
-<tr>
-<td>non-null = <code>_Opt</code></td>
-<td>warning 35, unless a null check has narrowed the source</td>
-</tr>
-</tbody>
-</table>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-char* _Opt get_opt(void);
-char* get_non_null(void);
-
-void f(void)
-{
-    char* _Opt a = get_non_null(); // ok: non-null -&gt; _Opt (widening)
-    char* b = get_opt();           //lint 35 _Opt -&gt; non-null (may be null)
-
-    char* _Opt c = get_opt();
-    if (c)
-    {
-        char* d = c;               // ok: c was checked, narrowed to non-null
-        (void)d;
-    }
-    (void)a;
-    (void)b;
-}
-</code></pre>
-
-<h3 id="toc_11"><code>_Owner</code></h3>
-
-<table>
-<thead>
-<tr>
-<th>Destination <code>=</code> source</th>
-<th>Result</th>
-</tr>
-</thead>
-
-<tbody>
-<tr>
-<td><code>_Owner</code> = <code>_Owner</code></td>
-<td>ok: <strong>move</strong>, the source is now moved</td>
-</tr>
-<tr>
-<td><code>_Owner</code> = non-owner</td>
-<td>warning 78: cannot make an owner from something not owned</td>
-</tr>
-<tr>
-<td>non-owner = <code>_Owner</code> variable</td>
-<td>ok: the destination is a <strong>view</strong>, the source is still the owner</td>
-</tr>
-<tr>
-<td>non-owner = <code>_Owner</code> temporary (e.g. <code>malloc(1)</code>)</td>
-<td>warning 79: nobody owns the result, so it leaks</td>
-</tr>
-</tbody>
-</table>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void* _Owner _Opt malloc(unsigned long n);
-void free(void* _Owner _Opt p);
-
-void f(void)
-{
-    int i = 0;
-    int* _Owner _Opt a = &amp;i;        //lint 78 non-owner -&gt; _Owner
-    free(a);
-
-    void* _Opt b = malloc(1);       //lint 79 temporary owner -&gt; non-owner (leak)
-    (void)b;
-
-    void* _Owner _Opt p = malloc(1);
-    void* _Opt view = p;            // ok: non-owner copy of an owner variable is a view
-    void* _Owner _Opt q = p;        // ok: _Owner -&gt; _Owner moves; p is now moved
-    (void)view;
-    free(q);
-}
-</code></pre>
-
-<p>A view must not outlive its owner: after <code>free(q)</code> above, <code>view</code> points to an
-object whose lifetime has ended.</p>
-
-<hr>
-
-<h2 id="toc_12"><code>_View</code></h2>
-
-<p>Used <strong>only on a struct object</strong>, never on a pointer (plain pointers already are
-views; <code>int * _View p</code> is an error). For that variable, <code>_Owner</code> is removed from
-every member, so the struct can be copied or passed without moving ownership.</p>
-
-<p><strong>Caller</strong>: keeps ownership.
-<strong>Implementation</strong>: may read the members but must not release or move them.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void free(void* _Owner _Opt p);
-
-struct X { char* _Owner _Opt text; };
-
-void show(_View struct X x) { /* reads x, owns nothing */ }
-
-int main()
-{
-    struct X x = {};
-    show(x);                 // x not moved
-    _View struct X x2 = x;   // not moved
-    free(x.text);            // x is still the owner
-}
-</code></pre>
-
-<hr>
-
-<h2 id="toc_13"><code>_Out</code></h2>
-
-<p>On a <strong>parameter&#39;s pointee</strong>. The constructor/init contract.</p>
-
-<p><strong>Caller</strong>
-- may pass uninitialized storage;
-- after the call the object is fully initialized and the caller owns its contents.</p>
-
-<p><strong>Implementation</strong>
-- may assume <strong>nothing</strong> about <code>*p</code>: it must not read or free its members;
-- must initialize <strong>every</strong> member (not only owners) at every exit.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void free(void* _Owner _Opt p);
-
-struct X { char* _Owner _Opt text; int i; };
-
-void x_init(_Out struct X* p)
-{
-    p-&gt;text = 0;
-    p-&gt;i = 0;
-}
-
-void x_init_partial(_Out struct X* p)
-{
-    p-&gt;text = 0;
-} //lint 71 _Out parameter &#39;p-&gt;i&#39; is not initialized at exit
-
-int main()
-{
-    struct X x;   // uninitialized is fine
-    x_init(&amp;x);
-    static_debug(x);  // every member initialized
-    free(x.text);
-}
-</code></pre>
-
-<hr>
-
-<h2 id="toc_14"><code>_Dtor</code></h2>
-
-<p>On a <strong>parameter&#39;s pointee</strong>. The inverse of <code>_Out</code>; the destructor contract.</p>
-
-<p><strong><code>_Dtor</code> implies <code>_Opt</code> by design:</strong> <code>_Dtor struct X *</code> means
-<code>_Dtor _Opt struct X *</code>. Every member is possibly null, whatever its declared
-nullability. So a destructor accepts any object that may exist, including one
-that is zero-initialized (<code>= {}</code>, <code>calloc</code>) or that failed halfway through
-construction.</p>
-
-<p><strong>Caller</strong>
-- must pass an object (complete or in the <code>_Opt</code> state);
-- after the call the object is consumed: it must not read it or release it again.</p>
-
-<p><strong>Implementation</strong>
-- treats every member as <code>_Opt</code>, so guards them before use (<code>free(NULL)</code> is fine);
-- must release or move every <code>_Owner</code> member at every exit;
-- does <strong>not</strong> need to zero anything.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt p);
-
-struct X { char* _Owner text; }; // non-null, but _Opt inside a _Dtor
-
-void x_destroy(_Dtor struct X* p)
-{
-    free(p-&gt;text); // obligation fulfilled
-}
-
-int main()
-{
-    struct X x = {};  // _Opt object: x.text == 0
-    x_destroy(&amp;x);    // ok: _Dtor accepts it
-    static_debug(x);  // consumed
-}
-</code></pre>
-
-<p><code>_Dtor</code> frees the <strong>members</strong>. A function that frees the members <strong>and</strong> the
-object is a <code>_delete</code> taking <code>_Owner</code>:</p>
-
-<pre><code class="language-c">void x_delete(_Opt struct X* _Owner _Opt p)
-{
-    if (p)
-    {
-        x_destroy(p); // moves *p&#39;s contents
-        free(p);      // releases storage
-    }
-}
-</code></pre>
-
-<hr>
-
-<h2 id="toc_15"><code>_Clear</code></h2>
-
-<h3 id="toc_16">On a parameter&#39;s pointee: the reset contract</h3>
-
-<p><strong>Caller</strong>
-- passes a fully initialized object (it may hold owners);
-- after the call every member is zero and nothing is owned.</p>
-
-<p><strong>Implementation</strong>
-- may assume every member is initialized, so it may read them;
-- must release owner members (it receives a live object);
-- must leave <strong>every</strong> member == 0 at <strong>every</strong> exit. An early return that skips
-  the zeroing breaks the contract.</p>
-
-<p>Constraints: the pointee cannot be <code>const</code>, and <code>_Clear</code> goes on the pointee,
-not the pointer (<code>struct s _Clear p</code> is an error).</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void free(void* _Owner _Opt p);
-
-struct S { char* _Owner _Opt text; int n; };
-
-void s_reset(_Clear struct S* p)
-{
-    free(p-&gt;text);
-    p-&gt;text = 0;
-    p-&gt;n = 0;
-}
-
-void s_reset_forgot(_Clear struct S* p)
-{
-    free(p-&gt;text);
-    p-&gt;text = 0;
-} //lint 69 _Clear parameter &#39;p-&gt;n&#39; is not zero at exit
-</code></pre>
-
-<h3 id="toc_17">On a return&#39;s pointee</h3>
-
-<p>The returned memory is already zeroed, like <code>calloc</code>:</p>
-
-<pre><code class="language-c">void* _Owner _Opt _Clear calloc(unsigned long n, unsigned long size);
-</code></pre>
-
-<hr>
-
-<h2 id="toc_18"><code>_Out _Clear</code> together</h2>
-
-<p>The zero-init contract for fresh storage.</p>
-
-<p><strong>Caller</strong>
-- may pass uninitialized storage;
-- must <strong>not</strong> hold live owners inside it: they would be overwritten without
-  being released (warning);
-- after the call every member is zero.</p>
-
-<p><strong>Implementation</strong>
-- may assume <strong>nothing</strong> (as with <code>_Out</code>): must not read or free members;
-- must set <strong>every</strong> member to zero at every exit.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt p);
-
-struct X { char* _Owner _Opt text; int i; };
-
-void x_zero(_Out _Clear struct X* p)
-{
-    p-&gt;text = 0;
-    p-&gt;i = 0;
-}
-
-void bad(void)
-{
-    struct X x = {};
-    x.text = strdup(&quot;a&quot;);
-    x_zero(&amp;x); //lint 26 discards _Owner &#39;x.text&#39; without releasing it first
-}
-
-void ok(void)
-{
-    struct X x;  // uninitialized is fine
-    x_zero(&amp;x);
-    static_debug(x);  // every member zero
-}
-</code></pre>
-
-<table>
-<thead>
-<tr>
-<th></th>
-<th>Entry</th>
-<th>Exit</th>
-</tr>
-</thead>
-
-<tbody>
-<tr>
-<td><code>_Clear</code></td>
-<td>initialized, may hold owners (callee frees them)</td>
-<td>all zero</td>
-</tr>
-<tr>
-<td><code>_Out _Clear</code></td>
-<td>may be uninitialized; no live owners</td>
-<td>all zero</td>
-</tr>
-</tbody>
-</table>
-
-<p>Use <code>_Clear</code> for <em>reset</em> functions, <code>_Out _Clear</code> for <em>init-to-zero</em> functions.</p>
-
-<hr>
-
-<h2 id="toc_19"><code>_Uninitialized</code></h2>
-
-<p>On a <strong>return&#39;s pointee</strong>. The returned memory is raw, like <code>malloc</code>.</p>
-
-<p><strong>Implementation</strong>: returns storage without initializing it.
-<strong>Caller</strong>: must write each member before reading it.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void* _Owner _Opt _Uninitialized malloc(unsigned long n);
-void free(void* _Owner _Opt p);
-void print(const char* s);
-
-struct X { char* text; };
-
-int main()
-{
-    struct X* _Owner _Opt p = malloc(sizeof * p);
-    static_debug(p);
-    if (p)
-    {
-        print(p-&gt;text);  //lint 30 p-&gt;text is uninitialized
-        p-&gt;text = &quot;a&quot;;
-        print(p-&gt;text);  // ok
-        free(p);
-    }
-}
-</code></pre>
-
-<hr>
-
-<h2 id="toc_20">Summary</h2>
-
-<h3 id="toc_21">Parameter pointee</h3>
-
-<table>
-<thead>
-<tr>
-<th>Annotation</th>
-<th>Caller provides on entry</th>
-<th>Implementation may assume</th>
-<th>Implementation must guarantee at exit</th>
-<th>Caller gets after the call</th>
-</tr>
-</thead>
-
-<tbody>
-<tr>
-<td><em>(none)</em></td>
-<td>fully initialized</td>
-<td>every member readable</td>
-<td>fully initialized, owners still valid</td>
-<td>same object, still owns it</td>
-</tr>
-<tr>
-<td><code>_Out</code></td>
-<td>anything</td>
-<td>nothing: no read, no free</td>
-<td>every member initialized</td>
-<td>initialized object, owns it</td>
-</tr>
-<tr>
-<td><code>_Dtor</code> (= <code>_Dtor _Opt</code>)</td>
-<td>complete or <code>_Opt</code> object</td>
-<td>every member <code>_Opt</code></td>
-<td>every <code>_Owner</code> member released</td>
-<td>consumed object</td>
-</tr>
-<tr>
-<td><code>_Clear</code></td>
-<td>fully initialized</td>
-<td>every member readable</td>
-<td>every member == 0 (owners freed)</td>
-<td>all-zero object</td>
-</tr>
-<tr>
-<td><code>_Out _Clear</code></td>
-<td>anything, no live owners</td>
-<td>nothing: no read, no free</td>
-<td>every member == 0</td>
-<td>all-zero object</td>
-</tr>
-<tr>
-<td><code>_Owner</code> pointer</td>
-<td>owned object</td>
-<td>owned, fully initialized</td>
-<td>object released or moved</td>
-<td>argument moved</td>
-</tr>
-<tr>
-<td><code>_View</code> struct</td>
-<td>any object</td>
-<td>members readable</td>
-<td>owners untouched</td>
-<td>still owns it</td>
-</tr>
-</tbody>
-</table>
-
-<h3 id="toc_22">Pointer / return</h3>
-
-<table>
-<thead>
-<tr>
-<th>Annotation</th>
-<th>Implementation</th>
-<th>Caller</th>
-</tr>
-</thead>
-
-<tbody>
-<tr>
-<td><em>(none)</em> <code>T*</code></td>
-<td>returns non-null, pointee initialized</td>
-<td>uses it as a view</td>
-</tr>
-<tr>
-<td><code>_Opt</code></td>
-<td>may return null</td>
-<td>must check for null</td>
-</tr>
-<tr>
-<td><code>_Owner</code></td>
-<td>gives the object away</td>
-<td>must free or move it</td>
-</tr>
-<tr>
-<td><code>_Uninitialized</code> pointee</td>
-<td>returns raw memory</td>
-<td>writes before reading</td>
-</tr>
-<tr>
-<td><code>_Clear</code> pointee</td>
-<td>returns zeroed memory</td>
-<td>nothing extra</td>
-</tr>
-</tbody>
-</table>
-
-<h3 id="toc_23">Object state</h3>
-
-<table>
-<thead>
-<tr>
-<th>How it was created</th>
-<th>State</th>
-</tr>
-</thead>
-
-<tbody>
-<tr>
-<td><code>struct X x;</code> / <code>malloc</code></td>
-<td>uninitialized: only <code>_Out</code> may receive it</td>
-</tr>
-<tr>
-<td><code>= {}</code> / <code>calloc</code></td>
-<td><code>_Opt</code> object: non-null members are zero; <code>_Dtor</code> accepts it</td>
-</tr>
-<tr>
-<td>after all members assigned</td>
-<td>complete: meets the default contract</td>
-</tr>
-</tbody>
-</table>
 </article></body></html>

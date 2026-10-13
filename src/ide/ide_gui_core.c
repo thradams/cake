@@ -912,6 +912,11 @@ struct gui_node* gui_context_target(const struct gui_app* app)
     return app->menu.target;
 }
 
+int gui_menu_is_open(const struct gui_app* app)
+{
+    return app->menu.open != NULL;
+}
+
 void gui_popup_menu(struct gui_app* app, struct gui_node* menu, struct gui_node* below)
 {
     app->menu.open = menu;

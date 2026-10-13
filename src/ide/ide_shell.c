@@ -946,6 +946,8 @@ struct ide
     struct macro_buttons macro;
     struct gui_node* tools_menu;
     struct gui_node* config_menu;   /* Build > Configuration: the configuration the Build uses */
+    char active_config[64];   /* the name of the configuration in use, for the project and the Playground alike */
+    struct compiler_settings* config_menu_settings;   /* whose configurations config_menu lists */
     struct gui_node* recent_menu;   /* File > Recent Projects */
     struct ide_compile_job* job;
     struct gui_node* pending_close;   /* the window the Close prompt is about */
@@ -3557,6 +3559,15 @@ static int config_find(const struct compiler_settings* cs, const char* name)
     return -1;
 }
 
+/* The row of `cs` the IDE's configuration in use names, else its first; -1 when it has none. */
+static int config_index(const struct ide* ide, const struct compiler_settings* cs)
+{
+    const int i = config_find(cs, ide->active_config);
+    if (i >= 0)
+        return i;
+    return cs->count > 0 ? 0 : -1;
+}
+
 /* The combo's rows: the configurations being edited, `selected` shown. */
 static void copts_fill_configs(struct ide* ide, int selected)
 {
@@ -3607,8 +3618,6 @@ static void config_name_accept(struct ide* ide)
             c->edit.configurations[i] = c->edit.configurations[c->shown];
         else
             config_default(&c->edit.configurations[i]);
-        if (c->edit.current < 0)
-            c->edit.current = i;
     }
     snprintf(c->edit.configurations[i].name, sizeof c->edit.configurations[i].name, "%s", name);
     copts_fill_configs(ide, i);
@@ -3638,10 +3647,6 @@ static void config_delete(struct ide* ide)
     memmove(&c->edit.configurations[i], &c->edit.configurations[i + 1],
             (size_t)(c->edit.count - i - 1) * sizeof c->edit.configurations[0]);
     c->edit.count--;
-    if (c->edit.current == i)
-        c->edit.current = c->edit.count > 0 ? 0 : -1;
-    else if (c->edit.current > i)
-        c->edit.current--;
     copts_fill_configs(ide, i < c->edit.count ? i : c->edit.count - 1);
     copts_show(ide);
 }
@@ -3842,8 +3847,6 @@ static void copts_auto_config(struct ide* ide)
             ide_text_printf(&configured, "  %s\n", found.name);
         }
     }
-    if (c->edit.current < 0 && c->edit.count > 0)
-        c->edit.current = 0;
     struct ide_text report = { 0 };
     ide_text_printf(&report, "Configurations created or updated:\n%s",
                     configured.data ? configured.data : "  none - no compiler found on this machine\n");
@@ -3865,7 +3868,7 @@ static void copts_open(struct ide* ide, struct compiler_settings* s, const char*
     c->settings = s;
     c->edit = *s;
     gui_set_label(c->window, title);
-    copts_fill_configs(ide, s->current);
+    copts_fill_configs(ide, config_index(ide, s));
     copts_show(ide);
     show_resizable_dialog(ide, c->window, COPTS_COLS, COPTS_ROWS, c->pages);
 }
@@ -4097,43 +4100,48 @@ static void ext_event(struct ide* ide, int id)
     The Tools menu: one item per external tool, then - when there are any -
     a line, then its own items.
 */
-/* The settings whose configuration Build > Configuration picks: the open project's, else the global ones. */
-static struct compiler_settings* config_settings_in_use(struct ide* ide)
+static int file_uses_project(struct ide* ide, const char* path);
+
+/*
+    The settings of the active screen, as if its project were selected: the open
+    project's for its files, else the Playground's - as Project > Properties chooses.
+*/
+static struct compiler_settings* config_settings_shown(struct ide* ide)
 {
-    return ide_project_is_open(&ide->project) ? &ide->project.compile : &ide->global_options;
+    struct doc* d = active_doc(ide);
+    if (ide_project_is_open(&ide->project) && (!d || file_uses_project(ide, d->path)))
+        return &ide->project.compile;
+    return &ide->global_options;
 }
 
-/* Build > Configuration's rows, the one in use marked. */
+/* Build > Configuration's rows, the one in use marked: the IDE's, else the first. */
 static void config_menu_refresh(struct ide* ide)
 {
-    const struct compiler_settings* cs = config_settings_in_use(ide);
+    struct compiler_settings* cs = config_settings_shown(ide);
+    ide->config_menu_settings = cs;
+    const int in_use = config_index(ide, cs);
     gui_clear_children(ide->config_menu);
     for (int i = 0; i < cs->count; i++)
     {
         struct gui_node* it = create(ide, GUI_ITEM, cs->configurations[i].name);
-        gui_set_mark(it, i == cs->current);
+        gui_set_mark(it, i == in_use);
         gui_set_id(it, EV_CONFIG_ITEM + i);
         gui_append(ide->config_menu, it);
     }
     char right[120] = { 0 };   /* the statusbar's right: the configuration in use */
     snprintf(right, sizeof right, "%s   Cake " CAKE_VERSION,
-             cs->current >= 0 && cs->current < cs->count ? cs->configurations[cs->current].name : "no configuration");
+             in_use >= 0 ? cs->configurations[in_use].name : "no configuration");
     gui_set_label(ide->statusbar, right);
 }
 
-static void project_save(struct ide* ide);
-static void settings_save(struct ide* ide);
-
+/* The choice is the IDE's: session.json keeps it when the IDE closes. */
 static void config_pick(struct ide* ide, int i)
 {
-    struct compiler_settings* cs = config_settings_in_use(ide);
-    if (i < 0 || i >= cs->count)
+    /* the rows the user saw, even if the active screen changed since */
+    const struct compiler_settings* cs = ide->config_menu_settings;
+    if (!cs || i < 0 || i >= cs->count)
         return;
-    cs->current = i;
-    if (cs == &ide->project.compile)
-        project_save(ide);
-    else
-        settings_save(ide);
+    snprintf(ide->active_config, sizeof ide->active_config, "%s", cs->configurations[i].name);
     config_menu_refresh(ide);
 }
 
@@ -4164,7 +4172,7 @@ static void tools_menu_refresh(struct ide* ide)
 
 static const char* platform_for(struct ide* ide, const char* path);
 static int file_uses_project(struct ide* ide, const char* path);
-static const struct target_settings* settings_in_use(const struct compiler_settings* cs);
+static const struct target_settings* settings_in_use(const struct ide* ide, const struct compiler_settings* cs);
 
 /*
     $(TargetFileName): the Build page's Output when set, else the project's
@@ -4174,7 +4182,7 @@ static void target_file_name(struct ide* ide, const char* path, const char* doc_
 {
     int project = file_uses_project(ide, path);
     const struct compiler_settings* cs = project ? &ide->project.compile : &ide->global_options;
-    const struct target_settings* s = settings_in_use(cs);
+    const struct target_settings* s = settings_in_use(ide, cs);
     if (s->output[0])
     {
         snprintf(out, cap, "%s", s->output);
@@ -4419,7 +4427,7 @@ static void expand_macros(struct ide* ide, const char* in, struct ide_text* out,
         {
             /* the project's for its files, else the playground project's (absolute) */
             int project = file_uses_project(ide, path);
-            const struct include_dirs* dirs = &settings_in_use(project ? &p->compile : &ide->global_options)->include_dirs;
+            const struct include_dirs* dirs = &settings_in_use(ide, project ? &p->compile : &ide->global_options)->include_dirs;
             for (int i = 0; i < dirs->count; i++)
             {
                 if (project)
@@ -6331,11 +6339,13 @@ static void dock_panel(struct ide* ide, enum gui_dock side)
 static const char* const style_slugs[] = { "", "cake", "gnu", "microsoft" };
 static const char* const diag_slugs[] = { "ide", "gcc", "msvc" };
 
-/* The options Build, Compile and Start Debugging use: the target's and configuration's in use. */
-static const struct target_settings* settings_in_use(const struct compiler_settings* cs)
+/* The options Build, Compile and Start Debugging use: the configuration of `cs`
+ * named as the IDE's in use, else its first. */
+static const struct target_settings* settings_in_use(const struct ide* ide, const struct compiler_settings* cs)
 {
     static const struct target_settings none = { 0 };
-    return cs->current >= 0 && cs->current < cs->count ? &cs->configurations[cs->current] : &none;
+    const int i = config_index(ide, cs);
+    return i >= 0 ? &cs->configurations[i] : &none;
 }
 
 /* New settings: one configuration, every field empty but -line-directives. */
@@ -6343,7 +6353,6 @@ static void compiler_settings_default(struct compiler_settings* s)
 {
     memset(s, 0, sizeof *s);
     s->count = 1;
-    s->current = 0;
     config_default(&s->configurations[0]);
     snprintf(s->configurations[0].name, sizeof s->configurations[0].name, "Default");
 }
@@ -6354,7 +6363,7 @@ static void compiler_settings_default(struct compiler_settings* s)
 */
 static void compile_args(struct ide* ide, const struct compiler_settings* cs)
 {
-    const struct target_settings* s = settings_in_use(cs);
+    const struct target_settings* s = settings_in_use(ide, cs);
     struct ide_compile_job* job = ide->job;
     char flag[1100] = { 0 };
     ide_compile_reset(job);
@@ -6963,7 +6972,7 @@ static void output_goto_source(struct ide* ide, struct gui_node* panel)
 static void playground_args(struct ide* ide)
 {
     const struct compiler_settings* cs = &ide->global_options;
-    const struct include_dirs* dirs = &settings_in_use(cs)->include_dirs;
+    const struct include_dirs* dirs = &settings_in_use(ide, cs)->include_dirs;
     char flag[1200] = { 0 };
     for (int i = 0; i < dirs->count; i++)
     {
@@ -6982,7 +6991,7 @@ static void project_args(struct ide* ide)
     char flag[1200] = { 0 };
     snprintf(flag, sizeof flag, "-output-root=%s", p->dir);
     ide_compile_arg(ide->job, flag);
-    const struct include_dirs* dirs = &settings_in_use(&p->compile)->include_dirs;
+    const struct include_dirs* dirs = &settings_in_use(ide, &p->compile)->include_dirs;
     for (int i = 0; i < dirs->count; i++)
     {
         char abs[1024] = { 0 };
@@ -7188,7 +7197,7 @@ static void format_doc(struct ide* ide)
         return;
     const char* text = gui_get_value(d->editor);
     char options[96] = "-format";
-    int style = settings_in_use(&ide->global_options)->style;
+    int style = settings_in_use(ide, &ide->global_options)->style;
     if (style > 0 && style < COUNT(style_slugs))
         snprintf(options + strlen(options), sizeof options - strlen(options), " -style=%s", style_slugs[style]);
     int lo = 0, hi = 0;
@@ -7396,7 +7405,7 @@ static const struct target_settings* chain_settings(struct ide* ide)
     int project = ide->chain.compile ? d && file_uses_project(ide, d->path)
                                      : ide_project_is_open(&ide->project) && !(d && is_playground(ide, d));
     const struct compiler_settings* cs = project ? &ide->project.compile : &ide->global_options;
-    return settings_in_use(cs);
+    return settings_in_use(ide, cs);
 }
 
 /*
@@ -8189,7 +8198,7 @@ static int file_uses_project(struct ide* ide, const char* path)
 /* The platform `path` is compiled for: the target of its project's configuration, or the global one. */
 static const char* platform_for(struct ide* ide, const char* path)
 {
-    const struct target_settings* s = settings_in_use(file_uses_project(ide, path) ? &ide->project.compile : &ide->global_options);
+    const struct target_settings* s = settings_in_use(ide, file_uses_project(ide, path) ? &ide->project.compile : &ide->global_options);
     if (s->cake_target[0])
         return s->cake_target;
     static struct platform host;
@@ -8556,7 +8565,7 @@ static void fif_run(struct ide* ide, int replace)
             snprintf(builtin + strlen(builtin), sizeof builtin - strlen(builtin), IDE_PATH_SEP "include");
             struct doc* active = active_doc(ide);
             int project = active ? file_uses_project(ide, active->path) : ide_project_is_open(&ide->project);
-            const struct include_dirs* l = &settings_in_use(project ? &ide->project.compile : &ide->global_options)->include_dirs;
+            const struct include_dirs* l = &settings_in_use(ide, project ? &ide->project.compile : &ide->global_options)->include_dirs;
             int dirs = 0;
             for (int i = -1; i < l->count; i++)
             {
@@ -8889,14 +8898,13 @@ static void target_from_json(const struct json_value* c, struct target_settings*
 }
 
 /*
-    "compile": the configuration in use, by its name, and "configurations",
-    each with its name and options.
+    "compile": "configurations", each with its name and options. The one in use
+    is the IDE's, in session.json.
 */
 static void compile_to_json(struct json_value* c, const struct compiler_settings* s)
 {
     if (!c)
         return;
-    json_set_string(c, "configuration", s->current >= 0 && s->current < s->count ? s->configurations[s->current].name : "");
     struct json_value* list = json_set_array(c, "configurations");
     for (int i = 0; list && i < s->count; i++)
     {
@@ -8928,11 +8936,6 @@ static void compile_from_json(const struct json_value* c, struct compiler_settin
         get_string(o, "name", t->name, sizeof t->name);
         target_from_json(o, t);
     }
-    char name[64] = "";
-    get_string(c, "configuration", name, sizeof name);
-    s->current = config_find(s, name);
-    if (s->current < 0 && s->count > 0)
-        s->current = 0;
 }
 
 /*
@@ -8950,7 +8953,7 @@ static void project_refresh(struct ide* ide, int selected)
         /* The old IDE's marker: a letter per file type, in the theme's color for it. */
         const char* f = p->files.items[i];
         char label[600] = { 0 };
-        snprintf(label, sizeof label, "%c %s",
+        snprintf(label, sizeof label, "%c%s",
                  ends_with(f, ".c") ? 'C' : ends_with(f, ".h") ? 'H' : ends_with(f, ".md") ? 'M' : ' ', f);
         struct gui_node* item = create(ide, GUI_ITEM, label);
         if (ends_with(f, ".c"))
@@ -8959,6 +8962,8 @@ static void project_refresh(struct ide* ide, int selected)
             gui_set_colors(item, ide->theme->project_icon_h_fg, 0);
         else if (ends_with(f, ".md"))
             gui_set_colors(item, ide->theme->project_icon_md_fg, 0);
+        else
+            gui_set_colors(item, ide->theme->panel_fg, 0);
         gui_append(ide->project_list, item);
     }
     if (selected >= p->files.count)
@@ -9732,6 +9737,7 @@ static void session_save(struct ide* ide)
     root->type = JSON_OBJECT;
     json_set_string(root, "folder_dir", ide->folder.dir);
     json_set_string(root, "project_path", ide->project.file_path);
+    json_set_string(root, "configuration", ide->active_config);
     struct json_value* recent = json_set_array(root, "recent_projects");
     for (int i = 0; i < ide->recent_projects.count; i++)
         json_add_string(recent, ide->recent_projects.items[i]);
@@ -9809,6 +9815,7 @@ static int session_load(struct ide* ide)
     int active = get_int(side_dock, "active", 0);
     char project[1024] = "";
     get_string(root, "project_path", project, sizeof project);
+    get_string(root, "configuration", ide->active_config, sizeof ide->active_config);
     const struct json_value* recent = json_find_member(root, "recent_projects");
     size_t recent_n = recent && recent->type == JSON_ARRAY ? json_count(recent) : 0;
     for (size_t i = 0; i < recent_n && ide->recent_projects.count < MAX_RECENT_PROJECTS; i++)
@@ -10014,10 +10021,9 @@ static void git_refresh(struct ide* ide)
             if (x != ' ' && x != '?')
                 staged = y != ' ' ? "  [partly staged]" : "  [staged]";
             char label[1200] = { 0 };
-            snprintf(label, sizeof label, "%c %s%s", marker, name, staged);
+            snprintf(label, sizeof label, "%c%s%s", marker, name, staged);
             struct gui_node* item = create(ide, GUI_ITEM, label);
-            if (fg)
-                gui_set_colors(item, fg, 0);
+            gui_set_colors(item, fg ? fg : ide->theme->panel_fg, 0);
             gui_append(g->list, item);
             char xy[3] = { x, y, '\0' };
             ide_strings_add(&g->paths, real);
@@ -10792,7 +10798,7 @@ static void debug_start_session(struct ide* ide)
     struct ide_project* p = &ide->project;
     int use_project = file_uses_project(ide, doc->path);
     const struct compiler_settings* cs = use_project ? &p->compile : &ide->global_options;
-    if (!settings_in_use(cs)->flags[0])   /* -line-directives */
+    if (!settings_in_use(ide, cs)->flags[0])   /* -line-directives */
     {
         static const char* const ok[] = { "OK" };
         static const int ok_id[] = { 0 };
@@ -10825,7 +10831,7 @@ static void debug_launch(struct ide* ide)
     const struct compiler_settings* cs = use_project ? &p->compile : &ide->global_options;
     const char* fields[3] = { 0 };
     for (int i = 0; i < 3; i++)
-        fields[i] = settings_in_use(cs)->debug[i];
+        fields[i] = settings_in_use(ide, cs)->debug[i];
     struct ide_text exe = { 0 }, args = { 0 }, dir = { 0 };
     expand_macros(ide, fields[0][0] ? fields[0] : "$(TargetPath)", &exe, 0);
     expand_macros(ide, fields[1], &args, 1);
@@ -11306,6 +11312,14 @@ static void on_event(void* ctx, int id)
     struct ide* ide = ctx;
     struct doc* doc = active_doc(ide);
     struct gui_node* ed = focused_editor(ide);
+
+    /* the active screen moved between the project and the Playground: Build > Configuration follows */
+    if (!(id >= EV_CONFIG_ITEM && id < EV_CONFIG_ITEM + MAX_CONFIGURATIONS) &&
+        !gui_menu_is_open(ide->app) &&
+        config_settings_shown(ide) != ide->config_menu_settings)
+    {
+        config_menu_refresh(ide);
+    }
 
     if (id > EV_COUNT && id <= EV_COUNT + 3)
     {
@@ -11969,4 +11983,5 @@ void gui_main(struct gui_app* app, int argc, char** argv)
         open_file(ide, argv[i]);
     if (argc < 2 && !session_load(ide))
         open_playground(ide);
+    config_menu_refresh(ide);   /* with the session's configuration in use */
 }

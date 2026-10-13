@@ -666,8 +666,8 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
         {
             const struct gui_node* item = n->children[index];
             const char* label = item->label;
-            int x = n->rect.x;
-            int room = cols;
+            int x = n->rect.x + (n->has_colors ? cw : 0);   /* a docked panel's list gets a left margin */
+            int room = cols - (n->has_colors ? 1 : 0);
             int skip = n->hscroll;
             if (core_node_font(n) == GUI_FONT_UI)
             {
@@ -678,18 +678,14 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
             }
             if (item->has_colors && label[0] && room > 0)
             {
-                /* A file-type marker: its first glyph in its own color, selected or not. */
+                /* A file-type marker: its first glyph in its own color, in a column of its own, so the names line up whatever the glyph's width. */
                 uint32_t cp = 0;
                 int len = core_utf8_decode(label, &cp);
-                if (skip == 0)
-                {
-                    x = core_draw_utf8(p, x, y, label, len, item->fg, bg);
-                    room--;
-                }
-                else
-                {
-                    skip--;
-                }
+                x -= skip * cw;
+                skip = 0;
+                room = INT_MAX;
+                core_draw_utf8(p, x, y, label, len, item->fg, bg);
+                x += 2 * cw;
                 label += len;
             }
             label += core_utf8_prefix_bytes(label, skip);

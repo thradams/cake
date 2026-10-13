@@ -578,6 +578,9 @@ void gui_set_context_menu(struct gui_node* n, struct gui_node* menu);
 */
 struct gui_node* gui_context_target(const struct gui_app* app);
 
+/* A menu (of the menubar or a context menu) is open: its items must not be rebuilt now. */
+int gui_menu_is_open(const struct gui_app* app);
+
 /*
     Opens `menu` right below the node `below` (a button, say), as if it were
     its context menu: gui_context_target says `below` until it closes.

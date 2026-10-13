@@ -42788,7 +42788,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.20"
+#define CAKE_VERSION "0.15.21"
 
 
  
@@ -78005,10 +78005,22 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
         ctx->collect_deferred_effects = true;
         ctx->deferred_effects_count = saved_count;
 
-        while (p_current_argument && p_current_parameter_type)
+        while (p_current_argument)
         {
             struct expression* p_arg_expr = p_current_argument->expression;
-            const struct type* p_param_type = &p_current_parameter_type->type;
+            /* a variadic argument is only read: its own type, as a view */
+            struct type variadic_type = { 0 };
+            const struct type* p_param_type = &variadic_type;
+            if (p_current_parameter_type)
+            {
+                p_param_type = &p_current_parameter_type->type;
+            }
+            else
+            {
+                variadic_type = type_dup(&p_arg_expr->object.type);
+                variadic_type.type_qualifier_flags &= ~(TYPE_QUALIFIER_CAKE_OWNER | TYPE_QUALIFIER_CAKE_DTOR |
+                                                        TYPE_QUALIFIER_CAKE_CTOR | TYPE_QUALIFIER_CAKE_UNINIT);
+            }
 
             struct object param_object = { 0 };
             make_object(p_param_type, &param_object, MAKE_STATE_UNITIALIZED, &ctx->ctx->options.platform);
@@ -78026,8 +78038,9 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
             flow_check_object_init_assigment(ctx, p_arg_expr, &param_object, &p_arg_expr->object, INIT_PARAMETER, false, false);
 
             p_current_argument = p_current_argument->next;
-            p_current_parameter_type = p_current_parameter_type->next;
+            p_current_parameter_type = p_current_parameter_type ? p_current_parameter_type->next : NULL;
             object_destroy(&param_object);
+            type_destroy(&variadic_type);
         }
 
         /*

@@ -205,12 +205,11 @@ struct target_settings
 #define MAX_CONFIGURATIONS 32
 
 /*
-    Properties: a project's or the Playground project's - its configurations
-    and the one in use.
+    Properties: a project's or the Playground project's configurations. The one
+    in use is the IDE's choice (Build > Configuration), not theirs.
 */
 struct compiler_settings
 {
-    int current;   /* the configuration in use, -1 none */
     int count;
     struct target_settings configurations[MAX_CONFIGURATIONS];
 };
