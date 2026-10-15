@@ -28,6 +28,7 @@
 struct defer_scope
 {
     struct declarator* _Opt p_declarator;
+    struct expression* _Opt p_compound_literal;
     struct defer_statement* _Opt p_defer_statement;
     struct defer_statement* _Opt p_defer_block;
     struct try_statement* _Opt p_try_statement;
@@ -123,11 +124,12 @@ static void defer_visit_ctx_pop_until(struct defer_visit_ctx* ctx, struct defer_
                         item->defer_statement = p->p_defer_statement;
                         defer_list_add(p_defer_list, item); // items com inicialzaxao
                     }
-                    else if (p->p_declarator)
+                    else if (p->p_declarator || p->p_compound_literal)
                     {
                         struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                         if (item == NULL) throw;
                         item->declarator = p->p_declarator;
+                        item->compound_literal = p->p_compound_literal;
                         defer_list_add(p_defer_list, item); // items com inicialzaxao
                     }
                 }
@@ -494,12 +496,13 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                 if (p->p_try_statement)
                     break;
 
-                if (p->p_declarator)
+                if (p->p_declarator || p->p_compound_literal)
                 {
                     struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->declarator = p->p_declarator;
+                    item->compound_literal = p->p_compound_literal;
                     defer_list_add(&p_jump_statement->defer_list, item);
 
                 }
@@ -526,12 +529,13 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
             struct defer_scope* _Opt p = ctx->tail_block;
             while (p)
             {
-                if (p->p_declarator)
+                if (p->p_declarator || p->p_compound_literal)
                 {
                     struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->declarator = p->p_declarator;
+                    item->compound_literal = p->p_compound_literal;
                     defer_list_add(&p_jump_statement->defer_list, item);
                 }
                 else if (p->p_defer_statement)
@@ -575,12 +579,13 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     break;
                 }
 
-                if (p->p_declarator)
+                if (p->p_declarator || p->p_compound_literal)
                 {
                     struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                     if (item == NULL) throw;
 
                     item->declarator = p->p_declarator;
+                    item->compound_literal = p->p_compound_literal;
                     defer_list_add(&p_jump_statement->defer_list, item);
                 }
                 else if (p->p_defer_statement)
@@ -721,7 +726,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     struct defer_scope* _Opt p2 = start;
                     while (p2 && p2 != p)
                     {
-                        if (p2->p_declarator)
+                        if (p2->p_declarator || p2->p_compound_literal)
                         {
                             struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                             if (item == NULL)
@@ -729,6 +734,7 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                                 throw;
                             }
                             item->declarator = p2->p_declarator;
+                            item->compound_literal = p2->p_compound_literal;
                             defer_list_add(&p_jump_statement->defer_list, item);
                         }
                         else if (p2->p_defer_statement)
@@ -759,11 +765,12 @@ static void defer_visit_jump_statement(struct defer_visit_ctx* ctx, struct jump_
                     struct defer_scope* _Opt p2 = start;
                     while (p2 && p2 != p)
                     {
-                        if (p2->p_declarator)
+                        if (p2->p_declarator || p2->p_compound_literal)
                         {
                             struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                             if (item == NULL) throw;
                             item->declarator = p2->p_declarator;
+                            item->compound_literal = p2->p_compound_literal;
                             defer_list_add(&p_jump_statement->defer_list, item);
                         }
                         else if (p2->p_defer_statement)
@@ -866,12 +873,13 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
                     if (p->p_try_statement)
                         break;
 
-                    if (p->p_declarator)
+                    if (p->p_declarator || p->p_compound_literal)
                     {
                         struct defer_list_item* _Opt _Owner item = calloc(1, sizeof * item);
                         if (item == NULL) throw;
 
                         item->declarator = p->p_declarator;
+                        item->compound_literal = p->p_compound_literal;
                         defer_list_add(&p_expression->defer_list, item);
 
                     }
@@ -894,6 +902,18 @@ static void defer_visit_expression(struct defer_visit_ctx* ctx, struct expressio
             {
             }
         }
+        break;
+
+        case EXPR_POSTFIX_COMPOUND_LITERAL:
+            /* an automatic compound literal lives until the end of the enclosing block, like a declarator; static/thread_local ones are not tracked */
+            if (ctx->tail_block &&
+                !(p_expression->p_storage_class_specifiers &&
+                  !is_automatic_variable(p_expression->p_storage_class_specifiers->storage_class_specifier_flags)))
+            {
+                struct defer_scope* _Opt p_defer = defer_visit_ctx_push_child(ctx);
+                if (p_defer)
+                    p_defer->p_compound_literal = p_expression;
+            }
         break;
 
         case EXPR_POSTFIX_FUNCTION_LITERAL:
@@ -1060,7 +1080,8 @@ static void defer_visit_declarator(struct defer_visit_ctx* ctx, struct declarato
     try
     {
         if (ctx->tail_block &&
-            p_declarator->object.type.category != TYPE_CATEGORY_FUNCTION)
+            p_declarator->object.type.category != TYPE_CATEGORY_FUNCTION &&
+            !(p_declarator->object.type.storage_class_specifier_flags & (STORAGE_SPECIFIER_STATIC | STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_EXTERN)))
         {
             if (ctx->parameter_list > 1)
             {

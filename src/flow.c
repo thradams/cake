@@ -548,6 +548,19 @@ static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct 
                                   p_declarator->name_opt ? p_declarator->name_opt->lexeme : NULL,
                                   false);
     }
+    else if (p_item->compound_literal)
+    {
+        struct expression* p_literal = p_item->compound_literal;
+        const struct marker marker = { .p_token_begin = p_literal->first_token, .p_token_end = p_literal->last_token };
+        flow_check_object_at_exit(ctx,
+                                  &p_literal->object.type,
+                                  &p_literal->object,
+                                  &marker,
+                                  position_token,
+                                  false,
+                                  NULL,
+                                  false);
+    }
 }
 
 static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
@@ -599,6 +612,12 @@ static void flow_defer_item_set_end_of_lifetime(struct flow_ctx* ctx, struct def
             flow_branch_set_object_lifetime_ended(ctx->p_current_flow_branch,
                                                &p_declarator->object,
                                                p_token);
+        }
+        else if (p_item->compound_literal)
+        {
+            flow_branch_set_object_lifetime_ended(ctx->p_current_flow_branch,
+                                               &p_item->compound_literal->object,
+                                               position_token);
         }
     }
     catch

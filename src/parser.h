@@ -1440,6 +1440,7 @@ void defer_statement_delete(_Dtor struct defer_statement* _Owner _Opt p);
 struct defer_list_item
 {
     struct declarator* _Opt declarator;
+    struct expression* _Opt compound_literal;
     struct defer_statement* _Opt defer_statement;
     struct defer_list_item* _Opt _Owner next;
 };

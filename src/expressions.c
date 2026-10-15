@@ -3878,6 +3878,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
 
                 p_expression_node_new->object.type = get_function_return_type(&p_expression_node->object.type);
+                /* also when called through a function pointer, whose declarator does not mark the return type */
+                p_expression_node_new->object.type.storage_class_specifier_flags |= STORAGE_SPECIFIER_FUNCTION_RETURN;
 
                 parser_match(ctx);
                 if (ctx->current == NULL)
