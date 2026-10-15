@@ -189,7 +189,7 @@
 <a href="#toc_5">The <code>_Opt</code> pointer annotation</a>
 </li>
 <li>
-<a href="#toc_6">The default_nonnull rule: <code>#pragma default_nonnull</code> / <code>-default-nonnull</code></a>
+<a href="#toc_6">The non-null rule: <code>#pragma safety enable</code> / <code>-safety</code></a>
 </li>
 <li>
 <a href="#toc_7">Example 1: Assigning Nullable to a Non-Nullable Pointer</a>
@@ -215,7 +215,7 @@
 <a href="#toc_13">Chapter 2: Object Lifetime and Ownership</a>
 <ul>
 <li>
-<a href="#toc_14">Enabling the annotations: <code>#pragma check_annotations</code> / <code>-check-annotations</code></a>
+<a href="#toc_14">Enabling the annotations: <code>#pragma safety</code> / <code>-safety</code></a>
 </li>
 <li>
 <a href="#toc_15">Owner References and the <code>_Owner</code> annotation</a>
@@ -399,7 +399,7 @@ stay checked.</p>
 
 <h3 id="toc_3">Enabling the analysis</h3>
 
-<p>There are three independent switches.</p>
+<p>There are two switches.</p>
 
 <table>
 <thead>
@@ -417,30 +417,23 @@ stay checked.</p>
 <td><strong>The analysis.</strong> Tracks the state of every object along every path: uninitialized values, null pointers, unreachable code, ... Null checking is always part of it.</td>
 </tr>
 <tr>
-<td><code>-check-annotations</code></td>
-<td><code>#pragma check_annotations enable</code></td>
-<td><strong>The annotations are checked.</strong> <code>_Owner</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Out</code>, <code>_Clear</code>, <code>_Uninitialized</code>, <code>_Opt</code> become part of the type and are checked. Without it they are ignored, like empty macros.</td>
-</tr>
-<tr>
-<td><code>-default-nonnull</code></td>
-<td><code>#pragma default_nonnull</code></td>
-<td><strong>The default.</strong> A pointer without <code>_Opt</code> is non-null. <code>#pragma default_null</code> goes back to the C default, where unannotated pointers may be null. Part of the annotations: it has no effect without <code>-check-annotations</code>.</td>
+<td><code>-safety</code></td>
+<td><code>#pragma safety enable</code></td>
+<td><strong>Cake contracts are checked.</strong> <code>_Owner</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Out</code>, <code>_Clear</code>, <code>_Uninitialized</code>, <code>_Opt</code> become part of the type and are checked, and a pointer without <code>_Opt</code> is non-null. Without it the annotations are ignored, like empty macros. It also turns on <code>-flow</code>.</td>
 </tr>
 </tbody>
 </table>
 
 <p>The annotations are checked when the code is parsed (for example, passing a
 non-owner to an <code>_Owner</code> parameter) and, when <code>-flow</code> is also on, along every
-path by the flow analysis. <code>#pragma safety enable</code> is a shorthand that turns on
-all three.</p>
+path by the flow analysis.</p>
 
-<p>The pragmas can also turn a switch off (<code>#pragma check_annotations disable</code>,
-<code>#pragma default_null</code>), so the annotations can be adopted file by file or
-region by region while migrating existing code.</p>
+<p><code>#pragma safety disable</code> turns the contracts off again, so they can be adopted
+file by file or region by region while migrating existing code.</p>
 
 <p>Typical command line:</p>
 
-<pre><code>cake -flow -check-annotations -default-nonnull file.c
+<pre><code>cake -safety file.c
 </code></pre>
 
 <h2 id="toc_4">Chapter 1: Nullable Pointers</h2>
@@ -459,13 +452,13 @@ non-nullable pointer and returns a nullable one:</p>
 
 <p>A pointer without <code>_Opt</code> is always assumed to be non-nullable.</p>
 
-<h3 id="toc_6">The default_nonnull rule: <code>#pragma default_nonnull</code> / <code>-default-nonnull</code></h3>
+<h3 id="toc_6">The non-null rule: <code>#pragma safety enable</code> / <code>-safety</code></h3>
 
 <p>Existing C code was not written with nullability in mind, so &quot;a pointer without
-<code>_Opt</code> is non-null&quot; is a rule you turn on:</p>
+<code>_Opt</code> is non-null&quot; is a rule you turn on, together with the other contracts:</p>
 
-<pre><code class="language-c">#pragma default_nonnull     /* absence of _Opt = non-null              */
-#pragma default_null        /* absence of _Opt = may be null (C default) */
+<pre><code class="language-c">#pragma safety enable   /* absence of _Opt = non-null              */
+#pragma safety disable  /* absence of _Opt = may be null (C default) */
 </code></pre>
 
 <p>The rule says what pointers mean; the flow analysis (<code>-flow</code>) is what checks
@@ -483,7 +476,7 @@ generates a warning:</p>
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma default_nonnull
+<pre><code class="language-c">#pragma safety enable
 
 int main() {
   int * p = nullptr;  /* warning: p is non-nullable */
@@ -497,7 +490,7 @@ explicitly allowed:</p>
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma default_nonnull
+<pre><code class="language-c">#pragma safety enable
 
 char * get_name();   /* returns non-nullable */
 
@@ -513,7 +506,7 @@ Without one, the analyzer warns you:</p>
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma default_nonnull
+<pre><code class="language-c">#pragma safety enable
 
 char * _Opt strdup(const char * src);
 void f(char *s);   // s is non-nullable
@@ -528,7 +521,7 @@ int main() {
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma default_nonnull
+<pre><code class="language-c">#pragma safety enable
 
 char * _Opt strdup(const char * src);
 void f(char *s);   // s is non-nullable
@@ -591,7 +584,7 @@ is very similar to being uninitialized. For instance:</p>
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma default_nonnull
+<pre><code class="language-c">#pragma safety enable
 
 struct X { char * text; };
 
@@ -605,7 +598,7 @@ struct X f() {
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma default_nonnull
+<pre><code class="language-c">#pragma safety enable
 
 struct X { char * text; };
 
@@ -622,7 +615,7 @@ non-nullable pointer.</p>
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma default_nonnull
+<pre><code class="language-c">#pragma safety enable
 
 char * _Opt strdup(const char * src);  
 
@@ -655,7 +648,7 @@ as null and must be assigned before passing to functions expecting non-nullable 
 
 <!-- runnable -->
 
-<pre><code class="language-c">#pragma default_nonnull
+<pre><code class="language-c">#pragma safety enable
 
 char * _Opt strdup(const char * src);  
 void * _Owner _Opt _Uninitialized malloc(unsigned int sz);
@@ -704,14 +697,14 @@ void f() {
 reserved for that object. Cake&#39;s ownership system gives you many compile-time
 enforcement of these rules.</p>
 
-<h3 id="toc_14">Enabling the annotations: <code>#pragma check_annotations</code> / <code>-check-annotations</code></h3>
+<h3 id="toc_14">Enabling the annotations: <code>#pragma safety</code> / <code>-safety</code></h3>
 
-<pre><code class="language-c">#pragma check_annotations enable   /* _Owner, _View, _Dtor, _Opt, ... are checked */
-#pragma check_annotations disable  /* they are ignored, like empty macros        */
+<pre><code class="language-c">#pragma safety enable   /* _Owner, _View, _Dtor, _Opt, ... are checked */
+#pragma safety disable  /* they are ignored, like empty macros         */
 </code></pre>
 
 <blockquote>
-<p><strong>Note:</strong> the annotations are always parsed, but without <code>-check-annotations</code> they have no effect. <code>#pragma safety enable</code> turns on flow, annotations and default_nonnull together.</p>
+<p><strong>Note:</strong> the annotations are always parsed, but without <code>-safety</code> they have no effect.</p>
 </blockquote>
 
 <h3 id="toc_15">Owner References and the <code>_Owner</code> annotation</h3>
@@ -1132,11 +1125,11 @@ where this model is intentionally less precise than a full program analysis.</p>
 <h3 id="toc_30">Enabling Flow Analysis</h3>
 
 <pre><code class="language-c">#pragma flow enable    // or compile with: -flow
-#pragma safety enable  // flow + annotations + default_nonnull
+#pragma safety enable  // flow + Cake contracts
 </code></pre>
 
 <p>Null tracking is always part of the flow analysis. See <em>Enabling the analysis</em>
-in the introduction for how <code>-flow</code>, <code>-check-annotations</code> and <code>-default-nonnull</code> relate.</p>
+in the introduction for how <code>-flow</code> and <code>-safety</code> relate.</p>
 
 <h3 id="toc_31">The State Model</h3>
 
@@ -1401,8 +1394,7 @@ annotating:</p>
 
 #endif
 </code></pre></li>
-<li><p><strong>Enable nullable rules one file at a time</strong> — add <code>#pragma default_nonnull</code> to one translation unit, fix its warnings, then move to the next.</p></li>
-<li><p><strong>Enable ownership rules</strong> — once nullable warnings are clean in a file, add <code>#pragma check_annotations enable</code> (or <code>#pragma safety enable</code>).</p></li>
+<li><p><strong>Enable the contracts one file at a time</strong> — add <code>#pragma safety enable</code> to one translation unit, fix its warnings, then move to the next.</p></li>
 <li><p><strong>Annotate signatures progressively</strong> — add <code>_Owner</code>, <code>_Opt</code>, <code>_Out</code>, and <code>_Dtor</code> annotations as you work through each file. The pragma-controlled rollout ensures you always have a compiling codebase.</p></li>
 </ol>
 
@@ -1524,16 +1516,8 @@ signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 
 <tbody>
 <tr>
-<td><code>#pragma default_nonnull</code> / <code>#pragma default_null</code></td>
-<td>toggles non-nullable enforcement. When enabled, any pointer without <code>_Opt</code> is treated as non-nullable</td>
-</tr>
-<tr>
-<td><code>#pragma check_annotations enable</code></td>
-<td>the annotations (<code>_Owner</code>, <code>_Opt</code>, <code>_Out</code>, ...) are checked</td>
-</tr>
-<tr>
-<td><code>#pragma safety enable</code></td>
-<td>enables both nullable and ownership checks at once. Equivalent to combining both pragmas above</td>
+<td><code>#pragma safety enable</code> / <code>#pragma safety disable</code></td>
+<td>Cake contracts (<code>_Owner</code>, <code>_Opt</code>, <code>_Out</code>, ...) are checked, any pointer without <code>_Opt</code> is non-null, and flow analysis is on. Same as <code>-safety</code></td>
 </tr>
 <tr>
 <td><code>#pragma flow enable</code></td>

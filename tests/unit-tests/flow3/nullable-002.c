@@ -1,5 +1,4 @@
-#pragma default_nonnull
-#pragma check_annotations enable
+#pragma safety enable
 #pragma flow enable
 
 void receives_non_null(char* p);

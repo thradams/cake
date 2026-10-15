@@ -5,6 +5,8 @@
 
 
 
+#pragma safety enable
+
 
 #include "cake_compat.h"
 #include <assert.h>
@@ -558,7 +560,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     r.tail = last;
 
 
-    return r; //lint 29 not playing with the rules
+    return r;
 }
 
 void token_list_remove(struct token_list* list, struct token* first, struct token* last)

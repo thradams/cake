@@ -4,6 +4,8 @@
 */
 
 
+#pragma safety enable
+
 
 #include "cake_compat.h"
 #include "fp_to_string.h"

@@ -295,6 +295,8 @@ int core_utf8_width(const struct gui_app* app, enum gui_font font, const char* s
 int core_draw_utf8(const struct paint* p, int x, int y, const char* s, int bytes,
                    uint32_t fg, uint32_t bg);
 int core_line_weight(const struct gui_app* app);
+/* A filled dot of diameter `d` centered at (cx, cy) - the menu mark and the radio mark. */
+void core_fill_dot(struct frame_recorder* c, int cx, int cy, int d, uint32_t rgb);
 enum gui_font core_node_font(const struct gui_node* n);   /* its own, or inherited */
 const struct gui_metrics* core_font_metrics(const struct gui_app* app, enum gui_font font);
 const struct gui_metrics* core_node_metrics(const struct gui_app* app, const struct gui_node* n);

@@ -4,6 +4,8 @@
 */
 
 
+#pragma safety enable
+
 
 #include <stdbool.h>
 #include "osstream.h"
@@ -122,7 +124,7 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 {
     va_list args = { 0 };
 #ifdef _WIN32
-    va_start(args, fmt); //lint 35
+    va_start(args, fmt);
 #else
     va_start(args, fmt);
 #endif

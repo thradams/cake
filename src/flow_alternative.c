@@ -1,3 +1,5 @@
+#pragma safety enable
+
 
 
 #include "flow_alternative.h"

@@ -85,6 +85,7 @@
     <ClCompile Include="..\..\src\ide\ide_themes.c" />
     <ClCompile Include="..\..\src\ide\ide_highlight.c" />
     <ClCompile Include="..\..\src\ide\ide_services.c" />
+    <ClCompile Include="..\..\src\ide\ide_cref.c" />
     <ClCompile Include="..\..\src\ide\ide_compile.c" />
     <ClCompile Include="..\..\src\ide\ide_project.c" />
     <ClCompile Include="..\..\src\ide\ide_search.c" />

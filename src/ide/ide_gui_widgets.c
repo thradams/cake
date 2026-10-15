@@ -5,6 +5,7 @@
     render_listbox, render_group in ide_ui.c). See GUI_IDE_SPEC.md.
 */
 #include "ide_gui_internal.h"
+#include <ctype.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -724,11 +725,22 @@ static void paint_group(const struct paint* p, const struct gui_node* n)
             gui_fill_rect(p->frame, n->rect.x, y, n->rect.w, ch, bg);
         /* the font's cell can be taller than the row; its bg must not spill into the next */
         gui_set_clip(p->frame, n->rect.x, y, n->rect.w, ch);
-        const char* marker = n->multi ? (on ? "[X] " : "[ ] ")
-                                      : (on ? "(\xE2\x80\xA2) " : "( ) ");   /* U+2022 bullet */
-        core_draw_utf8(p, n->rect.x, y + text_dy, marker, -1, fg, bg);
-        /* the labels in one column: "[ ]" and "( )" are narrower than "[X]" and "(•)" */
-        int x = n->rect.x + core_utf8_width(app, p->font, n->multi ? "[X] " : "(\xE2\x80\xA2) ", -1);
+        /*
+            "[X]" / "( )" in the font with the slot between always as wide as
+            "X", so the box and the label never move; the radio's mark is the
+            menu's dot, not a font's bullet.
+        */
+        int mark_w = core_utf8_width(app, p->font, "X", -1);
+        int x = core_draw_utf8(p, n->rect.x, y + text_dy, n->multi ? "[" : "(", -1, fg, bg);
+        if (on && n->multi)
+            core_draw_utf8(p, x, y + text_dy, "X", -1, fg, bg);
+        else if (on)
+        {
+            /* where the "X" would be: the middle of its slot, half a capital above the baseline (about a third of the ascent) */
+            int ascent = core_font_metrics(app, p->font)->ascent;
+            core_fill_dot(p->frame, x + mark_w / 2 + 1, y + text_dy + ascent - ascent / 3 + 1, mark_w * 2 / 3, fg);   /* inside the width of the "X" */
+        }
+        x = core_draw_utf8(p, x + mark_w, y + text_dy, n->multi ? "] " : ") ", -1, fg, bg);
         if (item->label[0])
         {
             int first = core_utf8_prefix_bytes(item->label, 1);
@@ -1312,6 +1324,23 @@ static int list_key(struct gui_app* app, struct gui_node* n, int key, int mods)
             n->selected = n->cursor;
         return 1;
     default:
+        /* the accented first letter: go to that item and toggle (check box) or select (radio) it */
+        if (n->kind == GUI_GROUP && key > ' ' && key < 128 && !(mods & (GUI_MOD_CTRL | GUI_MOD_ALT | GUI_MOD_CMD)))
+        {
+            for (int i = 0; i < n->child_count; i++)
+            {
+                if (tolower((unsigned char)n->children[i]->label[0]) == tolower(key))
+                {
+                    n->cursor = i;
+                    if (n->multi)
+                        n->children[i]->checked = !n->children[i]->checked;
+                    else
+                        n->selected = i;
+                    ensure_visible(app, n, i);
+                    return 1;
+                }
+            }
+        }
         return 0;
     }
     if (index > n->child_count - 1) index = n->child_count - 1;

@@ -1,4 +1,7 @@
 
+#pragma safety enable
+
+
 #include "cake_compat.h"
 #include <stdlib.h>
 #include <string.h>

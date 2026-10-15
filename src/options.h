@@ -501,9 +501,7 @@ struct options
     bool test_mode;             /* -testmode : reports success with 0 errors/warnings */
     bool clear_error_at_end;    /* used by tests*/
 
-    bool null_checks_enabled;   /* -nullchecks: check nullable pointer */
-
-    bool annotations_enabled;   /* -annotations: _Owner, _Opt, _Out... are checked */
+    bool safety_enabled;        /* -safety: Cake contracts (_Owner, _Opt, _Out..., non-null default) are checked */
     bool preprocess_only;       /* -E: preprocess only */
 
     bool preprocess_def_macro;  /* -preprocess-def-macro : preprocess #def */

@@ -4,6 +4,8 @@
 */
 
 
+#pragma safety enable
+
 
 #include <assert.h>
 #include <stdio.h>

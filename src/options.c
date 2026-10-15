@@ -3,6 +3,8 @@
  *  https://github.com/thradams/cake
 */
 
+#pragma safety enable
+
 
 #include "cake_compat.h"
 #include "options.h"
@@ -143,10 +145,10 @@ void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 }
 
 
-/* default_nonnull is part of the annotations; without -check-annotations it has no effect */
+/* pointers without _Opt are non-null when the contracts are checked */
 bool options_default_nonnull(const struct options* options)
 {
-    return options->null_checks_enabled && options->annotations_enabled;
+    return options->safety_enabled;
 }
 
 /* false when the option that emits w is off, so a //lint for it is not unnecessary */
@@ -158,7 +160,7 @@ bool diagnostic_can_happen(const struct options* options, enum diagnostic_id w)
     case W_USING_TEMPORARY_OWNER:
     case W_POINTER_TO_OWNER_EXPECTED:
     case W_OWNER_ALIASED_BY_NON_OWNER_POINTER:
-        return options->annotations_enabled;
+        return options->safety_enabled;
     default:
         break;
     }
@@ -490,15 +492,10 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-check-annotations") == 0)
+        if (strcmp(argv[i], "-safety") == 0)
         {
-            options->annotations_enabled = true;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-default-nonnull") == 0)
-        {
-            options->null_checks_enabled = true;
+            options->safety_enabled = true;
+            options->flow_analysis = true;
             continue;
         }
 
@@ -720,9 +717,6 @@ int fill_options(struct options* options,
     if (options_is_find_request(options))
         options_set_note(options, W_FIND_DEFINITION, true);
 
-    if (options->null_checks_enabled && !options->annotations_enabled)
-        printf("warning: -default-nonnull has no effect without -check-annotations\n");
-
     /* report modes do not need the tokens of inactive #if blocks */
     if (options_is_report_mode(options))
         options->keep_inactive_tokens = false;
@@ -855,8 +849,7 @@ void print_help()
     print_option("-wall", "Enables all warnings");
     print_option("-Werror", "Treats every enabled warning as an error");
     print_option("-flow", "Runs flow analysis, including null checks (same as #pragma flow enable)");
-    print_option("-check-annotations", "_Owner, _Opt, _Out, ... are checked; without it they are ignored (same as #pragma check_annotations enable)");
-    print_option("-default-nonnull", "Pointers without _Opt are non-null; requires -check-annotations (same as #pragma default_nonnull)");
+    print_option("-safety", "Checks Cake contracts: _Owner, _Opt, _Out..., pointers non-null by default; turns on -flow (same as #pragma safety enable)");
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");

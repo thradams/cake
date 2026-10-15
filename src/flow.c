@@ -1,4 +1,6 @@
 
+#pragma safety enable
+
 
 #include "cake_compat.h"
 #include <stdlib.h>
@@ -36,7 +38,7 @@ static void flow_check_file_scope_objects_at_function_exit(const struct flow_ctx
 static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
 static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
 
-static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt);
+static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt, bool root_is_pointer);
 static void flow_check_arena_objects_at_function_exit(const struct flow_ctx* ctx);
 static void flow_check_write_qualified_params_at_exit(struct flow_ctx* ctx, const struct marker* marker, const struct token* p_exit_token);
 static void flow_check_exiting_objects(struct flow_ctx* ctx, const struct expression* _Opt p_return_expression, const struct marker* marker);
@@ -185,7 +187,7 @@ void print_object_ptr(struct osstream* ss, const struct object* _Opt p, bool is_
 
     uint64_t value = (uint64_t)(uintptr_t)p;
 
-    char temp[16];
+    char temp[16] = { 0 };
     int i = 0;
 
     while (value > 0 && i < (int)sizeof(temp))
@@ -543,7 +545,8 @@ static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct 
                                   &marker,
                                   position_token,
                                   false,
-                                  p_declarator->name_opt ? p_declarator->name_opt->lexeme : NULL);
+                                  p_declarator->name_opt ? p_declarator->name_opt->lexeme : NULL,
+                                  false);
     }
 }
 
@@ -1527,7 +1530,11 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
                 {
                     flow_branch_merge_a_b(p_before, cond_pair.p_false, cond_pair.p_false);
                 }
-                /* else: both jump — p_before stays as-is */
+                else
+                {
+                    /* both jump: nothing after the if is reached from here */
+                    p_before->is_unreachable = true;
+                }
             }
         }
         else
@@ -2634,12 +2641,12 @@ static bool flow_dest_pointee_is_ctor(const struct type* p_type)
     return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_CTOR;
 }
 
-/* Without -check-annotations a non-const pointer parameter may only write the pointee (no _Out to say so), so only a const one is known to read it. */
+/* Without -safety a non-const pointer parameter may only write the pointee (no _Out to say so), so only a const one is known to read it. */
 static bool flow_param_reads_pointee(const struct flow_ctx* ctx, const struct type* p_type)
 {
     if (flow_dest_pointee_is_ctor(p_type))
         return false;
-    return ctx->ctx->options.annotations_enabled || flow_dest_pointee_is_const(p_type);
+    return ctx->ctx->options.safety_enabled || flow_dest_pointee_is_const(p_type);
 }
 
 static bool flow_dest_pointee_is_dtor(const struct type* p_type)
@@ -2717,19 +2724,19 @@ static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
     enum flow_pointee_effect_kind effect_kind = FLOW_EFFECT_NONE;
     const struct token* p_token = p_expression->first_token;
 
+    /*
+        _Out promises the callee handles a fully uninitialized pointee: owners
+        still alive in it are lost (issue #484). Plain _Clear may free owned
+        members itself before zeroing (issue #468).
+    */
+    if (flow_dest_pointee_is_ctor(&p_object_dest->type))
+    {
+        struct marker clear_marker = expression_to_marker(p_expression);
+        flow_check_discarding_owner_before_overwrite(ctx, p_expression, pointee, &clear_marker);
+    }
+
     if (flow_dest_pointee_is_clear(&p_object_dest->type))
     {
-        /*
-            Only _Out _Clear together promises the callee handles a fully
-            uninitialized pointee -- plain _Clear may free owned members
-            itself before zeroing (issue #468, false positive on
-            flow_alternatives_clear otherwise).
-        */
-        if (flow_dest_pointee_is_ctor(&p_object_dest->type))
-        {
-            struct marker clear_marker = expression_to_marker(p_expression);
-            flow_check_discarding_owner_before_overwrite(ctx, p_expression, pointee, &clear_marker);
-        }
         effect_kind = FLOW_EFFECT_CLEAR; /* zero every member (+ end reachable owner pointees) */
     }
     else if (flow_dest_pointee_is_dtor(&p_object_dest->type))
@@ -3315,7 +3322,8 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                               &marker,
                                               p_expression->first_token,
                                               view_here,
-                                              root_name_ss.c_str);
+                                              root_name_ss.c_str,
+                                              true);
                     ss_close(&root_name_ss);
                 }
 
@@ -3326,14 +3334,15 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     const struct token* p_effect_token = p_expression->first_token;
                     enum flow_pointee_effect_kind effect_kind = FLOW_EFFECT_NONE;
 
+                    /* Same _Out rule as flow_apply_pointee_param_effect. */
+                    if (flow_dest_pointee_is_ctor(&p_object_dest->type))
+                    {
+                        struct marker clear_marker2 = expression_to_marker(p_expression);
+                        flow_check_discarding_owner_before_overwrite(ctx, p_expression, pointee, &clear_marker2);
+                    }
+
                     if (flow_dest_pointee_is_clear(&p_object_dest->type))
                     {
-                        /* Same _Out-only restriction as flow_apply_pointee_param_effect. */
-                        if (flow_dest_pointee_is_ctor(&p_object_dest->type))
-                        {
-                            struct marker clear_marker2 = expression_to_marker(p_expression);
-                            flow_check_discarding_owner_before_overwrite(ctx, p_expression, pointee, &clear_marker2);
-                        }
                         effect_kind = FLOW_EFFECT_CLEAR;
                     }
                     else if (flow_dest_pointee_is_dtor(&p_object_dest->type))
@@ -5337,7 +5346,7 @@ static void flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
                     .value_kind = FLOW_VALUE_KIND_SIGNED,
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
                     .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
@@ -5351,7 +5360,7 @@ static void flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
                     .value_kind = FLOW_VALUE_KIND_SIGNED,
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
                     .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
@@ -5374,7 +5383,7 @@ static void flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
                     .value_kind = alt->value_kind,
                     .value = alt->value,
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
                     .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
@@ -5389,7 +5398,7 @@ static void flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
                     .value_kind = FLOW_VALUE_KIND_SIGNED,
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
                     .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .contradicted = true,
@@ -6824,6 +6833,13 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             any_member_resolved = true;
                         }
                     }
+                }
+
+                /* a pointer member's pointee too: `q = p->next` and `p->next` share it */
+                if (any_member_resolved && type_is_pointer(&p_expression->object.type))
+                {
+                    flow_pointer_pointee_on_demand(ctx, p_expression,
+                                                   flow_branch_search_up(ctx->p_current_flow_branch, &p_expression->object));
                 }
 
                 if (!any_member_resolved)
@@ -9098,6 +9114,19 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 _Assert(p_expression->left != NULL);
                 _Assert(p_expression->right != NULL);
                 flow_visit_expression(ctx, p_expression->left);
+
+                /* The left operand's value is discarded: `(malloc(1), 0)` loses the owner. */
+                if ((p_expression->left->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN) &&
+                    type_is_owner(&p_expression->left->object.type))
+                {
+                    diagnostic(W_FLOW_DISCARDING_OWNER,
+                           ctx->ctx,
+                           p_expression->left->first_token, NULL,
+                           type_is_pointer(&p_expression->left->object.type)
+                       ? "discarding _Owner pointer"
+                       : "discarding _Owner");
+                }
+
                 /* Comma: the value (and branch state) of the right operand is what matters. */
                 struct flow_true_false_branches pair = flow_visit_expression(ctx, p_expression->right);
 
@@ -9185,6 +9214,19 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 if (p_target != NULL && p_target->alternatives.size > 0)
                                 {
                                     flow_alternatives_append(&result, &p_target->alternatives);
+
+                                    /*
+                                        An _Owner result takes the owner in its own arm:
+                                        `q = p ? p : 0` moves p only where p was chosen
+                                        (issue 491).
+                                    */
+                                    if (type_is_owner(&p_expression->object.type) &&
+                                        type_is_owner(&a->value.p->type) &&
+                                        a->value.p->members.head == NULL)
+                                    {
+                                        flow_branch_set_object_moved(arms[ai].map, a->value.p,
+                                                                   (ai == 0 ? p_true_expr : p_expression->right)->first_token);
+                                    }
                                     continue;
                                 }
                             }
@@ -9596,7 +9638,8 @@ static bool flow_alternatives_are_plain_values(const struct flow_alternatives* a
     return alts->size > 0;
 }
 
-static void flow_join_first_iteration_values(struct flow_branch* _Opt p_body_entry,
+static void flow_join_first_iteration_values(const struct flow_allocated_object_arena* p_arena,
+                                             struct flow_branch* _Opt p_body_entry,
                                              struct flow_branch* _Opt p_pass1_exit,
                                              const struct token* _Opt p_token)
 {
@@ -9629,8 +9672,41 @@ static void flow_join_first_iteration_values(struct flow_branch* _Opt p_body_ent
             continue;
         }
 
-        if (!flow_alternatives_are_plain_values(&p_pre->alternatives) ||
+        bool post_moved_only = false;
+        if (flow_alternatives_are_plain_values(&p_pre->alternatives) &&
                 !flow_alternatives_are_plain_values(&p_post->alternatives))
+        {
+            post_moved_only = true;
+            for (int k = 0; k < p_post->alternatives.size; k++)
+            {
+                if (p_post->alternatives.data[k]->imaginary == FLOW_IMAGINARY_ENDED)
+                {
+                    post_moved_only = false;
+                }
+            }
+        }
+
+        if (post_moved_only)
+        {
+            /* a pointee may be a different object on the next iteration: only variables keep the move */
+            const struct object* p_root = p_key;
+            while (p_root->parent != NULL)
+            {
+                p_root = p_root->parent;
+            }
+            for (int k = 0; k < p_arena->size; k++)
+            {
+                if (p_arena->data[k] == p_root)
+                {
+                    post_moved_only = false;
+                    break;
+                }
+            }
+        }
+
+        if (!post_moved_only &&
+                (!flow_alternatives_are_plain_values(&p_pre->alternatives) ||
+                 !flow_alternatives_are_plain_values(&p_post->alternatives)))
         {
             /*
                 moved/ended/absent on either side: an ownership fact, not a
@@ -9836,14 +9912,23 @@ static void flow_visit_loop(struct flow_ctx* ctx,
 
         if (!condition_first)
         {
-            /* first iteration (unnarrowed) joined with "condition held after an iteration" */
-            struct flow_branch* _Opt p_first_iteration = flow_branch_arena_new(&ctx->flow_branch_arena,
-                                                                         p_pass1_body_entry, FLOW_BRANCH_FOR_BODY_PASS1);
-            const struct flow_branch* _Opt p_again = p_condition ? pair2.p_true : p_pass1_exit;
-            if (p_first_iteration != NULL && p_again != NULL)
+            /*
+                first iteration (unnarrowed) joined with "condition held after an iteration".
+                Values only, as while: ownership facts (moved/ended) of pass 1 would mix
+                paths, e.g. an object ended where f(ptk) ran with ptk reaching it from
+                the path where f did not run.
+            */
+            struct flow_branch* _Opt p_again = p_condition ? pair2.p_true : p_pass1_exit;
+
+            /* do { } while (0): the body never runs again */
+            const bool condition_never_holds = p_condition != NULL &&
+                object_has_constant_value(&p_condition->object) &&
+                !object_is_true(&p_condition->object);
+
+            if (!condition_never_holds)
             {
-                const struct flow_branch* const join_arms[2] = { p_first_iteration, p_again };
-                flow_branch_merge_arms(p_pass1_body_entry, join_arms, 2);
+                flow_join_first_iteration_values(&ctx->allocated_object_arena, p_pass1_body_entry, p_again,
+                                                 p_iteration_statement->first_token);
             }
             ctx->p_current_flow_branch = p_pass1_body_entry;
         }
@@ -9864,7 +9949,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
         }
         else
         {
-            flow_join_first_iteration_values(p_pass1_body_entry, p_pass1_exit,
+            flow_join_first_iteration_values(&ctx->allocated_object_arena, p_pass1_body_entry, p_pass1_exit,
                                              p_iteration_statement->first_token);
             ctx->p_current_flow_branch = p_pass1_body_entry;
         }
@@ -10401,7 +10486,8 @@ static void flow_check_write_qualified_params_at_exit(struct flow_ctx* ctx, cons
                                           marker,
                                           p_exit_token,
                                           false,
-                                          param_name);
+                                          param_name,
+                                          true);
             }
 
             if (is_ctor)
@@ -10902,14 +10988,31 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
                 return;
             }
 
+            /*
+                The previous case falls through into this label unless it ended with a jump
+                (unreachable) or there is no previous case (still the switch body map).
+            */
+            struct flow_branch* _Opt p_fallthrough = ctx->p_current_flow_branch;
+            if (p_fallthrough != NULL &&
+                (p_fallthrough->is_unreachable ||
+                 (p_fallthrough->kind == FLOW_BRANCH_SWITCH_BODY && p_fallthrough->p_parent_map == ctx->p_initial_map)))
+            {
+                p_fallthrough = NULL;
+            }
+
             if (p_label->constant_expression == NULL)
             {
                 /*
                     `default:` needs its own child map: reusing p_initial_map corrupts it
                     when the body ends with a jump.
                 */
-                ctx->p_current_flow_branch =
+                struct flow_branch* _Opt p_default_map =
                     flow_branch_arena_new(&ctx->flow_branch_arena, ctx->p_initial_map, FLOW_BRANCH_DEFAULT);
+                if (p_default_map != NULL && p_fallthrough != NULL)
+                {
+                    flow_branch_accumulate_into_join(p_default_map, p_fallthrough, NULL, false, true);
+                }
+                ctx->p_current_flow_branch = p_default_map;
                 return;
             }
 
@@ -10951,6 +11054,11 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
+            }
+
+            if (p_fallthrough != NULL)
+            {
+                flow_branch_accumulate_into_join(p_case_map, p_fallthrough, NULL, false, true);
             }
 
             ctx->p_current_flow_branch = p_case_map;
@@ -11474,7 +11582,8 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
                                       const struct marker* marker,
                                       const struct token* p_exit_token,
                                       bool in_view,
-                                      const char* _Opt p_root_name_opt)
+                                      const char* _Opt p_root_name_opt,
+                                      bool root_is_pointer)
 {
     /* Under a _View ancestor, _Owner members are views: not reported at exit. */
     const bool view = in_view || type_is_view(p_type);
@@ -11489,7 +11598,8 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
                                       marker,
                                       p_exit_token,
                                       view,
-                                      p_root_name_opt);
+                                      p_root_name_opt,
+                                      root_is_pointer);
         }
         return;
     }
@@ -11526,7 +11636,8 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
                                           marker,
                                           p_exit_token,
                                           view,
-                                          p_root_name_opt);
+                                          p_root_name_opt,
+                                          true);
                 continue;
             }
         }
@@ -11544,7 +11655,7 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
             else
             {
                 const char* member_suffix = p_obj->member_designator ? p_obj->member_designator : "";
-                /* Combine member_designator ('.m') with p_root_name_opt: 'p->m'. */
+                /* Combine member_designator ('.m') with p_root_name_opt: 'p->m' or 'x.m'. */
                 char object_name_buf[256] = { 0 } ;
                 const char* object_name;
                 if (p_root_name_opt != NULL && p_root_name_opt[0] != 0 &&
@@ -11556,7 +11667,7 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
                     */
                     if (member_suffix[0] == '.')
                     {
-                        snprintf(object_name_buf, sizeof(object_name_buf), "%s->%s", p_root_name_opt, member_suffix + 1);
+                        snprintf(object_name_buf, sizeof(object_name_buf), "%s%s%s", p_root_name_opt, root_is_pointer ? "->" : ".", member_suffix + 1);
                     }
                     else if (member_suffix[0] != 0)
                     {

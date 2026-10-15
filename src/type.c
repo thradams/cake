@@ -4,6 +4,7 @@
 */
 
 
+#pragma safety enable
 
 
 #include "cake_compat.h"
@@ -2518,14 +2519,14 @@ struct type type_dup(const struct type* p_type)
             the _Owner of ..." notes above. p is const and is never consumed,
             but each copied owner member reads as a move.
         */
-        return r; 
+        return r; //lint 72 72 72 not following rules
     }
     catch
     {
     }
 
     struct type empty = { 0 };
-    return empty; //lint 72 72 72 72 not following rules
+    return empty; //lint 72 72 72 not following rules
 }
 
 static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,

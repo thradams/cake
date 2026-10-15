@@ -196,37 +196,40 @@
 <a href="#toc_8">7. Pointers to deleted objects</a>
 </li>
 <li>
-<a href="#toc_9">8. <code>_Dtor</code></a>
+<a href="#toc_9">8. Owner and non-owner conversions</a>
 </li>
 <li>
-<a href="#toc_10">9. Objects visible to the caller</a>
+<a href="#toc_10">9. <code>_Dtor</code></a>
 </li>
 <li>
-<a href="#toc_11">10. Not handled yet: pointers into a modified object</a>
+<a href="#toc_11">10. Objects visible to the caller</a>
 </li>
 <li>
-<a href="#toc_12">11. <code>_Clear</code></a>
+<a href="#toc_12">11. Worst case scenario</a>
 </li>
 <li>
-<a href="#toc_13">12. <code>_Out _Clear</code></a>
+<a href="#toc_13">12. <code>_Clear</code></a>
 </li>
 <li>
-<a href="#toc_14">13. <code>_View</code></a>
+<a href="#toc_14">13. <code>_Out _Clear</code></a>
 </li>
 <li>
-<a href="#toc_15">14. <code>_Uninitialized</code></a>
+<a href="#toc_15">14. The domino effect: fixing a leak demo</a>
 </li>
 <li>
-<a href="#toc_16">15. Limits: <code>realloc</code></a>
+<a href="#toc_16">15. <code>_View</code></a>
 </li>
 <li>
-<a href="#toc_17">16. The domino effect: fixing a leak</a>
+<a href="#toc_17">16. <code>_Uninitialized</code></a>
 </li>
 <li>
-<a href="#toc_18">17. Flow analysis</a>
+<a href="#toc_18">17. Limits: <code>realloc</code></a>
 </li>
 <li>
-<a href="#toc_19">18. Not covered here</a>
+<a href="#toc_19">18. Flow analysis</a>
+</li>
+<li>
+<a href="#toc_20">19. Not covered here</a>
 </li>
 </ul>
 </li>
@@ -239,7 +242,7 @@
 
 <h3 id="toc_2">1. <code>_Out</code></h3>
 
-<p><code>_Out</code>: the function receives uninitialized storage and must initialize every member.</p>
+<p><code>_Out</code>: the function writes the object; it does not read it.</p>
 
 <!-- runnable -->
 
@@ -273,6 +276,22 @@ void point_init(_Out struct point* p)
 {
     p-&gt;x = 0;
 } //warning 71 _Out parameter &#39;p-&gt;y&#39; is not initialized at exit
+</code></pre>
+
+<p>Reading the input is reported:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct point { int x; int y; };
+
+void point_init(_Out struct point* p)
+{
+    int i = p-&gt;x; //warning 30 assigning a possibly uninitialized object &#39;p-&gt;x&#39;
+    p-&gt;x = 0;
+    p-&gt;y = 0;
+}
 </code></pre>
 
 <h3 id="toc_3">2. <code>_Opt</code></h3>
@@ -560,7 +579,35 @@ void f(struct X* _Owner p)
 }
 </code></pre>
 
-<h3 id="toc_9">8. <code>_Dtor</code></h3>
+<h3 id="toc_9">8. Owner and non-owner conversions</h3>
+
+<table>
+<thead>
+<tr>
+<th>Assignment</th>
+<th>Result</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>owner = owner</code></td>
+<td>ok, ownership moves</td>
+</tr>
+<tr>
+<td><code>non-owner = owner</code></td>
+<td>ok, the owner keeps ownership</td>
+</tr>
+<tr>
+<td><code>owner = non-owner</code></td>
+<td>warning: assigning non-owner to an owner</td>
+</tr>
+</tbody>
+</table>
+
+<p>The same rules apply to arguments passed to parameters.</p>
+
+<h3 id="toc_10">9. <code>_Dtor</code></h3>
 
 <p><code>_Dtor</code>: the function releases the members of the object, but not its memory.</p>
 
@@ -672,7 +719,7 @@ struct X* _Owner _Opt x_create(const char* name, const char* email)
 }
 </code></pre>
 
-<h3 id="toc_10">9. Objects visible to the caller</h3>
+<h3 id="toc_11">10. Objects visible to the caller</h3>
 
 <p>Objects the caller can see after the call cannot be left messed up. A member that
 is released must be set again (to <code>0</code> or a new value). <code>_Dtor</code> is the exception.</p>
@@ -704,25 +751,21 @@ void h(struct X* p)
 }
 </code></pre>
 
-<h3 id="toc_11">10. Not handled yet: pointers into a modified object</h3>
+<h3 id="toc_12">11. Worst case scenario</h3>
 
-<p><code>g</code> releases <code>x.text</code>. <code>p</code> still points to the old text, but this is not
-detected yet.</p>
+<p><code>g</code> receives a non-const pointer, so cake assumes the worst: <code>g</code> may have
+released <code>x.text</code>. <code>p</code> may point to a deleted object.</p>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 
-char* _Owner _Opt strdup(const char* s);
 void free(void* _Owner _Opt p);
 
 struct X { char* _Owner _Opt text; };
 
 struct X f();
-
-void g(struct X* p)
-{
-    free(p-&gt;text);
-    p-&gt;text = 0;
-}
+void g(struct X* p);
 
 int main()
 {
@@ -731,29 +774,69 @@ int main()
     g(&amp;x);
     if (p)
     {
-        char c = *p; // should warn, not detected yet
+        char c = *p; //warning 31 lifetime of &#39;*p&#39; has ended
     }
     free(x.text);
 }
 </code></pre>
 
-<p>Solution: read the pointer again after the call.</p>
+<p>Fix: read <code>x.text</code> again after the call.</p>
 
-<pre><code class="language-c">int main()
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; };
+
+struct X f();
+void g(struct X* p);
+
+int main()
 {
     struct X x = f();
     char* _Opt p = x.text;
-    /* uses p */
-
     g(&amp;x);
-    p = x.text; // updated
-    /* uses p */
-
+    p = x.text;      // read again
+    if (p)
+    {
+        char c = *p; // ok
+    }
     free(x.text);
 }
 </code></pre>
 
-<h3 id="toc_12">11. <code>_Clear</code></h3>
+<p>If <code>g</code> does not change <code>x</code>, make the parameter <code>const</code>. Then there is no warning.</p>
+
+<p>Note: the analysis assumes a &quot;deep const&quot;: nothing reachable from <code>x</code> changes,
+including the text <code>x.text</code> points to. C <code>const</code> itself does not protect that.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+
+struct X { char* _Owner _Opt text; };
+
+struct X f();
+void g(const struct X* p);
+
+int main()
+{
+    struct X x = f();
+    char* _Opt p = x.text;
+    g(&amp;x);
+    if (p)
+    {
+        char c = *p; // ok
+    }
+    free(x.text);
+}
+</code></pre>
+
+<h3 id="toc_13">12. <code>_Clear</code></h3>
 
 <p><code>_Clear</code> on a parameter works like <code>_Dtor</code>, but every member is left zero.
 The function releases what it owns, then sets every member to zero.</p>
@@ -836,7 +919,7 @@ void f(void)
 }
 </code></pre>
 
-<h3 id="toc_13">12. <code>_Out _Clear</code></h3>
+<h3 id="toc_14">13. <code>_Out _Clear</code></h3>
 
 <p><code>_Out _Clear</code>: the function receives uninitialized storage and leaves every member zero.
 Because the input is treated as uninitialized, the function does not release anything.
@@ -866,7 +949,33 @@ void g(void)
 }
 </code></pre>
 
-<h3 id="toc_14">13. <code>_View</code></h3>
+<h3 id="toc_15">14. The domino effect: fixing a leak demo</h3>
+
+<p>Code with a leak compiles clean when the checks are disabled.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">//#pragma safety enable
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+
+struct person { char* name; };
+
+void person_set_name(struct person* p, const char* name)
+{
+    p-&gt;name = strdup(name);
+}
+
+int main()
+{
+    struct person p = {};
+    person_set_name(&amp;p, &quot;Ana&quot;);
+    person_set_name(&amp;p, &quot;Bia&quot;);
+    
+}
+</code></pre>
+
+<h3 id="toc_16">15. <code>_View</code></h3>
 
 <p>Passing a struct by value moves its <code>_Owner</code> members.</p>
 
@@ -908,7 +1017,9 @@ void f(void)
 }
 </code></pre>
 
-<h3 id="toc_15">14. <code>_Uninitialized</code></h3>
+<p>Note: in practice <code>_View</code> has been rarely used, so it is a candidate for removal.</p>
+
+<h3 id="toc_17">16. <code>_Uninitialized</code></h3>
 
 <p><code>_Uninitialized</code> on a return value: the object that is returned is uninitialized,
 like memory from <code>malloc</code>. Members must be written before they are read.</p>
@@ -937,7 +1048,9 @@ void f(void)
 }
 </code></pre>
 
-<h3 id="toc_16">15. Limits: <code>realloc</code></h3>
+<p>Note: in practice <code>_Uninitialized</code> has been used almost only on <code>malloc</code> and similar functions.</p>
+
+<h3 id="toc_18">17. Limits: <code>realloc</code></h3>
 
 <p>Some contracts cannot be expressed with these annotations yet; they will need a
 richer way to describe contracts in the future. The most common is <code>realloc</code>:
@@ -974,107 +1087,7 @@ If the expected warning does not happen, that is also a warning.
 <code>//lint</code> is the safest way to silence a warning because it does not interfere
 with the analysis. It is not a command that overrides a rule.</p>
 
-<h3 id="toc_17">16. The domino effect: fixing a leak</h3>
-
-<p>Code with a leak compiles clean when the checks are disabled.</p>
-
-<pre><code class="language-c">char* strdup(const char* s);
-void free(void* p);
-
-struct person { char* name; };
-
-void person_set_name(struct person* p, const char* name)
-{
-    p-&gt;name = strdup(name);
-}
-
-int main()
-{
-    struct person p = {};
-    person_set_name(&amp;p, &quot;Ana&quot;);
-    person_set_name(&amp;p, &quot;Bia&quot;); // &quot;Ana&quot; leaks
-    free(p.name);
-}
-</code></pre>
-
-<p><strong>Step 1.</strong> Enable the checks and annotate <code>strdup</code> and <code>free</code>.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt p);
-
-struct person { char* name; };
-
-void person_set_name(struct person* p, const char* name)
-{
-    p-&gt;name = strdup(name);     //warning 79 assigning temporary owner to a non-owner
-                                //warning 35 may be null, assigned to non-nullable
-}
-
-int main()
-{
-    struct person p = {};
-    person_set_name(&amp;p, &quot;Ana&quot;); //warning 35 &#39;p.name&#39; may be null
-    person_set_name(&amp;p, &quot;Bia&quot;);
-    free(p.name);               //warning 78 passing non-owner to an owner parameter
-}
-</code></pre>
-
-<p><strong>Step 2.</strong> The warnings say <code>name</code> owns the string and may be null.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt p);
-
-struct person { char* _Owner _Opt name; };
-
-void person_set_name(struct person* p, const char* name)
-{
-    p-&gt;name = strdup(name); //warning 26 discards _Owner &#39;p-&gt;name&#39; without releasing it
-}
-
-int main()
-{
-    struct person p = {};
-    person_set_name(&amp;p, &quot;Ana&quot;);
-    person_set_name(&amp;p, &quot;Bia&quot;);
-    free(p.name);
-}
-</code></pre>
-
-<p><strong>Step 3.</strong> Release the old name. No warnings, and the leak is gone.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt p);
-
-struct person { char* _Owner _Opt name; };
-
-void person_set_name(struct person* p, const char* name)
-{
-    free(p-&gt;name);
-    p-&gt;name = strdup(name);
-}
-
-int main()
-{
-    struct person p = {};
-    person_set_name(&amp;p, &quot;Ana&quot;);
-    person_set_name(&amp;p, &quot;Bia&quot;);
-    free(p.name);
-}
-</code></pre>
-
-<h3 id="toc_18">17. Flow analysis</h3>
+<h3 id="toc_19">18. Flow analysis</h3>
 
 <ul>
 <li><strong>One function at a time.</strong> Calls are not followed; a call is checked against
@@ -1092,7 +1105,7 @@ resource at the end?&quot;. If any state says yes, the warning is reported.</li>
 
 <p><code>static_debug(x)</code> prints the state of <code>x</code> at that point.</p>
 
-<h3 id="toc_19">18. Not covered here</h3>
+<h3 id="toc_20">19. Not covered here</h3>
 
 <ul>
 <li>The guarantees that are still missing: cases where the analysis fails.</li>

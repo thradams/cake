@@ -83,6 +83,7 @@ static const char* user_cflags = "";   /* -cflags "..." */
     " ide/ide_themes.c " \
     " ide/ide_highlight.c " \
     " ide/ide_services.c " \
+    " ide/ide_cref.c " \
     " ide/ide_compile.c " \
     " ide/ide_project.c " \
     " ide/ide_search.c " \
@@ -797,17 +798,17 @@ static void run_cake_on_own_source(const char* cake_flags)
     self = calloc(2000, sizeof(char));
 
 #if defined COMPILER_MSVC
-    snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -const-literal %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, RUN EXE(CKC_NAME) " -DTEST -flow  -const-literal %s " CAKE_SOURCE_FILES, cake_flags);
 #elif defined PLATFORM_WINDOWS && defined COMPILER_CLANG
-    snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, RUN EXE(CKC_NAME) " -DTEST -flow  -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #elif (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
-    snprintf(self, 2000, "./" EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, "./" EXE(CKC_NAME) " -DTEST -flow  -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #elif defined COMPILER_GCC && !defined COMPILER_TINYC
-    snprintf(self, 2000, "./" CKC_NAME " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
+    snprintf(self, 2000, "./" CKC_NAME " -DTEST -flow  -w06 -w082 -w083 -w084 " CAKE_SOURCE_FILES);
 #elif defined COMPILER_TINYC
-    snprintf(self, 2000, RUN EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, RUN EXE(CKC_NAME) " -DTEST -flow  -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #elif defined COMPILER_CATALINA
-    snprintf(self, 2000, EXE(CKC_NAME) " -DTEST -flow -check-annotations -default-nonnull -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
+    snprintf(self, 2000, RUN EXE(CKC_NAME) " -DTEST -flow  -w06 -w082 -w083 -w084 %s " CAKE_SOURCE_FILES, cake_flags);
 #endif
 
     execute_cmd(self);

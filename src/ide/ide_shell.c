@@ -775,7 +775,6 @@ enum help_id
     HELP_FLAG_FLOW,
     HELP_FLAG_CONST_LITERAL,
     HELP_FLAG_WALL,
-    HELP_FLAG_DEFAULT_NONNULL,
     HELP_FLAG_ANNOTATIONS,
     HELP_COPTS_OUTPUT,
     HELP_COPTS_OPTIONS,
@@ -952,6 +951,7 @@ struct ide
     struct ide_compile_job* job;
     struct gui_node* pending_close;   /* the window the Close prompt is about */
     struct gui_node* exit_window;     /* the window the Exit prompt is about */
+    char pending_project[1024];       /* the project to open once the Exit prompt has saved or discarded all; "" to quit */
     const char* labels[EV_COUNT];   /* each menu event's label, for messages */
 };
 
@@ -3257,8 +3257,7 @@ static const char* const copts_headers[] = { "System Headers", "Cake Headers" };
 static const char* const copts_styles[] = { "disabled", "cake", "gnu", "microsoft" };
 static const char* const copts_diags[] = { "cake ide", "gcc", "msvc" };
 static const char* const copts_flags[] = {
-    "-line-directives", "-flow", "-const-literal", "-Wall",
-    "-default-nonnull", "-check-annotations",
+    "-line-directives", "-flow", "-const-literal", "-Wall", "-safety",
 };
 
 static struct gui_node* add_select_of(struct ide* ide, struct gui_node* parent, int col, int row,
@@ -5301,21 +5300,18 @@ static const struct help_topic help_topics[HELP_COUNT] = {
     [HELP_FLAG_FLOW] = { "flag-flow",
         "## `-flow`\n\nrun Cake's built-in flow analysis\n\n"
         "Checks uninitialized values, null dereference, unreachable code, "
-        "and the annotations when `-check-annotations` is on. "
+        "and the contracts when `-safety` is on. "
         "Same as `#pragma flow enable`." },
     [HELP_FLAG_CONST_LITERAL] = { "flag-const-literal",
         "## `-const-literal`\n\ntreat string literals as `const char[]` "
         "rather than `char[]`" },
     [HELP_FLAG_WALL] = { "flag-wall",
         "## `-Wall`\n\nenable all warnings" },
-    [HELP_FLAG_DEFAULT_NONNULL] = { "flag-default-nonnull",
-        "## `-default-nonnull`\n\npointers without `_Opt` are non-null\n\n"
-        "Requires `-check-annotations`. Same as `#pragma default_nonnull`." },
-    [HELP_FLAG_ANNOTATIONS] = { "flag-annotations",
-        "## `-check-annotations`\n\n`_Owner`, `_View`, `_Dtor`, `_Out`, `_Clear`, `_Opt`... "
-        "are checked\n\n"
-        "Without it they are ignored, like empty macros. "
-        "Same as `#pragma check_annotations enable`." },
+    [HELP_FLAG_ANNOTATIONS] = { "flag-safety",
+        "## `-safety`\n\nCake contracts are checked: `_Owner`, `_View`, `_Dtor`, `_Out`, "
+        "`_Clear`, `_Opt`... and pointers without `_Opt` are non-null\n\n"
+        "Without it the annotations are ignored, like empty macros. "
+        "Same as `#pragma safety enable`." },
     [HELP_COPTS_OUTPUT] = { "copts-output",
         "# Output\n\nName of the built executable. Empty: derived from the "
         "source/project.\n\n"
@@ -5358,10 +5354,8 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| Option | Effect |\n"
         "|---|---|\n"
         "| `-flow` | run flow analysis (`#pragma flow enable`) |\n"
-        "| `-check-annotations` | `_Owner`, `_Opt`, `_Out`... are checked; without it "
-        "they are ignored (`#pragma check_annotations enable`) |\n"
-        "| `-default-nonnull` | pointers without `_Opt` are non-null "
-        "(`#pragma default_nonnull`) |\n"
+        "| `-safety` | Cake contracts (`_Owner`, `_Opt`, `_Out`..., non-null default) "
+        "are checked (`#pragma safety enable`) |\n"
         "| `-no-discard` | make `[[nodiscard]]` the default for every function "
         "|\n"
         "\n"
@@ -6198,10 +6192,7 @@ static void build_help_texts(struct ide* ide)
              "`-Wall`: enable all warnings",
              HELP_FLAG_WALL);
     set_help(ide, gui_child_at(c->flags, 4),
-             "`-default-nonnull`: pointers without `_Opt` are non-null",
-             HELP_FLAG_DEFAULT_NONNULL);
-    set_help(ide, gui_child_at(c->flags, 5),
-             "`-check-annotations`: `_Owner`, `_Opt`, `_Out`... are checked",
+             "`-safety`: Cake contracts (`_Owner`, `_Opt`, `_Out`...) are checked",
              HELP_FLAG_ANNOTATIONS);
     set_help(ide, c->output,
              "Name of the built executable (empty: derived from the source/project)",
@@ -8350,7 +8341,7 @@ static void fif_build(struct ide* ide)
     row += 3;
     fif_label(ide, row++, "Look in:");
     f->look_in = fif_add(ide, GUI_GROUP, row, 4, NULL);
-    static const char* const looks[] = { "Current File", "Current Dir", "Include Dir", "Project" };
+    static const char* const looks[] = { "Current Dir", "Project", "Current File", "Include Dir" };
     for (int i = 0; i < 4; i++)
         gui_append(f->look_in, create(ide, GUI_ITEM, looks[i]));
     gui_set_selected(f->look_in, f->look);
@@ -8358,17 +8349,17 @@ static void fif_build(struct ide* ide)
              "Where to search",
              HELP_FIND_LOOK_IN);
     set_help(ide, gui_child_at(f->look_in, 0),
-             "Current File: the active document",
-             HELP_LOOK_IN_FILE);
-    set_help(ide, gui_child_at(f->look_in, 1),
              "Current Dir: every file in the active document's folder",
              HELP_LOOK_IN_DIR);
-    set_help(ide, gui_child_at(f->look_in, 2),
-             "Include Dir: the directories the compiler searches for headers",
-             HELP_LOOK_IN_INCLUDE_DIRS);
-    set_help(ide, gui_child_at(f->look_in, 3),
+    set_help(ide, gui_child_at(f->look_in, 1),
              "Project: every file in the open project",
              HELP_LOOK_IN_PROJECT);
+    set_help(ide, gui_child_at(f->look_in, 2),
+             "Current File: the active document",
+             HELP_LOOK_IN_FILE);
+    set_help(ide, gui_child_at(f->look_in, 3),
+             "Include Dir: the directories the compiler searches for headers",
+             HELP_LOOK_IN_INCLUDE_DIRS);
     row += 5;
     fif_label(ide, row++, "File Types:");
     f->file_types = fif_add(ide, GUI_SELECT, row, 1, NULL);
@@ -8796,7 +8787,7 @@ static int clamp_index(int i, int count)
     The "compile" object, in the old IDE's .cakeproj keys, so both IDEs read
     each other's projects.
 */
-static const char* const flag_keys[] = { "line_directives", "flow", "const_literal", "wall", "default_nonnull", "check_annotations" };
+static const char* const flag_keys[] = { "line_directives", "flow", "const_literal", "wall", "safety" };
 
 static int slug_index(const char* slug, const char* const* slugs, int count);
 
@@ -9205,25 +9196,35 @@ static int project_switch_busy(struct ide* ide)
 }
 
 /*
-    The open project's files that have no unsaved changes, closed - before
-    another project takes its place, so its tabs do not stay behind.
+    All open files that have no unsaved changes, closed - before another
+    project takes its place, so no tabs stay behind.
 */
 static void project_close_docs(struct ide* ide)
 {
-    if (!ide_project_is_open(&ide->project))
-        return;
     for (int i = ide->doc_count - 1; i >= 0; i--)
     {
-        if (ide_project_contains(&ide->project, ide->docs[i].path) && !gui_editor_get_dirty(ide->docs[i].editor))
+        if (!gui_editor_get_dirty(ide->docs[i].editor))
             close_doc(ide, &ide->docs[i]);
     }
 }
+
+static void exit_check(struct ide* ide);
 
 static void project_open(struct ide* ide, const char* path)
 {
     char why[300] = { 0 };
     if (project_switch_busy(ide))
         return;
+    for (int i = 0; i < ide->doc_count; i++)
+    {
+        if (gui_editor_get_dirty(ide->docs[i].editor))
+        {
+            /* the Exit prompt asks about each modified file, then opens it */
+            snprintf(ide->pending_project, sizeof ide->pending_project, "%s", path);
+            exit_check(ide);
+            return;
+        }
+    }
     project_close_docs(ide);
     if (!project_load(ide, path, why, sizeof why))
     {
@@ -9904,7 +9905,8 @@ static void doc_close_request(struct ide* ide)
 
 /*
     File > Exit (and the window's close button): asks about the first
-    modified document, or quits when there is none.
+    modified document, or quits when there is none. With pending_project
+    set, it opens that project instead of quitting.
 */
 static void exit_check(struct ide* ide)
 {
@@ -9919,6 +9921,14 @@ static void exit_check(struct ide* ide)
     }
     if (!ide->exit_window)
     {
+        if (ide->pending_project[0])
+        {
+            char path[1024];
+            snprintf(path, sizeof path, "%s", ide->pending_project);
+            ide->pending_project[0] = '\0';
+            project_open(ide, path);
+            return;
+        }
         session_save(ide);
         gui_quit(ide->app);
         return;
@@ -9929,7 +9939,7 @@ static void exit_check(struct ide* ide)
     snprintf(msg, sizeof msg, "%s has unsaved changes.\nSave them?", file_name(d->path));
     static const char* const labels[] = { "Save", "Discard", "Cancel" };
     static const int ids[] = { EV_EXIT_SAVE, EV_EXIT_DISCARD, 0 };
-    gui_message_box(ide->app, "Exit", msg, labels, ids, 3);
+    gui_message_box(ide->app, ide->pending_project[0] ? "Open Project" : "Exit", msg, labels, ids, 3);
 }
 
 /* --- Events --- */
@@ -11684,8 +11694,22 @@ static void on_event(void* ctx, int id)
     case EV_EXT_BROWSE: pick_path(ide, ide->ext.fields[1], 1, ""); break;
     case EV_HELP:
     case EV_MANUAL:
+    {
+        /* F1 in an editor on a standard C name: its cppreference page */
+        struct gui_node* f = gui_focused(ide->app);
+        if (f && gui_get_kind(f) == GUI_EDITOR)
+        {
+            char word[128], url[256];
+            word_at_caret(f, word, sizeof word);
+            if (word[0] && ide_cref_url(word, url, sizeof url))
+            {
+                ide_open_url(url);
+                break;
+            }
+        }
         help_open(ide);
         break;
+    }
     case EV_HELP_CLOSE: gui_window_close(ide->app, ide->help.window); break;
     case EV_HELP_BACK: help_back(ide); break;
 
@@ -11758,7 +11782,10 @@ static void on_event(void* ctx, int id)
                 save_doc(ide, &ide->docs[i]);
         }
         break;
-    case EV_EXIT: exit_check(ide); break;
+    case EV_EXIT:
+        ide->pending_project[0] = '\0';
+        exit_check(ide);
+        break;
     case EV_EXIT_SAVE:
     {
         struct doc* d = doc_of_window(ide, ide->exit_window);

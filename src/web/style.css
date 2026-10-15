@@ -291,3 +291,12 @@ th {
 :root[data-theme="dark"] #output span[style^="color:#007bfd"] {
     color: #6cb6ff !important;
 }
+
+/* cake qualifiers (_Owner, _Opt, _View, _Dtor, _Clear, _Uninitialized, _Out, _Nullable) */
+.hljs-keyword2 {
+    color: #6f42c1;
+}
+
+:root[data-theme="dark"] .hljs-keyword2 {
+    color: #b392f0;
+}

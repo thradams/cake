@@ -1,4 +1,4 @@
-#pragma default_null
+#pragma safety disable
 void f(int  *p)
 {
     compile_assert(p == 0 || p != 0);

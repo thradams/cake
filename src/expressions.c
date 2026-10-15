@@ -3,6 +3,7 @@
 *  https://github.com/thradams/cake
 */
 
+#pragma safety enable
 
 
 #include "cake_compat.h"
@@ -9857,7 +9858,7 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
                                      const struct expression* p_b_expression, /* src */
                                      enum assigment_type assignment_type)
 {
-    if (!ctx->options.annotations_enabled)
+    if (!ctx->options.safety_enabled)
         return;
 
     const struct type* const p_b_type = &p_b_expression->object.type;

@@ -1,4 +1,7 @@
 
+#pragma safety enable
+
+
 #include "version.h"
 #include "cake_compat.h"
 #include <stdlib.h>
@@ -758,7 +761,7 @@ static bool codegen_bitfield_run(const struct codegen_ctx* ctx,
             if (run_open)
                 return false;
 
-            struct type t = codegen_make_struct_type(d->specifier_qualifier_list->struct_or_union_specifier);
+            struct type t = codegen_make_struct_type(d->specifier_qualifier_list->struct_or_union_specifier); //lint 35 BUG in flow
             size_t align = type_get_alignof(&t, target);
             if (p_complete->pack_alignment > 0 && align > p_complete->pack_alignment)
                 align = p_complete->pack_alignment;
@@ -1093,7 +1096,7 @@ static bool codegen_bitfield_access_from_member(const struct codegen_ctx* ctx,
     if (p_member == NULL || p_owner == NULL || !codegen_is_lowered_bitfield(ctx, p_owner, p_member))
         return false;
 
-    const char* last_dot = strrchr(name, '.');
+    const char* _Opt last_dot = strrchr(name, '.');
     const int path_length = last_dot ? (int)(last_dot - name) + 1 : 0;
     ss_fprintf(&p_access->base, "%s%s%.*s", left_text, op, path_length, name);
     p_access->p_owner = p_owner;
@@ -1346,7 +1349,7 @@ static bool codegen_emit_object_bitfield_store(struct codegen_ctx* ctx,
         p_owner == NULL || p_member == NULL)
         return false;
 
-    const char* last_dot = strrchr(lvalue, '.');
+    const char* _Opt last_dot = strrchr(lvalue, '.');
     if (last_dot == NULL)
         return false;
 
@@ -6011,7 +6014,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
 
                             if (p_struct_entry0 && p_struct_entry0 != p_struct_entry)
                             {
-                                struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p_struct_entry);
+                                struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p_struct_entry); //lint 31 BUG in flow
                             }
 
                             struct member_declaration* _Opt member_declaration =
@@ -6497,7 +6500,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
             }
 
             if (ss->c_str)
-                ss_fprintf(&local, "%s", ss->c_str);
+                ss_fprintf(&local, "%s", ss->c_str); //lint 31 BUG in flow
 
             if (p_type->next &&
             (p_type->next->category == TYPE_CATEGORY_FUNCTION ||

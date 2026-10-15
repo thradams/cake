@@ -2502,7 +2502,7 @@ void core_draw_shadow(const struct paint* p, const struct gui_rect* r)
 }
 
 /* A filled dot of diameter `d` centered at (cx, cy), row by row - no font has to have it. */
-static void fill_dot(struct frame_recorder* c, int cx, int cy, int d, uint32_t rgb)
+void core_fill_dot(struct frame_recorder* c, int cx, int cy, int d, uint32_t rgb)
 {
     for (int y = 0; y < d; y++)
     {
@@ -2547,7 +2547,7 @@ static void paint_dropdown(const struct paint* p, const struct gui_node* menu,
         /* the font's cell can be taller than the item; its bg must not spill out */
         gui_set_clip(p->frame, r->x, r->y, r->w, r->h);
         if (it->marked)
-            fill_dot(p->frame, r->x + 2 * cw, r->y + r->h / 2, r->h / 3, fg);
+            core_fill_dot(p->frame, r->x + 2 * cw, r->y + r->h / 2, r->h / 3, fg);
         core_draw_utf8(&q, r->x + label_x, r->y, it->label, -1, fg, bg);
 
         if (item_is_submenu(it))

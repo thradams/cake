@@ -1,6 +1,5 @@
 
-#pragma default_nonnull
-#pragma check_annotations enable
+#pragma safety enable
 #pragma flow enable
 
 struct X { int i; int j; };

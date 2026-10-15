@@ -79,6 +79,12 @@ void ide_exe_dir(char* buf, int cap);
 /* Opens `url` in the default browser. */
 void ide_open_url(const char* url);
 
+/* --- ide_cref.c - cppreference URL of a standard C name --- */
+int ide_cref_url(const char* name, char* url, int cap);
+
+/* --- ide_cref.c - cppreference URL of a standard C name --- */
+int ide_cref_url(const char* name, char* url, int cap);
+
 /* A terminal window of the system's, in `dir`. */
 void ide_open_terminal(const char* dir);
 

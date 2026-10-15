@@ -6,6 +6,9 @@
 
 #line 1 "json.c"
 
+#pragma safety enable
+
+
 
 #line 1 "cake_compat.h"
 
@@ -35,7 +38,7 @@
 
 #endif
 
-#line 3 "json.c"
+#line 6 "json.c"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -110,7 +113,7 @@ int json_write_file(const char *path, const struct json_value *root);
 
 
 
-#line 7 "json.c"
+#line 10 "json.c"
 
 #line 1 "error.h"
 /*
@@ -150,7 +153,7 @@ int windows_error_to_posix(int i);
 void throw_break_point();
 void bug();
 
-#line 8 "json.c"
+#line 11 "json.c"
 
 #define JSON_MAX_DEPTH 200
 
@@ -1669,6 +1672,8 @@ int json_write_file(const char *path, const struct json_value *root)
 
 
 
+#pragma safety enable
+
 
 
 #include <assert.h>
@@ -1740,7 +1745,7 @@ void c_clrscr();
 void c_gotoxy(int x, int y);
 
 
-#line 18 "token.c"
+#line 20 "token.c"
 
 #line 1 "fs.h"
 /*
@@ -1913,7 +1918,7 @@ bool path_equal(const char* a, const char* b);
 /* file is inside dir (dir without a trailing separator) */
 bool path_is_under(const char* file, const char* dir);
 
-#line 19 "token.c"
+#line 21 "token.c"
 
 #line 1 "osstream.h"
 /*
@@ -1942,7 +1947,7 @@ int ss_putc(char ch, struct osstream* stream);
 void ss_clear(struct osstream* stream);
 void ss_swap(struct osstream* a, struct osstream* b);
 
-#line 20 "token.c"
+#line 22 "token.c"
 
 #line 1 "tokenizer.h"
 /*
@@ -2716,9 +2721,7 @@ struct options
     bool test_mode;             /* -testmode : reports success with 0 errors/warnings */
     bool clear_error_at_end;    /* used by tests*/
 
-    bool null_checks_enabled;   /* -nullchecks: check nullable pointer */
-
-    bool annotations_enabled;   /* -annotations: _Owner, _Opt, _Out... are checked */
+    bool safety_enabled;        /* -safety: Cake contracts (_Owner, _Opt, _Out..., non-null default) are checked */
     bool preprocess_only;       /* -E: preprocess only */
 
     bool preprocess_def_macro;  /* -preprocess-def-macro : preprocess #def */
@@ -3501,7 +3504,7 @@ void print_path(const char* path, bool fullpath);
 int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx, const char* dest_dir);
 
 
-#line 21 "token.c"
+#line 23 "token.c"
 
 
 #ifdef _WIN32
@@ -4042,7 +4045,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     r.tail = last;
 
 
-    return r; //lint 29 not playing with the rules
+    return r;
 }
 
 void token_list_remove(struct token_list* list, struct token* first, struct token* last)
@@ -5298,7 +5301,7 @@ static void assert_func(int condition, const char* func, const char* file, int l
 #define assert(expression) assert_func(expression, __func__, __FILE__, __LINE__, #expression)
 
 
-#line 1776 "token.c"
+#line 1778 "token.c"
 
 void token_list_remove_get_test()
 {
@@ -5582,6 +5585,8 @@ void rename_pairs_clear(_Clear struct rename_pairs* p)
 */
 
 
+#pragma safety enable
+
 
 
 
@@ -5613,7 +5618,7 @@ void rename_pairs_clear(_Clear struct rename_pairs* p)
 int double_to_string(double value, char* buffer, int size);
 int float_to_string(float value, char* buffer, int size);
 
-#line 10 "fp_to_string.c"
+#line 12 "fp_to_string.c"
 #include <stdint.h>
 #include <string.h>
 
@@ -6326,6 +6331,8 @@ int float_to_string(float value, char* buffer, int size)
 */
 
 
+#pragma safety enable
+
 
 
 #include <stdlib.h>
@@ -6702,6 +6709,8 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 */
 
 
+#pragma safety enable
+
 
 #if defined(__CATALYST__)
 
@@ -6884,6 +6893,7 @@ void c_gotoxy(int x, int y)
                     final, the one seen by the parser.
 
 */
+#pragma safety enable
 
 
 
@@ -6921,7 +6931,7 @@ struct preprocessor_ctx;
 int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 
 
-#line 61 "tokenizer.c"
+#line 62 "tokenizer.c"
 
 
 
@@ -9345,7 +9355,7 @@ static void complete_include_dir(const char* dir, const char* sub, const char* p
         }
         else
         {
-            const char* ext = strrchr(dp->d_name, '.');
+            const char* _Opt ext = strrchr(dp->d_name, '.');
             if (ext && (strcmp(ext, ".h") == 0 || strcmp(ext, ".hpp") == 0 || strcmp(ext, ".inl") == 0))
                 printf("%s%s\theader\t\n", dp->d_name, closer);
         }
@@ -9382,7 +9392,7 @@ static void complete_include(const struct preprocessor_ctx* ctx, const struct to
     /* "sys/ty" -> look in sys/ for names starting with ty */
     char sub[FS_MAX_PATH] = { 0 };
     const char* prefix = typed + 1;
-    const char* slash = strrchr(prefix, '/');
+    const char* _Opt slash = strrchr(prefix, '/');
     if (slash)
     {
         snprintf(sub, sizeof sub, "%.*s", (int)(slash - prefix + 1), prefix);
@@ -9391,7 +9401,7 @@ static void complete_include(const struct preprocessor_ctx* ctx, const struct to
 
     if (typed[0] == '"')
     {
-        char dir[FS_MAX_PATH] = { 0 };
+        char dir[FS_MAX_PATH] = { 0 }; //lint 68
         snprintf(dir, sizeof dir, "%s", ctx->options.find_definition_file);
         dirname(dir);
         complete_include_dir(dir, sub, prefix, closer);
@@ -12321,9 +12331,8 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         }
 
         _Assert(input_list->head->type == TK_IDENTIFIER); //macro name
-        const struct token* const macro_name_token = input_list->head;
-
         match_token_level(&macro_argument_list.tokens, input_list, TK_IDENTIFIER, level, ctx); //MACRO NAME
+        const struct token* const _Opt macro_name_token = macro_argument_list.tokens.head;
 
         if (!macro->is_function)
         {
@@ -13609,6 +13618,16 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     throw;
                 }
 
+                /* the macro name token was moved into arguments */
+                _Assert(arguments.tokens.head != NULL);
+                origin = arguments.tokens.head;
+                start_token = arguments.tokens.head;
+
+                /* expand_macro may change arguments, keep the position of the macro name */
+                const struct token* const _Opt start_token_origin = start_token->token_origin;
+                const int start_line = start_token->line;
+                const int start_col = start_token->col;
+
                 /* -find-definition: the macro name, or a macro name inside its arguments as written */
                 if ((options_is_find_request(&ctx->options) && ctx->p_find_definition == NULL) || ctx->options.p_rename_list)
                 {
@@ -13634,7 +13653,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 }
 
                 //seta nos tokens expandidos da onde eles vieram
-                token_list_set_file(&start_macro, start_token->token_origin, start_token->line, start_token->col);
+                token_list_set_file(&start_macro, start_token_origin, start_line, start_col);
 
                 token_list_append_list_at_beginning(input_list, &start_macro);
 
@@ -13685,7 +13704,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                                 }
                             }
 
-                            struct token_list r3 = expand_macro(ctx, NULL, macro, &arguments2, level, origin);
+                            struct token_list r3 = expand_macro(ctx, NULL, macro, &arguments2, level, arguments2.tokens.head);
                             if (ctx->n_errors > 0)
                             {
                                 macro_argument_list_destroy(&arguments2);
@@ -13696,7 +13715,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             }
 
                             //seta nos tokens expandidos da onde eles vieram
-                            token_list_set_file(&r3, start_token->token_origin, start_token->line, start_token->col);
+                            token_list_set_file(&r3, start_token_origin, start_line, start_col);
 
                             if (r3.head)
                             {
@@ -15200,26 +15219,26 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx,
 }
 
 #ifdef TEST
-#pragma safety disable
+
 
 
 void print_asserts(struct token* p_token)
 {
-    struct token* current = p_token;
+    struct token* _Opt current = p_token;
     printf("struct { const char* lexeme; enum token_type token; int is_active; int is_final; } result[] = { \n");
     while (current)
     {
         printf("{ %-20s, %d, ", get_token_name(current->type), (current->flags & TK_FLAG_FINAL));
         print_literal(current->lexeme);
         printf("},\n");
-        current = current->next; //lint 35
+        current = current->next;
     }
     printf("}\n");
 }
 
 void show_all(struct token* p_token)
 {
-    struct token* current = p_token;
+    struct token* _Opt current = p_token;
     while (current)
     {
         if (current->flags & TK_FLAG_FINAL)
@@ -15238,7 +15257,7 @@ void show_all(struct token* p_token)
         }
         printf("%s", current->lexeme);
         printf(COLOR_RESET);
-        current = current->next; //lint 35
+        current = current->next;
     }
 }
 
@@ -15260,7 +15279,7 @@ void print_preprocessed_to_file(const struct token* p_token, const char* filenam
 void show_visible(struct token* p_token)
 {
     printf(WHITE "visible used   / " LIGHTGRAY "visible ignored\n" COLOR_RESET);
-    struct token* current = p_token;
+    struct token* _Opt current = p_token;
     while (current)
     {
         if (current->level == 0)
@@ -15279,7 +15298,7 @@ void show_visible(struct token* p_token)
         }
         printf("%s", current->lexeme);
         printf(COLOR_RESET);
-        current = current->next; //lint 35
+        current = current->next;
     }
 }
 
@@ -15287,7 +15306,7 @@ void show_visible_and_invisible(struct token* p_token)
 {
     printf(LIGHTGREEN "visible used   / " LIGHTGRAY "visible ignored\n" COLOR_RESET);
     printf(LIGHTBLUE "invisible used / " BROWN "invisible ignored\n" COLOR_RESET);
-    struct token* current = p_token;
+    struct token* _Opt current = p_token;
     while (current)
     {
         if (current->level == 0)
@@ -15306,7 +15325,7 @@ void show_visible_and_invisible(struct token* p_token)
         }
         printf("%s", current->lexeme);
         printf(COLOR_RESET);
-        current = current->next;  //lint 35
+        current = current->next;
     }
 }
 
@@ -15318,19 +15337,23 @@ int test_preprossessor_input_output(const char* input, const char* output)
     struct preprocessor_ctx ctx = { 0 };
 
     struct token_list r = preprocessor(&ctx, &list, 0);
-    const char* s = print_preprocessed_to_string(r.head);  //lint 23
-    if (strcmp(s, output) != 0)
+    const char* _Owner _Opt s = r.head ? print_preprocessed_to_string(r.head) : NULL;
+    int result = 0;
+    if (s == NULL || strcmp(s, output) != 0)
     {
         printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
         printf("expected\n%s", output);
-        printf("HAS\n%s", s);
+        printf("HAS\n%s", s ? s : "");
         printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
         print_tokens(false, r.head);
         printf("TEST 0 FAILED\n");
-        return 1;
+        result = 1;
     }
-    free((void* _Owner)s);
-    return 0;
+    free((void* _Owner _Opt)s);
+    token_list_destroy(&r);
+    token_list_destroy(&list);
+    preprocessor_ctx_destroy(&ctx);
+    return result;
 }
 
 char* _Opt normalize_line_end(char* input)
@@ -15370,18 +15393,17 @@ bool test_preprocessor_in_out_match(const char* input, const char* output)
     ctx.options.color_disabled = true;
 
     struct token_list r = preprocessor(&ctx, &list, 0);
-    const char* result = print_preprocessed_to_string(r.head);
-    if (result == NULL)
-    {
-        result = strdup("");
-    }
+    const char* _Owner _Opt result = r.head ? print_preprocessed_to_string(r.head) : NULL;
 
-    if (strcmp(result, output) != 0)
+    if (strcmp(result ? result : "", output) != 0)
     {
         res = false;
     }
 
-    free((void* _Owner)result);
+    free((void* _Owner _Opt)result);
+    token_list_destroy(&r);
+    token_list_destroy(&list);
+    preprocessor_ctx_destroy(&ctx);
 
     return res;
 }
@@ -15402,15 +15424,19 @@ void token_list_pop_front_test()
 
     struct token_list list = { 0 };
     token_list_pop_front(&list);
+    token_list_destroy(&list);
     struct tokenizer_ctx tctx = { 0 };
     list = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_pop_front(&list);
+    token_list_destroy(&list);
 
     list = tokenizer(&tctx, "a,", NULL, 0, TK_FLAG_NONE);
     token_list_pop_front(&list);
+    token_list_destroy(&list);
 
     list = tokenizer(&tctx, "a,b", NULL, 0, TK_FLAG_NONE);
     token_list_pop_front(&list);
+    token_list_destroy(&list);
 }
 
 void token_list_pop_back_test()
@@ -15447,6 +15473,7 @@ void token_list_pop_back_test()
 * pop back com 3
 */
 
+    token_list_clear(&list);
     list = tokenizer(&tctx, "a,b", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
     assert(strcmp(list.head->lexeme, "a") == 0);
@@ -15455,6 +15482,7 @@ void token_list_pop_back_test()
     assert(strcmp(list.tail->prev->lexeme, "a") == 0);
     assert(list.head->prev == NULL);
     assert(list.tail->next == NULL);
+    token_list_destroy(&list);
 }
 
 int token_list_append_list_test()
@@ -15485,6 +15513,8 @@ int token_list_append_list_test()
     assert(dest.head->next->next == dest.tail);
     assert(dest.tail->prev->prev == dest.head);
 
+    token_list_destroy(&source);
+    token_list_destroy(&dest);
     return 0;
 }
 
@@ -16024,6 +16054,9 @@ int test_preprocessor_expression(const char* expr, long long expected)
     struct token_list input = tokenizer(&tctx, expr, "", 0, TK_FLAG_NONE);
 
     long long result = preprocessor_constant_expression(&ctx, &r, &input);
+    token_list_destroy(&input);
+    token_list_destroy(&r);
+    preprocessor_ctx_destroy(&ctx);
     return result == expected ? 0 : 1;
 }
 
@@ -16186,17 +16219,20 @@ int test_tokens()
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "", 0, TK_FLAG_NONE);
 
-    if (list.head->next->type != TK_STRING_LITERAL)
+    int result = tctx.n_errors;
+    if (list.head == NULL || list.head->next == NULL ||
+        list.head->next->type != TK_STRING_LITERAL)
     {
-        return __LINE__;
+        result = __LINE__;
+    }
+    else if (list.head->next->next == NULL || list.head->next->next->next == NULL ||
+             list.head->next->next->next->type != TK_STRING_LITERAL)
+    {
+        result = __LINE__;
     }
 
-    if (list.head->next->next->next->type != TK_STRING_LITERAL)
-    {
-        return __LINE__;
-    }
-
-    return tctx.n_errors;
+    token_list_destroy(&list);
+    return result;
 }
 
 int test_predefined_macros()
@@ -16218,16 +16254,15 @@ int test_predefined_macros()
     add_standard_macros(&prectx, &host);
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
-    const char* _Opt _Owner result = print_preprocessed_to_string(list2.head);
-    if (result == NULL)
-    {
-        result = strdup("");
-    }
-    if (strcmp(result, output) != 0)
+    const char* _Opt _Owner result = list2.head ? print_preprocessed_to_string(list2.head) : NULL;
+    if (strcmp(result ? result : "", output) != 0)
     {
 
     }
-    free((void* _Owner)result);
+    free((void* _Owner _Opt)result);
+    token_list_destroy(&list2);
+    token_list_destroy(&list);
+    preprocessor_ctx_destroy(&prectx);
 
     return 0;
 }
@@ -16240,10 +16275,12 @@ int test_utf8()
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
-    if (strcmp(list.head->next->lexeme, "u8\"maçã\"") != 0)
-        return __LINE__;
+    int result = 0;
+    if (list.head == NULL || list.head->next == NULL ||
+        strcmp(list.head->next->lexeme, "u8\"maçã\"") != 0)
+        result = __LINE__;
     token_list_destroy(&list);
-    return 0;
+    return result;
 }
 
 void test_counter()
@@ -16266,15 +16303,14 @@ void test_counter()
     add_macro(&ctx, "__COUNTER__");
 
     struct token_list r = preprocessor(&ctx, &list, 0);
-    const char* result = print_preprocessed_to_string(r.head);
-    if (result == NULL)
-    {
-        result = strdup("");
-    }
+    const char* _Owner _Opt result = r.head ? print_preprocessed_to_string(r.head) : NULL;
 
-    assert(strcmp(result, output) == 0);
+    assert(strcmp(result ? result : "", output) == 0);
 
-    free((void* _Owner)result);
+    free((void* _Owner _Opt)result);
+    token_list_destroy(&r);
+    token_list_destroy(&list);
+    preprocessor_ctx_destroy(&ctx);
 }
 
 void bug_test()
@@ -16395,16 +16431,16 @@ int test_line_continuation()
 
     struct token_list list2 = preprocessor(&prectx, &list, 0);
 
-    const char* result = print_preprocessed_to_string(list2.head);
-    if (result == NULL)
-    {
-        result = strdup("");
-    }
-    if (strcmp(result, output) != 0)
+    const char* _Owner _Opt result = list2.head ? print_preprocessed_to_string(list2.head) : NULL;
+    if (strcmp(result ? result : "", output) != 0)
     {
     }
 
-    return 0; //
+    free((void* _Owner _Opt)result);
+    token_list_destroy(&list2);
+    token_list_destroy(&list);
+    preprocessor_ctx_destroy(&prectx);
+    return 0;
 }
 
 #define STRINGIFY_IMPL(x) #x
@@ -16480,8 +16516,9 @@ static int preprocessor_error_count(const char* input)
     token_list_clear(&r);
     token_list_clear(&list);
 
+    const int n_errors = ctx.n_errors;
     preprocessor_ctx_destroy(&ctx);
-    return ctx.n_errors;
+    return n_errors;
 }
 
 void hash_hash_at_ends_of_replacement_list()
@@ -16507,6 +16544,8 @@ void hash_hash_at_ends_of_replacement_list()
  *  https://github.com/thradams/cake 
 */
 
+
+#pragma safety enable
 
 
 #include <stdbool.h>
@@ -16626,7 +16665,7 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 {
     va_list args = { 0 };
 #ifdef _WIN32
-    va_start(args, fmt); //lint 35
+    va_start(args, fmt);
 #else
     va_start(args, fmt);
 #endif
@@ -16647,6 +16686,8 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
  *  https://github.com/thradams/cake
 */
 
+
+#pragma safety enable
 
 
 
@@ -17508,7 +17549,7 @@ char* _Owner _Opt read_file(const char* const path, bool append_newline)
 ,101,95,73,78,84,54,52,95,67,40,99,41,32,32,99,32,35,35,32,76,76,10,32,32,32
 ,32,35,100,101,102,105,110,101,32,95,95,99,97,107,101,95,85,73,78,84,54,52,95,67,40
 ,99,41,32,99,32,35,35,32,85,76,76,10,35,101,110,100,105,102,10,10
-#line 697 "fs.c"
+#line 699 "fs.c"
 , 0 };
 static const char file_assert_h[] = {
 
@@ -17542,7 +17583,7 @@ static const char file_assert_h[] = {
 ,116,105,99,95,97,115,115,101,114,116,10,32,32,32,32,35,101,110,100,105,102,10,10,35,101
 ,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,97,115
 ,115,101,114,116,46,104,62,10,35,101,110,100,105,102,10
-#line 700 "fs.c"
+#line 702 "fs.c"
 , 0 };
 static const char file_complex_h[] = {
 
@@ -17557,7 +17598,7 @@ static const char file_complex_h[] = {
 ,97,107,101,45,104,101,97,100,101,114,115,32,121,101,116,10,35,101,108,115,101,10,32,32,32
 ,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,99,111,109,112,108,101,120,46,104
 ,62,10,35,101,110,100,105,102,10
-#line 703 "fs.c"
+#line 705 "fs.c"
 , 0 };
 static const char file_ctype_h[] = {
 
@@ -17586,7 +17627,7 @@ static const char file_ctype_h[] = {
 ,99,41,59,10,32,32,32,32,105,110,116,32,116,111,117,112,112,101,114,40,105,110,116,32,99
 ,41,59,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101
 ,120,116,32,60,99,116,121,112,101,46,104,62,10,35,101,110,100,105,102,10
-#line 706 "fs.c"
+#line 708 "fs.c"
 , 0 };
 static const char file_errno_h[] = {
 
@@ -17879,7 +17920,7 @@ static const char file_errno_h[] = {
 ,32,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108
 ,117,100,101,95,110,101,120,116,32,60,101,114,114,110,111,46,104,62,10,35,101,110,100,105,102
 ,10
-#line 709 "fs.c"
+#line 711 "fs.c"
 , 0 };
 static const char file_fenv_h[] = {
 
@@ -18140,7 +18181,7 @@ static const char file_fenv_h[] = {
 ,99,111,110,115,116,32,102,101,110,118,95,116,42,32,101,110,118,112,41,59,10,32,32,32,32
 ,35,101,110,100,105,102,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100
 ,101,95,110,101,120,116,32,60,102,101,110,118,46,104,62,10,35,101,110,100,105,102,10
-#line 712 "fs.c"
+#line 714 "fs.c"
 , 0 };
 static const char file_float_h[] = {
 
@@ -18300,7 +18341,7 @@ static const char file_float_h[] = {
 ,67,95,54,48,53,53,57,32,49,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99
 ,108,117,100,101,95,110,101,120,116,32,60,102,108,111,97,116,46,104,62,10,35,101,110,100,105
 ,102,10
-#line 715 "fs.c"
+#line 717 "fs.c"
 , 0 };
 static const char file_inttypes_h[] = {
 
@@ -18543,7 +18584,7 @@ static const char file_inttypes_h[] = {
 ,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,10,10,35,101
 ,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,105,110
 ,116,116,121,112,101,115,46,104,62,10,35,101,110,100,105,102,10
-#line 718 "fs.c"
+#line 720 "fs.c"
 , 0 };
 static const char file_iso646_h[] = {
 
@@ -18566,7 +18607,7 @@ static const char file_iso646_h[] = {
 ,111,114,95,101,113,32,94,61,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108
 ,117,100,101,95,110,101,120,116,32,60,105,115,111,54,52,54,46,104,62,10,35,101,110,100,105
 ,102,10
-#line 721 "fs.c"
+#line 723 "fs.c"
 , 0 };
 static const char file_limits_h[] = {
 
@@ -18660,7 +18701,7 @@ static const char file_limits_h[] = {
 ,88,87,73,68,84,72,32,54,52,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99
 ,108,117,100,101,95,110,101,120,116,32,60,108,105,109,105,116,115,46,104,62,10,35,101,110,100
 ,105,102,10
-#line 724 "fs.c"
+#line 726 "fs.c"
 , 0 };
 static const char file_locale_h[] = {
 
@@ -18755,7 +18796,7 @@ static const char file_locale_h[] = {
 ,114,117,99,116,32,108,99,111,110,118,42,32,108,111,99,97,108,101,99,111,110,118,40,118,111
 ,105,100,41,59,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95
 ,110,101,120,116,32,60,108,111,99,97,108,101,46,104,62,10,35,101,110,100,105,102,10
-#line 727 "fs.c"
+#line 729 "fs.c"
 , 0 };
 static const char file_math_h[] = {
 
@@ -19331,7 +19372,7 @@ static const char file_math_h[] = {
 ,121,44,32,108,111,110,103,32,100,111,117,98,108,101,32,122,41,59,10,10,35,101,108,115,101
 ,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,109,97,116,104,46
 ,104,62,10,35,101,110,100,105,102,10
-#line 730 "fs.c"
+#line 732 "fs.c"
 , 0 };
 static const char file_setjmp_h[] = {
 
@@ -19381,7 +19422,7 @@ static const char file_setjmp_h[] = {
 ,105,110,116,32,118,97,108,41,59,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99
 ,108,117,100,101,95,110,101,120,116,32,60,115,101,116,106,109,112,46,104,62,10,35,101,110,100
 ,105,102,10
-#line 733 "fs.c"
+#line 735 "fs.c"
 , 0 };
 static const char file_signal_h[] = {
 
@@ -19433,7 +19474,7 @@ static const char file_signal_h[] = {
 ,79,83,32,42,47,10,32,32,32,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,32
 ,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,105,103,110,97,108,46
 ,104,62,10,35,101,110,100,105,102,10
-#line 736 "fs.c"
+#line 738 "fs.c"
 , 0 };
 static const char file_stdalign_h[] = {
 
@@ -19453,7 +19494,7 @@ static const char file_stdalign_h[] = {
 ,101,102,105,110,101,32,95,95,97,108,105,103,110,111,102,95,105,115,95,100,101,102,105,110,101
 ,100,32,49,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110
 ,101,120,116,32,60,115,116,100,97,108,105,103,110,46,104,62,10,35,101,110,100,105,102,10
-#line 739 "fs.c"
+#line 741 "fs.c"
 , 0 };
 static const char file_stdarg_h[] = {
 
@@ -19542,7 +19583,7 @@ static const char file_stdarg_h[] = {
 ,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117
 ,100,101,95,110,101,120,116,32,60,115,116,100,97,114,103,46,104,62,10,35,101,110,100,105,102
 ,10
-#line 742 "fs.c"
+#line 744 "fs.c"
 , 0 };
 static const char file_stdatomic_h[] = {
 
@@ -19842,7 +19883,7 @@ static const char file_stdatomic_h[] = {
 ,108,117,101,44,32,48,44,32,111,114,100,101,114,41,10,10,35,101,108,115,101,10,32,32,32
 ,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,97,116,111,109,105,99
 ,46,104,62,10,35,101,110,100,105,102,10
-#line 745 "fs.c"
+#line 747 "fs.c"
 , 0 };
 static const char file_stdbit_h[] = {
 
@@ -19859,7 +19900,7 @@ static const char file_stdbit_h[] = {
 ,119,105,116,104,32,45,99,97,107,101,45,104,101,97,100,101,114,115,32,121,101,116,10,35,101
 ,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116
 ,100,98,105,116,46,104,62,10,35,101,110,100,105,102,10
-#line 748 "fs.c"
+#line 750 "fs.c"
 , 0 };
 static const char file_stdbool_h[] = {
 
@@ -19879,7 +19920,7 @@ static const char file_stdbool_h[] = {
 ,32,49,10,32,32,32,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,32,32,32,32
 ,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,98,111,111,108,46,104,62
 ,10,35,101,110,100,105,102,10
-#line 751 "fs.c"
+#line 753 "fs.c"
 , 0 };
 static const char file_stdckdint_h[] = {
 
@@ -19921,7 +19962,7 @@ static const char file_stdckdint_h[] = {
 ,32,35,101,110,100,105,102,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117
 ,100,101,95,110,101,120,116,32,60,115,116,100,99,107,100,105,110,116,46,104,62,10,35,101,110
 ,100,105,102,10
-#line 754 "fs.c"
+#line 756 "fs.c"
 , 0 };
 static const char file_stddef_h[] = {
 
@@ -19976,7 +20017,7 @@ static const char file_stddef_h[] = {
 ,98,108,101,40,41,32,100,111,32,123,125,32,119,104,105,108,101,40,48,41,10,32,32,32,32
 ,35,101,110,100,105,102,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100
 ,101,95,110,101,120,116,32,60,115,116,100,100,101,102,46,104,62,10,35,101,110,100,105,102,10
-#line 757 "fs.c"
+#line 759 "fs.c"
 , 0 };
 static const char file_stdint_h[] = {
 
@@ -20259,7 +20300,7 @@ static const char file_stdint_h[] = {
 ,67,40,99,41,32,95,95,99,97,107,101,95,85,73,78,84,54,52,95,67,40,99,41,10,10
 ,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60
 ,115,116,100,105,110,116,46,104,62,10,35,101,110,100,105,102,10
-#line 760 "fs.c"
+#line 762 "fs.c"
 , 0 };
 static const char file_stdio_h[] = {
 
@@ -20721,7 +20762,7 @@ static const char file_stdio_h[] = {
 ,32,32,32,32,32,32,32,32,70,73,76,69,42,32,95,83,116,114,101,97,109,10,32,32,32
 ,32,41,59,10,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115
 ,116,100,105,111,46,104,62,10,35,101,110,100,105,102,10
-#line 763 "fs.c"
+#line 765 "fs.c"
 , 0 };
 static const char file_stdlib_h[] = {
 
@@ -20963,7 +21004,7 @@ static const char file_stdlib_h[] = {
 ,115,116,101,109,32,104,101,97,100,101,114,115,32,46,46,46,32,42,47,10,32,32,32,32,35
 ,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,100,108,105,98,46,104,62,10,10
 ,35,101,110,100,105,102,10
-#line 766 "fs.c"
+#line 768 "fs.c"
 , 0 };
 static const char file_stdnoreturn_h[] = {
 
@@ -20978,7 +21019,7 @@ static const char file_stdnoreturn_h[] = {
 ,114,110,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101
 ,120,116,32,60,115,116,100,110,111,114,101,116,117,114,110,46,104,62,10,35,101,110,100,105,102
 ,10
-#line 769 "fs.c"
+#line 771 "fs.c"
 , 0 };
 static const char file_string_h[] = {
 
@@ -20997,136 +21038,150 @@ static const char file_string_h[] = {
 ,76,10,32,32,32,32,32,32,32,32,35,100,101,102,105,110,101,32,78,85,76,76,32,40,40
 ,118,111,105,100,42,41,48,41,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32
 ,47,42,32,99,111,112,121,105,110,103,32,42,47,10,32,32,32,32,118,111,105,100,42,32,109
-,101,109,99,112,121,40,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32
-,99,111,110,115,116,32,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32
-,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,118,111,105,100,42,32,109,101,109,99
-,99,112,121,40,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,99,111
-,110,115,116,32,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,105,110
-,116,32,99,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,118,111,105,100,42
-,32,109,101,109,109,111,118,101,40,118,111,105,100,42,32,115,49,44,32,99,111,110,115,116,32
-,118,111,105,100,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32
-,99,104,97,114,42,32,115,116,114,99,112,121,40,99,104,97,114,42,32,114,101,115,116,114,105
-,99,116,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105
-,99,116,32,115,50,41,59,10,32,32,32,32,99,104,97,114,42,32,115,116,114,110,99,112,121
-,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115,116
-,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,115,105,122,101,95
-,116,32,110,41,59,10,32,32,32,32,99,104,97,114,42,32,95,79,119,110,101,114,32,95,79
-,112,116,32,115,116,114,100,117,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,41,59
-,10,32,32,32,32,35,105,102,32,33,100,101,102,105,110,101,100,40,95,87,73,78,51,50,41
-,10,32,32,32,32,32,32,32,32,99,104,97,114,42,32,95,79,119,110,101,114,32,95,79,112
-,116,32,115,116,114,110,100,117,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,44,32
-,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32
-,32,32,47,42,32,99,111,110,99,97,116,101,110,97,116,105,111,110,32,42,47,10,32,32,32
-,32,99,104,97,114,42,32,115,116,114,99,97,116,40,99,104,97,114,42,32,114,101,115,116,114
-,105,99,116,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114
-,105,99,116,32,115,50,41,59,10,32,32,32,32,99,104,97,114,42,32,115,116,114,110,99,97
-,116,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115
-,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,115,105,122,101
-,95,116,32,110,41,59,10,10,32,32,32,32,47,42,32,99,111,109,112,97,114,105,115,111,110
-,32,42,47,10,32,32,32,32,105,110,116,32,109,101,109,99,109,112,40,99,111,110,115,116,32
-,118,111,105,100,42,32,115,49,44,32,99,111,110,115,116,32,118,111,105,100,42,32,115,50,44
-,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,105,110,116,32,115,116,114,99,109
-,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99
-,104,97,114,42,32,115,50,41,59,10,32,32,32,32,105,110,116,32,115,116,114,99,111,108,108
-,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104
-,97,114,42,32,115,50,41,59,10,32,32,32,32,105,110,116,32,115,116,114,110,99,109,112,40
-,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97
-,114,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,115,105,122
-,101,95,116,32,115,116,114,120,102,114,109,40,99,104,97,114,42,32,95,79,112,116,32,114,101
-,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101
-,115,116,114,105,99,116,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,10,32,32
-,32,32,47,42,32,115,101,97,114,99,104,32,42,47,10,32,32,32,32,118,111,105,100,42,32
-,95,79,112,116,32,109,101,109,99,104,114,40,99,111,110,115,116,32,118,111,105,100,42,32,115
-,44,32,105,110,116,32,99,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,99
-,104,97,114,42,32,95,79,112,116,32,115,116,114,99,104,114,40,99,111,110,115,116,32,99,104
-,97,114,42,32,115,44,32,105,110,116,32,99,41,59,10,32,32,32,32,115,105,122,101,95,116
-,32,115,116,114,99,115,112,110,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32
-,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32,99,104,97,114
-,42,32,95,79,112,116,32,115,116,114,112,98,114,107,40,99,111,110,115,116,32,99,104,97,114
-,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32
-,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,114,99,104,114,40,99,111,110,115
-,116,32,99,104,97,114,42,32,115,44,32,105,110,116,32,99,41,59,10,32,32,32,32,115,105
-,122,101,95,116,32,115,116,114,115,112,110,40,99,111,110,115,116,32,99,104,97,114,42,32,115
-,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32,99
-,104,97,114,42,32,95,79,112,116,32,115,116,114,115,116,114,40,99,111,110,115,116,32,99,104
+,101,109,99,112,121,40,95,79,117,116,32,118,111,105,100,42,32,114,101,115,116,114,105,99,116
+,32,115,49,44,32,99,111,110,115,116,32,118,111,105,100,42,32,114,101,115,116,114,105,99,116
+,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,118,111,105,100,42
+,32,109,101,109,99,99,112,121,40,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115
+,49,44,32,99,111,110,115,116,32,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115
+,50,44,32,105,110,116,32,99,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32
+,118,111,105,100,42,32,109,101,109,109,111,118,101,40,118,111,105,100,42,32,115,49,44,32,99
+,111,110,115,116,32,118,111,105,100,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59
+,10,32,32,32,32,99,104,97,114,42,32,115,116,114,99,112,121,40,99,104,97,114,42,32,114
+,101,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114
+,101,115,116,114,105,99,116,32,115,50,41,59,10,32,32,32,32,99,104,97,114,42,32,115,116
+,114,110,99,112,121,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32
+,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32
+,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,99,104,97,114,42,32,95,79,119,110
+,101,114,32,95,79,112,116,32,115,116,114,100,117,112,40,99,111,110,115,116,32,99,104,97,114
+,42,32,115,41,59,10,32,32,32,32,35,105,102,32,33,100,101,102,105,110,101,100,40,95,87
+,73,78,51,50,41,10,32,32,32,32,32,32,32,32,99,104,97,114,42,32,95,79,119,110,101
+,114,32,95,79,112,116,32,115,116,114,110,100,117,112,40,99,111,110,115,116,32,99,104,97,114
+,42,32,115,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,35,101,110,100,105
+,102,10,10,32,32,32,32,47,42,32,99,111,110,99,97,116,101,110,97,116,105,111,110,32,42
+,47,10,32,32,32,32,99,104,97,114,42,32,115,116,114,99,97,116,40,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,115,50,41,59,10,32,32,32,32,99,104,97,114,42,32,115
+,116,114,110,99,97,116,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44
+,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,44
+,32,115,105,122,101,95,116,32,110,41,59,10,10,32,32,32,32,47,42,32,99,111,109,112,97
+,114,105,115,111,110,32,42,47,10,32,32,32,32,105,110,116,32,109,101,109,99,109,112,40,99
+,111,110,115,116,32,118,111,105,100,42,32,115,49,44,32,99,111,110,115,116,32,118,111,105,100
+,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,105,110,116,32
+,115,116,114,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111
+,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32,105,110,116,32,115,116
+,114,99,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110
+,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32,105,110,116,32,115,116,114
+,110,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115
+,116,32,99,104,97,114,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32
+,32,32,115,105,122,101,95,116,32,115,116,114,120,102,114,109,40,99,104,97,114,42,32,95,79
+,112,116,32,114,101,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115,116,32,99,104,97
+,114,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,115,105,122,101,95,116,32,110,41
+,59,10,10,32,32,32,32,47,42,32,115,101,97,114,99,104,32,42,47,10,32,32,32,32,118
+,111,105,100,42,32,95,79,112,116,32,109,101,109,99,104,114,40,99,111,110,115,116,32,118,111
+,105,100,42,32,115,44,32,105,110,116,32,99,44,32,115,105,122,101,95,116,32,110,41,59,10
+,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,99,104,114,40,99,111,110
+,115,116,32,99,104,97,114,42,32,115,44,32,105,110,116,32,99,41,59,10,32,32,32,32,115
+,105,122,101,95,116,32,115,116,114,99,115,112,110,40,99,111,110,115,116,32,99,104,97,114,42
+,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32
+,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,112,98,114,107,40,99,111,110,115,116
+,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50
+,41,59,10,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,114,99,104,114
+,40,99,111,110,115,116,32,99,104,97,114,42,32,115,44,32,105,110,116,32,99,41,59,10,32
+,32,32,32,115,105,122,101,95,116,32,115,116,114,115,112,110,40,99,111,110,115,116,32,99,104
 ,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10
-,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,116,111,107,40,99,104,97
-,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115
-,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,41,59,10,10,32,32
-,32,32,47,42,32,109,105,115,99,101,108,108,97,110,101,111,117,115,32,42,47,10,32,32,32
-,32,118,111,105,100,42,32,109,101,109,115,101,116,40,95,67,108,101,97,114,32,95,79,117,116
-,32,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44,32,115,105,122,101,95,116,32,110
-,41,59,10,32,32,32,32,35,105,102,32,100,101,102,105,110,101,100,40,95,95,108,105,110,117
-,120,95,95,41,10,32,32,32,32,32,32,32,32,118,111,105,100,42,32,109,101,109,115,101,116
-,95,101,120,112,108,105,99,105,116,40,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44
-,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,35,101,110,100,105,102,10,32,32
-,32,32,99,104,97,114,42,32,115,116,114,101,114,114,111,114,40,105,110,116,32,101,114,114,110
-,117,109,41,59,10,32,32,32,32,115,105,122,101,95,116,32,115,116,114,108,101,110,40,99,111
-,110,115,116,32,99,104,97,114,42,32,115,41,59,10,32,32,32,32,115,105,122,101,95,116,32
-,115,116,114,110,108,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,115,44,32,115,105
-,122,101,95,116,32,109,97,120,108,101,110,41,59,10,10,32,32,32,32,35,105,102,32,100,101
-,102,105,110,101,100,40,95,95,108,105,110,117,120,95,95,41,32,124,124,32,100,101,102,105,110
-,101,100,40,95,95,65,80,80,76,69,95,95,41,10,32,32,32,32,32,32,32,32,47,42,32
-,80,79,83,73,88,32,42,47,10,32,32,32,32,32,32,32,32,99,104,97,114,42,32,95,79
-,112,116,32,115,116,114,116,111,107,95,114,40,99,104,97,114,42,32,95,79,112,116,32,114,101
-,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,115,101,112,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99
-,116,32,108,97,115,116,115,41,59,10,32,32,32,32,32,32,32,32,105,110,116,32,115,116,114
-,99,97,115,101,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99
-,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32,32,32,32,32,105
-,110,116,32,115,116,114,110,99,97,115,101,99,109,112,40,99,111,110,115,116,32,99,104,97,114
-,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,44,32,115,105,122
-,101,95,116,32,110,41,59,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,35
-,105,102,32,100,101,102,105,110,101,100,40,95,87,73,78,51,50,41,10,32,32,32,32,32,32
-,32,32,116,121,112,101,100,101,102,32,105,110,116,32,101,114,114,110,111,95,116,59,10,32,32
-,32,32,32,32,32,32,116,121,112,101,100,101,102,32,115,105,122,101,95,116,32,114,115,105,122
-,101,95,116,59,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,109,101,109,99
-,112,121,95,115,40,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,114
-,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32,118,111,105,100,42
-,32,114,101,115,116,114,105,99,116,32,115,50,44,32,114,115,105,122,101,95,116,32,110,41,59
-,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,109,101,109,109,111,118,101,95
-,115,40,118,111,105,100,42,32,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109,97,120
-,44,32,99,111,110,115,116,32,118,111,105,100,42,32,115,50,44,32,114,115,105,122,101,95,116
-,32,110,41,59,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,115,116,114,99
-,112,121,95,115,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,114
-,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32,99,104,97,114,42
-,32,114,101,115,116,114,105,99,116,32,115,50,41,59,10,32,32,32,32,32,32,32,32,101,114
-,114,110,111,95,116,32,115,116,114,99,97,116,95,115,40,99,104,97,114,42,32,114,101,115,116
-,114,105,99,116,32,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99
-,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,41,59,10
-,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,115,116,114,110,99,112,121,95,115
-,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,114,115,105,122,101
-,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,115,50,44,32,114,115,105,122,101,95,116,32,110,41,59,10,32,32,32
-,32,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,116,111,107,95,115,40
-,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,49,44,32,99
-,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,99
-,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,112,116,114,41,59,10,32,32,32,32
-,32,32,32,32,105,110,116,32,95,115,116,114,105,99,109,112,40,99,111,110,115,116,32,99,104
-,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10
-,32,32,32,32,32,32,32,32,105,110,116,32,95,115,116,114,110,105,99,109,112,40,99,111,110
+,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,115,116,114,40,99,111,110
 ,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32
-,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,32,32,32,32,105,110
-,116,32,115,116,114,105,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44
-,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32,32,32,32
-,32,105,110,116,32,115,116,114,110,105,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42
-,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,44,32,115,105,122,101
-,95,116,32,110,41,59,10,32,32,32,32,32,32,32,32,47,42,32,116,104,101,32,109,115,118
-,99,32,115,116,114,105,110,103,46,104,32,97,108,115,111,32,100,101,99,108,97,114,101,115,32
-,116,104,101,32,119,105,100,101,32,115,116,114,105,110,103,32,102,117,110,99,116,105,111,110,115
-,32,40,99,111,114,101,99,114,116,95,119,115,116,114,105,110,103,46,104,41,44,10,32,32,32
-,32,32,32,32,32,32,32,32,116,104,101,32,119,105,110,100,111,119,115,32,115,100,107,32,104
-,101,97,100,101,114,115,32,40,115,116,114,97,108,105,103,110,46,104,41,32,99,111,117,110,116
-,32,111,110,32,116,104,97,116,32,42,47,10,32,32,32,32,32,32,32,32,35,105,110,99,108
-,117,100,101,32,60,119,99,104,97,114,46,104,62,10,32,32,32,32,35,101,110,100,105,102,10
-,10,35,101,108,115,101,10,10,32,32,32,32,99,104,97,114,42,32,95,79,119,110,101,114,32
-,95,79,112,116,32,115,116,114,100,117,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115
-,114,99,41,59,10,32,32,32,32,118,111,105,100,42,32,109,101,109,115,101,116,40,95,67,108
-,101,97,114,32,95,79,117,116,32,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44,32
-,95,95,67,65,75,69,95,83,73,90,69,95,84,89,80,69,95,95,32,110,41,59,10,10,32
-,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,115,116,114,105,110,103,46
-,104,62,10,35,101,110,100,105,102,10
-#line 772 "fs.c"
+,115,50,41,59,10,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,116,111
+,107,40,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32,115,49,44
+,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,41
+,59,10,10,32,32,32,32,47,42,32,109,105,115,99,101,108,108,97,110,101,111,117,115,32,42
+,47,10,32,32,32,32,118,111,105,100,42,32,109,101,109,115,101,116,40,95,67,108,101,97,114
+,32,95,79,117,116,32,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44,32,115,105,122
+,101,95,116,32,110,41,59,10,32,32,32,32,35,105,102,32,100,101,102,105,110,101,100,40,95
+,95,108,105,110,117,120,95,95,41,10,32,32,32,32,32,32,32,32,118,111,105,100,42,32,109
+,101,109,115,101,116,95,101,120,112,108,105,99,105,116,40,118,111,105,100,42,32,115,44,32,105
+,110,116,32,99,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,35,101,110,100
+,105,102,10,32,32,32,32,99,104,97,114,42,32,115,116,114,101,114,114,111,114,40,105,110,116
+,32,101,114,114,110,117,109,41,59,10,32,32,32,32,115,105,122,101,95,116,32,115,116,114,108
+,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,115,41,59,10,32,32,32,32,115,105
+,122,101,95,116,32,115,116,114,110,108,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32
+,115,44,32,115,105,122,101,95,116,32,109,97,120,108,101,110,41,59,10,10,32,32,32,32,35
+,105,102,32,100,101,102,105,110,101,100,40,95,95,108,105,110,117,120,95,95,41,32,124,124,32
+,100,101,102,105,110,101,100,40,95,95,65,80,80,76,69,95,95,41,10,32,32,32,32,32,32
+,32,32,47,42,32,80,79,83,73,88,32,42,47,10,32,32,32,32,32,32,32,32,99,104,97
+,114,42,32,95,79,112,116,32,115,116,114,116,111,107,95,114,40,99,104,97,114,42,32,95,79
+,112,116,32,114,101,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114
+,42,32,114,101,115,116,114,105,99,116,32,115,101,112,44,32,99,104,97,114,42,42,32,114,101
+,115,116,114,105,99,116,32,108,97,115,116,115,41,59,10,32,32,32,32,32,32,32,32,105,110
+,116,32,115,116,114,99,97,115,101,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32
+,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32,32,32
+,32,32,32,32,105,110,116,32,115,116,114,110,99,97,115,101,99,109,112,40,99,111,110,115,116
+,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50
+,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,35,101,110,100,105,102,10,10
+,32,32,32,32,35,105,102,32,100,101,102,105,110,101,100,40,95,87,73,78,51,50,41,10,32
+,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,105,110,116,32,101,114,114,110,111,95
+,116,59,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32,115,105,122,101,95,116
+,32,114,115,105,122,101,95,116,59,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116
+,32,109,101,109,99,112,121,95,115,40,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32
+,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32
+,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,114,115,105,122,101,95
+,116,32,110,41,59,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,109,101,109
+,109,111,118,101,95,115,40,118,111,105,100,42,32,115,49,44,32,114,115,105,122,101,95,116,32
+,115,49,109,97,120,44,32,99,111,110,115,116,32,118,111,105,100,42,32,115,50,44,32,114,115
+,105,122,101,95,116,32,110,41,59,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116
+,32,115,116,114,99,112,121,95,115,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32
+,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,50,41,59,10,32,32,32,32,32
+,32,32,32,101,114,114,110,111,95,116,32,115,116,114,99,97,116,95,115,40,99,104,97,114,42
+,32,114,101,115,116,114,105,99,116,32,115,49,44,32,114,115,105,122,101,95,116,32,115,49,109
+,97,120,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,115,50,41,59,10,32,32,32,32,32,32,32,32,101,114,114,110,111,95,116,32,115,116,114,110
+,99,112,121,95,115,40,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32
+,114,115,105,122,101,95,116,32,115,49,109,97,120,44,32,99,111,110,115,116,32,99,104,97,114
+,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,114,115,105,122,101,95,116,32,110,41
+,59,10,32,32,32,32,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,116
+,111,107,95,115,40,99,104,97,114,42,32,95,79,112,116,32,114,101,115,116,114,105,99,116,32
+,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,115,50,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,112,116,114,41,59
+,10,32,32,32,32,32,32,32,32,105,110,116,32,95,115,116,114,105,99,109,112,40,99,111,110
+,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32
+,115,50,41,59,10,32,32,32,32,32,32,32,32,105,110,116,32,95,115,116,114,110,105,99,109
+,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99
+,104,97,114,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,32
+,32,32,32,105,110,116,32,115,116,114,105,99,109,112,40,99,111,110,115,116,32,99,104,97,114
+,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,32,32
+,32,32,32,32,32,32,105,110,116,32,115,116,114,110,105,99,109,112,40,99,111,110,115,116,32
+,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,44
+,32,115,105,122,101,95,116,32,110,41,59,10,32,32,32,32,32,32,32,32,47,42,32,116,104
+,101,32,109,115,118,99,32,115,116,114,105,110,103,46,104,32,97,108,115,111,32,100,101,99,108
+,97,114,101,115,32,116,104,101,32,119,105,100,101,32,115,116,114,105,110,103,32,102,117,110,99
+,116,105,111,110,115,32,40,99,111,114,101,99,114,116,95,119,115,116,114,105,110,103,46,104,41
+,44,10,32,32,32,32,32,32,32,32,32,32,32,116,104,101,32,119,105,110,100,111,119,115,32
+,115,100,107,32,104,101,97,100,101,114,115,32,40,115,116,114,97,108,105,103,110,46,104,41,32
+,99,111,117,110,116,32,111,110,32,116,104,97,116,32,42,47,10,32,32,32,32,32,32,32,32
+,35,105,110,99,108,117,100,101,32,60,119,99,104,97,114,46,104,62,10,32,32,32,32,35,101
+,110,100,105,102,10,10,35,101,108,115,101,10,10,32,32,32,32,99,104,97,114,42,32,95,79
+,119,110,101,114,32,95,79,112,116,32,115,116,114,100,117,112,40,99,111,110,115,116,32,99,104
+,97,114,42,32,115,114,99,41,59,10,32,32,32,32,118,111,105,100,42,32,109,101,109,115,101
+,116,40,95,67,108,101,97,114,32,95,79,117,116,32,118,111,105,100,42,32,115,44,32,105,110
+,116,32,99,44,32,95,95,67,65,75,69,95,83,73,90,69,95,84,89,80,69,95,95,32,110
+,41,59,10,32,32,32,32,118,111,105,100,42,32,109,101,109,99,112,121,40,95,79,117,116,32
+,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,49,44,32,99,111,110,115,116,32
+,118,111,105,100,42,32,114,101,115,116,114,105,99,116,32,115,50,44,32,95,95,67,65,75,69
+,95,83,73,90,69,95,84,89,80,69,95,95,32,110,41,59,10,32,32,32,32,118,111,105,100
+,42,32,95,79,112,116,32,109,101,109,99,104,114,40,99,111,110,115,116,32,118,111,105,100,42
+,32,115,44,32,105,110,116,32,99,44,32,95,95,67,65,75,69,95,83,73,90,69,95,84,89
+,80,69,95,95,32,110,41,59,10,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115
+,116,114,99,104,114,40,99,111,110,115,116,32,99,104,97,114,42,32,115,44,32,105,110,116,32
+,99,41,59,10,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,112,98,114
+,107,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32,99
+,104,97,114,42,32,115,50,41,59,10,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32
+,115,116,114,114,99,104,114,40,99,111,110,115,116,32,99,104,97,114,42,32,115,44,32,105,110
+,116,32,99,41,59,10,32,32,32,32,99,104,97,114,42,32,95,79,112,116,32,115,116,114,115
+,116,114,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32
+,99,104,97,114,42,32,115,50,41,59,10,10,32,32,32,32,35,105,110,99,108,117,100,101,95
+,110,101,120,116,32,60,115,116,114,105,110,103,46,104,62,10,35,101,110,100,105,102,10
+#line 774 "fs.c"
 , 0 };
 static const char file_tgmath_h[] = {
 
@@ -21141,7 +21196,7 @@ static const char file_tgmath_h[] = {
 ,107,101,45,104,101,97,100,101,114,115,32,121,101,116,10,35,101,108,115,101,10,32,32,32,32
 ,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,116,103,109,97,116,104,46,104,62,10
 ,35,101,110,100,105,102,10
-#line 775 "fs.c"
+#line 777 "fs.c"
 , 0 };
 static const char file_threads_h[] = {
 
@@ -21240,7 +21295,7 @@ static const char file_threads_h[] = {
 ,116,32,107,101,121,44,32,118,111,105,100,42,32,95,79,112,116,32,118,97,108,41,59,10,10
 ,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60
 ,116,104,114,101,97,100,115,46,104,62,10,35,101,110,100,105,102,10
-#line 778 "fs.c"
+#line 780 "fs.c"
 , 0 };
 static const char file_time_h[] = {
 
@@ -21434,7 +21489,7 @@ static const char file_time_h[] = {
 ,116,32,116,105,109,101,114,41,59,10,32,32,32,32,32,32,32,32,35,101,110,100,105,102,10
 ,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,35,105,110,99,108,117,100,101,95
 ,110,101,120,116,32,60,116,105,109,101,46,104,62,10,35,101,110,100,105,102,10
-#line 781 "fs.c"
+#line 783 "fs.c"
 , 0 };
 static const char file_uchar_h[] = {
 
@@ -21484,7 +21539,7 @@ static const char file_uchar_h[] = {
 ,95,79,112,116,32,114,101,115,116,114,105,99,116,32,112,115,41,59,10,10,35,101,108,115,101
 ,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,117,99,104,97,114
 ,46,104,62,10,35,101,110,100,105,102,10
-#line 784 "fs.c"
+#line 786 "fs.c"
 , 0 };
 static const char file_wchar_h[] = {
 
@@ -21911,7 +21966,7 @@ static const char file_wchar_h[] = {
 ,116,114,105,99,116,32,112,115,41,59,10,10,35,101,108,115,101,10,10,32,32,32,32,35,105
 ,110,99,108,117,100,101,95,110,101,120,116,32,60,119,99,104,97,114,46,104,62,10,35,101,110
 ,100,105,102,10
-#line 787 "fs.c"
+#line 789 "fs.c"
 , 0 };
 static const char file_wctype_h[] = {
 
@@ -21971,7 +22026,7 @@ static const char file_wctype_h[] = {
 ,110,115,116,32,99,104,97,114,42,32,112,114,111,112,101,114,116,121,41,59,10,10,35,101,108
 ,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120,116,32,60,119,99,116
 ,121,112,101,46,104,62,10,35,101,110,100,105,102,10
-#line 790 "fs.c"
+#line 792 "fs.c"
 , 0 };
 static const char file_sys_stat_h[] = {
 
@@ -22265,7 +22320,7 @@ static const char file_sys_stat_h[] = {
 ,116,97,116,42,32,114,101,115,116,114,105,99,116,32,95,83,116,97,116,41,59,10,32,32,32
 ,32,35,101,110,100,105,102,10,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120
 ,116,32,60,115,121,115,47,115,116,97,116,46,104,62,10,35,101,110,100,105,102,10
-#line 793 "fs.c"
+#line 795 "fs.c"
 , 0 };
 
 
@@ -22419,6 +22474,8 @@ char* _Owner read_file(const char* path, bool append_newline)
  *  https://github.com/thradams/cake
 */
 
+#pragma safety enable
+
 
 
 
@@ -22559,10 +22616,10 @@ void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 }
 
 
-/* default_nonnull is part of the annotations; without -check-annotations it has no effect */
+/* pointers without _Opt are non-null when the contracts are checked */
 bool options_default_nonnull(const struct options* options)
 {
-    return options->null_checks_enabled && options->annotations_enabled;
+    return options->safety_enabled;
 }
 
 /* false when the option that emits w is off, so a //lint for it is not unnecessary */
@@ -22574,7 +22631,7 @@ bool diagnostic_can_happen(const struct options* options, enum diagnostic_id w)
     case W_USING_TEMPORARY_OWNER:
     case W_POINTER_TO_OWNER_EXPECTED:
     case W_OWNER_ALIASED_BY_NON_OWNER_POINTER:
-        return options->annotations_enabled;
+        return options->safety_enabled;
     default:
         break;
     }
@@ -22906,15 +22963,10 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-check-annotations") == 0)
+        if (strcmp(argv[i], "-safety") == 0)
         {
-            options->annotations_enabled = true;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-default-nonnull") == 0)
-        {
-            options->null_checks_enabled = true;
+            options->safety_enabled = true;
+            options->flow_analysis = true;
             continue;
         }
 
@@ -23136,9 +23188,6 @@ int fill_options(struct options* options,
     if (options_is_find_request(options))
         options_set_note(options, W_FIND_DEFINITION, true);
 
-    if (options->null_checks_enabled && !options->annotations_enabled)
-        printf("warning: -default-nonnull has no effect without -check-annotations\n");
-
     /* report modes do not need the tokens of inactive #if blocks */
     if (options_is_report_mode(options))
         options->keep_inactive_tokens = false;
@@ -23271,8 +23320,7 @@ void print_help()
     print_option("-wall", "Enables all warnings");
     print_option("-Werror", "Treats every enabled warning as an error");
     print_option("-flow", "Runs flow analysis, including null checks (same as #pragma flow enable)");
-    print_option("-check-annotations", "_Owner, _Opt, _Out, ... are checked; without it they are ignored (same as #pragma check_annotations enable)");
-    print_option("-default-nonnull", "Pointers without _Opt are non-null; requires -check-annotations (same as #pragma default_nonnull)");
+    print_option("-safety", "Checks Cake contracts: _Owner, _Opt, _Out..., pointers non-null by default; turns on -flow (same as #pragma safety enable)");
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");
@@ -23495,6 +23543,8 @@ struct style_options style_options_microsoft(void)
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
 */
+
+#pragma safety enable
 
 
 
@@ -24294,7 +24344,7 @@ struct object object_shift_right(const struct platform* target,
     const struct object* b,
     char warning_message[200]);
 
-#line 10 "object.c"
+#line 12 "object.c"
 #include <limits.h>
 #include <stdio.h>
 #include <assert.h>
@@ -26626,7 +26676,7 @@ void check_dianostic_suppression_phase(struct parser_ctx* ctx, const struct toke
 const struct direct_declarator* _Opt get_innermost_direct_declarator(const struct direct_declarator* _Opt p);
 
 
-#line 16 "object.c"
+#line 18 "object.c"
 
 #include <string.h>
 #include <math.h>
@@ -30640,6 +30690,7 @@ struct object object_shift_right(const struct platform* target,
 *  https://github.com/thradams/cake
 */
 
+#pragma safety enable
 
 
 
@@ -30694,7 +30745,7 @@ void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
                                            struct compound_statement* p_compound_statement,
                                            struct parameter_list* _Opt p_parameter_list);
 
-#line 18 "expressions.c"
+#line 19 "expressions.c"
 #include <math.h>
 #include <float.h>
 
@@ -40537,7 +40588,7 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
                                      const struct expression* p_b_expression, /* src */
                                      enum assigment_type assignment_type)
 {
-    if (!ctx->options.annotations_enabled)
+    if (!ctx->options.safety_enabled)
         return;
 
     const struct type* const p_b_type = &p_b_expression->object.type;
@@ -41230,6 +41281,9 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
 /*
   For performance reasons we will separate expression from preprocessor from compiler.
 */
+
+#pragma safety enable
+
 
 
 #include <stdlib.h>
@@ -42283,6 +42337,8 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 *  https://github.com/thradams/cake
 */
 
+#pragma safety enable
+
 
 
 
@@ -42318,6 +42374,8 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue)
 */
 
 //#pragma once
+
+#define FLOW_CALL_ENDS_OWNER_POINTEES 1
 
 
 #line 1 "flow_alternative.h"
@@ -42431,7 +42489,7 @@ void flow_alternatives_pool_shutdown(void);
 int flow_alternatives_live_count(void);
 
 
-#line 9 "flow_branch.h"
+#line 11 "flow_branch.h"
 
 
 struct flow_key_alternatives
@@ -42772,7 +42830,7 @@ struct flow_ctx
 void flow_visit_ctx_destroy(_Dtor struct flow_ctx* p);
 void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration);
 
-#line 25 "parser.c"
+#line 27 "parser.c"
 
 
 #include <errno.h>
@@ -42788,11 +42846,11 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.21"
+#define CAKE_VERSION "0.15.23"
 
 
  
-#line 33 "parser.c"
+#line 35 "parser.c"
 
 
 #if defined _MSC_VER && !defined __POCC__
@@ -42930,7 +42988,7 @@ void codegen_visit_ctx_destroy(_Dtor struct codegen_ctx* ctx);
 
 
 
-#line 41 "parser.c"
+#line 43 "parser.c"
 #include <time.h>
 
 #include <stddef.h>  // for NULL
@@ -44263,7 +44321,7 @@ _Bool diagnostic(enum diagnostic_id w,
     char buffer[200] = { 0 };
     va_list args = { 0 };
 #if _WIN32
-    va_start(args, fmt); //lint 35 (only windows)
+    va_start(args, fmt);
 #else
     va_start(args, fmt);
 #endif
@@ -45505,7 +45563,7 @@ bool pos_diagnostic(enum diagnostic_id w,
         char buffer[200] = { 0 };
         va_list args = { 0 };
 #if _WIN32
-        va_start(args, fmt); //lint 35 (only windows)
+        va_start(args, fmt);
 #else
         va_start(args, fmt);
 #endif
@@ -45747,7 +45805,7 @@ void ctx_print(const struct parser_ctx* ctx, const char* fmt, ...)
     (void)ctx;
     va_list args = { 0 };
 #if _WIN32
-    va_start(args, fmt); //lint 35 (only windows)
+    va_start(args, fmt);
 #else
     va_start(args, fmt);
 #endif
@@ -49905,7 +49963,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
 
             apply_gcc_struct_attributes(p_struct_or_union_specifier,
-                                        p_struct_or_union_specifier->attribute_specifier_sequence_opt);
+                                        p_struct_or_union_specifier->attribute_specifier_sequence_opt); //lint 31 BUG in flow
 
             const bool is_same_content = p_previous_definition &&
                 struct_or_union_specifier_is_same_content(p_previous_definition, p_struct_or_union_specifier);
@@ -51946,7 +52004,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     }
 
     /* without -annotations they are ignored, like empty macros */
-    if (ctx->options.annotations_enabled)
+    if (ctx->options.safety_enabled)
     {
         switch (ctx->current->type)
         {
@@ -52757,7 +52815,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
                 _Assert(ctx->current != NULL);
 
                 /* without -annotations _View is ignored, like an empty macro */
-                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW && ctx->options.annotations_enabled)
+                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW && ctx->options.safety_enabled)
                 {
                     diagnostic(C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
                         ctx,
@@ -54045,31 +54103,6 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 throw;
             }
         }
-        else if (strcmp(p_pragma_token->lexeme, "default_nonnull") == 0)
-        {
-            /* pointers without _Opt are non-null */
-            ctx->options.null_checks_enabled = true;
-        }
-        else if (strcmp(p_pragma_token->lexeme, "default_null") == 0)
-        {
-            /* pointers without _Opt may be null */
-            ctx->options.null_checks_enabled = false;
-        }
-        else if (strcmp(p_pragma_token->lexeme, "check_annotations") == 0)
-        {
-            p_pragma_token = pragma_declaration_match(p_pragma_token);
-            if (p_pragma_token == NULL)
-                throw;
-
-            if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
-                strcmp(p_pragma_token->lexeme, "disable") != 0)
-            {
-                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected 'enable' or 'disable'");
-                throw;
-            }
-
-            ctx->options.annotations_enabled = strcmp(p_pragma_token->lexeme, "enable") == 0;
-        }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "flow") == 0)
         {
             p_pragma_token = pragma_declaration_match(p_pragma_token);
@@ -54106,9 +54139,8 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             p_pragma_token = pragma_declaration_match(p_pragma_token);
 
-            /* shortcut for flow + annotations + default_nonnull */
-            ctx->options.null_checks_enabled = safety_enable;
-            ctx->options.annotations_enabled = safety_enable;
+            /* Cake contracts + flow */
+            ctx->options.safety_enabled = safety_enable;
             ctx->options.flow_analysis = safety_enable;
         }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "pack") == 0)
@@ -55148,6 +55180,20 @@ bool unlabeled_statement_ends_with_jump(const struct unlabeled_statement* p_unla
         return true;
     }
     else if (p_unlabeled_statement->primary_block &&
+        p_unlabeled_statement->primary_block->selection_statement &&
+        p_unlabeled_statement->primary_block->selection_statement->first_token->type == TK_KEYWORD_IF)
+    {
+        /*
+            if/else: jumps when both arms jump
+              if (a) return 1;
+              else break;
+        */
+        const struct selection_statement* p_if = p_unlabeled_statement->primary_block->selection_statement;
+        return p_if->else_secondary_block_opt != NULL &&
+            secondary_block_ends_with_jump(p_if->secondary_block) &&
+            secondary_block_ends_with_jump(p_if->else_secondary_block_opt);
+    }
+    else if (p_unlabeled_statement->primary_block &&
         p_unlabeled_statement->primary_block->compound_statement &&
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement &&
@@ -55167,7 +55213,7 @@ bool unlabeled_statement_ends_with_jump(const struct unlabeled_statement* p_unla
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement)
     {
-        return p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
+        return unlabeled_statement_ends_with_jump(p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement);
     }
 
     return false;
@@ -58538,9 +58584,9 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
                 decl->declarator ? decl->declarator->object.type.enum_specifier : NULL;
 
             if (declared_enum != NULL &&
-                get_enum_specifier_definition(declared_enum) == NULL)
+                get_enum_specifier_definition(declared_enum) == NULL) //lint 35 BUG in flow
             {
-                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, declared_enum->first_token, NULL, "enum type is incomplete");
+                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, declared_enum->first_token, NULL, "enum type is incomplete"); //lint 33 BUG in flow
             }
             decl = decl->next;
         }
@@ -59838,6 +59884,7 @@ int initializer_init_new(struct parser_ctx* ctx,
  *  struct object is used to compute the compile time expressions (including constexpr)
  *
  */
+#pragma safety enable
 
 
 
@@ -59881,7 +59928,7 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
 
 
 void print_report(const struct report* report);
-#line 12 "compile.c"
+#line 13 "compile.c"
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -61716,6 +61763,8 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
  */
 
 
+#pragma safety enable
+
 
 
 #include <stdlib.h>
@@ -62925,6 +62974,9 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 
 #line 1 "codegen.c"
 
+#pragma safety enable
+
+
 
 
 #include <stdlib.h>
@@ -63684,7 +63736,7 @@ static bool codegen_bitfield_run(const struct codegen_ctx* ctx,
             if (run_open)
                 return false;
 
-            struct type t = codegen_make_struct_type(d->specifier_qualifier_list->struct_or_union_specifier);
+            struct type t = codegen_make_struct_type(d->specifier_qualifier_list->struct_or_union_specifier); //lint 35 BUG in flow
             size_t align = type_get_alignof(&t, target);
             if (p_complete->pack_alignment > 0 && align > p_complete->pack_alignment)
                 align = p_complete->pack_alignment;
@@ -64019,7 +64071,7 @@ static bool codegen_bitfield_access_from_member(const struct codegen_ctx* ctx,
     if (p_member == NULL || p_owner == NULL || !codegen_is_lowered_bitfield(ctx, p_owner, p_member))
         return false;
 
-    const char* last_dot = strrchr(name, '.');
+    const char* _Opt last_dot = strrchr(name, '.');
     const int path_length = last_dot ? (int)(last_dot - name) + 1 : 0;
     ss_fprintf(&p_access->base, "%s%s%.*s", left_text, op, path_length, name);
     p_access->p_owner = p_owner;
@@ -64272,7 +64324,7 @@ static bool codegen_emit_object_bitfield_store(struct codegen_ctx* ctx,
         p_owner == NULL || p_member == NULL)
         return false;
 
-    const char* last_dot = strrchr(lvalue, '.');
+    const char* _Opt last_dot = strrchr(lvalue, '.');
     if (last_dot == NULL)
         return false;
 
@@ -68937,7 +68989,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
 
                             if (p_struct_entry0 && p_struct_entry0 != p_struct_entry)
                             {
-                                struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p_struct_entry);
+                                struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p_struct_entry); //lint 31 BUG in flow
                             }
 
                             struct member_declaration* _Opt member_declaration =
@@ -69423,7 +69475,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
             }
 
             if (ss->c_str)
-                ss_fprintf(&local, "%s", ss->c_str);
+                ss_fprintf(&local, "%s", ss->c_str); //lint 31 BUG in flow
 
             if (p_type->next &&
             (p_type->next->category == TYPE_CATEGORY_FUNCTION ||
@@ -71411,6 +71463,8 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
 
 #line 1 "flow_alternative.c"
+#pragma safety enable
+
 
 
 
@@ -72237,6 +72291,7 @@ bool flow_alternative_can_be_zero(const struct flow_alternative* alt)
 
 
 #line 1 "flow_branch.c"
+#pragma safety enable
 
 
 #include <stdlib.h>
@@ -72845,6 +72900,47 @@ void flow_branch_set_object_uninitialized(struct flow_branch* _Opt m, const stru
     }
 }
 
+#ifdef FLOW_CALL_ENDS_OWNER_POINTEES
+/*
+    EXPERIMENT (2026-10-13), disabled by default.
+
+    Worst case for a call taking a non-const pointer: the callee may have
+    freed what the owner pointers reachable from the argument pointed to, so
+    aliases of those objects are dangling:
+
+        struct X x = f();
+        char* _Opt p = x.text;
+        g(&x);           // void g(struct X* p) { free(p->text); p->text = 0; }
+        if (p) *p;       // warning 31 only with this define
+
+    Result of the test: cake's own source went from 8 to 13 warnings
+    (hashmap_set(&map, k, &item) moving ownership in parser.c:7015 and
+    codegen.c:6014, an ss_swap loop in codegen.c:6500, and a misleading
+    "may be null" in parser.c:15648) and flow3/do-while-nested-if-unrelated-narrow.c
+    started warning on a plain list walk (ptk = ptk->next after f(ptk)).
+*/
+static void flow_branch_end_owner_pointees(struct flow_branch* m, const struct object* obj, const struct token* _Opt p_token)
+{
+    if (!type_is_owner(&obj->type) || !type_is_pointer(&obj->type))
+        return;
+
+    struct flow_key_alternatives* _Opt e = flow_branch_search_up(m, obj);
+    if (e == NULL)
+        return;
+
+    for (int i = 0; i < e->alternatives.size; i++)
+    {
+        struct flow_alternative* _Opt a = e->alternatives.data[i];
+        if (a &&
+                a->value_kind == FLOW_VALUE_KIND_PTR &&
+                a->value.p != NULL)
+        {
+            flow_branch_set_object_lifetime_ended(m, a->value.p, p_token);
+        }
+    }
+}
+#endif
+
 void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled)
 {
     if (m == NULL)
@@ -72860,6 +72956,12 @@ void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct objec
             }
             return;
         }
+
+#ifdef FLOW_CALL_ENDS_OWNER_POINTEES
+        /* the worst case: whoever set it to "any" may have freed the old pointee */
+        flow_branch_end_owner_pointees(m, obj, p_token);
+#endif
+
         struct flow_key_alternatives* _Opt p_flow_key_alternatives = flow_branch_find_add(m, obj);
         if (p_flow_key_alternatives == NULL) throw;
         flow_alternatives_clear(&p_flow_key_alternatives->alternatives);
@@ -73996,6 +74098,8 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
 
 #line 1 "flow.c"
 
+#pragma safety enable
+
 
 
 #include <stdlib.h>
@@ -74033,7 +74137,7 @@ static void flow_check_file_scope_objects_at_function_exit(const struct flow_ctx
 static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
 static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
 
-static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt);
+static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt, bool root_is_pointer);
 static void flow_check_arena_objects_at_function_exit(const struct flow_ctx* ctx);
 static void flow_check_write_qualified_params_at_exit(struct flow_ctx* ctx, const struct marker* marker, const struct token* p_exit_token);
 static void flow_check_exiting_objects(struct flow_ctx* ctx, const struct expression* _Opt p_return_expression, const struct marker* marker);
@@ -74182,7 +74286,7 @@ void print_object_ptr(struct osstream* ss, const struct object* _Opt p, bool is_
 
     uint64_t value = (uint64_t)(uintptr_t)p;
 
-    char temp[16];
+    char temp[16] = { 0 };
     int i = 0;
 
     while (value > 0 && i < (int)sizeof(temp))
@@ -74540,7 +74644,8 @@ static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct 
                                   &marker,
                                   position_token,
                                   false,
-                                  p_declarator->name_opt ? p_declarator->name_opt->lexeme : NULL);
+                                  p_declarator->name_opt ? p_declarator->name_opt->lexeme : NULL,
+                                  false);
     }
 }
 
@@ -75524,7 +75629,11 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
                 {
                     flow_branch_merge_a_b(p_before, cond_pair.p_false, cond_pair.p_false);
                 }
-                /* else: both jump — p_before stays as-is */
+                else
+                {
+                    /* both jump: nothing after the if is reached from here */
+                    p_before->is_unreachable = true;
+                }
             }
         }
         else
@@ -76631,12 +76740,12 @@ static bool flow_dest_pointee_is_ctor(const struct type* p_type)
     return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_CTOR;
 }
 
-/* Without -check-annotations a non-const pointer parameter may only write the pointee (no _Out to say so), so only a const one is known to read it. */
+/* Without -safety a non-const pointer parameter may only write the pointee (no _Out to say so), so only a const one is known to read it. */
 static bool flow_param_reads_pointee(const struct flow_ctx* ctx, const struct type* p_type)
 {
     if (flow_dest_pointee_is_ctor(p_type))
         return false;
-    return ctx->ctx->options.annotations_enabled || flow_dest_pointee_is_const(p_type);
+    return ctx->ctx->options.safety_enabled || flow_dest_pointee_is_const(p_type);
 }
 
 static bool flow_dest_pointee_is_dtor(const struct type* p_type)
@@ -76714,19 +76823,19 @@ static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
     enum flow_pointee_effect_kind effect_kind = FLOW_EFFECT_NONE;
     const struct token* p_token = p_expression->first_token;
 
+    /*
+        _Out promises the callee handles a fully uninitialized pointee: owners
+        still alive in it are lost (issue #484). Plain _Clear may free owned
+        members itself before zeroing (issue #468).
+    */
+    if (flow_dest_pointee_is_ctor(&p_object_dest->type))
+    {
+        struct marker clear_marker = expression_to_marker(p_expression);
+        flow_check_discarding_owner_before_overwrite(ctx, p_expression, pointee, &clear_marker);
+    }
+
     if (flow_dest_pointee_is_clear(&p_object_dest->type))
     {
-        /*
-            Only _Out _Clear together promises the callee handles a fully
-            uninitialized pointee -- plain _Clear may free owned members
-            itself before zeroing (issue #468, false positive on
-            flow_alternatives_clear otherwise).
-        */
-        if (flow_dest_pointee_is_ctor(&p_object_dest->type))
-        {
-            struct marker clear_marker = expression_to_marker(p_expression);
-            flow_check_discarding_owner_before_overwrite(ctx, p_expression, pointee, &clear_marker);
-        }
         effect_kind = FLOW_EFFECT_CLEAR; /* zero every member (+ end reachable owner pointees) */
     }
     else if (flow_dest_pointee_is_dtor(&p_object_dest->type))
@@ -77312,7 +77421,8 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                               &marker,
                                               p_expression->first_token,
                                               view_here,
-                                              root_name_ss.c_str);
+                                              root_name_ss.c_str,
+                                              true);
                     ss_close(&root_name_ss);
                 }
 
@@ -77323,14 +77433,15 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     const struct token* p_effect_token = p_expression->first_token;
                     enum flow_pointee_effect_kind effect_kind = FLOW_EFFECT_NONE;
 
+                    /* Same _Out rule as flow_apply_pointee_param_effect. */
+                    if (flow_dest_pointee_is_ctor(&p_object_dest->type))
+                    {
+                        struct marker clear_marker2 = expression_to_marker(p_expression);
+                        flow_check_discarding_owner_before_overwrite(ctx, p_expression, pointee, &clear_marker2);
+                    }
+
                     if (flow_dest_pointee_is_clear(&p_object_dest->type))
                     {
-                        /* Same _Out-only restriction as flow_apply_pointee_param_effect. */
-                        if (flow_dest_pointee_is_ctor(&p_object_dest->type))
-                        {
-                            struct marker clear_marker2 = expression_to_marker(p_expression);
-                            flow_check_discarding_owner_before_overwrite(ctx, p_expression, pointee, &clear_marker2);
-                        }
                         effect_kind = FLOW_EFFECT_CLEAR;
                     }
                     else if (flow_dest_pointee_is_dtor(&p_object_dest->type))
@@ -79334,7 +79445,7 @@ static void flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
                     .value_kind = FLOW_VALUE_KIND_SIGNED,
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
                     .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
@@ -79348,7 +79459,7 @@ static void flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
                     .value_kind = FLOW_VALUE_KIND_SIGNED,
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
                     .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
@@ -79371,7 +79482,7 @@ static void flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
                     .value_kind = alt->value_kind,
                     .value = alt->value,
                     .value_relation = FLOW_RELATION_NOT_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
                     .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .p_origin_token = p_token
@@ -79386,7 +79497,7 @@ static void flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
                     .value_kind = FLOW_VALUE_KIND_SIGNED,
                     .value = {.i = 0},
                     .value_relation = FLOW_RELATION_EQUAL,
-                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .imaginary = alt->imaginary,
                     .p_origin_map = p_dest,
                     .p_narrowed_from = flow_alternative_narrowed_provenance(alt, p_dest),
                     .contradicted = true,
@@ -80821,6 +80932,13 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             any_member_resolved = true;
                         }
                     }
+                }
+
+                /* a pointer member's pointee too: `q = p->next` and `p->next` share it */
+                if (any_member_resolved && type_is_pointer(&p_expression->object.type))
+                {
+                    flow_pointer_pointee_on_demand(ctx, p_expression,
+                                                   flow_branch_search_up(ctx->p_current_flow_branch, &p_expression->object));
                 }
 
                 if (!any_member_resolved)
@@ -83095,6 +83213,19 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 _Assert(p_expression->left != NULL);
                 _Assert(p_expression->right != NULL);
                 flow_visit_expression(ctx, p_expression->left);
+
+                /* The left operand's value is discarded: `(malloc(1), 0)` loses the owner. */
+                if ((p_expression->left->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN) &&
+                    type_is_owner(&p_expression->left->object.type))
+                {
+                    diagnostic(W_FLOW_DISCARDING_OWNER,
+                           ctx->ctx,
+                           p_expression->left->first_token, NULL,
+                           type_is_pointer(&p_expression->left->object.type)
+                       ? "discarding _Owner pointer"
+                       : "discarding _Owner");
+                }
+
                 /* Comma: the value (and branch state) of the right operand is what matters. */
                 struct flow_true_false_branches pair = flow_visit_expression(ctx, p_expression->right);
 
@@ -83182,6 +83313,19 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 if (p_target != NULL && p_target->alternatives.size > 0)
                                 {
                                     flow_alternatives_append(&result, &p_target->alternatives);
+
+                                    /*
+                                        An _Owner result takes the owner in its own arm:
+                                        `q = p ? p : 0` moves p only where p was chosen
+                                        (issue 491).
+                                    */
+                                    if (type_is_owner(&p_expression->object.type) &&
+                                        type_is_owner(&a->value.p->type) &&
+                                        a->value.p->members.head == NULL)
+                                    {
+                                        flow_branch_set_object_moved(arms[ai].map, a->value.p,
+                                                                   (ai == 0 ? p_true_expr : p_expression->right)->first_token);
+                                    }
                                     continue;
                                 }
                             }
@@ -83593,7 +83737,8 @@ static bool flow_alternatives_are_plain_values(const struct flow_alternatives* a
     return alts->size > 0;
 }
 
-static void flow_join_first_iteration_values(struct flow_branch* _Opt p_body_entry,
+static void flow_join_first_iteration_values(const struct flow_allocated_object_arena* p_arena,
+                                             struct flow_branch* _Opt p_body_entry,
                                              struct flow_branch* _Opt p_pass1_exit,
                                              const struct token* _Opt p_token)
 {
@@ -83626,8 +83771,41 @@ static void flow_join_first_iteration_values(struct flow_branch* _Opt p_body_ent
             continue;
         }
 
-        if (!flow_alternatives_are_plain_values(&p_pre->alternatives) ||
+        bool post_moved_only = false;
+        if (flow_alternatives_are_plain_values(&p_pre->alternatives) &&
                 !flow_alternatives_are_plain_values(&p_post->alternatives))
+        {
+            post_moved_only = true;
+            for (int k = 0; k < p_post->alternatives.size; k++)
+            {
+                if (p_post->alternatives.data[k]->imaginary == FLOW_IMAGINARY_ENDED)
+                {
+                    post_moved_only = false;
+                }
+            }
+        }
+
+        if (post_moved_only)
+        {
+            /* a pointee may be a different object on the next iteration: only variables keep the move */
+            const struct object* p_root = p_key;
+            while (p_root->parent != NULL)
+            {
+                p_root = p_root->parent;
+            }
+            for (int k = 0; k < p_arena->size; k++)
+            {
+                if (p_arena->data[k] == p_root)
+                {
+                    post_moved_only = false;
+                    break;
+                }
+            }
+        }
+
+        if (!post_moved_only &&
+                (!flow_alternatives_are_plain_values(&p_pre->alternatives) ||
+                 !flow_alternatives_are_plain_values(&p_post->alternatives)))
         {
             /*
                 moved/ended/absent on either side: an ownership fact, not a
@@ -83833,14 +84011,23 @@ static void flow_visit_loop(struct flow_ctx* ctx,
 
         if (!condition_first)
         {
-            /* first iteration (unnarrowed) joined with "condition held after an iteration" */
-            struct flow_branch* _Opt p_first_iteration = flow_branch_arena_new(&ctx->flow_branch_arena,
-                                                                         p_pass1_body_entry, FLOW_BRANCH_FOR_BODY_PASS1);
-            const struct flow_branch* _Opt p_again = p_condition ? pair2.p_true : p_pass1_exit;
-            if (p_first_iteration != NULL && p_again != NULL)
+            /*
+                first iteration (unnarrowed) joined with "condition held after an iteration".
+                Values only, as while: ownership facts (moved/ended) of pass 1 would mix
+                paths, e.g. an object ended where f(ptk) ran with ptk reaching it from
+                the path where f did not run.
+            */
+            struct flow_branch* _Opt p_again = p_condition ? pair2.p_true : p_pass1_exit;
+
+            /* do { } while (0): the body never runs again */
+            const bool condition_never_holds = p_condition != NULL &&
+                object_has_constant_value(&p_condition->object) &&
+                !object_is_true(&p_condition->object);
+
+            if (!condition_never_holds)
             {
-                const struct flow_branch* const join_arms[2] = { p_first_iteration, p_again };
-                flow_branch_merge_arms(p_pass1_body_entry, join_arms, 2);
+                flow_join_first_iteration_values(&ctx->allocated_object_arena, p_pass1_body_entry, p_again,
+                                                 p_iteration_statement->first_token);
             }
             ctx->p_current_flow_branch = p_pass1_body_entry;
         }
@@ -83861,7 +84048,7 @@ static void flow_visit_loop(struct flow_ctx* ctx,
         }
         else
         {
-            flow_join_first_iteration_values(p_pass1_body_entry, p_pass1_exit,
+            flow_join_first_iteration_values(&ctx->allocated_object_arena, p_pass1_body_entry, p_pass1_exit,
                                              p_iteration_statement->first_token);
             ctx->p_current_flow_branch = p_pass1_body_entry;
         }
@@ -84398,7 +84585,8 @@ static void flow_check_write_qualified_params_at_exit(struct flow_ctx* ctx, cons
                                           marker,
                                           p_exit_token,
                                           false,
-                                          param_name);
+                                          param_name,
+                                          true);
             }
 
             if (is_ctor)
@@ -84899,14 +85087,31 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
                 return;
             }
 
+            /*
+                The previous case falls through into this label unless it ended with a jump
+                (unreachable) or there is no previous case (still the switch body map).
+            */
+            struct flow_branch* _Opt p_fallthrough = ctx->p_current_flow_branch;
+            if (p_fallthrough != NULL &&
+                (p_fallthrough->is_unreachable ||
+                 (p_fallthrough->kind == FLOW_BRANCH_SWITCH_BODY && p_fallthrough->p_parent_map == ctx->p_initial_map)))
+            {
+                p_fallthrough = NULL;
+            }
+
             if (p_label->constant_expression == NULL)
             {
                 /*
                     `default:` needs its own child map: reusing p_initial_map corrupts it
                     when the body ends with a jump.
                 */
-                ctx->p_current_flow_branch =
+                struct flow_branch* _Opt p_default_map =
                     flow_branch_arena_new(&ctx->flow_branch_arena, ctx->p_initial_map, FLOW_BRANCH_DEFAULT);
+                if (p_default_map != NULL && p_fallthrough != NULL)
+                {
+                    flow_branch_accumulate_into_join(p_default_map, p_fallthrough, NULL, false, true);
+                }
+                ctx->p_current_flow_branch = p_default_map;
                 return;
             }
 
@@ -84948,6 +85153,11 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
                     };
                     flow_alternatives_add(&e->alternatives, &a);
                 }
+            }
+
+            if (p_fallthrough != NULL)
+            {
+                flow_branch_accumulate_into_join(p_case_map, p_fallthrough, NULL, false, true);
             }
 
             ctx->p_current_flow_branch = p_case_map;
@@ -85471,7 +85681,8 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
                                       const struct marker* marker,
                                       const struct token* p_exit_token,
                                       bool in_view,
-                                      const char* _Opt p_root_name_opt)
+                                      const char* _Opt p_root_name_opt,
+                                      bool root_is_pointer)
 {
     /* Under a _View ancestor, _Owner members are views: not reported at exit. */
     const bool view = in_view || type_is_view(p_type);
@@ -85486,7 +85697,8 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
                                       marker,
                                       p_exit_token,
                                       view,
-                                      p_root_name_opt);
+                                      p_root_name_opt,
+                                      root_is_pointer);
         }
         return;
     }
@@ -85523,7 +85735,8 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
                                           marker,
                                           p_exit_token,
                                           view,
-                                          p_root_name_opt);
+                                          p_root_name_opt,
+                                          true);
                 continue;
             }
         }
@@ -85541,7 +85754,7 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
             else
             {
                 const char* member_suffix = p_obj->member_designator ? p_obj->member_designator : "";
-                /* Combine member_designator ('.m') with p_root_name_opt: 'p->m'. */
+                /* Combine member_designator ('.m') with p_root_name_opt: 'p->m' or 'x.m'. */
                 char object_name_buf[256] = { 0 } ;
                 const char* object_name;
                 if (p_root_name_opt != NULL && p_root_name_opt[0] != 0 &&
@@ -85553,7 +85766,7 @@ static void flow_check_object_at_exit(struct flow_ctx* ctx,
                     */
                     if (member_suffix[0] == '.')
                     {
-                        snprintf(object_name_buf, sizeof(object_name_buf), "%s->%s", p_root_name_opt, member_suffix + 1);
+                        snprintf(object_name_buf, sizeof(object_name_buf), "%s%s%s", p_root_name_opt, root_is_pointer ? "->" : ".", member_suffix + 1);
                     }
                     else if (member_suffix[0] != 0)
                     {
@@ -85844,6 +86057,8 @@ void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)
  *  https://github.com/thradams/cake
 */
 
+
+#pragma safety enable
 
 
 #include <stdio.h>
@@ -86690,6 +86905,8 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 #line 1 "target.c"
 
+#pragma safety enable
+
 
 
 
@@ -87086,7 +87303,7 @@ static char gcc_builtins[] =
 ,40,49,41,41,32,115,105,122,101,44,32,118,111,105,100,42,32,112,116,114,41,59,10,10,35
 ,112,114,97,103,109,97,32,99,97,107,101,32,100,105,97,103,110,111,115,116,105,99,32,112,111
 ,112,10
-#line 16 "target.c"
+#line 18 "target.c"
  , 0
 };
 
@@ -87104,7 +87321,7 @@ static char catalina_builtins[] =
 ,105,110,95,97,108,108,111,99,97,40,115,105,122,101,95,116,32,95,95,115,105,122,101,41,59
 ,10,10,10,10,35,112,114,97,103,109,97,32,99,97,107,101,32,100,105,97,103,110,111,115,116
 ,105,99,32,112,111,112,10
-#line 22 "target.c"
+#line 24 "target.c"
  , 0
 };
 
@@ -87524,7 +87741,7 @@ static char tcc_builtins[] =
 ,105,110,95,117,110,114,101,97,99,104,97,98,108,101,40,118,111,105,100,41,59,10,35,101,110
 ,100,105,102,10,10,35,112,114,97,103,109,97,32,99,97,107,101,32,100,105,97,103,110,111,115
 ,116,105,99,32,112,111,112,10
-#line 28 "target.c"
+#line 30 "target.c"
  , 0
 };
 
@@ -87989,7 +88206,7 @@ static char gcc_macros[] =
 ,84,69,82,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95
 ,95,71,67,67,95,65,84,79,77,73,67,95,84,69,83,84,95,65,78,68,95,83,69,84,95
 ,84,82,85,69,86,65,76,32,49,10
-#line 34 "target.c"
+#line 36 "target.c"
  , 0
 };
 
@@ -88369,7 +88586,7 @@ static char clang_macros[] =
 ,67,95,65,84,79,77,73,67,95,80,79,73,78,84,69,82,95,76,79,67,75,95,70,82,69
 ,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95
 ,84,69,83,84,95,65,78,68,95,83,69,84,95,84,82,85,69,86,65,76,32,49,10
-#line 40 "target.c"
+#line 42 "target.c"
  , 0
 };
 
@@ -88400,7 +88617,7 @@ static char msvc_macros[] =
 ,78,54,52,32,49,10,32,32,32,32,35,100,101,102,105,110,101,32,95,77,95,88,54,52,32
 ,49,48,48,10,32,32,32,32,35,100,101,102,105,110,101,32,95,77,95,65,77,68,54,52,32
 ,49,48,48,10,35,101,110,100,105,102,10
-#line 46 "target.c"
+#line 48 "target.c"
  , 0
 };
 
@@ -88505,7 +88722,7 @@ static char tcc_macros[] =
 ,67,84,89,80,69,95,73,78,76,73,78,69,95,32,49,10,32,32,32,32,35,100,101,102,105
 ,110,101,32,95,70,79,82,84,73,70,89,95,83,79,85,82,67,69,32,48,10,35,101,110,100
 ,105,102,10
-#line 52 "target.c"
+#line 54 "target.c"
  , 0
 };
 
@@ -88522,7 +88739,7 @@ static char catalina_macros[] =
 ,32,95,95,83,84,68,67,95,78,79,95,86,76,65,95,95,10,35,100,101,102,105,110,101,32
 ,95,95,95,67,65,84,65,76,73,78,65,95,95,10,35,100,101,102,105,110,101,32,95,95,95
 ,67,65,84,65,76,89,83,84,95,95,10,10
-#line 58 "target.c"
+#line 60 "target.c"
  , 0
 };
 
@@ -89117,6 +89334,7 @@ void target_self_test()
 */
 
 
+#pragma safety enable
 
 
 
@@ -91631,14 +91849,14 @@ struct type type_dup(const struct type* p_type)
             the _Owner of ..." notes above. p is const and is never consumed,
             but each copied owner member reads as a move.
         */
-        return r; 
+        return r; //lint 72 72 72 not following rules
     }
     catch
     {
     }
 
     struct type empty = { 0 };
-    return empty; //lint 72 72 72 72 not following rules
+    return empty; //lint 72 72 72 not following rules
 }
 
 static enum sizeof_result get_offsetof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier,

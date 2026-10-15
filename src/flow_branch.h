@@ -5,6 +5,8 @@
 
 #pragma once
 
+#define FLOW_CALL_ENDS_OWNER_POINTEES 1
+
 #include "flow_alternative.h"
 #include "osstream.h"
 

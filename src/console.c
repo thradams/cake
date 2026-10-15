@@ -4,6 +4,8 @@
 */
 
 
+#pragma safety enable
+
 
 #if defined(__CATALYST__)
 

@@ -5,6 +5,7 @@
  *  struct object is used to compute the compile time expressions (including constexpr)
  *
  */
+#pragma safety enable
 
 
 #include "cake_compat.h"

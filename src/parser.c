@@ -3,6 +3,8 @@
 *  https://github.com/thradams/cake
 */
 
+#pragma safety enable
+
 
 
 #include "cake_compat.h"
@@ -1370,7 +1372,7 @@ _Bool diagnostic(enum diagnostic_id w,
     char buffer[200] = { 0 };
     va_list args = { 0 };
 #if _WIN32
-    va_start(args, fmt); //lint 35 (only windows)
+    va_start(args, fmt);
 #else
     va_start(args, fmt);
 #endif
@@ -2612,7 +2614,7 @@ bool pos_diagnostic(enum diagnostic_id w,
         char buffer[200] = { 0 };
         va_list args = { 0 };
 #if _WIN32
-        va_start(args, fmt); //lint 35 (only windows)
+        va_start(args, fmt);
 #else
         va_start(args, fmt);
 #endif
@@ -2854,7 +2856,7 @@ void ctx_print(const struct parser_ctx* ctx, const char* fmt, ...)
     (void)ctx;
     va_list args = { 0 };
 #if _WIN32
-    va_start(args, fmt); //lint 35 (only windows)
+    va_start(args, fmt);
 #else
     va_start(args, fmt);
 #endif
@@ -7012,7 +7014,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
 
             apply_gcc_struct_attributes(p_struct_or_union_specifier,
-                                        p_struct_or_union_specifier->attribute_specifier_sequence_opt);
+                                        p_struct_or_union_specifier->attribute_specifier_sequence_opt); //lint 31 BUG in flow
 
             const bool is_same_content = p_previous_definition &&
                 struct_or_union_specifier_is_same_content(p_previous_definition, p_struct_or_union_specifier);
@@ -9053,7 +9055,7 @@ struct type_qualifier* _Owner _Opt type_qualifier(struct parser_ctx* ctx)
     }
 
     /* without -annotations they are ignored, like empty macros */
-    if (ctx->options.annotations_enabled)
+    if (ctx->options.safety_enabled)
     {
         switch (ctx->current->type)
         {
@@ -9864,7 +9866,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
                 _Assert(ctx->current != NULL);
 
                 /* without -annotations _View is ignored, like an empty macro */
-                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW && ctx->options.annotations_enabled)
+                if (ctx->current->type == TK_KEYWORD_CAKE_VIEW && ctx->options.safety_enabled)
                 {
                     diagnostic(C_ERROR_INVALID_QUALIFIER_FOR_POINTER,
                         ctx,
@@ -11152,31 +11154,6 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
                 throw;
             }
         }
-        else if (strcmp(p_pragma_token->lexeme, "default_nonnull") == 0)
-        {
-            /* pointers without _Opt are non-null */
-            ctx->options.null_checks_enabled = true;
-        }
-        else if (strcmp(p_pragma_token->lexeme, "default_null") == 0)
-        {
-            /* pointers without _Opt may be null */
-            ctx->options.null_checks_enabled = false;
-        }
-        else if (strcmp(p_pragma_token->lexeme, "check_annotations") == 0)
-        {
-            p_pragma_token = pragma_declaration_match(p_pragma_token);
-            if (p_pragma_token == NULL)
-                throw;
-
-            if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
-                strcmp(p_pragma_token->lexeme, "disable") != 0)
-            {
-                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected 'enable' or 'disable'");
-                throw;
-            }
-
-            ctx->options.annotations_enabled = strcmp(p_pragma_token->lexeme, "enable") == 0;
-        }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "flow") == 0)
         {
             p_pragma_token = pragma_declaration_match(p_pragma_token);
@@ -11213,9 +11190,8 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
 
             p_pragma_token = pragma_declaration_match(p_pragma_token);
 
-            /* shortcut for flow + annotations + default_nonnull */
-            ctx->options.null_checks_enabled = safety_enable;
-            ctx->options.annotations_enabled = safety_enable;
+            /* Cake contracts + flow */
+            ctx->options.safety_enabled = safety_enable;
             ctx->options.flow_analysis = safety_enable;
         }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "pack") == 0)
@@ -12255,6 +12231,20 @@ bool unlabeled_statement_ends_with_jump(const struct unlabeled_statement* p_unla
         return true;
     }
     else if (p_unlabeled_statement->primary_block &&
+        p_unlabeled_statement->primary_block->selection_statement &&
+        p_unlabeled_statement->primary_block->selection_statement->first_token->type == TK_KEYWORD_IF)
+    {
+        /*
+            if/else: jumps when both arms jump
+              if (a) return 1;
+              else break;
+        */
+        const struct selection_statement* p_if = p_unlabeled_statement->primary_block->selection_statement;
+        return p_if->else_secondary_block_opt != NULL &&
+            secondary_block_ends_with_jump(p_if->secondary_block) &&
+            secondary_block_ends_with_jump(p_if->else_secondary_block_opt);
+    }
+    else if (p_unlabeled_statement->primary_block &&
         p_unlabeled_statement->primary_block->compound_statement &&
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement &&
@@ -12274,7 +12264,7 @@ bool unlabeled_statement_ends_with_jump(const struct unlabeled_statement* p_unla
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement)
     {
-        return p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
+        return unlabeled_statement_ends_with_jump(p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement);
     }
 
     return false;
@@ -15645,9 +15635,9 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
                 decl->declarator ? decl->declarator->object.type.enum_specifier : NULL;
 
             if (declared_enum != NULL &&
-                get_enum_specifier_definition(declared_enum) == NULL)
+                get_enum_specifier_definition(declared_enum) == NULL) //lint 35 BUG in flow
             {
-                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, declared_enum->first_token, NULL, "enum type is incomplete");
+                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, declared_enum->first_token, NULL, "enum type is incomplete"); //lint 33 BUG in flow
             }
             decl = decl->next;
         }
