@@ -95,6 +95,9 @@ struct flow_ctx
     /* the expression being visited as a condition (see flow_visit_condition) */
     const struct expression* _Opt p_condition;
 
+    /* the expression whose value an _Owner destination takes: a ?: moves its owner arm only then */
+    const struct expression* _Opt p_owner_sink;
+
     /*
        Which pass over the innermost enclosing loop body is running:
        0 outside any loop (so a zero-initialized context starts out correct),

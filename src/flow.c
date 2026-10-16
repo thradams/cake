@@ -86,6 +86,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
 
 static void flow_branch_derive_implied_facts(struct flow_branch* p_arm, struct flow_branch* p_before);
 static bool flow_origins_compatible(const struct flow_branch* _Opt o1, const struct flow_branch* _Opt o2);
+static const struct expression* _Opt flow_owner_sink_of(const struct type* p_dest_type, const struct expression* p_src);
 static struct flow_branch* _Opt flow_branch_new_pointer_target_arm(struct flow_ctx* ctx, struct flow_branch* p_before, const struct flow_branch* _Opt p_target_origin);
 /*
     After the write in a target arm, tag the written value with the arm
@@ -1156,7 +1157,10 @@ static void flow_visit_init_declarator(struct flow_ctx* ctx, const struct init_d
         if (p_init_declarator->initializer->assignment_expression)
         {
             struct expression* p_init_expr = p_init_declarator->initializer->assignment_expression;
+            const struct expression* _Opt p_saved_owner_sink = ctx->p_owner_sink;
+            ctx->p_owner_sink = flow_owner_sink_of(&p_init_declarator->p_declarator->object.type, p_init_expr);
             flow_visit_full_expression(ctx, p_init_expr);
+            ctx->p_owner_sink = p_saved_owner_sink;
             flow_check_object_init_assigment(ctx,
                                              p_init_declarator->initializer->assignment_expression,
                                              &p_init_declarator->p_declarator->object,
@@ -2281,6 +2285,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                                      const struct object* p_object_src,
                                      bool check_unitialized,
                                      const struct flow_branch* _Opt p_origin_filter,
+                                     bool accept_merged_arms, /* an argument: see merged_state below */
                                      bool dest_is_dtor,
                                      const struct type* _Opt p_dest_governing_type,
                                      bool check_moved,
@@ -2438,7 +2443,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                     is spelled by flow_access_name_to_string from these links.
                 */
                 const struct flow_access_name_link member_link = { .p_previous = p_name_link, .member_designator = member->member_designator };
-                flow_check_object_access(ctx, parent_expression_str, &member_link, p_expression, member, members_check_uninit, p_origin_filter, dest_is_dtor, p_member_governing, members_check_moved, members_in_array_element, members_check_ended, base_is_ptr);
+                flow_check_object_access(ctx, parent_expression_str, &member_link, p_expression, member, members_check_uninit, p_origin_filter, accept_merged_arms, dest_is_dtor, p_member_governing, members_check_moved, members_in_array_element, members_check_ended, base_is_ptr);
                 member = member->next;
             }
 
@@ -2462,7 +2467,14 @@ static void flow_check_object_access(struct flow_ctx* ctx,
             /* flow_alternative_print(p_alternative); */
             /* printf("\n"); */
 
-            if (!flow_branch_is_ancestor_or_self(p_alternative->p_origin_map, p_origin_filter))
+            /* an uninitialized or moved value from an arm merged back below the filter is on the same path (flow_dtor_arg_member_partially_initialized.c) */
+            const bool merged_state =
+                accept_merged_arms &&
+                (p_alternative->imaginary == FLOW_IMAGINARY_MOVED ||
+                 (p_alternative->imaginary == FLOW_IMAGINARY_NONE && p_alternative->value_relation == FLOW_RELATION_UNINITIALIZED)) &&
+                flow_branch_is_ancestor_or_self(p_origin_filter, p_alternative->p_origin_map);
+
+            if (!flow_branch_is_ancestor_or_self(p_alternative->p_origin_map, p_origin_filter) && !merged_state)
             {
                 /* Origin on a sibling arm: never coexists with this pointer alternative. */
                 continue;
@@ -2498,7 +2510,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                                              parent_expression_str,
                                              p_name_link,
                                              p_expression,
-                                             p_alternative->value.p, check_unitialized, p_origin_filter, dest_is_dtor,
+                                             p_alternative->value.p, check_unitialized, p_origin_filter, accept_merged_arms, dest_is_dtor,
                                              p_dest_governing_type, check_moved, in_array_element, check_ended, base_is_ptr);
 
                     continue;
@@ -2560,13 +2572,12 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                         bare_name_built = true;
                         bare_name = bare_name_ss.c_str ? bare_name_ss.c_str : parent_expression_str;
                     }
-                    if (diagnostic(W_FLOW_UNINITIALIZED,
-                                   ctx->ctx, NULL, &marker,
-                                   "passing a possibly uninitialized object '%s'",
-                                   bare_name))
-                    {
-                        flow_explain_alternative(ctx, p_alternative, p_alternative->p_origin_map, &marker);
-                    }
+                    struct osstream uninit_ss = { 0 };
+                    ss_fprintf(&uninit_ss, "passing a possibly uninitialized object '%s'", bare_name);
+                    flow_finding_record(ctx, p_object_src, W_FLOW_UNINITIALIZED, &marker,
+                                        p_alternative, ctx->p_current_flow_branch,
+                                        uninit_ss.c_str ? uninit_ss.c_str : "");
+                    ss_close(&uninit_ss);
                 }
             }
 
@@ -2582,13 +2593,12 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                     bare_name_built = true;
                     bare_name = bare_name_ss.c_str ? bare_name_ss.c_str : parent_expression_str;
                 }
-                if (diagnostic(W_FLOW_MOVED,
-                               ctx->ctx, NULL, &marker,
-                               "'%s' was moved",
-                               bare_name))
-                {
-                    flow_explain_alternative(ctx, p_alternative, p_alternative->p_origin_map, &marker);
-                }
+                struct osstream moved_ss = { 0 };
+                ss_fprintf(&moved_ss, "'%s' was moved", bare_name);
+                flow_finding_record(ctx, p_object_src, W_FLOW_MOVED, &marker,
+                                    p_alternative, ctx->p_current_flow_branch,
+                                    moved_ss.c_str ? moved_ss.c_str : "");
+                ss_close(&moved_ss);
             }
         }
     }
@@ -2821,7 +2831,7 @@ static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
     flow_findings_join(ctx);
     /* an array argument names its elements' storage directly: 'buf', not '*buf' */
     const bool base_is_ptr = !type_is_array(&p_expression->object.type);
-    flow_check_object_access(ctx, arg_ss.c_str ? arg_ss.c_str : "", NULL, p_expression, pointee, check_uninitialized, p_origin_filter, dtor_here, gov, true, false, true, base_is_ptr);
+    flow_check_object_access(ctx, arg_ss.c_str ? arg_ss.c_str : "", NULL, p_expression, pointee, check_uninitialized, p_origin_filter, true, dtor_here, gov, true, false, true, base_is_ptr);
     flow_findings_end(ctx);
     ss_close(&arg_ss);
 }
@@ -3311,8 +3321,18 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                         !source_uninit &&
                         init_type != INIT_RETURN;
 
+                    /*
+                        An argument also sees states from arms merged after the pointer was
+                        made; an _Owner or _Out parameter may receive consumed members
+                        (param-owner-may-leave-object-consumed.c).
+                    */
+                    const bool is_argument = init_type == INIT_PARAMETER;
+                    const bool check_moved =
+                        !is_argument ||
+                        (!type_is_owner(&p_object_dest->type) && !flow_dest_pointee_is_ctor(&p_object_dest->type));
+
                     flow_check_object_access(ctx, ss2.c_str ? ss2.c_str : "", NULL, p_expression, p_src_alternative->value.p,
-                                             check_unitialized, p_src_alternative->p_origin_map, dtor_here, NULL, true, false, true, true);
+                                             check_unitialized, p_src_alternative->p_origin_map, is_argument, dtor_here, NULL, check_moved, false, true, true);
                 }
 
                 /*
@@ -4058,7 +4078,10 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
             struct object param_object = { 0 };
             make_object(p_param_type, &param_object, MAKE_STATE_UNITIALIZED, &ctx->ctx->options.platform);
 
+            const struct expression* _Opt p_saved_owner_sink = ctx->p_owner_sink;
+            ctx->p_owner_sink = flow_owner_sink_of(p_param_type, p_arg_expr);
             flow_visit_full_expression(ctx, p_arg_expr);
+            ctx->p_owner_sink = p_saved_owner_sink;
 
             /* the callee's effects and checks need the pointee as an object */
             if (type_is_pointer(p_param_type) && type_is_pointer(&p_arg_expr->object.type))
@@ -4199,6 +4222,12 @@ static const struct expression* skip_parenthesis(const struct expression* expr)
         expr = expr->right;
     }
     return expr;
+}
+
+/* The value for ctx->p_owner_sink while visiting p_src, the source of a p_dest_type destination. */
+static const struct expression* _Opt flow_owner_sink_of(const struct type* p_dest_type, const struct expression* p_src)
+{
+    return type_is_owner(p_dest_type) ? skip_parenthesis(p_src) : NULL;
 }
 
 /*
@@ -8080,7 +8109,10 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 ctx->p_subscript_being_written = skip_parenthesis(p_expression->left);
                 flow_visit_expression(ctx, p_expression->left);
                 ctx->p_subscript_being_written = p_previous_subscript_being_written;
+                const struct expression* _Opt p_saved_owner_sink = ctx->p_owner_sink;
+                ctx->p_owner_sink = flow_owner_sink_of(&p_expression->left->object.type, p_expression->right);
                 flow_visit_expression(ctx, p_expression->right);
+                ctx->p_owner_sink = p_saved_owner_sink;
 
                 flow_check_assigment(ctx, p_expression->left, p_expression->right);
 
@@ -9209,6 +9241,9 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 _Assert(p_expression->condition_expr != NULL);
                 _Assert(p_expression->right != NULL);
 
+                const struct expression* _Opt p_saved_owner_sink = ctx->p_owner_sink;
+                const bool is_owner_sink = p_saved_owner_sink == p_expression;
+
                 struct flow_true_false_branches cond_pair = flow_visit_condition(ctx, p_expression->condition_expr);
                 cond_pair = flow_ensure_branch_pair(ctx, ctx->p_current_flow_branch, cond_pair,
                                                 p_expression->condition_expr);
@@ -9219,11 +9254,15 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 struct expression* p_true_expr = p_expression->left
                     ? p_expression->left
                     : p_expression->condition_expr;
+                /* a nested ?: arm is the sink too: `q = a ? (b ? p : r) : 0` */
+                ctx->p_owner_sink = is_owner_sink ? skip_parenthesis(p_true_expr) : NULL;
                 flow_visit_expression(ctx, p_true_expr);
 
                 /* false branch */
                 ctx->p_current_flow_branch = cond_pair.p_false;
+                ctx->p_owner_sink = is_owner_sink ? skip_parenthesis(p_expression->right) : NULL;
                 flow_visit_expression(ctx, p_expression->right);
+                ctx->p_owner_sink = p_saved_owner_sink;
 
                 /*
                     Collect the result: true arm from left (or condition), false arm from
@@ -9275,9 +9314,10 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                     /*
                                         An _Owner result takes the owner in its own arm:
                                         `q = p ? p : 0` moves p only where p was chosen
-                                        (issue 491).
+                                        (issue 491). Only when an _Owner destination takes
+                                        the result; otherwise it is a borrow.
                                     */
-                                    if (type_is_owner(&p_expression->object.type) &&
+                                    if (is_owner_sink &&
                                         type_is_owner(&a->value.p->type) &&
                                         a->value.p->members.head == NULL)
                                     {
@@ -10833,7 +10873,10 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
         {
             if (p_jump_statement->expression_opt)
             {
+                const struct expression* _Opt p_saved_owner_sink = ctx->p_owner_sink;
+                ctx->p_owner_sink = ctx->p_return_type != NULL ? flow_owner_sink_of(ctx->p_return_type, p_jump_statement->expression_opt) : NULL;
                 flow_visit_full_expression(ctx, p_jump_statement->expression_opt);
+                ctx->p_owner_sink = p_saved_owner_sink;
 
                 if (ctx->p_return_type == NULL)
                 {

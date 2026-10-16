@@ -226,10 +226,10 @@
 <a href="#toc_18">17. Limits: <code>realloc</code></a>
 </li>
 <li>
-<a href="#toc_19">18. Flow analysis</a>
+<a href="#toc_19">18. Limits: contracts still missing</a>
 </li>
 <li>
-<a href="#toc_20">19. Not covered here</a>
+<a href="#toc_20">19. Flow analysis</a>
 </li>
 </ul>
 </li>
@@ -1087,7 +1087,32 @@ If the expected warning does not happen, that is also a warning.
 <code>//lint</code> is the safest way to silence a warning because it does not interfere
 with the analysis. It is not a command that overrides a rule.</p>
 
-<h3 id="toc_19">18. Flow analysis</h3>
+<h3 id="toc_19">18. Limits: contracts still missing</h3>
+
+<p>The annotations do not describe everything the analysis needs to know. Some
+bugs can only be found with new kinds of contracts. In the sample below, <code>id</code>
+returns its argument, but its declaration does not say so. Cake cannot tell that
+<code>q</code> points to the object freed through <code>p</code>, so the use after free is not
+reported. A contract saying &quot;the result points to the same object as <code>q</code>&quot; would
+let the analysis follow the pointer through the call.</p>
+
+<pre><code class="language-c">#pragma safety enable
+void* _Owner _Opt malloc(unsigned long n);
+void free(void* _Owner _Opt p);
+
+int* id(int* q) { return q; }
+
+int f(void)
+{
+    int* _Owner _Opt p = malloc(sizeof(int));
+    if (!p) return 0;
+    int* q = id(p);
+    free(p);
+    return *q;   // use after free
+}
+</code></pre>
+
+<h3 id="toc_20">19. Flow analysis</h3>
 
 <ul>
 <li><strong>One function at a time.</strong> Calls are not followed; a call is checked against
@@ -1104,12 +1129,4 @@ resource at the end?&quot;. If any state says yes, the warning is reported.</li>
 </ul>
 
 <p><code>static_debug(x)</code> prints the state of <code>x</code> at that point.</p>
-
-<h3 id="toc_20">19. Not covered here</h3>
-
-<ul>
-<li>The guarantees that are still missing: cases where the analysis fails.</li>
-<li>The details of how the flow analysis works.</li>
-<li>Other combinations and uses of each annotation.</li>
-</ul>
 </article></body></html>
