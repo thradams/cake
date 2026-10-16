@@ -3862,7 +3862,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
-                p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = EXPR_POSTFIX_FUNCTION_CALL;
 

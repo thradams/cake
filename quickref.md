@@ -868,7 +868,33 @@ If the expected warning does not happen, that is also a warning.
 `//lint` is the safest way to silence a warning because it does not interfere
 with the analysis. It is not a command that overrides a rule.
 
-### 18. Flow analysis
+### 18. Limits: contracts still missing
+
+The annotations do not describe everything the analysis needs to know. Some
+bugs can only be found with new kinds of contracts. In the sample below, `id`
+returns its argument, but its declaration does not say so. Cake cannot tell that
+`q` points to the object freed through `p`, so the use after free is not
+reported. A contract saying "the result points to the same object as `q`" would
+let the analysis follow the pointer through the call.
+
+```c
+#pragma safety enable
+void* _Owner _Opt malloc(unsigned long n);
+void free(void* _Owner _Opt p);
+
+int* id(int* q) { return q; }
+
+int f(void)
+{
+    int* _Owner _Opt p = malloc(sizeof(int));
+    if (!p) return 0;
+    int* q = id(p);
+    free(p);
+    return *q;   // use after free
+}
+```
+
+### 19. Flow analysis
 
 - **One function at a time.** Calls are not followed; a call is checked against
   the declaration of the function. That is why annotations matter: they are the
@@ -884,8 +910,3 @@ with the analysis. It is not a command that overrides a rule.
 
 `static_debug(x)` prints the state of `x` at that point.
 
-### 19. Not covered here
-
-- The guarantees that are still missing: cases where the analysis fails.
-- The details of how the flow analysis works.
-- Other combinations and uses of each annotation.

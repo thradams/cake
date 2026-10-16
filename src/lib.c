@@ -34593,7 +34593,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
-                p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = EXPR_POSTFIX_FUNCTION_CALL;
 
@@ -42849,7 +42848,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.24"
+#define CAKE_VERSION "0.15.25"
 
 
  
@@ -77872,7 +77871,9 @@ static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
     const struct type* const p_src_type = &p_src_expression->object.type;
     const bool want_zero = type_is_clear(p_src_type) || type_is_pointed_clear(p_src_type);
     const bool want_uninit = type_is_uninit(p_src_type) || type_is_pointed_uninit(p_src_type);
-    if (!want_zero && !want_uninit)
+    /* no contract: a void* _Owner (allocation) still gets a typed pointee, in ANY state */
+    const bool want_any = !want_zero && !want_uninit && type_is_void_ptr(p_src_type) && type_is_owner(p_src_type);
+    if (!want_zero && !want_uninit && !want_any)
         return;
 
     if (!type_is_pointer(p_dest_type))
@@ -77888,7 +77889,7 @@ static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
             make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, &ctx->ctx->options.platform);
             if (want_zero)
                 flow_branch_set_object_zero(ctx->p_current_flow_branch, p_pointed, p_token);
-            else
+            else if (want_uninit)
                 flow_branch_set_object_uninitialized(ctx->p_current_flow_branch, p_pointed, p_token);
 
             /* Repoint the destination's non-null arm; keep its null arm. */
@@ -80797,7 +80798,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     {
                         const struct flow_alternative* ptr_alt = p_left_alternatives->alternatives.data[i];
 
-
+                        flow_record_uninitialized_operand_value(ctx, p_expression->left, ptr_alt, &marker);
 
                         /* Resolve LHS to concrete pointer alternatives */
                         const struct flow_key_alternatives* _Opt p_pointer_alts = NULL;
@@ -80824,7 +80825,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             {
                                 const struct flow_alternative* p_pointer_alt = p_pointer_alts->alternatives.data[k];
 
-
+                                flow_record_uninitialized_operand_value(ctx, p_expression->left, p_pointer_alt, &marker);
 
                                 /*
                                     Null check (skipped in unevaluated contexts like
@@ -81251,6 +81252,40 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 _Assert(p_expression->left != NULL);
 
                 flow_visit_expression(ctx, p_expression->left);
+
+                /* fp() with a nullable function pointer */
+                if (type_is_pointer(&p_expression->left->object.type) && !ctx->expression_is_not_evaluated)
+                {
+                    struct marker marker = expression_to_marker(p_expression->left);
+                    const struct flow_key_alternatives* _Opt p_callee = flow_branch_search_up(ctx->p_current_flow_branch, &p_expression->left->object);
+                    flow_findings_begin(ctx);
+                    for (int i = 0; p_callee != NULL && i < p_callee->alternatives.size; i++)
+                    {
+                        const struct flow_alternative* p_ref = p_callee->alternatives.data[i];
+                        const struct flow_key_alternatives* _Opt p_values = p_ref->value_kind == FLOW_VALUE_KIND_REF && p_ref->value.p != NULL ?
+                            flow_branch_search_up(ctx->p_current_flow_branch, p_ref->value.p) : NULL;
+                        for (int j = 0; p_values != NULL && j < p_values->alternatives.size; j++)
+                        {
+                            const struct flow_alternative* p_alt = p_values->alternatives.data[j];
+                            if (flow_alternative_can_be_zero(p_alt) &&
+                                (p_alt->value_relation != FLOW_RELATION_ANY ||
+                                 type_is_nullable(&p_expression->left->object.type, options_default_nonnull(&ctx->ctx->options))) &&
+                                flow_origins_compatible(p_alt->p_origin_map, ctx->p_current_flow_branch))
+                            {
+                                struct osstream name_ss = { 0 };
+                                flow_expression_to_string(p_expression->left, &name_ss);
+                                struct osstream ss = { 0 };
+                                ss_fprintf(&ss, "possible null pointer dereference '%s'", name_ss.c_str ? name_ss.c_str : "");
+                                flow_finding_record(ctx, &p_expression->left->object, W_FLOW_NULL_DEREFERENCE, &marker,
+                                                    p_alt, p_alt->p_origin_map, ss.c_str ? ss.c_str : "");
+                                ss_close(&ss);
+                                ss_close(&name_ss);
+                            }
+                        }
+                    }
+                    flow_findings_end(ctx);
+                }
+
                 flow_visit_function_arguments(ctx, &p_expression->left->object.type, &p_expression->argument_expression_list);
 
                 const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
@@ -82027,6 +82062,8 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         for (int j = 0; j < p_right_alternatives2->alternatives.size; j++)
                         {
                             const struct flow_alternative* p_right_alt2 = p_right_alternatives2->alternatives.data[j];
+
+                            flow_record_uninitialized_operand_value(ctx, p_expression->right, p_right_alt2, &marker);
 
                             /*
                                 Lifetime check on `*p` after the pointee was freed/moved, like

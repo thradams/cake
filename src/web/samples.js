@@ -698,6 +698,11 @@ sample["static-analysis"]["takes-ownership"] =
 #pragma safety enable\n\nvoid * _Opt _Owner _Clear calloc(unsigned long n, unsigned long s);\nchar * _Opt _Owner strdup(const char* s);\nvoid free(void * _Opt _Owner p);\nvoid printf(char char* fmt, ...);\n\nvoid takes_ownership(char * _Owner _Opt some_string)\n{\n    if (some_string)\n    {\n        printf(\"%s\", some_string);\n        free(some_string);\n    }\n}\n\nint main()\n{\n    _Opt _Owner auto s = strdup(\"hello\");\n    takes_ownership(s /*moved here*/ );\n}\n
 `;
 
+sample["static-analysis"]["use-after-free-via-member-pointer"] =
+`
+#pragma safety enable\nvoid* _Owner _Opt malloc(unsigned long n);\nvoid free(void* _Owner _Opt p);\n\nstruct S { int a; };\n\nint f(void)\n{\n    struct S* _Owner _Opt s = malloc(sizeof(struct S));\n    if (!s) return 0;\n    s->a = 1;\n    int* q = &s->a;\n    free(s);\n    return *q;   // use after free\n}\n
+`;
+
 sample["static-analysis"]["using-moved-object"] =
 `
 #pragma safety enable\n\nvoid * _Opt _Owner _Clear calloc(unsigned long n, unsigned long s);\nchar * _Opt _Owner strdup(const char* s);\nvoid free(void * _Opt _Owner p);\nvoid printf(char char* fmt, ...);\n\nstruct user\n{\n    int id;\n    char* _Owner _Opt name;\n};\n\nvoid set_id(struct user* p, int id){}\n\nint main()\n{\n    _Opt struct user user = {};\n    user.name = strdup(\"a\");\n    char* _Owner _Opt name = user.name;\n    free(name);\n    set_id(&user, 1); //warning: object 'user.name' was moved  \n}\n
