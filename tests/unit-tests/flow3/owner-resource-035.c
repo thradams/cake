@@ -4,7 +4,7 @@
 
 
 void free( void* _Owner ptr);
-void* _Owner _Uninitialized malloc(int size);
+_Uninitialized void* _Owner malloc(int size);
 struct X { char * _Owner text; };
 
 void x_destroy(_Dtor struct X*  p)

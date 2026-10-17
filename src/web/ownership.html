@@ -586,8 +586,8 @@ void f() {
 <p>Cake understands the built-in semantics of <code>malloc()</code> and <code>calloc()</code> through the
 <code>_Uninitialized</code> and <code>_Clear</code> pointee annotations declared on their return types:</p>
 
-<pre><code class="language-c">void * _Owner _Opt _Uninitialized malloc(size_t size);
-void * _Owner _Opt _Clear calloc(size_t nmemb, size_t size);
+<pre><code class="language-c">_Uninitialized void * _Owner _Opt malloc(size_t size);
+_Clear void * _Owner _Opt calloc(size_t nmemb, size_t size);
 </code></pre>
 
 <ul>
@@ -602,7 +602,7 @@ as null and must be assigned before passing to functions expecting non-nullable 
 <pre><code class="language-c">#pragma nullable enable
 
 char * _Opt strdup(const char * src);  
-void * _Owner _Opt _Uninitialized malloc(unsigned int sz);
+_Uninitialized void * _Owner _Opt malloc(unsigned int sz);
 
 struct X {  char * text; };  
 
@@ -623,7 +623,7 @@ void f() {
 <pre><code class="language-c">#pragma safety enable  
 
 char * _Opt strdup(const char * src);  
-void * _Owner _Opt _Clear calloc(unsigned int n, unsigned int sz);
+_Clear void * _Owner _Opt calloc(unsigned int n, unsigned int sz);
 void free(void * _Owner _Opt p);
 
 struct X {  

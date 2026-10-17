@@ -5,7 +5,7 @@
 #define NULL ((void*)0)
 
 
-void* _Owner _Opt _Clear calloc(int n, int s);
+_Clear void* _Owner _Opt calloc(int n, int s);
 void free(void* _Owner _Opt p);
 
 struct s { int a; int b; };

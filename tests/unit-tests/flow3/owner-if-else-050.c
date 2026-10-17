@@ -2,7 +2,7 @@
 
 
 
-void * _Owner _Opt _Uninitialized malloc(int sz);
+_Uninitialized void * _Owner _Opt malloc(int sz);
 void free( void * _Owner _Opt p);
 
 

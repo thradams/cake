@@ -677,7 +677,7 @@ destructor must accept that object too:</p>
 
 <pre><code class="language-c">#pragma safety enable
 
-void* _Owner _Opt _Clear calloc(unsigned long n, unsigned long size);
+_Clear void* _Owner _Opt calloc(unsigned long n, unsigned long size);
 char* _Owner _Opt strdup(const char* s);
 void free(void* _Owner _Opt p);
 
@@ -906,7 +906,7 @@ void use(int i);
 
 struct X { int a; int b; };
 
-struct X* _Owner _Opt _Clear x_create(void);
+_Clear struct X* _Owner _Opt x_create(void);
 
 void f(void)
 {
@@ -1033,7 +1033,7 @@ void use(int i);
 
 struct X { int a; int b; };
 
-struct X* _Owner _Opt _Uninitialized x_alloc(void);
+_Uninitialized struct X* _Owner _Opt x_alloc(void);
 
 void f(void)
 {

@@ -2,7 +2,7 @@
 
 /* an owner returned to the caller is MOVED and must not be re-marked ENDED at scope exit (no false "owner not moved") */
 
-void* _Owner _Uninitialized malloc(unsigned long size);
+_Uninitialized void* _Owner malloc(unsigned long size);
 
 int* _Owner f_return_owner(void)
 {

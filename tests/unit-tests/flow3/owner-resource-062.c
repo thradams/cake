@@ -3,7 +3,7 @@
 
 
 void free(void* _Owner _Opt ptr);
-void* _Owner _Opt _Uninitialized malloc(int size);
+_Uninitialized void* _Owner _Opt malloc(int size);
 
 void f(int c)
 {

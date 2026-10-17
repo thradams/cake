@@ -2,7 +2,7 @@
 
 
 
-void* _Owner _Opt _Uninitialized malloc(unsigned size);
+_Uninitialized void* _Owner _Opt malloc(unsigned size);
 void free(void* _Owner _Opt  ptr);
 
 int main() {

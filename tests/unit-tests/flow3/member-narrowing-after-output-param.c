@@ -2,7 +2,7 @@
 
 /* FIXED: `d = calloc(...)` in assignment form retypes the void pointee like the initializer form, so `if (d->m)` narrows a real member (parser.c declaration_core) */
 
-void* _Owner _Opt _Clear calloc(unsigned long n, unsigned long size);
+_Clear void* _Owner _Opt calloc(unsigned long n, unsigned long size);
 void free(void* _Owner _Opt p);
 
 struct token { int type; };

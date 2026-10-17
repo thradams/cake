@@ -3,7 +3,7 @@
 /* a plain pointer parameter is a borrow: every _Owner member it frees must be restored on every exit; only _Dtor may consume */
 
 typedef unsigned long size_t;
-void* _Owner _Opt _Uninitialized malloc(size_t sz);
+_Uninitialized void* _Owner _Opt malloc(size_t sz);
 void free(void* _Owner _Opt p);
 char* _Owner _Opt strdup(const char* s);
 

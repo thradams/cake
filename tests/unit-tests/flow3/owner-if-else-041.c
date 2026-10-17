@@ -1,6 +1,6 @@
 #pragma safety enable
 
-void* _Owner _Opt _Uninitialized malloc(int sz);
+_Uninitialized void* _Owner _Opt malloc(int sz);
 
 void f(int i)
 {

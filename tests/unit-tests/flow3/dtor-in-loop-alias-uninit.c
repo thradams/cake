@@ -1,7 +1,7 @@
 #pragma safety enable
 
 struct E { int i; struct E* _Owner _Opt left; };
-struct E* _Owner _Clear make(void);
+_Clear struct E* _Owner make(void);
 void d(_Dtor struct E* _Owner p);
 int f(void);
 

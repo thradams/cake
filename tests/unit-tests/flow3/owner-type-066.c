@@ -1,7 +1,7 @@
 #pragma safety enable
 
 
-void* _Owner _Opt _Clear calloc(int n, int size);
+_Clear void* _Owner _Opt calloc(int n, int size);
 
 struct X {
     char* _Owner _Opt name;

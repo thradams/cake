@@ -71,9 +71,9 @@
         [[nodiscard]] void* _Owner _Opt aligned_alloc(size_t alignment, size_t size);
     #endif
 
-    [[nodiscard]] void* _Owner _Opt _Clear calloc(size_t nmemb, size_t size);
+    [[nodiscard]] _Clear void* _Owner _Opt calloc(size_t nmemb, size_t size);
     void free(void* _Owner _Opt ptr);
-    [[nodiscard]] void* _Owner _Opt _Uninitialized malloc(size_t size);
+    [[nodiscard]] _Uninitialized void* _Owner _Opt malloc(size_t size);
     [[nodiscard]] void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 
     /* communication with the environment */
@@ -142,9 +142,9 @@
     #endif
 
 
-    void* _Owner _Opt _Clear calloc(size_t nmemb, size_t size);
+    _Clear void* _Owner _Opt calloc(size_t nmemb, size_t size);
     void free(void* _Owner _Opt ptr);
-    void* _Owner _Opt _Uninitialized malloc(size_t size);
+    _Uninitialized void* _Owner _Opt malloc(size_t size);
     void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 
 

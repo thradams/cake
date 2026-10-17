@@ -2,7 +2,7 @@
 
 /* an ENDED fact whose origin is an ancestor of the current map must be seen through an alias (p->pY freed via pY) */
 
-void* _Owner _Opt _Clear calloc(unsigned int n, unsigned long size);
+_Clear void* _Owner _Opt calloc(unsigned int n, unsigned long size);
 void free(void* _Owner _Opt ptr);
 
 struct Y {

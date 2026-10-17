@@ -1,7 +1,7 @@
 #pragma safety enable
 
 
-void* _Owner _Clear calloc(unsigned long n , unsigned long size);
+_Clear void* _Owner calloc(unsigned long n , unsigned long size);
 void free(void* _Owner _Opt ptr);
 
 struct Y {

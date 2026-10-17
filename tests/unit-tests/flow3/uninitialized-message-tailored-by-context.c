@@ -2,7 +2,7 @@
 
 /* warning 30 says assigning/passing/returning by context and renders the source expression (`*p`) when there is no member name */
 
-void* _Owner _Opt _Uninitialized malloc(unsigned long size);
+_Uninitialized void* _Owner _Opt malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);
 void take(int i);
 

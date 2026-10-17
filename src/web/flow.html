@@ -178,7 +178,7 @@
 <a href="#toc_2">Contracts in the age of AI</a>
 </li>
 <li>
-<a href="#toc_3">Enabling the analysis</a>
+<a href="#toc_3">Enabling contract analysis</a>
 </li>
 </ul>
 </li>
@@ -189,144 +189,120 @@
 <a href="#toc_5">The <code>_Opt</code> pointer annotation</a>
 </li>
 <li>
-<a href="#toc_6">The non-null rule: <code>#pragma safety enable</code> / <code>-safety</code></a>
+<a href="#toc_6">Example 1: Assigning Nullable to a Non-Nullable Pointer</a>
 </li>
 <li>
-<a href="#toc_7">Example 1: Assigning Nullable to a Non-Nullable Pointer</a>
+<a href="#toc_7">Example 2: Converting Non-Nullable to Nullable</a>
 </li>
 <li>
-<a href="#toc_8">Example 2: Converting Non-Nullable to Nullable</a>
+<a href="#toc_8">Example 3: Nullable Pointer to a Non-Nullable Parameter</a>
 </li>
 <li>
-<a href="#toc_9">Example 3: Nullable Pointer to a Non-Nullable Parameter</a>
+<a href="#toc_9">Acknowledging a warning with <code>//lint</code></a>
 </li>
 <li>
-<a href="#toc_10">Acknowledging a warning with <code>//lint</code></a>
+<a href="#toc_10">Non-Nullable Initialization</a>
 </li>
 <li>
-<a href="#toc_11">Non-Nullable Initialization</a>
-</li>
-<li>
-<a href="#toc_12">Using <code>malloc()</code> and <code>calloc()</code> with Structs</a>
+<a href="#toc_11">Using <code>malloc()</code> and <code>calloc()</code> with Structs</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_13">Chapter 2: Object Lifetime and Ownership</a>
+<a href="#toc_12">Chapter 2: Object Lifetime and Ownership</a>
 <ul>
 <li>
-<a href="#toc_14">Enabling the annotations: <code>#pragma safety</code> / <code>-safety</code></a>
+<a href="#toc_13">Owner References and the <code>_Owner</code> annotation</a>
 </li>
 <li>
-<a href="#toc_15">Owner References and the <code>_Owner</code> annotation</a>
+<a href="#toc_14">The Two Core Ownership Rules</a>
 </li>
 <li>
-<a href="#toc_16">The Two Core Ownership Rules</a>
+<a href="#toc_15">Non-Pointer Owner References</a>
 </li>
 <li>
-<a href="#toc_17">Additional Owner Rules</a>
+<a href="#toc_16">View References</a>
 </li>
 <li>
-<a href="#toc_18">Non-Pointer Owner References</a>
+<a href="#toc_17">The <code>_View</code> annotation</a>
 </li>
 <li>
-<a href="#toc_19">View References</a>
+<a href="#toc_18">Deleting Owner Pointers</a>
 </li>
 <li>
-<a href="#toc_20">The <code>_View</code> annotation</a>
-</li>
-<li>
-<a href="#toc_21">Deleting Owner Pointers</a>
-</li>
-<li>
-<a href="#toc_22">Comparison with C++ RAII</a>
+<a href="#toc_19">Comparison with C++ RAII</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_23">Chapter 3: Parameter annotations</a>
+<a href="#toc_20">Chapter 3: Parameter annotations</a>
 <ul>
 <li>
-<a href="#toc_24">The <code>_Dtor</code> parameter annotation</a>
+<a href="#toc_21">The <code>_Dtor</code> parameter annotation</a>
 </li>
 <li>
-<a href="#toc_25">The <code>_Clear</code> parameter annotation</a>
+<a href="#toc_22">The <code>_Clear</code> parameter annotation</a>
 </li>
 <li>
-<a href="#toc_26">The <code>_Out</code> parameter annotation</a>
+<a href="#toc_23">The <code>_Out</code> parameter annotation</a>
 </li>
 <li>
-<a href="#toc_27">Type Annotations in Arrays parameters</a>
+<a href="#toc_24">Type Annotations in Arrays parameters</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_28">Chapter 4: Flow Analysis and Object States</a>
+<a href="#toc_25">Chapter 4: Flow Analysis and Object States</a>
 <ul>
 <li>
-<a href="#toc_29">How the Analysis Works</a>
+<a href="#toc_26">How the Analysis Works</a>
 </li>
 <li>
-<a href="#toc_30">Enabling Flow Analysis</a>
+<a href="#toc_27">The State Model</a>
 </li>
 <li>
-<a href="#toc_31">The State Model</a>
+<a href="#toc_28">Inspecting State with <code>static_debug</code></a>
 </li>
 <li>
-<a href="#toc_32">Inspecting State with <code>static_debug</code></a>
-</li>
-<li>
-<a href="#toc_33">Proving Facts with <code>compile_assert</code></a>
-</li>
-<li>
-<a href="#toc_34">Uninitialized State</a>
-</li>
-<li>
-<a href="#toc_35">Moved State</a>
-</li>
-<li>
-<a href="#toc_36">Null and Not-Null States</a>
+<a href="#toc_29">Proving Facts with <code>compile_assert</code></a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_37">Chapter 5: Known Limitations</a>
+<a href="#toc_30">Chapter 5: Known Limitations</a>
 <ul>
 <li>
-<a href="#toc_38">Backward <code>goto</code> Is Not Analyzed as a Loop</a>
+<a href="#toc_31">Backward <code>goto</code> Is Not Analyzed as a Loop</a>
 </li>
 <li>
-<a href="#toc_39">Pointer Equality Between Distinct Pointers</a>
+<a href="#toc_32">Pointer Equality Between Distinct Pointers</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_40">Chapter 6: Code Transition Strategy</a>
+<a href="#toc_33">Chapter 6: Code Transition Strategy</a>
 <ul>
 <li>
-<a href="#toc_41">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></a>
+<a href="#toc_34">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></a>
 </li>
 <li>
-<a href="#toc_42">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</a>
+<a href="#toc_35">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_43">Quick Reference</a>
+<a href="#toc_36">Quick Reference</a>
 <ul>
 <li>
-<a href="#toc_44">Type Annotations</a>
+<a href="#toc_37">Contracts</a>
 </li>
 <li>
-<a href="#toc_45">Pragmas</a>
-</li>
-<li>
-<a href="#toc_46">Built-in Intrinsics</a>
+<a href="#toc_38">Built-in Intrinsics</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_47">References</a>
+<a href="#toc_39">References</a>
 </li>
 </ul>
 </li>
@@ -341,65 +317,23 @@ existing codebases.</p>
 
 <h2 id="toc_1">Introduction</h2>
 
-<p>Cake provides a set of contract annotations recognized by its static analyzer.
-With ownership annotations, you can achieve the same guarantees as C++ RAII and
-often stronger ones. Cake also introduces nullable pointer annotations, making
-it explicit when a pointer may be null and preventing mistakes like accidentally
-dereferencing a null pointer.</p>
-
-<p>This manual walks you through each concept with working code examples, explains
-the rules enforced by the analyzer, and shows you how to adopt these features
-incrementally in an existing codebase.</p>
+<p>Cake&#39;s static analyzer tracks the state of every object along every path. It
+finds null dereferences, reads of uninitialized values, leaks, use after move,
+dangling pointers and unreachable code. Annotations such as <code>_Owner</code>, <code>_Opt</code>,
+<code>_Out</code> and <code>_Dtor</code> make the contracts of functions explicit, and the analyzer
+checks both callers and implementations against them. The annotations can be
+adopted incrementally in existing code.</p>
 
 <h3 id="toc_2">Contracts in the age of AI</h3>
 
-<p>It  is  always  too early to predict the future, even when the future is already
-happening.  We  try  to  extrapolate  what  will happen, but reality pushes with
-forces  from  all  sides.  Some  of  them  we  can see: everyone wants local AI,
-everyone  wants  to  pay  less,  everyone  wants  to be more productive. But the
-direction those forces take, how they interfere with each other, and the ones we
-cannot imagine yet, are hard to predict. What can be said today is narrower, and
-it  is enough: more and more C is now written, or at least drafted, by AI tools.
-With  AI  code,  readability  and  understanding  become  the bottleneck. Cake&#39;s
-annotations  add  a  few  more  words  to  read,  but  I  believe  they  improve
-understanding:  a  signature  that  says  <code>_Owner</code>  or  <code>_Opt</code>  gives  a precise
-contract,  where  plain  C leaves the reader to guess, or to read long generated
-comments instead.</p>
+<p>More and more C is written or drafted by AI tools, and reading the code becomes
+the bottleneck. A signature that says <code>_Owner</code> or <code>_Opt</code> states a precise
+contract that the analyzer checks on every caller and every implementation.
+Among other benefits, AI assistants pick up these annotations from existing
+code, and Cake&#39;s one-line diagnostics make a good loop: the AI writes, Cake reports, the AI
+fixes, until no warnings remain.</p>
 
-<p>The  annotations  described  here turn those unspoken assumptions into contracts
-the  compiler  can  check.  <code>_Owner</code>,  <code>_Opt</code>,  <code>_Out</code> and <code>_Dtor</code> state, in the
-signature,  who  releases  what and what may be null - and the analyzer verifies
-that  every  caller  and every implementation honors it. The contract is part of
-the source, so it is read by the same tools that write the code. In practice, AI
-assistants understand Cake&#39;s annotations without being taught them: given a file
-that  already uses <code>_Owner</code> and <code>_Opt</code>, they pick up the pattern and apply it to
-the  code  they  add  - releasing what is returned as <code>_Owner</code>, checking what is
-declared <code>_Opt</code>, annotating new functions the same way.</p>
-
-<p>An  AI  assistant and Cake also work well as a loop: the AI writes, Cake judges,
-the  warnings go back to the AI. It scales to a large batch of warnings - Cake&#39;s
-diagnostics  are  precise  enough  (one  line,  one  message,  one  fix) that an
-assistant  can  read  a  long  list  of  them  and  apply  the fixes one by one,
-re-running  the  analyzer  between  rounds  until  the list is empty. A concrete
-example  is  warning  82,  <em>parameter  could point to const</em>: Cake proves that a
-parameter  is  never  written through and could be <code>const</code>. Driving that warning
-through  the  AI  loop  on  Cake&#39;s  own  sources  produced  hundreds  of <code>const</code>
-refactorings, each one verified by the analyzer rather than by hand.</p>
-
-<p>Cake&#39;s  annotations on their own cannot interfere with code generation: they are
-checked,  not compiled, and the generated code is the same with or without them.
-What  they  do  demand  is  the  migration. Taking an unannotated codebase to an
-annotated  one  is  a very demanding task - every owner, every nullable pointer,
-every out parameter has to be found and written down. The Cake + AI loop is what
-makes  it possible: hundreds of warnings removed and the annotations added, file
-by  file,  with  the  analyzer checking each step. The feeling after that job is
-that the code is in a much safer state than it was before - and it is not only a
-feeling.  The  rules are now checked mechanically, on every build, and they will
-stay checked.</p>
-
-<h3 id="toc_3">Enabling the analysis</h3>
-
-<p>There are two switches.</p>
+<h3 id="toc_3">Enabling contract analysis</h3>
 
 <table>
 <thead>
@@ -412,29 +346,12 @@ stay checked.</p>
 
 <tbody>
 <tr>
-<td><code>-flow</code></td>
-<td><code>#pragma flow enable</code></td>
-<td><strong>The analysis.</strong> Tracks the state of every object along every path: uninitialized values, null pointers, unreachable code, ... Null checking is always part of it.</td>
-</tr>
-<tr>
 <td><code>-safety</code></td>
 <td><code>#pragma safety enable</code></td>
-<td><strong>Cake contracts are checked.</strong> <code>_Owner</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Out</code>, <code>_Clear</code>, <code>_Uninitialized</code>, <code>_Opt</code> become part of the type and are checked, and a pointer without <code>_Opt</code> is non-null. Without it the annotations are ignored, like empty macros. It also turns on <code>-flow</code>.</td>
+<td><strong>Cake contracts are checked.</strong> <code>_Owner</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Out</code>, <code>_Clear</code>, <code>_Uninitialized</code>, <code>_Opt</code> become part of the type and are checked, and a pointer without <code>_Opt</code> is non-null. Without it the annotations are ignored, like empty macros. It also turns on the flow analysis.</td>
 </tr>
 </tbody>
 </table>
-
-<p>The annotations are checked when the code is parsed (for example, passing a
-non-owner to an <code>_Owner</code> parameter) and, when <code>-flow</code> is also on, along every
-path by the flow analysis.</p>
-
-<p><code>#pragma safety disable</code> turns the contracts off again, so they can be adopted
-file by file or region by region while migrating existing code.</p>
-
-<p>Typical command line:</p>
-
-<pre><code>cake -safety file.c
-</code></pre>
 
 <h2 id="toc_4">Chapter 1: Nullable Pointers</h2>
 
@@ -452,26 +369,9 @@ non-nullable pointer and returns a nullable one:</p>
 
 <p>A pointer without <code>_Opt</code> is always assumed to be non-nullable.</p>
 
-<h3 id="toc_6">The non-null rule: <code>#pragma safety enable</code> / <code>-safety</code></h3>
+<h3 id="toc_6">Example 1: Assigning Nullable to a Non-Nullable Pointer</h3>
 
-<p>Existing C code was not written with nullability in mind, so &quot;a pointer without
-<code>_Opt</code> is non-null&quot; is a rule you turn on, together with the other contracts:</p>
-
-<pre><code class="language-c">#pragma safety enable   /* absence of _Opt = non-null              */
-#pragma safety disable  /* absence of _Opt = may be null (C default) */
-</code></pre>
-
-<p>The rule says what pointers mean; the flow analysis (<code>-flow</code>) is what checks
-it. Null tracking itself is always part of the flow analysis: even without the
-rule, <code>int* p = 0; *p = 1;</code> is reported.</p>
-
-<p>This lets you migrate code incrementally, enabling the rule file-by-file or
-region-by-region. Only static analysis behavior changes; the runtime behavior of
-your program is unaffected.</p>
-
-<h3 id="toc_7">Example 1: Assigning Nullable to a Non-Nullable Pointer</h3>
-
-<p>Once nullable rules are enabled, assigning <code>nullptr</code> to an unqualified pointer
+<p>Once contracts are enabled, assigning <code>nullptr</code> to an unqualified pointer
 generates a warning:</p>
 
 <!-- runnable -->
@@ -483,7 +383,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_8">Example 2: Converting Non-Nullable to Nullable</h3>
+<h3 id="toc_7">Example 2: Converting Non-Nullable to Nullable</h3>
 
 <p>Assigning a non-nullable pointer to a nullable variable is always safe and
 explicitly allowed:</p>
@@ -499,7 +399,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_9">Example 3: Nullable Pointer to a Non-Nullable Parameter</h3>
+<h3 id="toc_8">Example 3: Nullable Pointer to a Non-Nullable Parameter</h3>
 
 <p>Narrowing from nullable to non-nullable requires a null check. 
 Without one, the analyzer warns you:</p>
@@ -537,10 +437,10 @@ int main() {
 <p>Cake uses flow analysis to track possible nullability through branches. Once you
 check a pointer, the analyzer knows it is non-null inside the guarded block.</p>
 
-<h3 id="toc_10">Acknowledging a warning with <code>//lint</code></h3>
+<h3 id="toc_9">Acknowledging a warning with <code>//lint</code></h3>
 
-<p>There are some situations where the user must acknowledge a warning. 
-For instance, consider this example:</p>
+<p>Sometimes the programmer knows more than the analyzer and must acknowledge a
+warning. For instance:</p>
 
 <!-- runnable -->
 
@@ -559,24 +459,22 @@ void f(struct X * p) {
 }
 </code></pre>
 
-<p>Because  the  static analysis is not interprocedural, and because, so far, we do
-not  have  a  way to express the contract of is_empty, we need a way to suppress
-the  warning  about p begin null. In this case, the <code>//lint</code> comment can be used
-to  explicitly  acknowledge  the  warning  and  indicate that the programmer has
-verified that the condition is guaranteed.</p>
+<p>The analysis is not interprocedural, and there is not yet a way to express the
+contract of <code>is_empty</code>, so the analyzer warns that <code>p-&gt;data</code> may be null. The
+<code>//lint</code> comment acknowledges the warning and records that the programmer has
+verified the condition.</p>
 
-<p>The use of <code>//lint</code> is much safer than disabling the warning because:</p>
+<p>The use of <code>//lint</code> is safer than disabling the warning because:</p>
 
 <ul>
 <li>It applies only to the specific line where the warning is acknowledged.</li>
 <li>It makes it explicit that the programmer has reviewed and acknowledged the warning.</li>
-<li>The warning must actually be present. Otherwise, a different warning is generated 
-indicating that the warning being acknowledged does not exist.</li>
-<li>It does not interfere with the flow analysis. It does not tell the flow analyzer to 
-assume anything; it only acknowledges the warning.</li>
+<li>The warning must actually be present. Otherwise, a different warning reports that
+the acknowledged warning does not exist.</li>
+<li>It does not change the flow analysis; the analyzer assumes nothing from it.</li>
 </ul>
 
-<h3 id="toc_11">Non-Nullable Initialization</h3>
+<h3 id="toc_10">Non-Nullable Initialization</h3>
 
 <p>Non-nullable pointers can be initialized with <code>{}</code>, meaning they are set to
 zero; however, they are still in an invalid state despite having a value. This
@@ -630,13 +528,13 @@ void f() {
 }
 </code></pre>
 
-<h3 id="toc_12">Using <code>malloc()</code> and <code>calloc()</code> with Structs</h3>
+<h3 id="toc_11">Using <code>malloc()</code> and <code>calloc()</code> with Structs</h3>
 
 <p>Cake understands the built-in semantics of <code>malloc()</code> and <code>calloc()</code> through the
 <code>_Uninitialized</code> and <code>_Clear</code> pointee annotations declared on their return types:</p>
 
-<pre><code class="language-c">void * _Owner _Opt _Uninitialized malloc(size_t size);
-void * _Owner _Opt _Clear calloc(size_t nmemb, size_t size);
+<pre><code class="language-c">_Uninitialized void * _Owner _Opt malloc(size_t size);
+_Clear void * _Owner _Opt calloc(size_t nmemb, size_t size);
 </code></pre>
 
 <ul>
@@ -651,7 +549,7 @@ as null and must be assigned before passing to functions expecting non-nullable 
 <pre><code class="language-c">#pragma safety enable
 
 char * _Opt strdup(const char * src);  
-void * _Owner _Opt _Uninitialized malloc(unsigned int sz);
+_Uninitialized void * _Owner _Opt malloc(unsigned int sz);
 
 struct X {  char * text; };  
 
@@ -672,7 +570,7 @@ void f() {
 <pre><code class="language-c">#pragma safety enable  
 
 char * _Opt strdup(const char * src);  
-void * _Owner _Opt _Clear calloc(unsigned int n, unsigned int sz);
+_Clear void * _Owner _Opt calloc(unsigned int n, unsigned int sz);
 void free(void * _Owner _Opt p);
 
 struct X {  
@@ -691,23 +589,9 @@ void f() {
 }
 </code></pre>
 
-<h2 id="toc_13">Chapter 2: Object Lifetime and Ownership</h2>
+<h2 id="toc_12">Chapter 2: Object Lifetime and Ownership</h2>
 
-<p>Object lifetime as the portion of program execution during which storage is
-reserved for that object. Cake&#39;s ownership system gives you many compile-time
-enforcement of these rules.</p>
-
-<h3 id="toc_14">Enabling the annotations: <code>#pragma safety</code> / <code>-safety</code></h3>
-
-<pre><code class="language-c">#pragma safety enable   /* _Owner, _View, _Dtor, _Opt, ... are checked */
-#pragma safety disable  /* they are ignored, like empty macros         */
-</code></pre>
-
-<blockquote>
-<p><strong>Note:</strong> the annotations are always parsed, but without <code>-safety</code> they have no effect.</p>
-</blockquote>
-
-<h3 id="toc_15">Owner References and the <code>_Owner</code> annotation</h3>
+<h3 id="toc_13">Owner References and the <code>_Owner</code> annotation</h3>
 
 <p>An <strong>owner reference</strong> is an object that manages the lifetime of the thing it
 references. The most common form is an <strong>owner pointer</strong> — a pointer to a
@@ -737,7 +621,7 @@ its ownership being transferred:</p>
 <pre><code class="language-c">} // warning: &#39;f&#39; leaves scope with an owned resource
 </code></pre>
 
-<h3 id="toc_16">The Two Core Ownership Rules</h3>
+<h3 id="toc_14">The Two Core Ownership Rules</h3>
 
 <blockquote>
 <p><strong>Rule:</strong> An owner reference is always the unique owner of the referenced object. Copying an owner reference transfers ownership to the destination.</p>
@@ -751,22 +635,7 @@ its ownership being transferred:</p>
 if (f2) fclose(f2);         // f2&#39;s ownership transferred to fclose
 </code></pre>
 
-<h3 id="toc_17">Additional Owner Rules</h3>
-
-<blockquote>
-<p><strong>Rule:</strong> Owner objects cannot be discarded. Calling <code>fopen()</code> and ignoring the return value is an error.</p>
-</blockquote>
-
-<pre><code class="language-c">fopen(&quot;file.txt&quot;, &quot;r&quot;);  // warning: discarding owner return value
-</code></pre>
-
-<blockquote>
-<p><strong>Rule:</strong> A non-owner object cannot be copied to an owner object.</p>
-
-<p><strong>Rule:</strong> The null pointer constant can be used to initialize owner objects (it represents an empty owner).</p>
-</blockquote>
-
-<h3 id="toc_18">Non-Pointer Owner References</h3>
+<h3 id="toc_15">Non-Pointer Owner References</h3>
 
 <p>Ownership is not limited to pointers.
 Berkeley sockets, for example, use an integer file descriptor. You can mark any type as an owner:</p>
@@ -780,7 +649,7 @@ close(server_socket);
 <p><strong>Note:</strong> The <code>_Owner</code> annotation belongs to the storage holding the reference, not to the pointed-to type. Its placement follows the same rules as <code>const</code>.</p>
 </blockquote>
 
-<h3 id="toc_19">View References</h3>
+<h3 id="toc_16">View References</h3>
 
 <p>A <strong>view reference</strong> accesses an object without managing its lifetime. Regular
 (non-<code>_Owner</code>) pointers are view references by default. The <code>_View</code> annotation
@@ -811,7 +680,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_20">The <code>_View</code> annotation</h3>
+<h3 id="toc_17">The <code>_View</code> annotation</h3>
 
 <p>The <code>_View</code> annotation enables assignment without ownership transfer. 
 A <code>_View</code> object does not own the resource.</p>
@@ -836,7 +705,7 @@ int main() {
 
 </code></pre>
 
-<h3 id="toc_21">Deleting Owner Pointers</h3>
+<h3 id="toc_18">Deleting Owner Pointers</h3>
 
 <p>Owner pointers take responsibility for both the pointed-to object and its storage. 
 A common pattern is to implement a <code>delete</code> function that releases both:</p>
@@ -862,43 +731,17 @@ void x_delete(struct X * _Owner _Opt p) {
 <p><strong>Note:</strong> Converting <code>T * _Owner</code> to <code>void * _Owner</code> requires the pointed-to object to be empty first. This is how the analyzer distinguishes between moving the object and moving only the raw storage.</p>
 </blockquote>
 
-<h3 id="toc_22">Comparison with C++ RAII</h3>
+<h3 id="toc_19">Comparison with C++ RAII</h3>
 
-<p>RAII is a pattern, not a static check: a constructor/destructor pair runs
-automatically at scope exit, but nothing verifies that a raw resource outside
-such a wrapper was released. <code>T* p = new T;</code> with no matching delete compiles
-without complaint in C++. The guarantee only exists for types that actually
-implement it.</p>
+<p>RAII only works if every resource without a destructor, such as <code>FILE*</code>, is
+put inside a wrapper class. That is required but not checked: the compiler
+accepts a raw <code>FILE*</code> that is never closed. Cake&#39;s <code>_Owner</code> works on plain
+pointers and values, with no wrapper, and leaving scope without releasing an
+owner is a compile-time warning.</p>
 
-<p>Cake&#39;s <code>_Owner</code> takes the opposite approach: it enforces the same discipline
-directly on ordinary pointers and values, without requiring a wrapper type.
-Leaving scope with an unmoved <code>_Owner</code> is a compile-time warning, not a
-convention you have to trust. The fopen/fclose example earlier in this chapter
-is exactly the RAII pattern, but checked by the analyzer instead of relying on a
-class to run the cleanup.</p>
+<h2 id="toc_20">Chapter 3: Parameter annotations</h2>
 
-<p>The two approaches provide different guarantees. RAII executes the destructor
-automatically at scope exit. Cake&#39;s <em>Out/</em>Dtor are contracts that the analyzer
-verifies were fulfilled, but no code is generated to call them automatically. As
-a result, there are code paths that RAII would still clean up automatically,
-whereas Cake relies on the analyzer being able to verify that the required
-cleanup was written.</p>
-
-<p>Cake also proves the ownership rules statically, with no runtime overhead.
-<code>std::unique_ptr</code>, which is the closest analog to <code>_Owner</code> (single, move-only
-ownership), still performs a runtime check in its destructor. After a move, its
-internal pointer is set to null so that <code>delete ptr;</code> becomes a no-op. Every
-destructor therefore executes a null check, whether or not the object was ever
-moved from. Cake proves the equivalent fact &quot;this owner still holds something to
-release&quot; ahead of time by tracking ownership and moved/null state through flow
-analysis, so no unconditional runtime check needs to be emitted. When the
-analyzer cannot prove that an owner is null, an explicit <code>if (ptr)</code> provides the
-missing proof, allowing the cleanup to be verified while keeping the common case
-free of unnecessary runtime checks.</p>
-
-<h2 id="toc_23">Chapter 3: Parameter annotations</h2>
-
-<h3 id="toc_24">The <code>_Dtor</code> parameter annotation</h3>
+<h3 id="toc_21">The <code>_Dtor</code> parameter annotation</h3>
 
 <p><code>_Dtor</code> tells the analyzer that the function will move out all owner contents of
 the pointed-to struct, leaving it uninitialized. The compiler also verifies that
@@ -941,7 +784,7 @@ the call), so the callee must actually do it, typically behind an <code>if (x-&g
 }
 </code></pre>
 
-<h3 id="toc_25">The <code>_Clear</code> parameter annotation</h3>
+<h3 id="toc_22">The <code>_Clear</code> parameter annotation</h3>
 
 <p><code>_Clear</code> tells the analyzer that the function will zero out every member of the
 pointed-to struct before returning. The compiler verifies that the
@@ -971,9 +814,9 @@ void zero_out(_Clear struct X* p) {
 <p><code>_Clear</code> follows the same placement rules as <code>_Out</code>/<code>_Dtor</code>: it annotates the pointee, not the
 pointer, and the pointee cannot also be <code>const</code> (the callee has to write it).</p>
 
-<h3 id="toc_26">The <code>_Out</code> parameter annotation</h3>
+<h3 id="toc_23">The <code>_Out</code> parameter annotation</h3>
 
-<p><code>_Out</code> is the inverse of <code>_Dtor</code>. It tells the analyzer that the 
+<p><code>_Out</code> tells the analyzer that the 
 function expects an <strong>uninitialized</strong> object as input and initializes it 
 on return. This is the pattern for init-style functions.</p>
 
@@ -1056,7 +899,7 @@ void x_init_partial(_Out struct X* p) {
 } // warning: _Out parameter &#39;p&#39; pointee (.i) is possibly not initialized at exit
 </code></pre>
 
-<h3 id="toc_27">Type Annotations in Arrays parameters</h3>
+<h3 id="toc_24">Type Annotations in Arrays parameters</h3>
 
 <p>In C, array types in arguments are pointers. This characteristics is preserved.</p>
 
@@ -1077,12 +920,12 @@ void f(int a[_Owner])
 
 <p>But I think this is quite uncommon.</p>
 
-<h2 id="toc_28">Chapter 4: Flow Analysis and Object States</h2>
+<h2 id="toc_25">Chapter 4: Flow Analysis and Object States</h2>
 
 <p>Flow analysis is what checks the nullable and ownership rules. 
 It tracks the possible states of every variable at every point in your program.</p>
 
-<h3 id="toc_29">How the Analysis Works</h3>
+<h3 id="toc_26">How the Analysis Works</h3>
 
 <ul>
 <li><p><strong>One function at a time, contracts in between.</strong> The analyzer looks at
@@ -1122,16 +965,7 @@ entry, and <code>compile_assert</code> asks the same kind of question explicitly
 <p>The rest of this chapter describes the states, and Chapter 5 lists the places
 where this model is intentionally less precise than a full program analysis.</p>
 
-<h3 id="toc_30">Enabling Flow Analysis</h3>
-
-<pre><code class="language-c">#pragma flow enable    // or compile with: -flow
-#pragma safety enable  // flow + Cake contracts
-</code></pre>
-
-<p>Null tracking is always part of the flow analysis. See <em>Enabling the analysis</em>
-in the introduction for how <code>-flow</code> and <code>-safety</code> relate.</p>
-
-<h3 id="toc_31">The State Model</h3>
+<h3 id="toc_27">The State Model</h3>
 
 <p>The analyzer tracks the following states for each variable:</p>
 
@@ -1194,7 +1028,7 @@ value has been given yet, that the variable is no longer accountable for the val
 that the object it once pointed to is no longer around.</p>
 </blockquote>
 
-<h3 id="toc_32">Inspecting State with <code>static_debug</code></h3>
+<h3 id="toc_28">Inspecting State with <code>static_debug</code></h3>
 
 <p>Use this built-in declaration to inspect a variable&#39;s tracked state during development:</p>
 
@@ -1208,7 +1042,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_33">Proving Facts with <code>compile_assert</code></h3>
+<h3 id="toc_29">Proving Facts with <code>compile_assert</code></h3>
 
 <p><code>compile_assert(expr)</code> asks the analyzer to prove <code>expr</code> using only what it already knows at that
 point — across every value alternative the flow tracker has recorded, not just one possible path.
@@ -1253,54 +1087,9 @@ pin down exactly what the analyzer can currently prove at a given point, and to 
 regressing on a previously-provable fact. Prefer <code>assert()</code>/<code>_Assert()</code> in real code where
 you actually want to establish a fact for the analysis (and the runtime) going forward.</p>
 
-<h3 id="toc_34">Uninitialized State</h3>
+<h2 id="toc_30">Chapter 5: Known Limitations</h2>
 
-<p>Reading an uninitialized variable triggers a warning.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-int main()
-{
-  int i;
-  int j = i;
-}
-</code></pre>
-
-<h3 id="toc_35">Moved State</h3>
-
-<p>When you assign an owner to another owner in local scope, the source enters the moved state. The analyzer knows the pointed-to object is still valid but the source no longer owns it:</p>
-
-<pre><code class="language-c">#pragma safety enable
-#include &lt;stdlib.h&gt;
-
-int * _Owner f();
-
-int main()
-{
-    int * _Owner p = f();
-    int * _Owner _Opt p2 = 0;
-
-    p2 = p;   /* p was moved to p2             */
-    free(p);  /* trying to move a moved object */    
-    free(p2); /* ok, moving p2                 */
-}
-</code></pre>
-
-<h3 id="toc_36">Null and Not-Null States</h3>
-
-<p>After a null check, the analyzer refines the state inside each branch:</p>
-
-<pre><code class="language-c">void * _Owner _Opt p = malloc(1);
-if (p) {
-    compile_assert(p != 0);  // ok: provable inside the check
-}
-free(p);
-</code></pre>
-
-<h2 id="toc_37">Chapter 5: Known Limitations</h2>
-
-<h3 id="toc_38">Backward <code>goto</code> Is Not Analyzed as a Loop</h3>
+<h3 id="toc_31">Backward <code>goto</code> Is Not Analyzed as a Loop</h3>
 
 <p>Unlike <code>while</code>/<code>for</code>, which run a two-pass analysis to approximate repeated execution, a label is
 visited only once, in top-to-bottom order. A backward <code>goto</code> (jumping to a label above it) does not
@@ -1329,7 +1118,7 @@ L:
 full two-pass loop analysis.</p>
 </blockquote>
 
-<h3 id="toc_39">Pointer Equality Between Distinct Pointers</h3>
+<h3 id="toc_32">Pointer Equality Between Distinct Pointers</h3>
 
 <p>Two unrelated pointers may still compare equal at runtime, but the analyzer currently treats a
 concrete (synthetic) pointer value as foldable, so <code>p == q</code> for two distinct pointees folds to
@@ -1355,7 +1144,7 @@ pointer operands trigger this.</p>
 
 <p>These are implementation constraints, not flaws in the ownership model itself.</p>
 
-<h2 id="toc_40">Chapter 6: Code Transition Strategy</h2>
+<h2 id="toc_33">Chapter 6: Code Transition Strategy</h2>
 
 <p>Adopting Cake&#39;s static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:</p>
 
@@ -1403,23 +1192,15 @@ file and the analyzer&#39;s warnings, ask it to add the annotations or the missi
 <code>if (p)</code> / <code>free(p)</code>, and re-run Cake. The analyzer is the reviewer - the
 migration is done when it reports nothing, not when the diff looks plausible.</p>
 
-<h3 id="toc_41">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></h3>
+<h3 id="toc_34">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></h3>
 
-<p>You don&#39;t need to edit a system header to bring it under Cake&#39;s checks - Cake
-already ships its own annotated versions of the standard headers (<code>stdlib.h</code>,
-<code>string.h</code>, <code>stdio.h</code>, and the rest). When your source writes <code>#include
-&lt;stdlib.h&gt;</code>, Cake&#39;s copy is found first on the include search path. That
-header declares <code>malloc</code>, <code>free</code>, and the others with <code>_Owner</code>/<code>_Opt</code>, then
-hands off to the real header with <code>#include_next &lt;stdlib.h&gt;</code> - the same
-directive GCC and Clang use - which continues the search from the directory
-<em>after</em> Cake&#39;s own and pulls in everything else (types, platform-specific
-declarations) from the system&#39;s actual header.</p>
+<p>Cake ships annotated versions of the standard headers (<code>stdlib.h</code>, <code>string.h</code>,
+<code>stdio.h</code>, ...). Cake&#39;s copy declares <code>malloc</code>, <code>free</code> and the others with
+<code>_Owner</code>/<code>_Opt</code>, then uses <code>#include_next</code> (as in GCC and Clang) to pull in the
+rest from the system header.</p>
 
-<p>This is why <strong>Cake&#39;s header directory has to come first</strong> on the search
-path: if a system directory is searched before it, <code>#include &lt;stdlib.h&gt;</code>
-resolves straight to the real header, Cake&#39;s annotated one is never reached,
-and <code>#include_next</code> never runs - so none of the standard library gets
-annotated for that file.</p>
+<p>For this to work, Cake&#39;s header directory must come first on the include search
+path; otherwise the system header is found directly and nothing is annotated.</p>
 
 <!-- runnable -->
 
@@ -1433,7 +1214,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_42">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</h3>
+<h3 id="toc_35">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</h3>
 
 <p>For a library Cake doesn&#39;t ship annotated headers for, the same idea applies
 by hand: declare the function yourself, with annotations, before the real
@@ -1460,73 +1241,131 @@ is compatible with the ones before it - the plain declaration the header
 brings in afterward is just a compatible redeclaration of the same
 signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 
-<h2 id="toc_43">Quick Reference</h2>
+<h2 id="toc_36">Quick Reference</h2>
 
-<h3 id="toc_44">Type Annotations</h3>
+<h3 id="toc_37">Contracts</h3>
 
 <table>
 <thead>
 <tr>
-<th>Annotation</th>
-<th>Meaning</th>
+<th>Declaration</th>
+<th>Implementation assumes</th>
+<th>Implementation guarantees</th>
+<th>Caller passes</th>
+<th>Caller assumes</th>
 </tr>
 </thead>
 
 <tbody>
 <tr>
-<td><code>_Opt</code></td>
-<td>the pointer may be null (nullable). Without this type annotation, a pointer is treated as non-nullable when nullable rules are enabled</td>
+<td><code>void F(struct X* p)</code></td>
+<td><code>p</code> and non-<code>_Opt</code> members not null; <code>*p</code> initialized; must not move <code>*p</code></td>
+<td><code>*p</code> still valid; no owner left moved</td>
+<td>non-null pointer to an initialized object</td>
+<td>still owns <code>*p</code>; previous knowledge of its state is lost</td>
 </tr>
 <tr>
-<td><code>_Owner</code></td>
-<td>the reference manages the lifetime of the object it references. Ownership is transferred on assignment or when passed to a function</td>
+<td><code>void F(const struct X* p)</code></td>
+<td>same, but cannot write or move</td>
+<td>nothing changes</td>
+<td>same</td>
+<td>previous knowledge still holds</td>
 </tr>
 <tr>
-<td><code>_View</code> (on struct)</td>
-<td>strips <code>_Owner</code> from all members for the duration of that variable&#39;s scope. Used to pass an owner struct without transferring ownership</td>
+<td><code>void F(struct X* _Opt p)</code></td>
+<td><code>p</code> may be null</td>
+<td></td>
+<td>may pass null</td>
+<td></td>
 </tr>
 <tr>
-<td><code>_Out</code></td>
-<td>the parameter must be uninitialized on entry; the function is responsible for initializing it before returning</td>
+<td><code>void F(_Out struct X* p)</code></td>
+<td><code>*p</code> uninitialized</td>
+<td><code>*p</code> fully initialized</td>
+<td>any state, holding no resources</td>
+<td><code>*p</code> initialized; owns its owners</td>
 </tr>
 <tr>
-<td><code>_Dtor</code></td>
-<td>the parameter must be fully initialized on entry; the function is responsible for moving out all owner contents before returning</td>
+<td><code>void F(_Dtor struct X* p)</code></td>
+<td>members may be null (partial object)</td>
+<td>every owner moved</td>
+<td>partial object, nothing uninitialized</td>
+<td><code>*p</code> uninitialized; still owns the memory</td>
 </tr>
 <tr>
-<td><code>_Clear</code></td>
-<td>the function is responsible for setting every member of the pointee to zero before returning. Also used on a function&#39;s return type (e.g. <code>calloc()</code>) to describe an already zero-initialized pointee</td>
+<td><code>void F(_Clear struct X* p)</code></td>
+<td></td>
+<td>owners moved, every member zero</td>
+<td>same as no annotation</td>
+<td><code>*p</code> zero, reusable</td>
 </tr>
 <tr>
-<td><code>_Uninitialized</code></td>
-<td>marks the pointee as uninitialized. Used on a function&#39;s return type (e.g. <code>malloc()</code>) to describe a freshly allocated, uninitialized pointee</td>
+<td><code>void F(_View struct X x)</code></td>
+<td>does not own <code>x</code>&#39;s owners</td>
+<td>nothing moved</td>
+<td></td>
+<td>still owns the owners</td>
+</tr>
+<tr>
+<td><code>struct X* F(void)</code></td>
+<td></td>
+<td>not null, initialized, <code>*result</code> not owned</td>
+<td></td>
+<td>use without check; do not move <code>*result</code></td>
+</tr>
+<tr>
+<td><code>struct X* _Opt F(void)</code></td>
+<td></td>
+<td>may be null</td>
+<td></td>
+<td>check before use</td>
+</tr>
+<tr>
+<td><code>T* _Owner F(void)</code></td>
+<td></td>
+<td>caller gets ownership</td>
+<td></td>
+<td>must move the result</td>
+</tr>
+<tr>
+<td><code>_Clear struct X* F(void)</code></td>
+<td></td>
+<td><code>*result</code> zero (like <code>calloc</code>)</td>
+<td></td>
+<td>non-<code>_Opt</code> members null until set</td>
+</tr>
+<tr>
+<td><code>_Uninitialized struct X* F(void)</code></td>
+<td></td>
+<td><code>*result</code> uninitialized (like <code>malloc</code>)</td>
+<td></td>
+<td>write before read</td>
+</tr>
+<tr>
+<td><code>struct X { char* text; };</code></td>
+<td></td>
+<td></td>
+<td></td>
+<td>readers: not null; writers: never store null</td>
+</tr>
+<tr>
+<td><code>struct X { char* _Opt text; };</code></td>
+<td></td>
+<td></td>
+<td></td>
+<td>readers: check; writers: may store null</td>
+</tr>
+<tr>
+<td><code>a = b</code></td>
+<td></td>
+<td></td>
+<td><code>a</code> empty; <code>b</code> initialized, not moved, not null if <code>a</code> is not <code>_Opt</code></td>
+<td>owner→owner moves; owner→non-owner is a view; non-owner→owner not allowed</td>
 </tr>
 </tbody>
 </table>
 
-<h3 id="toc_45">Pragmas</h3>
-
-<table>
-<thead>
-<tr>
-<th>Pragma</th>
-<th>Effect</th>
-</tr>
-</thead>
-
-<tbody>
-<tr>
-<td><code>#pragma safety enable</code> / <code>#pragma safety disable</code></td>
-<td>Cake contracts (<code>_Owner</code>, <code>_Opt</code>, <code>_Out</code>, ...) are checked, any pointer without <code>_Opt</code> is non-null, and flow analysis is on. Same as <code>-safety</code></td>
-</tr>
-<tr>
-<td><code>#pragma flow enable</code></td>
-<td>enables flow analysis without enabling nullable or ownership rules</td>
-</tr>
-</tbody>
-</table>
-
-<h3 id="toc_46">Built-in Intrinsics</h3>
+<h3 id="toc_38">Built-in Intrinsics</h3>
 
 <table>
 <thead>
@@ -1548,7 +1387,7 @@ signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 </tbody>
 </table>
 
-<h2 id="toc_47">References</h2>
+<h2 id="toc_39">References</h2>
 
 <ul>
 <li>C# Nullable References: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a></li>

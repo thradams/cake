@@ -1,7 +1,7 @@
 #pragma safety enable
 
 
-void* _Owner _Opt _Uninitialized malloc(int i);
+_Uninitialized void* _Owner _Opt malloc(int i);
 void free(void* _Owner p);
 
 struct X {

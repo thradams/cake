@@ -1,6 +1,6 @@
 #pragma safety enable
 
-void * _Opt _Owner _Clear malloc(unsigned long s);
+_Clear void * _Opt _Owner malloc(unsigned long s);
 void free(void * _Opt _Owner p);
 
 int main() {

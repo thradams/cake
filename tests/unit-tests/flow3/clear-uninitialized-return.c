@@ -6,8 +6,8 @@
 
 struct X { int a; int b; };
 
-struct X* _Owner _Opt _Clear         my_calloc(void);
-struct X* _Owner _Opt _Uninitialized my_malloc(void);
+_Clear struct X* _Owner _Opt my_calloc(void);
+_Uninitialized struct X* _Owner _Opt my_malloc(void);
 void free(void* _Owner _Opt p);
 void use(int);
 

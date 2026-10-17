@@ -3,7 +3,7 @@
 /* zero is a real state: using a zeroed non-_Opt pointer member (passing it, returning the aggregate) warns for both `= {0}` and calloc (_Clear); only the creation is clean */
 
 typedef unsigned long size_t;
-void* _Owner _Opt _Clear calloc(size_t n, size_t sz);
+_Clear void* _Owner _Opt calloc(size_t n, size_t sz);
 void free(void* _Owner _Opt p);
 
 struct X { char* p_non_null; };

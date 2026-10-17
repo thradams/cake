@@ -3,7 +3,7 @@
 
 
 struct X { int i; void* _Opt p; };
-void* _Owner _Opt _Clear calloc(int i, int sz);
+_Clear void* _Owner _Opt calloc(int i, int sz);
 void free(void* _Owner _Opt p);
 
 int main()

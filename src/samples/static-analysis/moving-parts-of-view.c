@@ -1,6 +1,6 @@
 #pragma safety enable
 
-void * _Opt _Owner _Clear calloc(unsigned long n, unsigned long s);
+_Clear void * _Opt _Owner calloc(unsigned long n, unsigned long s);
 char * _Opt _Owner strdup(const char* s);
 void free(void * _Opt _Owner p);
 

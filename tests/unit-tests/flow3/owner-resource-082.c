@@ -1,7 +1,7 @@
 #pragma safety enable
 
 
-void* _Owner _Uninitialized malloc(unsigned size);
+_Uninitialized void* _Owner malloc(unsigned size);
 void free(void* _Owner ptr);
 
 

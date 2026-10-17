@@ -20865,13 +20865,13 @@ static const char file_stdlib_h[] = {
 ,112,116,32,97,108,105,103,110,101,100,95,97,108,108,111,99,40,115,105,122,101,95,116,32,97
 ,108,105,103,110,109,101,110,116,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32
 ,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,91,91,110,111,100,105,115,99,97,114
-,100,93,93,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,95,67,108
-,101,97,114,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101,109,98,44,32
+,100,93,93,32,95,67,108,101,97,114,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95
+,79,112,116,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101,109,98,44,32
 ,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32,32,32,32,118,111,105,100,32,102,114
 ,101,101,40,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,112,116,114,41
-,59,10,32,32,32,32,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42
-,32,95,79,119,110,101,114,32,95,79,112,116,32,95,85,110,105,110,105,116,105,97,108,105,122
-,101,100,32,109,97,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32
+,59,10,32,32,32,32,91,91,110,111,100,105,115,99,97,114,100,93,93,32,95,85,110,105,110
+,105,116,105,97,108,105,122,101,100,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79
+,112,116,32,109,97,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32
 ,32,32,32,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,95,79
 ,119,110,101,114,32,95,79,112,116,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,95
 ,79,112,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,10,32
@@ -20970,12 +20970,12 @@ static const char file_stdlib_h[] = {
 ,10,32,32,32,32,35,101,110,100,105,102,10,10,32,32,32,32,35,105,102,100,101,102,32,95
 ,95,65,80,80,76,69,95,95,10,32,32,32,32,32,32,32,32,116,121,112,101,100,101,102,32
 ,95,95,83,73,90,69,95,84,89,80,69,95,95,32,115,105,122,101,95,116,59,10,32,32,32
-,32,35,101,110,100,105,102,10,10,10,32,32,32,32,118,111,105,100,42,32,95,79,119,110,101
-,114,32,95,79,112,116,32,95,67,108,101,97,114,32,99,97,108,108,111,99,40,115,105,122,101
+,32,35,101,110,100,105,102,10,10,10,32,32,32,32,95,67,108,101,97,114,32,118,111,105,100
+,42,32,95,79,119,110,101,114,32,95,79,112,116,32,99,97,108,108,111,99,40,115,105,122,101
 ,95,116,32,110,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32
 ,32,32,32,118,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32,95,79,119,110,101,114
-,32,95,79,112,116,32,112,116,114,41,59,10,32,32,32,32,118,111,105,100,42,32,95,79,119
-,110,101,114,32,95,79,112,116,32,95,85,110,105,110,105,116,105,97,108,105,122,101,100,32,109
+,32,95,79,112,116,32,112,116,114,41,59,10,32,32,32,32,95,85,110,105,110,105,116,105,97
+,108,105,122,101,100,32,118,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,109
 ,97,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,10,32,32,32,32,118
 ,111,105,100,42,32,95,79,119,110,101,114,32,95,79,112,116,32,114,101,97,108,108,111,99,40
 ,118,111,105,100,42,32,95,79,112,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105
@@ -77892,8 +77892,8 @@ static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
         return;
 
     const struct type* const p_src_type = &p_src_expression->object.type;
-    const bool want_zero = type_is_clear(p_src_type) || type_is_pointed_clear(p_src_type);
-    const bool want_uninit = type_is_uninit(p_src_type) || type_is_pointed_uninit(p_src_type);
+    const bool want_zero = type_is_pointed_clear(p_src_type);
+    const bool want_uninit = type_is_pointed_uninit(p_src_type);
     /* no contract: a void* _Owner (allocation) still gets a typed pointee, in ANY state */
     const bool want_any = !want_zero && !want_uninit && type_is_void_ptr(p_src_type) && type_is_owner(p_src_type);
     if (!want_zero && !want_uninit && !want_any)
@@ -81329,9 +81329,9 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     parameter, means "the callee zeroes the pointee".
                 */
                 const bool ret_zero = type_is_pointer(p_ret_type) &&
-                (type_is_clear(p_ret_type) || type_is_pointed_clear(p_ret_type));
+                type_is_pointed_clear(p_ret_type);
                 const bool ret_uninit = type_is_pointer(p_ret_type) &&
-                (type_is_uninit(p_ret_type) || type_is_pointed_uninit(p_ret_type));
+                type_is_pointed_uninit(p_ret_type);
 
                 if (nullable_enabled && type_is_pointer(p_ret_type) && type_is_nullable(p_ret_type, nullable_enabled))
                 {
@@ -85938,37 +85938,44 @@ static void flow_check_write_qualifier_placement(const struct flow_ctx* ctx,
     if (p_type == NULL || p_token == NULL)
         return;
 
-    /*
-        A function declarator's own type is a function type; its qualifiers
-        belong to the return type, which is checked in its own right.
-    */
+    /* a function declarator: check its return type */
     if (type_is_function(p_type))
-        return;
-
-    if (!type_is_pointer(p_type))
     {
-        if (type_is_clear(p_type))
+        if (p_type->next != NULL)
         {
-            diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
-                       "_Clear qualifies the pointed object: write 'T * _Clear' as '_Clear T *'");
-        }
-        else if (type_is_dtor(p_type))
-        {
-            diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
-                       "_Dtor qualifies the pointed object: write 'T * _Dtor' as '_Dtor T *'");
-        }
-        else if (type_is_out(p_type))
-        {
-            diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
-                       "_Out qualifies the pointed object: write 'T * _Out' as '_Out T *'");
-        }
-        else if (type_is_uninit(p_type))
-        {
-            diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
-                       "_Uninitialized qualifies the pointed object: write 'T * _Uninitialized' as '_Uninitialized T *'");
+            flow_check_write_qualifier_placement(ctx, p_type->next, p_token);
         }
         return;
     }
+
+    /* the qualifier on the declared object itself (non-pointer, or 'T * _Clear') is misplaced */
+    if (type_is_clear(p_type))
+    {
+        diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
+                   "_Clear qualifies the pointed object: write 'T * _Clear' as '_Clear T *'");
+        return;
+    }
+    else if (type_is_dtor(p_type))
+    {
+        diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
+                   "_Dtor qualifies the pointed object: write 'T * _Dtor' as '_Dtor T *'");
+        return;
+    }
+    else if (type_is_out(p_type))
+    {
+        diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
+                   "_Out qualifies the pointed object: write 'T * _Out' as '_Out T *'");
+        return;
+    }
+    else if (type_is_uninit(p_type))
+    {
+        diagnostic(C_ERROR_FLOW_WRITE_QUALIFIER_MUST_QUALIFY_POINTEE, ctx->ctx, p_token, NULL,
+                   "_Uninitialized qualifies the pointed object: write 'T * _Uninitialized' as '_Uninitialized T *'");
+        return;
+    }
+
+    if (!type_is_pointer(p_type))
+        return;
 
     if (!type_is_pointed_const(p_type))
         return;

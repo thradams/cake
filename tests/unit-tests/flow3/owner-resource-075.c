@@ -6,7 +6,7 @@ struct X
     int i;
     void *p;
 };
-void *_Owner _Opt _Uninitialized malloc(int i, int sz);
+_Uninitialized void *_Owner _Opt malloc(int i, int sz);
 void free(void *_Owner _Opt p);
 
 int main()

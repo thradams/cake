@@ -3195,11 +3195,14 @@ void clear(_Clear const struct s* p) //error 1930: _Clear pointee cannot also be
 
 <h3 id="toc_210">1940 Write qualifier must qualify the pointee</h3>
 
+<p><code>_Clear</code>, <code>_Dtor</code>, <code>_Out</code> and <code>_Uninitialized</code> describe the pointed object, so they go before the pointed type, also on return types.</p>
+
 <!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 struct s { int i; };
 void clear(struct s _Clear p); //error 1940: _Clear must be used only at the pointed object
+void * _Owner _Opt _Uninitialized alloc(int n); //error 1940: write &#39;_Uninitialized void * _Owner _Opt alloc(int n)&#39;
 </code></pre>
 
 <h3 id="toc_211">1950 constexpr value not representable</h3>

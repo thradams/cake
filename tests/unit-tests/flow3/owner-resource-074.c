@@ -2,7 +2,7 @@
 
 /* x is _Uninitialized and its owner members never assigned: an uninitialized owner owns nothing, free(x) is clean */
 
-void* _Owner _Uninitialized malloc(unsigned long size);
+_Uninitialized void* _Owner malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);
 
 struct Y {

@@ -3,7 +3,7 @@
 
 /* p->name never assigned: an uninitialized owner owns nothing, free(p) is clean */
 
-void * _Owner _Opt _Uninitialized malloc(int i);
+_Uninitialized void * _Owner _Opt malloc(int i);
 void free( void * _Owner _Opt  p);
 
 struct X {

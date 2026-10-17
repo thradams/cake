@@ -1,7 +1,7 @@
 #pragma safety enable
 
     
-void * _Owner _Opt _Clear calloc(int i, int n);
+_Clear void * _Owner _Opt calloc(int i, int n);
 void free(void * _Owner _Opt p);
 
 int main() {

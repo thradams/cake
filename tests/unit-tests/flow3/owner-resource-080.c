@@ -2,7 +2,7 @@
 
 
 
-void* _Owner _Clear calloc(unsigned n, unsigned size);
+_Clear void* _Owner calloc(unsigned n, unsigned size);
 void free(void* _Owner ptr);
 
 struct X {

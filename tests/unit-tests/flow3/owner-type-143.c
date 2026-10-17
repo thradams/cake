@@ -2,7 +2,7 @@
 
 
 
-void* _Owner _Opt _Clear calloc(int n ,unsigned size);
+_Clear void* _Owner _Opt calloc(int n ,unsigned size);
 
 char* _Owner _Opt f(int i)
 {
