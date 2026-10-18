@@ -19,3 +19,17 @@ void literal(void) {
     v[5] = 0; //lint 42 warning (from the parser): index 5 past end
 }
 
+void known(void) {
+    int x = 42;
+    int v[5];
+    v[x] = 0; //lint 70 warning: known value 42 past end
+}
+void known_negative(void) {
+    int x = -1;
+    int v[5];
+    v[x] = 0; //lint 70 warning: known value -1 is negative
+}
+void literal_negative(void) {
+    int v[3] = {1,2,3};
+    v[-1] = 0; //lint 42 warning (from the parser): index -1 is negative
+}

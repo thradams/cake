@@ -159,8 +159,8 @@ struct flow_ctx
     struct declaration* _Opt p_current_function_declaration;
 
     /*
-     * Set by EXPR_UNARY_CONTENT's own "dereference of an ended pointee"
-     * check right after it reports one, so flow_check_object_init_assigment
+     * Set by the `*` and `->` "dereference of an ended pointee"
+     * checks right after they report one, so flow_check_object_init_assigment
      * -- called right afterward when that same dereference is ALSO used as
      * an assignment/return/argument source -- can tell it was already
      * reported and skip its own, otherwise-duplicate, report of the exact
@@ -168,6 +168,9 @@ struct flow_ctx
      * comment above the EXPR_UNARY_CONTENT lifetime check itself.
      */
     const struct object* _Opt p_pending_ended_report_obj;
+
+    /* origin of the REF being followed as an assignment source; its values must be compatible */
+    const struct flow_branch* _Opt p_source_ref_origin;
 
     /*
      * The subscript expression an assignment, compound assignment or ++/--

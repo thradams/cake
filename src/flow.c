@@ -33,7 +33,6 @@ struct flow_true_false_branches
  
 static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct token* p_token);
 
-static void flow_check_file_scope_objects_at_function_exit(const struct flow_ctx* ctx);
 
 static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
 static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
@@ -106,24 +105,6 @@ static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
                                               const struct type* _Opt p_dest_type,
                                               const struct object* _Opt p_object_dest,
                                               const struct expression* _Opt p_src_expression);
-
-static bool object_is_file_scope(const struct object* p_object)
-{
-    const enum storage_class_specifier_flags flags =
-        p_object->type.storage_class_specifier_flags;
-
-    if (flags & (STORAGE_SPECIFIER_PARAMETER | STORAGE_SPECIFIER_BLOCK_SCOPE))
-    {
-        return false;
-    }
-
-    if (flags & (STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_STATIC))
-    {
-        return true;
-    }
-
-    return false;
-}
 
 static long long flow_cast_integer_value(const struct flow_ctx* ctx, long long value, const struct type* _Opt target_type)
 {
@@ -2801,19 +2782,6 @@ static void flow_seed_all_members_default(struct flow_ctx* ctx, struct object* p
     True if p_obj is ctx's pending pre-reported object or a member of it.
     See the field comment in flow3.h.
 */
-static bool flow_object_is_pending_ended_report(const struct flow_ctx* ctx, const struct object* p_obj)
-{
-    if (ctx->p_pending_ended_report_obj == NULL)
-        return false;
-
-    for (const struct object* _Opt cur = p_obj; cur; cur = cur->parent)
-    {
-        if (cur == ctx->p_pending_ended_report_obj)
-            return true;
-    }
-    return false;
-}
-
 /*
     The callee receives a reference to `pointee` through a pointer (or array)
     parameter: record what the call does to it and check what it reads.
@@ -3267,6 +3235,13 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
         {
             struct flow_alternative* p_src_alternative = p_src_key_alternatives->alternatives.data[ri]; //lint 33
 
+            if (ctx->p_source_ref_origin != NULL &&
+                    !flow_origins_compatible(p_src_alternative->p_origin_map, ctx->p_source_ref_origin))
+            {
+                /* a value the followed REF cannot see (other target of a split write) */
+                continue;
+            }
+
             if (p_src_alternative->imaginary == FLOW_IMAGINARY_ENDED &&
                     !flow_branch_is_ancestor_or_self(p_src_alternative->p_origin_map, ctx->p_current_flow_branch))
             {
@@ -3283,8 +3258,8 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     Already reported by EXPR_UNARY_CONTENT for this object/line; consume it
                     once (see the field comment in flow3.h).
                 */
-                if (flow_alternative_line(p_src_alternative) == ctx->pending_ended_report_line &&
-                        flow_object_is_pending_ended_report(ctx, p_object_src))
+                if (ctx->p_pending_ended_report_obj != NULL &&
+                        flow_alternative_line(p_src_alternative) == ctx->pending_ended_report_line)
                 {
                     /* an entry with no message: the rest are not reported */
                     flow_finding_already_reported(ctx, p_object_src, marker_line, W_FLOW_LIFETIME_ENDED);
@@ -3315,6 +3290,8 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
 
                 if (p_src_alternative->value.p != p_object_src)
                 {
+                    const struct flow_branch* _Opt p_old_source_ref_origin = ctx->p_source_ref_origin;
+                    ctx->p_source_ref_origin = p_src_alternative->p_origin_map;
                     flow_check_object_init_assigment(ctx,
                                                      p_expression,
                                                      p_object_dest,
@@ -3322,6 +3299,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                                      init_type,
                                                      dtor_here,
                                                      view_here);
+                    ctx->p_source_ref_origin = p_old_source_ref_origin;
 
                     if (type_is_owner(&p_object_dest->type) && !view_here)
                     {
@@ -3361,6 +3339,16 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     null_pointer.value_kind = FLOW_VALUE_KIND_PTR;
                     null_pointer.value.p = NULL;
                     flow_alternatives_add(&p_dest_key_alternatives->alternatives, &null_pointer);
+                }
+                else if (ctx->p_current_flow_branch != NULL &&
+                         p_src_alternative->p_origin_map != ctx->p_current_flow_branch &&
+                         flow_branch_is_ancestor_or_self(p_src_alternative->p_origin_map, ctx->p_current_flow_branch))
+                {
+                    /* the destination got this value on this path, as a narrowing does */
+                    struct flow_alternative assigned = *p_src_alternative;
+                    assigned.p_origin_map = ctx->p_current_flow_branch;
+                    assigned.p_narrowed_from = flow_alternative_narrowed_provenance(p_src_alternative, ctx->p_current_flow_branch);
+                    flow_alternatives_add(&p_dest_key_alternatives->alternatives, &assigned);
                 }
                 else
                 {
@@ -6474,6 +6462,7 @@ static bool flow_cast_one_value(struct flow_ctx* ctx,
 */
 static void flow_record_ended_pointee(struct flow_ctx* ctx,
                                       const struct expression* p_expression,
+                                      const struct object* p_pointee,
                                       const struct marker* p_marker,
                                       int ended_line,
                                       const struct flow_branch* _Opt ended_origin)
@@ -6488,6 +6477,10 @@ static void flow_record_ended_pointee(struct flow_ctx* ctx,
                         &ended, ended_origin, ss.c_str ? ss.c_str : "");
     ss_close(&ss);
     ss_close(&name_ss);
+
+    /* as `*p`: an assignment/return/argument source does not report it again */
+    ctx->p_pending_ended_report_obj = p_pointee;
+    ctx->pending_ended_report_line = ended_line;
 }
 
 /* Lifetime and null checks for one value of the pointer read by `*p` or `p[i]` (p_expression is the dereference). */
@@ -6909,7 +6902,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                                                 p_pointer_alt->p_origin_map, true, false, &ended_line, &ended_origin))
                                 {
                                     /* Include the expression, so it is clear which `->` is meant. */
-                                    flow_record_ended_pointee(ctx, p_expression, &marker, ended_line, ended_origin);
+                                    flow_record_ended_pointee(ctx, p_expression, member_obj, &marker, ended_line, ended_origin);
                                 }
 
                                 flow_seed_member_default(ctx, member_obj, p_expression->first_token);
@@ -6921,7 +6914,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 .value = {.p = member_obj},
                                 .value_relation = FLOW_RELATION_EQUAL,
                                 .imaginary = FLOW_IMAGINARY_NONE,
-                                .p_origin_map = ctx->p_current_flow_branch,
+                                .p_origin_map = flow_origin_more_specific(ctx->p_current_flow_branch, p_pointer_alt->p_origin_map),
                                 .p_origin_token = p_expression->first_token
                                     };
                                     flow_alternatives_add(&result_entry->alternatives, &a);
@@ -6982,7 +6975,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                     Include the expression itself -- see the identical fix and
                                     rationale at the REF-alternative site above.
                                 */
-                                flow_record_ended_pointee(ctx, p_expression, &marker, ended_line, ended_origin);
+                                flow_record_ended_pointee(ctx, p_expression, member_obj, &marker, ended_line, ended_origin);
                             }
 
                             flow_seed_member_default(ctx, member_obj, p_expression->first_token);
@@ -6994,7 +6987,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                     .value = {.p = member_obj},
                                     .value_relation = FLOW_RELATION_EQUAL,
                                     .imaginary = FLOW_IMAGINARY_NONE,
-                                    .p_origin_map = ctx->p_current_flow_branch,
+                                    .p_origin_map = flow_origin_more_specific(ctx->p_current_flow_branch, ptr_alt->p_origin_map),
                                     .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&result_entry->alternatives, &a);
@@ -7104,7 +7097,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     if (!ctx->expression_is_not_evaluated &&
                     type_is_array(p_arr_type) &&
                     p_arr_type->array_num_elements > 0 &&
-                    !object_has_known_value(&p_expression->right->object))
+                    !object_has_constant_value(&p_expression->right->object))
                     {
                         const long long array_num_elements = (long long)p_arr_type->array_num_elements;
                         const struct flow_key_alternatives* _Opt idx_alts =
@@ -7429,24 +7422,35 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 else if (nullable_enabled && type_is_pointer(p_ret_type))
                 {
                     /*
-                        Non-_Opt pointer return: non-null. For a `_Clear`/`_Uninitialized`
-                        pointee contract, build a concrete pointee so members can be
-                        seeded zero/uninitialized (mirrors the _Opt branch above).
+                        Non-_Opt pointer return: non-null, with a concrete pointee (mirrors
+                        the _Opt branch above) so free/use-after-free can track it.
                     */
-                    struct object* _Opt p_pointed = NULL;
-                    if (ret_zero || ret_uninit)
+                    struct object* _Opt p_pointed = flow_allocated_object_arena_new(&ctx->allocated_object_arena);
+                    if (p_pointed != NULL)
                     {
-                        p_pointed = flow_allocated_object_arena_new(&ctx->allocated_object_arena);
-                        if (p_pointed != NULL)
+                        struct type pointed_type = type_remove_pointer(p_ret_type);
+                        make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, &ctx->ctx->options.platform);
+
+                        /* seeded in a child map, like the _Opt non-null map */
+                        struct flow_branch* _Opt p_pointee_map = flow_branch_arena_new(&ctx->flow_branch_arena, ctx->p_current_flow_branch, FLOW_BRANCH_CALL_OPT_NONNULL);
+                        if (p_pointee_map == NULL)
                         {
-                            struct type pointed_type = type_remove_pointer(p_ret_type);
-                            make_object(&pointed_type, p_pointed, MAKE_STATE_ANY, &ctx->ctx->options.platform);
-                            if (ret_zero)
-                                flow_branch_set_object_zero(ctx->p_current_flow_branch, p_pointed, p_call_token);
-                            else
-                                flow_branch_set_object_uninitialized(ctx->p_current_flow_branch, p_pointed, p_call_token);
                             type_destroy(&pointed_type);
+                            throw;
                         }
+                        struct flow_branch* p_old_branch = ctx->p_current_flow_branch;
+                        ctx->p_current_flow_branch = p_pointee_map;
+                        flow_object_init(ctx, p_pointed, p_call_token);
+                        ctx->p_current_flow_branch = p_old_branch;
+                        if (ret_zero)
+                        {
+                            flow_branch_set_object_zero(ctx->p_current_flow_branch, p_pointed, p_call_token);
+                        }
+                        else if (ret_uninit)
+                        {
+                            flow_branch_set_object_uninitialized(ctx->p_current_flow_branch, p_pointed, p_call_token);
+                        }
+                        type_destroy(&pointed_type);
                     }
                     {
                         struct flow_key_alternatives* _Opt e = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
@@ -7529,7 +7533,6 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         .p_token_begin = p_expression->compound_statement->last_token,
                         .p_token_end = p_expression->compound_statement->last_token
                     };
-                    flow_check_file_scope_objects_at_function_exit(ctx);
                     flow_check_write_qualified_params_at_exit(ctx, &marker, p_expression->compound_statement->last_token);
                     flow_defer_list_set_end_of_lifetime(ctx, &p_expression->compound_statement->defer_list, p_expression->compound_statement->last_token);
                     flow_check_exiting_objects(ctx, NULL, &marker);
@@ -8104,6 +8107,23 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 {
                     const struct flow_alternative* p_right_alt = p_right_alternatives->alternatives.data[i]; //lint 33
 
+                    /* direct pointer value, like *(int*)0 */
+                    if (p_right_alt->value_kind != FLOW_VALUE_KIND_REF &&
+                        p_right_alt->value_relation != FLOW_RELATION_ANY &&
+                        flow_alternative_can_be_zero(p_right_alt) &&
+                        !ctx->expression_is_not_evaluated &&
+                        flow_origins_compatible(p_right_alt->p_origin_map, ctx->p_current_flow_branch))
+                    {
+                        struct osstream name_ss = { 0 };
+                        flow_expression_to_string(p_expression, &name_ss);
+                        struct osstream ss = { 0 };
+                        ss_fprintf(&ss, "possible null pointer dereference '%s'", name_ss.c_str ? name_ss.c_str : "");
+                        flow_finding_record(ctx, &p_expression->object, W_FLOW_NULL_DEREFERENCE, &marker,
+                                            p_right_alt, p_right_alt->p_origin_map,
+                                            ss.c_str ? ss.c_str : "");
+                        ss_close(&ss);
+                        ss_close(&name_ss);
+                    }
 
                     if (p_right_alt->value_kind == FLOW_VALUE_KIND_REF)
                     {
@@ -10346,62 +10366,6 @@ static void flow_check_arena_objects_at_function_exit(const struct flow_ctx* ctx
 }
 
 
-static void flow_check_file_scope_objects_at_function_exit(const struct flow_ctx* ctx)
-{
-    /* Build a fast-lookup set of arena object pointers so we can skip them. */
-    struct object_set arena_set = { 0 };
-    for (int i = 0; i < ctx->allocated_object_arena.size; i++)
-    {
-        if (ctx->allocated_object_arena.data[i] != NULL) //lint 33
-        {
-            object_set_add(&arena_set, ctx->allocated_object_arena.data[i]); //lint 33
-        }
-    }
-
-    /* Collect every unique object key present anywhere in the map chain. */
-    struct object_set all_keys = { 0 };
-    struct flow_branch_entries it = flow_branch_entries_begin(ctx->p_current_flow_branch, NULL);
-    for (const struct flow_key_alternatives* _Opt e; (e = flow_branch_entries_next(&it)) != NULL;)
-    {
-        /* Skip sentinel keys that are not real objects */
-        uintptr_t val = (uintptr_t)e->p_obj_key;
-        if (val == UNINITIALIZED_VALUE || val == ANY_VALUE)
-        {
-            continue;
-        }
-        object_set_add(&all_keys, e->p_obj_key);
-    }
-
-    for (int i = 0; i < all_keys.size; i++)
-    {
-        const struct object* p_obj = all_keys.items[i]; //lint 33
-
-        /* Skip arena (synthetic) objects. */
-        bool in_arena = false;
-        for (int j = 0; j < arena_set.size; j++)
-        {
-            if (arena_set.items[j] == p_obj) //lint 33
-            {
-                in_arena = true;
-                break;
-            }
-        }
-        if (in_arena)
-        {
-            continue;
-        }
-
-        /* Skip non-file-scope objects (parameters, block-scope locals). */
-        if (!object_is_file_scope(p_obj))
-        {
-            continue;
-        }
-    }
-
-    object_set_destroy(&all_keys);
-    object_set_destroy(&arena_set);
-}
-
 /* Render a _Clear/_Out/_Dtor exit-check's subject as source code would spell it ('source->tail') instead of '(.tail)' pointee notation -- strip member_designator's leading dot and use '->' for the first hop since param_name is always a pointer, keeping any further dots as-is. User-reported. */
 static void flow_param_member_name_to_string(const char* param_name,
                                              const char* _Opt member_designator, struct osstream* ss)
@@ -10546,7 +10510,8 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_ctx
                                                                  const struct marker* marker,
                                                                  const struct token* p_exit_token,
                                                                  bool in_view,
-                                                                 bool top_level)
+                                                                 bool top_level,
+                                                                 bool root_is_pointer)
 {
     const bool view = in_view || type_is_view(p_type);
 
@@ -10561,7 +10526,8 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_ctx
                                                                  marker,
                                                                  p_exit_token,
                                                                  view,
-                                                                 false);
+                                                                 false,
+                                                                 root_is_pointer);
         }
         return;
     }
@@ -10602,12 +10568,22 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_ctx
                 p_alternative->imaginary == FLOW_IMAGINARY_ENDED)
         {
             struct osstream name_ss = { 0 };
-            flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss);
             struct osstream ss = { 0 };
             const char* what = p_alternative->imaginary == FLOW_IMAGINARY_MOVED ? "moved" : "released";
-            ss_fprintf(&ss,
-                       "parameter '%s' was %s but never reassigned; only a _Dtor or _Owner parameter may leave it %s",
-                       name_ss.c_str ? name_ss.c_str : param_name, what, what);
+            if (root_is_pointer)
+            {
+                flow_param_member_name_to_string(param_name, p_obj->member_designator, &name_ss);
+                ss_fprintf(&ss,
+                           "parameter '%s' was %s but never reassigned; only a _Dtor or _Owner parameter may leave it %s",
+                           name_ss.c_str ? name_ss.c_str : param_name, what, what);
+            }
+            else
+            {
+                /* file scope object: its members already have the full name */
+                ss_fprintf(&ss,
+                           "file scope object '%s' was %s but never reassigned",
+                           p_obj->member_designator ? p_obj->member_designator : param_name, what);
+            }
             flow_finding_record(ctx, p_obj, W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT, marker,
                                 p_alternative, p_alternative->p_origin_map,
                                 ss.c_str ? ss.c_str : "");
@@ -10719,6 +10695,7 @@ static void flow_check_write_qualified_params_at_exit(struct flow_ctx* ctx, cons
                                                                      marker,
                                                                      p_exit_token,
                                                                      false,
+                                                                     true,
                                                                      true);
             }
         }
@@ -10855,6 +10832,35 @@ static void flow_check_exiting_objects(struct flow_ctx* ctx,
         object_set_destroy(&visited);
     }
 
+    /* file scope objects the function used are in the map */
+    struct flow_branch_entries it = flow_branch_entries_begin(ctx->p_current_flow_branch, NULL);
+    for (const struct flow_key_alternatives* _Opt e; (e = flow_branch_entries_next(&it)) != NULL;)
+    {
+        const uintptr_t key = (uintptr_t)e->p_obj_key;
+        if (key != UNINITIALIZED_VALUE &&
+                key != ANY_VALUE &&
+                e->p_obj_key->parent == NULL &&
+                e->p_obj_key->member_designator != NULL &&
+                e->p_obj_key->member_designator[0] != '\0' &&
+                !(e->p_obj_key->type.storage_class_specifier_flags & (STORAGE_SPECIFIER_PARAMETER | STORAGE_SPECIFIER_BLOCK_SCOPE)))
+        {
+            struct object_set visited = { 0 };
+            flow_check_exiting_object_r(ctx, e->p_obj_key, &visited, e->p_obj_key->member_designator, false, false, marker);
+            object_set_destroy(&visited);
+
+            /* 1.1.6: like a parameter's pointee, no owner is left moved */
+            flow_check_non_dtor_param_owner_not_consumed_at_exit(ctx,
+                                                                 &e->p_obj_key->type,
+                                                                 e->p_obj_key,
+                                                                 e->p_obj_key->member_designator,
+                                                                 marker,
+                                                                 marker->p_token_begin,
+                                                                 false,
+                                                                 false,
+                                                                 false);
+        }
+    }
+
     struct function_declarator* _Opt p_fd = NULL;
     if (ctx->p_current_function_declaration != NULL &&
             ctx->p_current_function_declaration->init_declarator_list.head != NULL)
@@ -10933,7 +10939,6 @@ static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_sta
         .p_token_begin = p_jump_statement->first_token,
         .p_token_end = p_jump_statement->first_token
     };
-    flow_check_file_scope_objects_at_function_exit(ctx);
 
     /* Must run before flow_defer_list_set_end_of_lifetime: the exit's defer list includes the function's own parameters, so ending their lifetime first poisons the lookups this check depends on, silently skipping it on early-return paths (user-reported: a freed p->name left dangling, unreported). */
     flow_check_write_qualified_params_at_exit(ctx, &marker, p_jump_statement->first_token);
@@ -12097,7 +12102,6 @@ void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declarat
                     .p_token_begin = p_declaration->function_body->last_token,
                     .p_token_end = p_declaration->function_body->last_token
                 };
-                flow_check_file_scope_objects_at_function_exit(ctx);
                 /*
                     Falling off the end is an exit: check _Clear/_Dtor contracts. Before
                     p_current_function_declaration is cleared, and before

@@ -3808,7 +3808,15 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     {
                         if (p_expression_node->object.type.array_num_elements > 0)
                         {
-                            if (index >= (unsigned long long)p_expression_node->object.type.array_num_elements)
+                            if (type_is_signed_integer(&p_expression_node_new->right->object.type) &&
+                                object_to_signed_long_long(&p_expression_node_new->right->object) < 0)
+                            {
+                                diagnostic(W_OUT_OF_BOUNDS,
+                                           ctx,
+                                           ctx->current, NULL,
+                                           "array index %lld is negative", object_to_signed_long_long(&p_expression_node_new->right->object));
+                            }
+                            else if (index >= (unsigned long long)p_expression_node->object.type.array_num_elements)
                             {
                                 diagnostic(W_OUT_OF_BOUNDS,
                                            ctx,

@@ -781,6 +781,8 @@ void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const str
                 an unrelated line.
             */
             e->alternatives.data[i]->p_origin_token = p_token; //lint 33
+            /* the lifetime ends on this path, not on the arm that wrote the value */
+            e->alternatives.data[i]->p_origin_map = m; //lint 33
         }
     }
 }

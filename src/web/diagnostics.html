@@ -1273,6 +1273,21 @@ int main() {
 
 </code></pre>
 
+<p>A global (or an object reached by a pointer parameter) that keeps the address of a local after the function returns:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int* _Opt keep;
+
+void f(void)
+{
+    int x = 0;
+    keep = &amp;x;
+} //warning C0031: &#39;keep&#39; points to an object whose lifetime has ended after the function returns (see line ...)
+</code></pre>
+
 <p>See <a href="flow.html">object lifetime</a></p>
 
 <h3 id="toc_32">32 Object already moved (flow)</h3>
@@ -1396,6 +1411,7 @@ int main()
 {  
   int a[2]= {0};
   a[2] = 1; //warning C0042: index 2 is past the end of the array
+  a[-1] = 1; //warning C0042: array index -1 is negative
 }
 </code></pre>
 
@@ -1721,6 +1737,22 @@ void set(struct person* p, char* name)
     if (temp == 0) return; //warning C0072: parameter &#39;p-&gt;name&#39; was moved/released here (see line ...) but never reassigned -- only a _Dtor parameter may leave the caller&#39;s object consumed
     p-&gt;name = temp;
 }
+</code></pre>
+
+<p>A file scope object is a parameter passed another way, so the same holds for it:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Opt p);
+
+char* _Owner _Opt g;
+
+void f(void)
+{
+    free(g);
+} //warning C0072: file scope object &#39;g&#39; was moved but never reassigned
 </code></pre>
 
 <h3 id="toc_73">73 Unknown escape sequence</h3>
