@@ -1552,6 +1552,7 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
             flow_check_limits(ctx, p_selection_statement->first_token);
             if (ctx->stopped)
             {
+                flow_branch_remove(p_before, &hidden_expression.object);
                 ctx->p_current_flow_branch = p_before;
                 return;
             }
@@ -1607,6 +1608,8 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
             }
         }
 
+        /* hidden_expression is a local; its result entry must not outlive this function */
+        flow_branch_remove(p_before, &hidden_expression.object);
         ctx->p_current_flow_branch = p_before;
     }
     catch

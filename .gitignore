@@ -106,3 +106,5 @@ src/cake
 /vc/ide/x64_msvc
 /vc/ide/obj_cakeide/x64/Release
 .DS_Store
+/src/i686-pc-windows-msvc
+/tests/en-cpp-reference-c/i686-pc-windows-msvc
