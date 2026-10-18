@@ -84921,8 +84921,7 @@ static void flow_check_exiting_object_r(struct flow_ctx* ctx,
             */
             if (p_target == NULL ||
                     p_target == p_obj ||
-                    type_is_owner(&p_obj->type) ||
-                    p_alternative->imaginary == FLOW_IMAGINARY_MOVED ||
+                    (p_alternative->imaginary == FLOW_IMAGINARY_MOVED && !type_is_owner(&p_obj->type) && p_alternative->value_kind != FLOW_VALUE_KIND_REF) ||
                     (p_alternative->value_kind != FLOW_VALUE_KIND_PTR && p_alternative->value_kind != FLOW_VALUE_KIND_REF))
             {
                 continue;
@@ -84936,6 +84935,30 @@ static void flow_check_exiting_object_r(struct flow_ctx* ctx,
             }
 
             int line = 0;
+
+            /* an _Owner pointer may be left released, but what a live pointee holds still reaches the caller (issue #512) */
+            if (type_is_owner(&p_obj->type))
+            {
+                if (!flow_object_leaves_in_state(ctx, p_target, FLOW_LEAF_ENDED, p_alternative->p_origin_map, true, false, &line, NULL))
+                {
+                    if (!name_built)
+                    {
+                        if (root_is_pointer)
+                        {
+                            flow_param_member_name_to_string(root_name, p_obj->member_designator, &name_ss);
+                        }
+                        else
+                        {
+                            ss_fprintf(&name_ss, "%s", p_obj->member_designator ? p_obj->member_designator : root_name);
+                        }
+                        name_built = true;
+                        name = name_ss.c_str ? name_ss.c_str : root_name;
+                    }
+                    flow_check_exiting_object_r(ctx, p_target, p_visited, name, true, is_return, marker);
+                }
+                continue;
+            }
+
             enum diagnostic_id id = W_FLOW_LIFETIME_ENDED;
             const char* state = "an object whose lifetime has ended";
 

@@ -1,12 +1,12 @@
 # Cake annotations quick reference
 
-Section 0 defines the terms used by the rules. Section 1 is the base contract, without qualifiers. Sections 2, 3 and 5 to 9 each start from a section 1 rule ("Same as 1.x, except") and list only what their qualifier changes; everything else in that rule still holds. Section 4 covers assignment and section 10 how qualifiers combine. Section 11 lists known limits and section 12 explains how the flow analysis works.
+Section 0 defines the terms used by the rules. Section 1 is the base contract, without qualifiers. Sections 2, 3 and 5 to 9 each start from a section 1 rule ("Same as 1.x, except") and list only what their qualifier changes; everything else in that rule still holds. Section 4 covers assignment and section 10 how qualifiers combine. Section 11 lists known limits and section 12 specifies what the flow analysis must report.
 
 ## 0. Definitions
 
-- 0.1 **Valid**: the object and every object reachable from it are fully initialized, and their non-`_Opt` pointer members are non-null. Any member may be read without checks, except `_Opt` members. If it is not `const`, any member may also be written (4.1).
+- 0.1 **Valid**: the object and every object reachable from it are fully initialized, and their non-nullable pointer members are non-null (0.4). Any member may be read without checks, except nullable members. If it is not `const`, any member may also be written (4.1).
 - 0.2 **Uninitialized**: the object holds no value and no resources. Members must be written before they are read (reading is a warning); there is nothing to move.
-- 0.3 **File-scope objects**: a file-scope object is a parameter passed another way. Every rule for a parameter also holds for it. Its first read in a function starts as any value, like a parameter at entry: nothing set by another function is assumed, only the invariants of its type (a non-`_Opt` pointer is non-null). For example, at exit it may not point to a local of the function (1.1.5):
+- 0.3 **File-scope objects**: a file-scope object is a parameter passed another way. Every rule for a parameter also holds for it. Its first read in a function starts as any value, like a parameter at entry: nothing set by another function is assumed, only the invariants of its type (a non-nullable pointer is non-null). For example, at exit it may not point to a local of the function (1.1.5):
 
 <!-- runnable -->
 
@@ -23,6 +23,8 @@ void f(int** p)
 } //warning 31 'keep' points to an object whose lifetime has ended after the function returns
   //warning 31 'p' points to an object whose lifetime has ended after the function returns
 ```
+
+- 0.4 **Nullable / non-nullable**: a pointer declared with `_Opt` is nullable: it may be null and must be tested before it is dereferenced. A pointer declared without `_Opt` is non-nullable: it is never null.
 
 ## 1. No annotation
 
@@ -41,7 +43,7 @@ void f(int** p)
 - **Caller assumes**
   - 1.1.8 `*p` is still valid (0.1) and still owned by the caller.
   - 1.1.9 `*p` and every object reachable from it may have been modified; pointers the caller held into reachable objects (e.g. a copy of `p->text`) are invalidated.
-  - 1.1.10 What the caller knew about the state of `*p` and reachable objects before the call is lost; only the invariants of the type hold (e.g. a `_Opt` member tested non-null before the call may be null after it).
+  - 1.1.10 What the caller knew about the state of `*p` and reachable objects before the call is lost; only the invariants of the type hold (e.g. a nullable member tested non-null before the call may be null after it).
 
 A member that is released must be set again (1.1.6):
 
@@ -346,7 +348,7 @@ int main()
 
 Same as 1.1, except:
 
-- 3.3.1 Any pointer member of `*p` and every object reachable from it may be null, even members declared without `_Opt`.
+- 3.3.1 Any pointer member of `*p` and every object reachable from it may be null, even non-nullable members.
 - 3.3.2 The caller may pass a possibly incomplete object, e.g. right after `= {}`.
 
 3.3.3 Candidate for removal: where it is needed, `_Dtor` already implies it.
@@ -408,7 +410,7 @@ void g(struct person* p)
   - 4.1.1 `a` and every `_Owner` member of `a` are empty (uninitialized, null or moved); otherwise the old resource leaks.
 - **Source `b` must be**
   - 4.1.2 Initialized.
-  - 4.1.3 Not null when `a` is not `_Opt`.
+  - 4.1.3 Not null when `a` is non-nullable.
   - 4.1.4 `b` and every `_Owner` member of `b` were not moved before.
 - **After the assignment**
   - 4.1.5 `a` has the value and the null state of `b`.
@@ -416,7 +418,7 @@ void g(struct person* p)
   - 4.1.7 non-owner `= _Owner`: `b` keeps ownership; `a` is a view. After the owner is released, using `a` is detected.
   - 4.1.8 `_Owner =` non-owner: not allowed.
 
-4.1.9 `struct X x = {}` may leave non-`_Opt` members null; they must be set before the object is used.
+4.1.9 `struct X x = {}` may leave non-nullable members null; they must be set before the object is used.
 
 4.1.10 Passing an argument to a parameter follows the same rules, with the parameter as `a`.
 
@@ -512,7 +514,7 @@ void f2(void)
 Same as 1.1, except:
 
 - **Implementation assumes**
-  - 5.1.1 As in 3.3.1, any pointer member of `*p` may be null, even members declared without `_Opt`. Justification: the destructor must also destroy partially created objects.
+  - 5.1.1 As in 3.3.1, any pointer member of `*p` may be null, even non-nullable members. Justification: the destructor must also destroy partially created objects.
 - **Implementation guarantees**
   - 5.1.2 On every exit path, every `_Owner` member of `*p` has been moved. Moved members do not need to be set again.
 - **Caller must pass**
@@ -707,7 +709,7 @@ void f(void)
 
 Same as 1.2, except (1.2.3 and 1.2.4 do not apply):
 
-- 6.2.1 Every member of `*result` is zero, like memory from `calloc`; non-`_Opt` members are null until set.
+- 6.2.1 Every member of `*result` is zero, like memory from `calloc`; non-nullable members are null until set.
 
 <!-- runnable -->
 
@@ -947,7 +949,7 @@ void x_destroy(_Dtor struct X* p)
 
 10.1 Qualifiers combine; each one adds its own contract and they do not change each other.
 
-10.2 Example: `_Uninitialized struct X* _Owner _Opt F(void)` is 3.2 (`_Opt`: check for null) + 9.2 (`_Owner`: the caller must move it) + 7.1 (`*result` is uninitialized).
+10.2 Example: `_Uninitialized struct X* _Owner _Opt F(void)` is 3.2 (nullable: check for null) + 9.2 (`_Owner`: the caller must move it) + 7.1 (`*result` is uninitialized).
 
 10.3 Example: `_Out _Clear struct X* p` is 2.1 (`*p` is uninitialized at entry, so nothing is released) + 6.1 (every member is zero at exit). If the caller passes an object that still owns something, the warning is at the call site:
 
@@ -1034,14 +1036,162 @@ int f(void)
 
 ## 12. Flow analysis
 
-- **One function at a time.** Calls are not followed; a call is checked against the declaration of the function. That is why annotations matter: they are the contract between caller and implementation.
-- **A state per object.** For each variable, member and pointed object, cake keeps the set of states it may have: null, not null, uninitialized, moved, lifetime ended, ...
-- **Each state keeps its origin.** Cake remembers where each state came from, so a warning points to the line that caused it (for example, the `free` that ended the lifetime).
-- **Warnings are questions.** "Can `p` be null here?", "does `s` still own its resource at the end?". If any state says yes, the warning is reported.
+This section says what a conforming implementation must report, not how. "Must" means the diagnostic is required. "Must not" means reporting it is an error (a false positive). Cases the section does not cover are left to the implementation.
 
-`static_debug(x)` prints the state of `x` at that point.
+### 12.1 Scope
 
-### 12.1 The domino effect: fixing a leak demo
+- 12.1.1 The analysis runs on one function body at a time. It must not use the body of another function. A call is described only by the declaration of the callee and the contracts of sections 1 to 10.
+- 12.1.2 At function entry, parameters and file-scope objects hold any value allowed by their type and annotations (0.3). Nothing else may be assumed.
+- 12.1.3 An implementation may stop analysing a function when it is too large. It must then report warning 97 once, at the point where it stopped, and must report no other flow diagnostic for the rest of that function. The next function is analysed normally.
+
+### 12.2 Abstract state
+
+- 12.2.1 At each point of the program, every object the function can name (variables, members, array elements, objects reached through pointers) has a **set of possible states**. A state is one of the facts below, or a combination of them:
+  - uninitialized, or holding a value;
+  - for a value: a known constant, a range, or unknown;
+  - for a pointer: null, not null, or pointing to a specific object;
+  - for an owner: owning, moved, or null;
+  - lifetime ended.
+- 12.2.2 Each possible state corresponds to at least one **path** from function entry to that point. A state with no path must not be in the set.
+- 12.2.3 A diagnostic about an object must be reported when at least one possible state at that point supports it, and must not be reported when none does.
+
+### 12.3 Statements and paths
+
+- 12.3.1 **Sequence.** A statement receives the states that reach its start and produces the states at its end.
+- 12.3.2 **Merge.** Where paths meet (after `if`, `switch`, `?:`, at a label, after a loop), the set is the union of the sets of the paths that arrive. A path that left by `return`, `break`, `continue`, `goto`, `throw` or a call to a noreturn function does not arrive.
+- 12.3.3 **Forward `goto`.** A label receives the states of every `goto` that jumps to it and of the statement before it.
+
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+void f(int x)
+{
+    int a = 1;
+    if (x)
+        goto L;
+    a = 2;
+L:
+    compile_assert(a == 1 || a == 2);
+}
+```
+
+- 12.3.4 **Unreachable code.** A statement no path reaches must be reported with warning 68, once per run of consecutive dead statements. Its effects must not reach any later point.
+
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+void f(int x)
+{
+    int a = 1;
+    if (x)
+    {
+        return;
+        a = 99; //warning 68
+    }
+    compile_assert(a == 1);
+}
+```
+
+### 12.4 Conditions
+
+- 12.4.1 **Narrowing.** In the true branch of a condition, only the states for which the condition can be true remain; in the false branch, only those for which it can be false. This applies to `if`, `while`, `for`, `do`, `?:`, the operands of `&&` and `||`, `!`, and comparisons with constants.
+
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+void f(int* _Opt p)
+{
+    if (p)
+        compile_assert(p != 0);
+    else
+        compile_assert(p == 0);
+}
+```
+
+- 12.4.2 An assignment inside a condition narrows the assigned object (`if ((p = g()) != 0)`).
+- 12.4.3 A branch whose condition is false in every state is unreachable (12.3.4) and its effects must not reach the merge.
+- 12.4.4 When a condition has the same result in every state, warning 85 must be reported, unless the condition is a constant expression written as such (`if (1)`, `while (1)`).
+
+### 12.5 Loops
+
+- 12.5.1 The states after a loop are the union of the states where the condition is false and the states at every `break`.
+- 12.5.2 The first check of the condition uses the states at loop entry. When it is true in every state, the body runs at least once and the "zero iterations" path must not exist.
+
+<!-- runnable -->
+
+```c
+void f(const char* s);
+
+void g(int n)
+{
+    char* p;
+    for (int h = 0; h < 1; h++) p = "";
+    f(p);
+}
+
+void h(int n)
+{
+    char* p;
+    for (int h = 0; h < n; h++) p = "";
+    f(p); //warning 30
+}
+```
+
+- 12.5.3 A `do` body runs at least once.
+- 12.5.4 States produced by one iteration must reach the next one: a diagnostic caused by the second iteration (for example, a double free) must be reported.
+
+### 12.6 Value diagnostics
+
+Each of these must be reported at the expression that causes it.
+
+- 12.6.1 Reading an uninitialized object: warning 30.
+- 12.6.2 Dereferencing a pointer that may be null: warning 33. Passing it where a non-nullable pointer is expected: warning 35.
+- 12.6.3 Dividing by a value that may be zero: warning 36.
+- 12.6.4 Indexing an array with a value that may be out of its bounds: warning 70.
+- 12.6.5 Using an object whose lifetime ended, or that was moved: warnings 31 and 32.
+
+### 12.7 Scope and function exit
+
+- 12.7.1 When an object goes out of scope while it may still own a resource, the leak must be reported (section 9).
+- 12.7.2 At each `return` and at the closing `}`, the contracts of the parameters, of the return value and of file-scope objects must be checked (sections 1 to 9), including 1.1.5: no pointer visible to the caller may point to a local.
+- 12.7.3 `defer` blocks run at every exit of their scope, once.
+
+### 12.8 Reporting
+
+- 12.8.1 A diagnostic is reported at most once per expression and id.
+- 12.8.2 When the same fact is supported by several paths, it must be reported once. The message may say how many other paths support it, as `(+N branches)`.
+
+<!-- runnable -->
+
+```c
+#pragma safety enable
+
+void use(int* p);
+int g;
+
+void f(int a, int b)
+{
+    int* _Opt p = &g;
+    if (a) p = 0;
+    else if (b) p = 0;
+    use(p); //warning 35
+}
+```
+
+- 12.8.3 The message should name the line that produced the state (for example, the `free` that ended the lifetime).
+
+### 12.9 Inspection
+
+- 12.9.1 `compile_assert(e)` must report an error when `e` can be false in some state. `_Assert(e)` and `assert(e)` narrow like a condition (12.4.1) and keep only the states where `e` is true.
+- 12.9.2 `static_debug(x)` prints the possible states of `x`. Its format is not specified.
+
+### 12.10 The domino effect: fixing a leak demo
 
 Code with a leak compiles clean when the checks are disabled.
 
