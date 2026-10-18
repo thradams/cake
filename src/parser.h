@@ -1531,6 +1531,9 @@ struct selection_statement
     struct init_statement* _Owner _Opt p_init_statement;
     struct condition* _Owner _Opt _Opt condition;
 
+    /* if (T x = ...): the declarator as the condition expression, created by flow; maps key on its object */
+    struct expression* _Owner _Opt p_hidden_expression;
+
     struct secondary_block* _Owner _Opt secondary_block;
     struct secondary_block* _Owner _Opt else_secondary_block_opt;
 

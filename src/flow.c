@@ -1445,12 +1445,7 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
             flow_visit_simple_declaration(ctx, p_selection_statement->p_init_statement->p_simple_declaration);
         }
 
-
-        _Opt _View struct expression hidden_expression =
-        {
-            .first_token = p_selection_statement->first_token,
-            .last_token = p_selection_statement->last_token
-        };
+        struct expression* _Opt p_hidden_expression = NULL;
 
         struct flow_true_false_branches cond_pair = { 0 };
 
@@ -1470,12 +1465,19 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
                 p_selection_statement->condition->expression == NULL &&
                 p_selection_statement->condition->p_init_declarator != NULL)
         {
-            hidden_expression.expression_type = EXPR_PRIMARY_DECLARATOR;
-            hidden_expression.declarator = p_selection_statement->condition->p_init_declarator->p_declarator;
+            if (p_selection_statement->p_hidden_expression == NULL)
+            {
+                p_selection_statement->p_hidden_expression = calloc(1, sizeof(struct expression));
+                if (p_selection_statement->p_hidden_expression == NULL)
+                    throw;
+            }
+            p_hidden_expression = p_selection_statement->p_hidden_expression;
+            p_hidden_expression->expression_type = EXPR_PRIMARY_DECLARATOR;
+            p_hidden_expression->declarator = p_selection_statement->condition->p_init_declarator->p_declarator;
             _Assert(p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt != NULL);
-            hidden_expression.first_token = p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt;
-            hidden_expression.last_token = hidden_expression.first_token;
-            cond_pair = flow_visit_full_expression(ctx, &hidden_expression);
+            p_hidden_expression->first_token = p_selection_statement->condition->p_init_declarator->p_declarator->first_token_opt;
+            p_hidden_expression->last_token = p_hidden_expression->first_token;
+            cond_pair = flow_visit_full_expression(ctx, p_hidden_expression);
         }
 
         _Assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
@@ -1497,15 +1499,9 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
             {
                 p_if_cond = p_selection_statement->condition->expression;
             }
-            else if (p_selection_statement->condition->p_init_declarator != NULL &&
-                     hidden_expression.first_token != NULL &&
-                     hidden_expression.last_token != NULL)
+            else if (p_hidden_expression != NULL)
             {
-                /*
-                    The tokens are only set by the branch above that actually built
-                    hidden_expression; without them there is no condition to narrow.
-                */
-                p_if_cond = &hidden_expression;
+                p_if_cond = p_hidden_expression;
             }
         }
         /* a comparison is checked where it is evaluated, condition or not */
@@ -1552,7 +1548,6 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
             flow_check_limits(ctx, p_selection_statement->first_token);
             if (ctx->stopped)
             {
-                flow_branch_remove(p_before, &hidden_expression.object);
                 ctx->p_current_flow_branch = p_before;
                 return;
             }
@@ -1608,8 +1603,6 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
             }
         }
 
-        /* hidden_expression is a local; its result entry must not outlive this function */
-        flow_branch_remove(p_before, &hidden_expression.object);
         ctx->p_current_flow_branch = p_before;
     }
     catch

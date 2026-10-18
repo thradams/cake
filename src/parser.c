@@ -13821,6 +13821,7 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
         secondary_block_delete(p->else_secondary_block_opt);
 
         condition_delete(p->condition);
+        expression_delete(p->p_hidden_expression);
         init_statement_delete(p->p_init_statement);
         defer_list_destroy(&p->defer_list);
         free(p);
