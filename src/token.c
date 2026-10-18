@@ -1878,14 +1878,14 @@ void rename_list_clear(_Clear struct rename_list* p)
 {
     for (int i = 0; i < p->size; i++)
     {
-        rename_item_free(&p->data[i]);
+        rename_item_free(&p->data[i]); //lint 33
     }
     free(p->data); //lint 29
 
     for (int i = 0; i < p->pending_size; i++)
     {
-        rename_item_free(&p->pending[i].item);
-        rename_item_free(&p->pending[i].declaration);
+        rename_item_free(&p->pending[i].item); //lint 33
+        rename_item_free(&p->pending[i].declaration); //lint 33
     }
     free(p->pending); //lint 29 29
     *p = (struct rename_list){ 0 };
@@ -1901,7 +1901,7 @@ static bool rename_list_contains(const struct rename_list* list, const struct re
     bool found = false;
     for (int i = 0; i < list->size; i++)
     {
-        if (rename_item_is(&list->data[i], p->file, p->line, p->col))
+        if (rename_item_is(&list->data[i], p->file, p->line, p->col)) //lint 33
         {
             found = true;
             break;
@@ -1956,7 +1956,7 @@ bool rename_list_commit(struct rename_list* list, const struct options* options)
     /* the declarations this file gives to the target or to an occurrence already kept (a header seen by many files) */
     for (int i = 0; i < list->pending_size; i++)
     {
-        struct rename_pending* p_pending = &list->pending[i];
+        struct rename_pending* p_pending = &list->pending[i]; //lint 33
         if (p_pending->item.file == NULL)
             continue; /* already kept with its declaration */
 
@@ -1969,7 +1969,7 @@ bool rename_list_commit(struct rename_list* list, const struct options* options)
 
         for (int j = 0; j < list->pending_size; j++)
         {
-            struct rename_pending* p_other = &list->pending[j];
+            struct rename_pending* p_other = &list->pending[j]; //lint 33
             if (p_other->item.file == NULL ||
                 !rename_item_is(&p_other->declaration, p_pending->declaration.file,
                     p_pending->declaration.line, p_pending->declaration.col) ||
@@ -1988,7 +1988,7 @@ bool rename_list_commit(struct rename_list* list, const struct options* options)
                 list->capacity = capacity;
             }
 
-            list->data[list->size] = p_other->item;
+            list->data[list->size] = p_other->item; //lint 33
             list->size++;
             p_other->item.file = NULL;
         }
@@ -2000,8 +2000,8 @@ bool rename_list_commit(struct rename_list* list, const struct options* options)
 
     for (int i = 0; i < list->pending_size; i++)
     {
-        rename_item_free(&list->pending[i].item);
-        rename_item_free(&list->pending[i].declaration);
+        rename_item_free(&list->pending[i].item); //lint 33
+        rename_item_free(&list->pending[i].declaration); //lint 33
     }
     list->pending_size = 0;
     return true;
@@ -2040,8 +2040,8 @@ void rename_pairs_clear(_Clear struct rename_pairs* p)
 {
     for (int i = 0; i < p->size; i++)
     {
-        rename_item_free(&p->data[i].item);
-        rename_item_free(&p->data[i].declaration);
+        rename_item_free(&p->data[i].item); //lint 33
+        rename_item_free(&p->data[i].declaration); //lint 33
     }
     free(p->data); //lint 29 29
     p->data = NULL;

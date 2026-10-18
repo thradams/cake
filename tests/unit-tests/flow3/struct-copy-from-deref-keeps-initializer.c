@@ -4,7 +4,7 @@
 
 struct s2 { int k; int v; };
 
-void two_int_members(const struct s2* _Opt const* _Opt list, int count)
+void two_int_members(const struct s2* _Opt const* list, int count)
 {
     for (int j = 0; j < count; j++)
     {
@@ -22,7 +22,7 @@ struct s_union
     int rel;
 };
 
-void with_union_member(const struct s_union* _Opt const* _Opt list, int count)
+void with_union_member(const struct s_union* _Opt const* list, int count)
 {
     for (int j = 0; j < count; j++)
     {

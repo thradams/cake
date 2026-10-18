@@ -5166,6 +5166,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             struct type nt =
                 type_dup(&p_typedef_declarator->object.type);
 
+            /* the typedef storage belongs to the typedef name, not to this declarator */
+            nt.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_TYPEDEF;
+
             free((void* _Owner)nt.name_opt);
             nt.name_opt = NULL;
             if (pdeclarator->name_opt)

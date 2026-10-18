@@ -320,7 +320,7 @@ int struct_entry_list_push_back(struct struct_entry_list* p, struct struct_entry
         }
     }
 
-    p->data[p->size] = book; /*VIEW*/
+    p->data[p->size] = book; /*VIEW*/ //lint 33
     p->size++;
 
     return 0;
@@ -1758,7 +1758,7 @@ static void vm_emit_dim(struct codegen_ctx* ctx, struct osstream* oss, const str
     bool snapshotted = false;
     for (int i = 0; i < ctx->vm_snapshot_count; i++)
     {
-        if (ctx->vm_snapshot_ids[i] == p_type->vm_dim_id)
+        if (ctx->vm_snapshot_ids[i] == p_type->vm_dim_id) //lint 33
         {
             snapshotted = true;
             break;
@@ -7429,7 +7429,7 @@ static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                 bool already_declared = false;
                 for (int i = 0; i < ctx->vm_snapshot_count; i++)
                 {
-                    if (ctx->vm_snapshot_ids[i] == it->vm_dim_id)
+                    if (ctx->vm_snapshot_ids[i] == it->vm_dim_id) //lint 33
                     {
                         already_declared = true;
                         break;
@@ -7449,7 +7449,7 @@ static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                         ctx->vm_snapshot_ids = new_ids; //lint 26 (realloc)
                         ctx->vm_snapshot_capacity = new_capacity;
                     }
-                    ctx->vm_snapshot_ids[ctx->vm_snapshot_count] = it->vm_dim_id;
+                    ctx->vm_snapshot_ids[ctx->vm_snapshot_count] = it->vm_dim_id; //lint 33
                     ctx->vm_snapshot_count++;
 
                     char name[100] = { 0 };
@@ -8032,7 +8032,7 @@ void d_print_structs(struct codegen_ctx* ctx, struct osstream* ss, struct struct
     */
     for (int i = 0; i < p_struct_entry->hard_dependencies.size; i++)
     {
-        struct struct_entry* p_struct_entry_item = p_struct_entry->hard_dependencies.data[i];
+        struct struct_entry* p_struct_entry_item = p_struct_entry->hard_dependencies.data[i]; //lint 33
         d_print_structs(ctx, ss, p_struct_entry_item);
     }
 
@@ -8041,7 +8041,7 @@ void d_print_structs(struct codegen_ctx* ctx, struct osstream* ss, struct struct
     */
     for (int i = 0; i < p_struct_entry->soft_dependencies.size; i++)
     {
-        struct struct_entry* p_struct_entry_item = p_struct_entry->soft_dependencies.data[i];
+        struct struct_entry* p_struct_entry_item = p_struct_entry->soft_dependencies.data[i]; //lint 33
         if (!p_struct_entry_item->definition_was_printed &&
             !p_struct_entry_item->declaration_was_printed)
         {
@@ -8309,7 +8309,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
         for (int i = 0; i < ctx->structs_map.capacity; i++)
         {
-            struct map_entry* _Opt entry = ctx->structs_map.table[i];
+            struct map_entry* _Opt entry = ctx->structs_map.table[i]; //lint 33
             while (entry)
             {
                 _Assert(entry->data.p_struct_entry != NULL);

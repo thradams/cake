@@ -1134,7 +1134,7 @@ static int rename_item_compare(const void* a, const void* b)
 */
 static bool rename_apply_file(const struct rename_list* list, int begin, int end, const char* new_name)
 {
-    const char* file = list->data[begin].file;
+    const char* file = list->data[begin].file; //lint 33
     char* _Owner _Opt content = read_file_binary(file);
     if (content == NULL)
     {
@@ -1151,15 +1151,15 @@ static bool rename_apply_file(const struct rename_list* list, int begin, int end
 
     for (int i = begin; i < end && ok; i++)
     {
-        while (line < list->data[i].line && *line_start)
+        while (line < list->data[i].line && *line_start) //lint 33
         {
             const char* eol = strchr(line_start, '\n');
             line_start = eol ? eol + 1 : line_start + strlen(line_start);
             line++;
         }
 
-        const char* p = line_start + (list->data[i].col - 1);
-        if (line != list->data[i].line || p < copied || strncmp(p, list->old_name, old_len) != 0)
+        const char* p = line_start + (list->data[i].col - 1); //lint 33
+        if (line != list->data[i].line || p < copied || strncmp(p, list->old_name, old_len) != 0) //lint 33
         {
             ok = false;
             break;
@@ -1199,7 +1199,7 @@ static bool rename_apply_file(const struct rename_list* list, int begin, int end
 */
 static void find_usages_print_file(const struct rename_list* list, int begin, int end, const struct options* options)
 {
-    const char* file = list->data[begin].file;
+    const char* file = list->data[begin].file; //lint 33
     char* _Owner _Opt content = read_file_binary(file);
 
     char text[300];
@@ -1212,12 +1212,12 @@ static void find_usages_print_file(const struct rename_list* list, int begin, in
     {
         ss_print_diagnostic_header(&ss, file, list->data[i].line, list->data[i].col,
             options->diagnostic_ouput_format, !options->color_disabled, true,
-            W_FIND_DEFINITION, false, false, true, text);
+            W_FIND_DEFINITION, false, false, true, text); //lint 33 33
 
         if (line_start == NULL)
             continue;
 
-        while (line < list->data[i].line && *line_start)
+        while (line < list->data[i].line && *line_start) //lint 33
         {
             const char* eol = strchr(line_start, '\n');
             line_start = eol ? eol + 1 : line_start + strlen(line_start);
@@ -1375,7 +1375,7 @@ static void rename_run(const char* const* files, int count, struct options* opti
         progress = false;
         for (int i = 0; i < count; i++)
         {
-            if (undecided[i].size > 0 && rename_list_commit_saved(&list, &undecided[i], options))
+            if (undecided[i].size > 0 && rename_list_commit_saved(&list, &undecided[i], options)) //lint 33
                 progress = true;
         }
     }
@@ -1394,7 +1394,7 @@ static void rename_run(const char* const* files, int count, struct options* opti
     for (int begin = 0; begin < list.size;)
     {
         int end = begin + 1;
-        while (end < list.size && strcmp(list.data[end].file, list.data[begin].file) == 0)
+        while (end < list.size && strcmp(list.data[end].file, list.data[begin].file) == 0) //lint 33 33
             end++;
         if (find_usages)
             find_usages_print_file(&list, begin, end, options);

@@ -75,7 +75,7 @@ static int json_buffer_push(struct buffer *b, char c)
             throw;
         }
 
-        b->data[b->length++] = c;
+        b->data[b->length++] = c; //lint 33
         result = 1;
     }
     catch
@@ -98,25 +98,25 @@ static int json_buffer_push_codepoint(struct buffer *b, unsigned long cp)
 
         if (cp < 0x80)
         {
-            b->data[b->length++] = (char)cp;
+            b->data[b->length++] = (char)cp; //lint 33
         }
         else if (cp < 0x800)
         {
-            b->data[b->length++] = (char)(0xC0 | (cp >> 6));
-            b->data[b->length++] = (char)(0x80 | (cp & 0x3F));
+            b->data[b->length++] = (char)(0xC0 | (cp >> 6)); //lint 33
+            b->data[b->length++] = (char)(0x80 | (cp & 0x3F)); //lint 33
         }
         else if (cp < 0x10000)
         {
-            b->data[b->length++] = (char)(0xE0 | (cp >> 12));
-            b->data[b->length++] = (char)(0x80 | ((cp >> 6) & 0x3F));
-            b->data[b->length++] = (char)(0x80 | (cp & 0x3F));
+            b->data[b->length++] = (char)(0xE0 | (cp >> 12)); //lint 33
+            b->data[b->length++] = (char)(0x80 | ((cp >> 6) & 0x3F)); //lint 33
+            b->data[b->length++] = (char)(0x80 | (cp & 0x3F)); //lint 33
         }
         else
         {
-            b->data[b->length++] = (char)(0xF0 | (cp >> 18));
-            b->data[b->length++] = (char)(0x80 | ((cp >> 12) & 0x3F));
-            b->data[b->length++] = (char)(0x80 | ((cp >> 6) & 0x3F));
-            b->data[b->length++] = (char)(0x80 | (cp & 0x3F));
+            b->data[b->length++] = (char)(0xF0 | (cp >> 18)); //lint 33
+            b->data[b->length++] = (char)(0x80 | ((cp >> 12) & 0x3F)); //lint 33
+            b->data[b->length++] = (char)(0x80 | ((cp >> 6) & 0x3F)); //lint 33
+            b->data[b->length++] = (char)(0x80 | (cp & 0x3F)); //lint 33
         }
         result = 1;
     }
@@ -423,7 +423,7 @@ static char * _Opt _Owner json_parse_string(struct parser *parser)
             throw;
         }
 
-        buffer.data[buffer.length] = 0;
+        buffer.data[buffer.length] = 0; //lint 33
         result = buffer.data;
         buffer.data = NULL;
         buffer.length = 0;

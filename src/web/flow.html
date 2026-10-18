@@ -277,32 +277,35 @@
 <li>
 <a href="#toc_32">Pointer Equality Between Distinct Pointers</a>
 </li>
+<li>
+<a href="#toc_33">Aliases Returned by Functions Are Not Tracked</a>
+</li>
 </ul>
 </li>
 <li>
-<a href="#toc_33">Chapter 6: Code Transition Strategy</a>
+<a href="#toc_34">Chapter 6: Code Transition Strategy</a>
 <ul>
 <li>
-<a href="#toc_34">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></a>
+<a href="#toc_35">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></a>
 </li>
 <li>
-<a href="#toc_35">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</a>
+<a href="#toc_36">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_36">Quick Reference</a>
+<a href="#toc_37">Quick Reference</a>
 <ul>
 <li>
-<a href="#toc_37">Contracts</a>
+<a href="#toc_38">Contracts</a>
 </li>
 <li>
-<a href="#toc_38">Built-in Intrinsics</a>
+<a href="#toc_39">Built-in Intrinsics</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_39">References</a>
+<a href="#toc_40">References</a>
 </li>
 </ul>
 </li>
@@ -1142,9 +1145,31 @@ void ptr_eq(int* _Opt p, int* _Opt q) {
 pointer operands trigger this.</p>
 </blockquote>
 
+<h3 id="toc_33">Aliases Returned by Functions Are Not Tracked</h3>
+
+<p>A non-owner pointer returned by a function is not linked to the argument it came from. Here <code>q</code>
+aliases <code>p</code>, but after <code>free(p)</code> the analyzer does not know that <code>q</code> points to freed memory, so the
+use after free is not reported:</p>
+
+<pre><code class="language-c">#pragma safety enable
+void* _Owner _Opt malloc(unsigned long n);
+void free(void* _Owner _Opt p);
+
+int* id(int* q) { return q; }
+
+int f(void)
+{
+    int* _Owner _Opt p = malloc(sizeof(int));
+    if (!p) return 0;
+    int* q = id(p);
+    free(p);
+    return *q;   // use after free
+}
+</code></pre>
+
 <p>These are implementation constraints, not flaws in the ownership model itself.</p>
 
-<h2 id="toc_33">Chapter 6: Code Transition Strategy</h2>
+<h2 id="toc_34">Chapter 6: Code Transition Strategy</h2>
 
 <p>Adopting Cake&#39;s static analysis in an existing codebase does not require a big-bang migration. The recommended approach is incremental:</p>
 
@@ -1192,7 +1217,7 @@ file and the analyzer&#39;s warnings, ask it to add the annotations or the missi
 <code>if (p)</code> / <code>free(p)</code>, and re-run Cake. The analyzer is the reviewer - the
 migration is done when it reports nothing, not when the diff looks plausible.</p>
 
-<h3 id="toc_34">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></h3>
+<h3 id="toc_35">Annotating the Standard Library: Cake&#39;s Headers and <code>#include_next</code></h3>
 
 <p>Cake ships annotated versions of the standard headers (<code>stdlib.h</code>, <code>string.h</code>,
 <code>stdio.h</code>, ...). Cake&#39;s copy declares <code>malloc</code>, <code>free</code> and the others with
@@ -1214,7 +1239,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_35">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</h3>
+<h3 id="toc_36">Annotating a Function Cake&#39;s Headers Don&#39;t Cover</h3>
 
 <p>For a library Cake doesn&#39;t ship annotated headers for, the same idea applies
 by hand: declare the function yourself, with annotations, before the real
@@ -1241,9 +1266,9 @@ is compatible with the ones before it - the plain declaration the header
 brings in afterward is just a compatible redeclaration of the same
 signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 
-<h2 id="toc_36">Quick Reference</h2>
+<h2 id="toc_37">Quick Reference</h2>
 
-<h3 id="toc_37">Contracts</h3>
+<h3 id="toc_38">Contracts</h3>
 
 <table>
 <thead>
@@ -1365,7 +1390,7 @@ signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 </tbody>
 </table>
 
-<h3 id="toc_38">Built-in Intrinsics</h3>
+<h3 id="toc_39">Built-in Intrinsics</h3>
 
 <table>
 <thead>
@@ -1387,7 +1412,7 @@ signature, and it doesn&#39;t erase the contract Cake already recorded.</p>
 </tbody>
 </table>
 
-<h2 id="toc_39">References</h2>
+<h2 id="toc_40">References</h2>
 
 <ul>
 <li>C# Nullable References: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references</a></li>

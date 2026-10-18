@@ -114,7 +114,7 @@ int ss_putc(char ch, struct osstream* stream)
     {
         return EOF;
     }
-    stream->c_str[stream->size] = ch;
+    stream->c_str[stream->size] = ch; //lint 33
     stream->size++;
 
     return ch;

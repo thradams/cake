@@ -301,7 +301,7 @@
 <a href="#toc_43">43 Assignment to array parameter</a>
 </li>
 <li>
-<a href="#toc_44">44 Conditional is constant (currently disabled)</a>
+<a href="#toc_44">44 Conditional is constant</a>
 </li>
 <li>
 <a href="#toc_45">45 Suspicious switch statement</a>
@@ -1273,7 +1273,7 @@ int main() {
 
 </code></pre>
 
-<p>See <a href="ownership.html">object lifetime</a></p>
+<p>See <a href="flow.html">object lifetime</a></p>
 
 <h3 id="toc_32">32 Object already moved (flow)</h3>
 
@@ -1408,13 +1408,18 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_44">44 Conditional is constant (currently disabled)</h3>
+<h3 id="toc_44">44 Conditional is constant</h3>
+
+<p>The controlling expression of an <code>if</code>, <code>switch</code> or loop is a constant expression.</p>
 
 <!-- runnable -->
 
 <pre><code class="language-c">int main()
-{  
-  if (1) {
+{
+  if (1) { //warning 44: conditional expression is constant
+  }
+  switch (5) { //warning 44: conditional expression is constant
+  default: break;
   }
 }
 </code></pre>
@@ -1970,9 +1975,11 @@ void f(void)
 
 <h3 id="toc_85">85 Condition is always true or false (flow) (disabled by default)</h3>
 
-<p>The <code>if</code> condition is already decided by what flow analysis knows at that
-point, on every path reaching it -- so one of the two branches can never
-run. A condition whose value differs between paths is not reported.</p>
+<p>The <code>if</code> condition, or any comparison (<code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>)
+wherever it appears, is already decided by what flow analysis knows at that
+point, on every path reaching it. A known result is suspicious: one side of
+the test can never happen (<code>int b = (p != 0);</code> with <code>p</code> null). A result that
+differs between paths is not reported. Code that can never run is not checked.</p>
 
 <p>Off by default: plenty of deliberate code has a decided condition (a guard
 kept for clarity, a test on a build-time macro), and inside a <code>while</code>/<code>do</code>

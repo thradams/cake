@@ -50,7 +50,7 @@
     char* _Opt strtok(char* _Opt restrict s1, const char* restrict s2);
 
     /* miscellaneous */
-    void* memset(_Clear _Out void* s, int c, size_t n);
+    void* memset(_Out void* s, int c, size_t n);
     #if defined(__linux__)
         void* memset_explicit(void* s, int c, size_t n);
     #endif
@@ -86,7 +86,7 @@
 #else
 
     char* _Owner _Opt strdup(const char* src);
-    void* memset(_Clear _Out void* s, int c, __CAKE_SIZE_TYPE__ n);
+    void* memset(_Out void* s, int c, __CAKE_SIZE_TYPE__ n);
     void* memcpy(_Out void* restrict s1, const void* restrict s2, __CAKE_SIZE_TYPE__ n);
     void* _Opt memchr(const void* s, int c, __CAKE_SIZE_TYPE__ n);
     char* _Opt strchr(const char* s, int c);

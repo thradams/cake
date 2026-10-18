@@ -121,6 +121,9 @@ struct flow_ctx
     struct flow_branch* _Opt p_continue_join_map;  /*map where continues are joined*/
     struct flow_branch* _Opt p_initial_map;     /*map snapshot of the original state*/
     const struct object* _Opt p_switch_obj_key;
+    bool switch_is_constant;                       /* the switch condition is known at compile time */
+    const struct label* _Opt p_switch_live_label;  /* the label a constant switch jumps to */
+    bool switch_case_dead;                         /* the current case of a constant switch is never reached */
     
 
     struct flow_label_state labels[100]; //max 100 labels in a function (case not included)

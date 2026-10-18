@@ -55,7 +55,7 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
             pool->blocks = new_blocks;
             pool->blocks_capacity = new_capacity;
         }
-        pool->blocks[pool->blocks_size++] = block;
+        pool->blocks[pool->blocks_size++] = block; //lint 33
 
         /* Thread every node in this block onto the free list. */
         for (int i = 0; i < FLOW_ALT_POOL_BLOCK_NODES - 1; i++)
@@ -90,7 +90,7 @@ static void flow_alt_pool_free_all(_Clear struct flow_alt_pool* pool)
 {
     for (int i = 0; i < pool->blocks_size; i++)
     {
-        free(pool->blocks[i]);
+        free(pool->blocks[i]); //lint 33
     }
     free(pool->blocks); //lint 29
 
@@ -170,7 +170,7 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
                     vs->data[i]->imaginary == p_alternative->imaginary &&
                     vs->data[i]->p_origin_map == p_alternative->p_origin_map &&
                     vs->data[i]->p_narrowed_from == p_alternative->p_narrowed_from &&
-                    vs->data[i]->contradicted == p_alternative->contradicted)
+                    vs->data[i]->contradicted == p_alternative->contradicted) //lint 33 33 33 33 33 33
             {
                 return;
             }
@@ -187,7 +187,7 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
             throw;
         }
         *p_new = *p_alternative;
-        vs->data[vs->size] = p_new; /*MOVED*/
+        vs->data[vs->size] = p_new; /*MOVED*/ //lint 33
         vs->size++;
     }
     catch
@@ -210,7 +210,7 @@ void flow_alternatives_push(struct flow_alternatives* vs, const struct flow_alte
             throw;
         }
         *p_new = *p_alternative;
-        vs->data[vs->size] = p_new; /*MOVED*/
+        vs->data[vs->size] = p_new; /*MOVED*/ //lint 33
         vs->size++;
     }
     catch
@@ -362,7 +362,7 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
 
         for (int i = 0; i < vs->size; i++)
         {
-            items[i].p_alternative = vs->data[i];
+            items[i].p_alternative = vs->data[i]; //lint 33
             items[i].index = i;
         }
         qsort(items, (size_t)vs->size, sizeof(struct flow_alt_sort_item), flow_alt_sort_item_compare);
@@ -401,7 +401,7 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
                 {
                     is_duplicate[items[k].index] = items[k].index != keep;
                 }
-                vs->data[keep]->p_origin_map = p_common;
+                vs->data[keep]->p_origin_map = p_common; //lint 33
             }
             group_begin = i;
         }
@@ -411,11 +411,11 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
         {
             if (is_duplicate[i])
             {
-                flow_alt_pool_free(&g_flow_alt_pool, vs->data[i]);
+                flow_alt_pool_free(&g_flow_alt_pool, vs->data[i]); //lint 33
             }
             else
             {
-                vs->data[new_size] = vs->data[i]; /*MOVED*/
+                vs->data[new_size] = vs->data[i]; /*MOVED*/ //lint 33 33
                 new_size++;
             }
         }
@@ -439,14 +439,14 @@ void flow_alternatives_append(struct flow_alternatives* dst, const struct flow_a
     {
         for (int i = 0; i < src->size; i++)
         {
-            flow_alternatives_add(dst, src->data[i]);
+            flow_alternatives_add(dst, src->data[i]); //lint 33
         }
     }
     else
     {
         for (int i = 0; i < src->size; i++)
         {
-            flow_alternatives_push(dst, src->data[i]);
+            flow_alternatives_push(dst, src->data[i]); //lint 33
         }
         flow_alternatives_remove_duplicates(dst);
     }
@@ -456,7 +456,7 @@ void flow_alternatives_clear(_Clear struct flow_alternatives* vs)
 {
     for (int i = 0; i < vs->size; i++)
     {
-        flow_alt_pool_free(&g_flow_alt_pool, vs->data[i]);
+        flow_alt_pool_free(&g_flow_alt_pool, vs->data[i]); //lint 33
     }
     free(vs->data); //lint 29
     vs->data = NULL;
@@ -652,7 +652,7 @@ void flow_alternatives_print(const struct flow_alternatives* alternatives)
     for (int i = 0; i < alternatives->size; i++)
     {
         printf("  ");
-        flow_alternative_print(alternatives->data[i]);
+        flow_alternative_print(alternatives->data[i]); //lint 33
     }
 }
 

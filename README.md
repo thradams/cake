@@ -38,7 +38,7 @@ existing or old compilers to produce executables.
 
 Cake aims to enhance C's safety by providing high-quality [warning
 messages](diagnostics.md) and advanced flow analysis, including [object
-lifetime](ownership.md) checks.
+lifetime](flow.md) checks.
 
 
 
@@ -73,7 +73,7 @@ automatic documentation and more.
 * C23 preprocessor
 * C23 syntax analysis
 * C23 semantic analysis
-* Static [object lifetime](ownership.md) checks (Extension)
+* Static [object lifetime](flow.md) checks (Extension)
 * SARIF output
 * Cross compiling
 * C89 backend

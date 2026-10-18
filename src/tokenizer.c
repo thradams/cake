@@ -8199,7 +8199,7 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
 {
     for (int i = 0; i < prectx->macros.capacity; i++)
     {
-        struct map_entry* _Opt entry = prectx->macros.table[i];
+        struct map_entry* _Opt entry = prectx->macros.table[i]; //lint 33
         if (entry == NULL) continue;
         _Assert(entry->data.p_macro != NULL);
 

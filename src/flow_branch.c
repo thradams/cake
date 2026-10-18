@@ -48,7 +48,7 @@ static bool flow_alternatives_same_values(const struct flow_alternatives* a, con
         {
             if (flow_value_is_same(a->data[i], b->data[j]) &&
                 a->data[i]->value_relation == b->data[j]->value_relation &&
-                a->data[i]->imaginary == b->data[j]->imaginary)
+                a->data[i]->imaginary == b->data[j]->imaginary) //lint 33 33 33 33 33 33
             {
                 found = true;
                 break;
@@ -66,7 +66,7 @@ static bool flow_alternatives_same_values(const struct flow_alternatives* a, con
         {
             if (flow_value_is_same(a->data[i], b->data[j]) &&
                 a->data[i]->value_relation == b->data[j]->value_relation &&
-                a->data[i]->imaginary == b->data[j]->imaginary)
+                a->data[i]->imaginary == b->data[j]->imaginary) //lint 33 33 33 33 33 33
             {
                 found = true;
                 break;
@@ -142,7 +142,7 @@ void object_set_add(struct object_set* l, const struct object* obj)
             l->items = p; //lint 26  (realloc semantics)
             l->capacity = new_capacity;
         }
-        l->items[l->size++] = obj;
+        l->items[l->size++] = obj; //lint 33
     }
     catch
     {
@@ -313,7 +313,7 @@ void flow_allocated_object_arena_clear(_Clear struct flow_allocated_object_arena
 {
     for (int i = 0; i < a->size; i++)
     {
-        object_delete(a->data[i]);
+        object_delete(a->data[i]); //lint 33
     }
     free(a->data); //lint 29
 
@@ -473,8 +473,8 @@ struct flow_key_alternatives* _Opt flow_branch_find_add(struct flow_branch* _Opt
             throw;
         }
         e2->p_obj_key = obj;
-        e2->next = m->buckets[idx];
-        m->buckets[idx] = e2;
+        e2->next = m->buckets[idx]; //lint 33
+        m->buckets[idx] = e2; //lint 33
         m->num_of_entries++;
         return e2;
     }
@@ -529,8 +529,8 @@ void flow_branch_set_object_moved(struct flow_branch* _Opt m, const struct objec
                 <declaration>)" instead of "(see line <first free>)".
                 User-reported.
             */
-            e->alternatives.data[i]->imaginary = FLOW_IMAGINARY_MOVED;
-            e->alternatives.data[i]->p_origin_token = p_token;
+            e->alternatives.data[i]->imaginary = FLOW_IMAGINARY_MOVED; //lint 33
+            e->alternatives.data[i]->p_origin_token = p_token; //lint 33
         }
     }
 }
@@ -637,7 +637,7 @@ static void flow_branch_end_owner_pointees(struct flow_branch* m, const struct o
 
     for (int i = 0; i < e->alternatives.size; i++)
     {
-        struct flow_alternative* _Opt a = e->alternatives.data[i];
+        struct flow_alternative* _Opt a = e->alternatives.data[i]; //lint 33
         if (a &&
                 a->value_kind == FLOW_VALUE_KIND_PTR &&
                 a->value.p != NULL)
@@ -770,9 +770,9 @@ void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const str
            (e.g. the enclosing compound's defer list after a return already
            checked the object) report a false "owner not moved".
         */
-        if (e->alternatives.data[i]->imaginary != FLOW_IMAGINARY_MOVED)
+        if (e->alternatives.data[i]->imaginary != FLOW_IMAGINARY_MOVED) //lint 33
         {
-            e->alternatives.data[i]->imaginary = FLOW_IMAGINARY_ENDED;
+            e->alternatives.data[i]->imaginary = FLOW_IMAGINARY_ENDED; //lint 33
             /*
                 The "(see line N)" in the eventual diagnostic must point at
                 where the lifetime actually ended, not wherever this
@@ -780,7 +780,7 @@ void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const str
                 the same member) -- otherwise it misdirects the reader to
                 an unrelated line.
             */
-            e->alternatives.data[i]->p_origin_token = p_token;
+            e->alternatives.data[i]->p_origin_token = p_token; //lint 33
         }
     }
 }
@@ -806,7 +806,7 @@ void flow_branch_apply_dtor_or_clear_effect(struct flow_branch* _Opt m, const st
         {
             for (int i = 0; i < e->alternatives.size; i++)
             {
-                struct flow_alternative* _Opt a = e->alternatives.data[i];
+                struct flow_alternative* _Opt a = e->alternatives.data[i]; //lint 33
                 if (a &&
                         a->value_kind == FLOW_VALUE_KIND_PTR &&
                         a->value.p != NULL)
@@ -1008,7 +1008,7 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
 
     for (int i = 0; i < objs.size; i++)
     {
-        const struct object* obj = objs.items[i];
+        const struct object* obj = objs.items[i]; //lint 33
 
         struct flow_key_alternatives* _Opt p_temp_entry = flow_branch_find_add(&temp, obj);
         if (p_temp_entry == NULL)
@@ -1071,7 +1071,7 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
         {
             for (int k = 0; k < agreed->size; k++)
             {
-                struct flow_alternative tagged = *agreed->data[k];
+                struct flow_alternative tagged = *agreed->data[k]; //lint 33
                 /* keep the alternative's own pre-merge origin */
                 flow_alternatives_push(&p_temp_entry->alternatives, &tagged);
             }
@@ -1092,7 +1092,7 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
             {
                 for (int k = 0; k < p_entry->alternatives.size; k++)
                 {
-                    flow_alternatives_push(&p_temp_entry->alternatives, p_entry->alternatives.data[k]);
+                    flow_alternatives_push(&p_temp_entry->alternatives, p_entry->alternatives.data[k]); //lint 33
                 }
             }
             else
@@ -1111,7 +1111,7 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
                 {
                     for (int k = 0; k < p_pre_entry->alternatives.size; k++)
                     {
-                        const struct flow_alternative* a2 = p_pre_entry->alternatives.data[k];
+                        const struct flow_alternative* a2 = p_pre_entry->alternatives.data[k]; //lint 33
                         struct flow_alternative tagged = *a2;
                         tagged.p_origin_map = arms[j];
                         tagged.p_origin_token = a2->p_origin_token;
@@ -1278,7 +1278,7 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
 
     for (int i = 0; i < objs.size; i++)
     {
-        const struct object* obj = objs.items[i];
+        const struct object* obj = objs.items[i]; //lint 33
         const struct flow_key_alternatives* _Opt p_src_entry = flow_branch_search_up(p_src, obj);
         if (p_src_entry == NULL || p_src_entry->alternatives.size == 0)
         {
@@ -1303,7 +1303,7 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
         {
             for (int k = 0; k < p_src_entry->alternatives.size; k++)
             {
-                const struct flow_alternative* a = p_src_entry->alternatives.data[k];
+                const struct flow_alternative* a = p_src_entry->alternatives.data[k]; //lint 33
 
                 /*
                     Skip a fact the join already carries. Several jumps usually
@@ -1319,7 +1319,7 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
                 bool already_there = false;
                 for (int m = 0; m < p_join_entry->alternatives.size; m++)
                 {
-                    const struct flow_alternative* b = p_join_entry->alternatives.data[m];
+                    const struct flow_alternative* b = p_join_entry->alternatives.data[m]; //lint 33
                     if (b->value_relation == a->value_relation &&
                             b->imaginary == a->imaginary &&
                             b->p_origin_token == a->p_origin_token &&
@@ -1541,7 +1541,7 @@ int flow_object_truth(struct flow_branch* _Opt map, const struct object* p_objec
             See flow3/loop-break-from-folded-branch.c.
         */
         const int this_alternative =
-            flow_alternative_truth(map, p_entry->alternatives.data[i], depth);
+            flow_alternative_truth(map, p_entry->alternatives.data[i], depth); //lint 33
 
         if (this_alternative == -1)
         {

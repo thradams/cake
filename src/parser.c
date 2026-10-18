@@ -1384,8 +1384,8 @@ _Bool diagnostic(enum diagnostic_id w,
 #endif
     struct diagnostic_queue* db = &((struct parser_ctx*)ctx)->diagnostic_queue;
 
-    /* flush the current group when the line changes */
-    if (db->count > 5)
+    /* bound only: a smaller limit flushes before a statement's //lint can remove its own diagnostics */
+    if (db->count > 1000)
     {
         diagnostic_queue_flush(db, ctx);
     }
@@ -1551,11 +1551,11 @@ void print_scope(struct scope_list* e)
 
             for (int i = 0; i < p->tags.capacity; i++)
             {
-                if (p->tags.table[i])
+                if (p->tags.table[i]) //lint 33
                 {
                     for (int k = 0; k < level; k++)
                         printf(" ");
-                    printf("tag %s\n", p->tags.table[i]->key);
+                    printf("tag %s\n", p->tags.table[i]->key); //lint 33
                 }
             }
         }
@@ -3453,6 +3453,9 @@ struct declaration_specifiers* _Owner _Opt declaration_specifiers(struct parser_
             else if (p_declaration_specifier->function_specifier)
             {
                 p_declaration_specifiers->function_specifier_flags |= p_declaration_specifier->function_specifier->flags;
+                /* _Noreturn means the same as [[noreturn]] */
+                if (p_declaration_specifier->function_specifier->flags & FUNCTION_SPECIFIER_NORETURN)
+                    p_declaration_specifiers->attributes_flags |= STD_ATTRIBUTE_NORETURN;
             }
             else if (p_declaration_specifier->alignment_specifier)
             {
@@ -3615,7 +3618,7 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
 
                 if (p_declaration->p_attribute_specifier_sequence)
                 {
-                    p_declaration->declaration_specifiers->attributes_flags =
+                    p_declaration->declaration_specifiers->attributes_flags |=
                         p_declaration->p_attribute_specifier_sequence->attributes_flags;
 
                     p_declaration->declaration_specifiers->msvc_declspec_flags =
@@ -3825,7 +3828,7 @@ struct simple_declaration* _Owner _Opt simple_declaration(struct parser_ctx* ctx
 
         if (p_simple_declaration->p_attribute_specifier_sequence)
         {
-            p_simple_declaration->p_declaration_specifiers->attributes_flags =
+            p_simple_declaration->p_declaration_specifiers->attributes_flags |=
                 p_simple_declaration->p_attribute_specifier_sequence->attributes_flags;
         }
 
@@ -4619,6 +4622,17 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         if (p_previous_declarator)
         {
             p_init_declarator->p_declarator->p_complete_declarator = p_previous_declarator;
+
+            /* noreturn on any declaration applies to calls through the previous one */
+            if (type_is_function(&p_init_declarator->p_declarator->object.type) &&
+                type_is_function(&p_previous_declarator->object.type) &&
+                p_init_declarator->p_declarator->object.type.next != NULL &&
+                p_previous_declarator->object.type.next != NULL &&
+                (p_init_declarator->p_declarator->object.type.next->attributes_flags & STD_ATTRIBUTE_NORETURN))
+            {
+                p_previous_declarator->object.type.next->attributes_flags |= STD_ATTRIBUTE_NORETURN;
+            }
+
             _Assert(out_scope != NULL);
             _Assert(ctx->scopes.tail != NULL);
 
@@ -13813,10 +13827,12 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
     }
 }
 
-/* 
-* C23 6.8.4.1, 6.8.5.1 the controlling expression of an if, while, do or
-* for statement shall have scalar type.
-*/
+static bool is_constant_expression(const struct expression* p_expression)
+{
+    return object_has_constant_value(&p_expression->object);
+}
+
+
 static void check_constant_condition(const struct parser_ctx* ctx, const struct expression* p_expression)
 {
     if (p_expression->expression_type == EXPR_ASSIGNMENT_ASSIGN)
@@ -13828,7 +13844,7 @@ static void check_constant_condition(const struct parser_ctx* ctx, const struct 
             "assignment in condition, use '==' for comparison or extra parentheses to silence");
     }
 
-    if (object_has_constant_value(&p_expression->object))
+    if (is_constant_expression(p_expression))
     {
         diagnostic(W_CONDITIONAL_IS_CONSTANT,
             ctx,
@@ -13837,7 +13853,10 @@ static void check_constant_condition(const struct parser_ctx* ctx, const struct 
             "conditional expression is constant");
     }
 }
-
+/* 
+* C23 6.8.4.1, 6.8.5.1 the controlling expression of an if, while, do or
+* for statement shall have scalar type.
+*/
 static void check_controlling_expression(const struct parser_ctx* ctx, const struct expression* p_expression)
 {
     if (!type_is_scalar_decay(&p_expression->object.type))
@@ -14167,6 +14186,18 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         {
             unexpected_end_of_file(ctx);
             throw;
+        }
+
+        if (!is_if &&
+            p_selection_statement->condition &&
+            p_selection_statement->condition->expression &&
+            is_constant_expression(p_selection_statement->condition->expression))
+        {
+            diagnostic(W_CONDITIONAL_IS_CONSTANT,
+                ctx,
+                p_selection_statement->condition->expression->first_token,
+                NULL,
+                "conditional expression is constant");
         }
 
         p_selection_statement->close_parentesis_token = ctx->current;
@@ -15201,8 +15232,8 @@ void global_unused_functions_clear(_Clear struct global_unused_list* p)
 {
     for (int i = 0; i < p->size; i++)
     {
-        free(p->data[i].name);
-        free(p->data[i].file);
+        free(p->data[i].name); //lint 33
+        free(p->data[i].file); //lint 33
     }
     free(p->data); //lint 29 29 (name and file are freed per element above)
     p->data = NULL;
@@ -15217,7 +15248,7 @@ static int global_unused_find(const struct global_unused_list* p, enum global_un
     int index = -1;
     for (int i = 0; i < p->size && index < 0; i++)
     {
-        const struct global_unused_entry* e = &p->data[i];
+        const struct global_unused_entry* e = &p->data[i]; //lint 33
         if (e->kind == kind &&
             strcmp(e->name, name) == 0 &&
             (kind == GLOBAL_UNUSED_FUNCTION || (e->line == line && strcmp(e->file, file) == 0)))
@@ -15259,7 +15290,7 @@ void global_unused_register(struct global_unused_list* p, enum global_unused_kin
             index = p->size;
             p->size++;
 
-            struct global_unused_entry* p_new = &p->data[index];
+            struct global_unused_entry* p_new = &p->data[index]; //lint 33
             p_new->kind = kind;
             p_new->name = new_name;
             p_new->file = new_file;
@@ -15268,7 +15299,7 @@ void global_unused_register(struct global_unused_list* p, enum global_unused_kin
             p_new->has_definition = false;
         }
 
-        struct global_unused_entry* e = &p->data[index];
+        struct global_unused_entry* e = &p->data[index]; //lint 33
 
         if (used_here)
         {
@@ -15305,7 +15336,7 @@ void global_unused_functions_report(_Clear struct global_unused_list* p, const s
 
     for (int i = 0; i < p->size; i++)
     {
-        const struct global_unused_entry* e = &p->data[i];
+        const struct global_unused_entry* e = &p->data[i]; //lint 33
 
         /*
             only report functions that are actually defined somewhere in this
@@ -15635,7 +15666,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
                 decl->declarator ? decl->declarator->object.type.enum_specifier : NULL;
 
             if (declared_enum != NULL &&
-                get_enum_specifier_definition(declared_enum) == NULL) //lint 35 BUG in flow
+                get_enum_specifier_definition(declared_enum) == NULL)
             {
                 diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, declared_enum->first_token, NULL, "enum type is incomplete"); //lint 33 BUG in flow
             }
