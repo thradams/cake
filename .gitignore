@@ -108,3 +108,5 @@ src/cake
 .DS_Store
 /src/i686-pc-windows-msvc
 /tests/en-cpp-reference-c/i686-pc-windows-msvc
+/tests/unit-tests/flow3/i686-pc-windows-msvc
+/tests/unit-tests/i686-pc-windows-msvc
