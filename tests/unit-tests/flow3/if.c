@@ -1,7 +1,7 @@
 
-#pragma flow enable
+#pragma safety enable
 
-void f(int * p)
+void f(int * _Opt p)
 {
     if (p)
     {

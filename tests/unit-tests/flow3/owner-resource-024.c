@@ -17,4 +17,4 @@ void f(struct X* _Opt pX)
     struct X x = makex(); // owner object (x.text) not moved (root see line 17)
     clear(&x); // passing a possible uninitialized object  '(*&x).text' (see line 17)
     _Assert(x.text == 0);
-}
+} //lint 29 _Assert assumes nothing

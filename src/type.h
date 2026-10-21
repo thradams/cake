@@ -392,6 +392,7 @@ bool type_is_maybe_unused(const struct type* p_type);
 bool type_is_pointer_or_array(const struct type* p_type);
 bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers);
 bool type_is_compatible(const struct type* a, const struct type* b);
+bool type_extensions_are_compatible(const struct type* src, const struct type* dest);
 bool type_is_scalar(const struct type* p_type);
 bool type_is_scalar_decay(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
@@ -479,7 +480,7 @@ void type_print(const struct type* a, const struct platform* target);
 
 enum type_category type_get_category(const struct type* p_type);
 
-void type_visit_to_mark_anonymous(const struct type* p_type);
+void type_visit_to_mark_anonymous(struct type* p_type);
 
 void type_set_qualifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator);
 void type_set_storage_specifiers_using_declarator(struct type* p_type, const struct declarator* pdeclarator);

@@ -1,4 +1,5 @@
 #pragma safety enable
+#pragma flow limit 10000
 
 /* flow analysis stops with warning 97 when a function tracks too many objects,
    reports it once, and reports nothing after it */

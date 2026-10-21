@@ -2819,17 +2819,25 @@ void func() {
 
 <h3 id="toc_95">11.1 Built-in <code>_Assert</code></h3>
 
-<p>In Cake, <code>assert</code> is a built-in statement rather than a macro because flow analysis need it even in release builds.
-The effect of <code>assert(expression)</code> is equivalent of <code>if (!(expression)) exit(1);</code>.</p>
+<p><code>_Assert(expression)</code> is a built-in runtime check: if <code>expression</code> is false, it reports and stops.
+With Cake&#39;s headers, <code>assert</code> (outside <code>NDEBUG</code>) is <code>_Assert</code>.</p>
+
+<p>Flow analysis assumes nothing from <code>_Assert</code>: both outcomes continue after it, so the analysis is the
+same in debug and release builds. A condition that flow analysis cannot prove is suppressed with <code>//lint</code>,
+next to the <code>assert</code> that documents it.</p>
+
+<p>This is a decision in favor of safety: an assert must not override what flow analysis knows. If <code>assert</code>
+could make the analysis believe its condition, a wrong assert would silently hide real warnings, and the
+code analyzed would not be the code that runs in release, where the assert is removed. With <code>//lint</code>, each
+suppression stays visible on the line it affects.</p>
 
 <pre><code class="language-c">void list_push_back(struct list* list, struct item* _Owner p_item)
 {
     if (list-&gt;head == NULL) {
         list-&gt;head = p_item;
     } else {
-        _Assert(list-&gt;tail != nullptr);       /* narrows: tail is non-null below */
-        _Assert(list-&gt;tail-&gt;next == nullptr); /* narrows: tail-&gt;next is null below */
-        list-&gt;tail-&gt;next = p_item;
+        assert(list-&gt;tail != nullptr &amp;&amp; list-&gt;tail-&gt;next == nullptr);
+        list-&gt;tail-&gt;next = p_item; //lint 26 33
     }
     list-&gt;tail = p_item;
 }

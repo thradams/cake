@@ -227,7 +227,7 @@
 <a href="#toc_17">3.4 Two Resources</a>
 </li>
 <li>
-<a href="#toc_18">3.5 Results Must Be Used</a>
+<a href="#toc_18">3.5 Heap Objects Must Have an Owner</a>
 </li>
 </ul>
 </li>
@@ -281,7 +281,7 @@
 <a href="#toc_33">6.2 Contracts That Are Not Written</a>
 </li>
 <li>
-<a href="#toc_34">6.3 <code>const</code> Is Not Deep Yet</a>
+<a href="#toc_34">6.3 What the Analysis Assumes About <code>const</code></a>
 </li>
 <li>
 <a href="#toc_35">6.4 Functions That Are Too Large</a>
@@ -337,7 +337,13 @@
 <a href="#toc_51">A12. Combination</a>
 </li>
 <li>
-<a href="#toc_52">A13. Flow analysis</a>
+<a href="#toc_52">A13. Casts</a>
+</li>
+<li>
+<a href="#toc_53">A14. Flow analysis</a>
+</li>
+<li>
+<a href="#toc_54">A15. Compatibility of annotated types</a>
 </li>
 </ul>
 </li>
@@ -352,28 +358,30 @@
 
 <h2 id="toc_1">Preface</h2>
 
-<p>C trusts the programmer. That trust is the source of its power and of most of its bugs: a pointer that was null, a buffer that was freed twice, a value that was never set. Every C program already follows conventions: this pointer is never null, that function frees what it receives, this struct is filled in by the callee. They live in comments, in documentation, or only in the programmer&#39;s head. The Cake rules define those conventions precisely and give each one an annotation, so that a declaration states a contract between a function and its callers. Cake checks both sides of every contract.</p>
+<p>C trusts the programmer. That trust is the source of its power and of most of its bugs: a pointer that was null, a buffer that was freed twice, a value that was never set. Every C program already follows conventions: this pointer is never null, that function frees what it receives, this struct is filled in by the callee. They live in comments, in documentation, or only in the programmer&#39;s head. The rules in this text define those conventions precisely and give each one an annotation, so that a declaration states a contract between a function and its callers. A flow analysis checks both sides of every contract.</p>
 
-<p>This matters more as more C is written by AI tools. A model reads the contracts in the declarations it is given, and when it breaks one, Cake reports it in a single line it can act on. The model writes, Cake checks, the model fixes, until nothing is reported. Verified contracts turn &quot;looks plausible&quot; into &quot;agrees with the declarations&quot;.</p>
+<p>This matters more as more C is written by AI tools. A model reads the contracts in the declarations it is given, and when it breaks one, the analysis reports it in a single line it can act on. The model writes, the analysis checks, the model fixes, until nothing is reported. Verified contracts turn &quot;looks plausible&quot; into &quot;agrees with the declarations&quot;.</p>
 
 <p>The annotations do not change what a program does. Remove them and the program still compiles with any C compiler, and it means exactly the same thing. They exist only to be checked.</p>
 
-<p>The rules are presented first as a tutorial, not as a reference manual. Cake follows the traditions of C, and so does this text: its style is deliberately modeled on <em>The C Programming Language</em> by Kernighan and Ritchie: a quick tour first, the details after, and a reference manual at the end. Chapter 1 is a quick tour; the chapters after it go over the same ground more carefully. The precise rules are in Appendix A, numbered so that a warning can be traced back to the rule that produced it. A reader who wants to implement the analysis should read Appendix A; a reader who wants to use it should start with Chapter 1 and write programs.</p>
+<p>The idea is not new to C. <code>_Noreturn</code> (<code>[[noreturn]]</code> in C23) already says something about a function that its type cannot: the call never returns. It does not change what the function does, and it is read by the flow analysis: the path that calls it does not continue. If C did not have it yet, it would be one of the annotations described here. <code>[[nodiscard]]</code> is another: a contract that asks the caller to use the result. An <code>_Owner</code> result asks the same, for a stronger reason.</p>
+
+<p>The rules are presented first as a tutorial, not as a reference manual. The rules follow the traditions of C, and so does this text: its style is deliberately modeled on <em>The C Programming Language</em> by Kernighan and Ritchie: a quick tour first, the details after, and a reference manual at the end. Chapter 1 is a quick tour; the chapters after it go over the same ground more carefully. The precise rules are in Appendix A, numbered so that a warning can be traced back to the rule that produced it. A reader who wants to implement the analysis should read Appendix A; a reader who wants to use it should start with Chapter 1 and write programs.</p>
 
 <p>The only way to learn a new set of rules is to write programs with them. Every example here can be compiled with cake, or run online in the <a href="https://cakecc.org/playground.html">playground</a>. Most sections end with an experiment: a small change to an example, ready to open in the playground, where the reader observes the result.</p>
 
 <h2 id="toc_2">Chapter 1 - A Tutorial Introduction</h2>
 
-<p>Let us begin with a quick introduction. Our aim is to show the essential ideas through real programs, without getting bogged down in details, rules and exceptions. At this point we are not trying to be complete or even precise.</p>
+<p>Let us begin with a quick introduction. Our aim is to show the essential ideas through real programs, without getting bogged down in details, rules and exceptions.</p>
 
 <h3 id="toc_3">1.1 Getting Started</h3>
 
-<p>The checks are off by default. A file turns them on with</p>
+<p>The checks are off by default. A file turns them on with this line at its beginning:</p>
 
 <pre><code class="language-c">#pragma safety enable
 </code></pre>
 
-<p>From that line on, cake reads the annotations <code>_Opt</code>, <code>_Owner</code>, <code>_Out</code>, <code>_Dtor</code>, <code>_Clear</code>, <code>_Uninitialized</code> and <code>_View</code>, and warns when the code does not agree with them.</p>
+<p>In that file, the compiler reads the annotations <code>_Opt</code>, <code>_Owner</code>, <code>_Out</code>, <code>_Dtor</code>, <code>_Clear</code>, <code>_Uninitialized</code> and <code>_View</code>, and warns when the code does not agree with them.</p>
 
 <p>The first thing to know is that a pointer, in this world, is never null unless it says so.</p>
 
@@ -422,7 +430,7 @@ int main()
 }
 </code></pre>
 
-<p>Inside the <code>if</code>, cake knows <code>p</code> is not null. We say the condition <em>narrows</em> <code>p</code>. Nothing special has to be written for this; the test the programmer would write anyway is enough.</p>
+<p>Inside the <code>if</code>, the analysis knows <code>p</code> is not null. We say the condition <em>narrows</em> <code>p</code>. Nothing special has to be written for this; the test the programmer would write anyway is enough.</p>
 
 <h3 id="toc_5">1.3 Owners</h3>
 
@@ -503,7 +511,7 @@ int main()
 <pre><code class="language-c">void point_init(_Out struct point* p);
 </code></pre>
 
-<p>This declaration is a contract between <code>point_init</code> and its callers. Cake checks each side separately.</p>
+<p>This declaration is a contract between <code>point_init</code> and its callers. Each side is checked separately.</p>
 
 <p><strong>The caller.</strong> It may pass an object that holds nothing yet, and after the call it may read every member:</p>
 
@@ -541,7 +549,7 @@ void point_init(_Out struct point* p)
 
 <h3 id="toc_7">1.5 One Function at a Time</h3>
 
-<p>Cake never looks inside a function it calls. It reads the declaration and believes it. That is why the annotations matter: they are the contract between the function and its callers, and each side is checked against it separately.</p>
+<p>The analysis never looks inside a function that is called. It reads the declaration and believes it. That is why the annotations matter: they are the contract between the function and its callers, and each side is checked against it separately.</p>
 
 <p>When a declaration says nothing, the caller must assume the worst. Here <code>g</code> might have released <code>x.text</code>, so <code>p</code> may point to memory that no longer exists:</p>
 
@@ -630,7 +638,21 @@ void f(struct person* p)
 }
 </code></pre>
 
-<p>With <code>void update(const struct person* p)</code> the test would still hold.</p>
+<p>With <code>void update(const struct person* p)</code> the test would still hold. The analysis assumes that nothing reachable from <code>*p</code> changes (Section 6.3).</p>
+
+<p>Because of this, <code>const</code> improves the static analysis: the caller keeps what it knew. That is why the implementation of a function is warned when a pointer parameter could be <code>const</code>:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct point { int x; int y; };
+
+int point_sum(struct point* p) /* warning 82 &#39;p&#39; could be const */
+{
+    return p-&gt;x + p-&gt;y;
+}
+</code></pre>
 
 <h3 id="toc_12">2.4 Objects Under Construction</h3>
 
@@ -667,20 +689,23 @@ void f2(void)
 
 <h3 id="toc_14">3.1 Two Kinds of Pointers</h3>
 
-<p>An owner is responsible for an object; a non-owner only looks at it. Both point to the same kind of memory and both are plain pointers at run time. The difference is only in what the program promises to do with them.</p>
+<p>An owner is an object that holds a link to another object. That link is the principal one: ownership of the object is transferred only through it. Other pointers to the same object are views; they can look at it, but cannot move it.</p>
+
+<p>If the principal link is broken, by overwriting the owner or by letting it go out of scope, nothing is left that can release the object. Its control is lost.</p>
+
+<p>At run time an owner and a view are the same plain pointer. The difference is only in what the program promises to do with them.</p>
 
 <p>The rules are short:</p>
 
 <ul>
 <li>an owner must be moved exactly once before it goes out of scope;</li>
-<li>an owner moved to a function (an <code>_Owner</code> parameter) must not be used: the object may no longer exist; an owner moved to another owner in the same function still points to a live object, and may be used as a view while the new owner keeps it;</li>
-<li>an owner must not be overwritten before what it owns is released;</li>
+<li>an owner must not be overwritten before it is moved;</li>
 <li>a non-owner may not be made into an owner.</li>
 </ul>
 
 <h3 id="toc_15">3.2 Assignment</h3>
 
-<p>Assigning one owner to another moves the object. Assigning an owner to a non-owner does not: the non-owner becomes a <em>view</em>, and the original owner still has to be moved. When the owner is released, the view is no longer valid, and cake follows it.</p>
+<p>Assigning one owner to another transfers the ownership. Assigning an owner to a non-owner does not: the non-owner becomes a <em>view</em>, and the original owner still has to be moved. When the owner is released, the view is no longer valid, and the analysis follows it.</p>
 
 <!-- runnable -->
 
@@ -695,6 +720,27 @@ void f(struct X* _Owner p)
     struct X* view = p;
     free(p);
     view-&gt;i = 1; /* warning 31 lifetime of &#39;view-&gt;i&#39; has ended */
+}
+</code></pre>
+
+<p>After a move between owners, the source can still be used to read the object. A move only changes who must release the object, not whether it is alive. When the move is visible in the same function, the analysis knows the object is still alive and accepts the use. When the owner is moved into a function, the analysis cannot see what the function did with it, so it assumes the lifetime may have ended:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void destroy(char* _Owner p);
+char* _Owner _Opt strdup(const char* s);
+int puts(const char* s);
+
+void f(void)
+{
+    char* _Owner _Opt s1 = strdup(&quot;hello&quot;);
+    if (s1 == 0) return;
+    char* _Owner s2 = s1;
+    puts(s1);    /* ok, the object is alive */
+    destroy(s2);
+    puts(s1);    /* warning 31 lifetime of &#39;*s1&#39; has ended */
 }
 </code></pre>
 
@@ -747,7 +793,7 @@ void x_delete(struct X* _Owner p)
 
 <p><strong>Experiment 3-1.</strong> In <code>x_delete</code>, the two calls to <code>free</code> are swapped. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIGZyZWUodm9pZCogX093bmVyIF9PcHQgcCk7CgpzdHJ1Y3QgWCB7IGNoYXIqIF9Pd25lciBfT3B0IHRleHQ7IH07Cgp2b2lkIHhfZGVsZXRlX2JhZChzdHJ1Y3QgWCogX093bmVyIHApCnsKICAgIGZyZWUocCk7ICAgICAgIC8qIHdhcm5pbmcgMjkgJ3AtPnRleHQnIHN0aWxsIG93bnMgaXRzIHJlc291cmNlICovCn0KCnZvaWQgeF9kZWxldGUoc3RydWN0IFgqIF9Pd25lciBwKQp7CiAgICBmcmVlKHApOyAgICAgICAvKiB0aGUgbWVtb3J5ICovCiAgICBmcmVlKHAtPnRleHQpOyAvKiB0aGUgb2JqZWN0ICovCn0K&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
-<h3 id="toc_18">3.5 Results Must Be Used</h3>
+<h3 id="toc_18">3.5 Heap Objects Must Have an Owner</h3>
 
 <p>A function that returns an owner hands the object to its caller. Ignoring the result loses it.</p>
 
@@ -804,7 +850,7 @@ void h(struct X* p)
 }
 </code></pre>
 
-<p>A <code>const</code> pointer promises more: nothing reachable from <code>*p</code> changes, so the caller may keep using what it knew before the call.</p>
+<p>A <code>const</code> pointer promises more: nothing reachable from <code>*p</code> changes, so the caller may keep using what it knew before the call (Section 6.3).</p>
 
 <h3 id="toc_21">4.2 Output Parameters: <code>_Out</code></h3>
 
@@ -995,7 +1041,7 @@ void f(void)
 
 <h3 id="toc_27">5.1 Paths</h3>
 
-<p>Cake reads a function the way the machine would run it, but it follows every path at once. At each point it knows the set of things each object may be: null or not, which value, owned or moved. A warning is a question asked of that set. &quot;Can <code>p</code> be null here?&quot; If any path says yes, the warning is reported.</p>
+<p>The analysis reads a function the way the machine would run it, but it follows every path at once. At each point it knows the set of things each object may be: null or not, which value, owned or moved. A warning is a question asked of that set. &quot;Can <code>p</code> be null here?&quot; If any path says yes, the warning is reported.</p>
 
 <p>Where paths meet, after an <code>if</code>, at a label, after a loop, the sets are joined:</p>
 
@@ -1018,7 +1064,7 @@ L:
 
 <h3 id="toc_28">5.2 Paths That End</h3>
 
-<p>A path that returns does not arrive anywhere. Code after it in the same block is never reached, and cake says so.</p>
+<p>A path that returns does not arrive anywhere. Code after it in the same block is never reached, and the analysis says so.</p>
 
 <!-- runnable -->
 
@@ -1038,11 +1084,13 @@ void f(int x)
 
 <h3 id="toc_29">5.3 Loops</h3>
 
-<p>A loop that may run zero times may leave a variable unset. When the first test of the condition is known to be true, the loop runs at least once, and cake knows it.</p>
+<p>A loop that may run zero times may leave a variable unset. When the first test of the condition is known to be true, the loop runs at least once, and the analysis knows it.</p>
 
 <!-- runnable -->
 
-<pre><code class="language-c">void f(const char* s);
+<pre><code class="language-c">#pragma safety enable
+
+void f(const char* s);
 
 void g(int n)
 {
@@ -1087,7 +1135,7 @@ void f(int a, int b)
 
 <h3 id="toc_32">6.1 Contracts That Cannot Be Written</h3>
 
-<p>Some contracts cannot be written yet. The best known is <code>realloc</code>: ownership of its argument moves only if the call succeeds. What is missing is only a syntax to state it: the flow analysis already tracks states that depend on the result of a call, and would follow such a contract as it follows the existing ones. Where cake cannot follow, the programmer marks the line with <code>/* lint N */</code>, which says &quot;warning N is expected here&quot;, silences it, and complains if it does not happen.</p>
+<p>Some contracts cannot be written yet. The best known is <code>realloc</code>: ownership of its argument moves only if the call succeeds. What is missing is only a syntax to state it: the flow analysis already tracks states that depend on the result of a call, and would follow such a contract as it follows the existing ones. Where the analysis cannot follow, the programmer marks the line with <code>/* lint N */</code>, which says &quot;warning N is expected here&quot;, silences it, and complains if it does not happen.</p>
 
 <!-- runnable -->
 
@@ -1113,7 +1161,7 @@ void f(int* _Owner _Opt p)
 
 <h3 id="toc_33">6.2 Contracts That Are Not Written</h3>
 
-<p>Cake knows only what a declaration says. Here <code>id</code> returns its argument, but its declaration does not say so. Cake cannot tell that <code>q</code> points to the object released through <code>p</code>, and the use after free is not reported.</p>
+<p>The analysis knows only what a declaration says. Here <code>id</code> returns its argument, but its declaration does not say so. The analysis cannot tell that <code>q</code> points to the object released through <code>p</code>, and the use after free is not reported.</p>
 
 <!-- runnable -->
 
@@ -1136,13 +1184,17 @@ int f(void)
 
 <p>A contract saying &quot;the result points to the same object as the argument&quot; would let the analysis follow the pointer through the call. No such annotation exists yet, but nothing new is needed in the analysis: it already follows a pointer to the same object through assignments, and a contract would let it do the same through the call. Only the syntax is missing.</p>
 
-<h3 id="toc_34">6.3 <code>const</code> Is Not Deep Yet</h3>
+<p><code>realloc</code> and <code>id</code> are two examples of a larger need. The annotations describe a fixed set of contracts, and more of them are still needed, or a more general way to write a contract.</p>
 
-<p>A <code>const struct X* p</code> promises that nothing reachable from <code>*p</code> is written. Callers rely on that promise (Section 4.1), but the implementation is only checked for writes to <code>*p</code> itself, not to the objects reached through its members.</p>
+<h3 id="toc_34">6.3 What the Analysis Assumes About <code>const</code></h3>
+
+<p>In C a <code>const struct X* p</code> protects only <code>*p</code>: <code>p-&gt;m</code> cannot be written, but <code>p-&gt;m-&gt;x</code> can. The analysis assumes more: after a call through <code>const</code>, the caller keeps what it knew about everything reachable from <code>*p</code>.</p>
+
+<p>Where a function&#39;s implementation does not agree with that, warning 120 reports it: writing <code>p-&gt;m-&gt;x</code> (or <code>++</code>, <code>+=</code>...) through a <code>const</code> pointer <code>p</code>, or passing <code>p-&gt;m</code> to a pointer parameter that is not <code>const</code> (<code>void*</code> is assumed not to change it). Passing it to a <code>const</code> parameter is fine: that function assumes the same and is checked the same way. An explicit cast is taken as intended. The same is reported through any <code>const</code> pointer (a local, a member), not only a parameter: it may not be what the programmer meant.</p>
 
 <h3 id="toc_35">6.4 Functions That Are Too Large</h3>
 
-<p>The analysis follows every path, and in a very large function the number of objects and paths can grow too much. When that happens cake stops, reports warning 97 once, and reports nothing else for that function. The next function is analysed normally. Splitting the function brings the analysis back.</p>
+<p>The analysis follows every path, and in a very large function the number of objects and paths can grow too much. When that happens the analysis stops, reports warning 97 once, and reports nothing else for that function. The next function is analysed normally. Splitting the function brings the analysis back.</p>
 
 <h3 id="toc_36">6.5 Backward <code>goto</code></h3>
 
@@ -1205,31 +1257,31 @@ void f(int n, int* p)
 
 <h2 id="toc_39">Appendix A - Reference Manual</h2>
 
-<p>This appendix states the rules precisely. It is the authority when the chapters above are informal. &quot;Must&quot; means a diagnostic is required when the rule is broken; &quot;must not&quot; means reporting it would be an error.</p>
+<p>This appendix states the rules more precisely.</p>
 
 <h3 id="toc_40">A1. Definitions</h3>
 
 <ul>
-<li>A1.1 <strong>Valid</strong>: the object and every object reachable from it are fully initialized, and their non-nullable pointer members are non-null.</li>
+<li>A1.1 <strong>Valid</strong>: the object and every object reachable from it are fully initialized, their non-nullable pointer members are non-null, and no owner among them is moved. For example, &quot;<code>*p</code> is valid&quot; is a statement about <code>*p</code> and everything that can be reached through <code>p</code>: its members, the objects they point to, and so on.</li>
 <li>A1.2 <strong>Uninitialized</strong>: the object holds no value and no resources.</li>
 <li>A1.3 <strong>Nullable / non-nullable</strong>: a pointer declared with <code>_Opt</code> is nullable; without it, non-nullable.</li>
-<li>A1.4 <strong>File-scope objects</strong>: to each function, a file-scope object is a parameter that does not appear in the parameter list. It follows every rule for parameters: at entry it holds any value allowed by its type, and at every exit its contract must hold again.</li>
-<li>A1.5 <strong>Empty</strong>: uninitialized, null or moved.</li>
+<li>A1.4 <strong>Empty</strong>: uninitialized, null or moved.</li>
 </ul>
 
 <h3 id="toc_41">A2. Plain parameters: <code>struct X* p</code></h3>
 
 <ul>
 <li>A2.1 The implementation assumes <code>p</code> is not null, <code>*p</code> is valid, and <code>p</code> does not own <code>*p</code>.</li>
-<li>A2.2 At every exit <code>*p</code> is valid and no owner reachable from it is left moved.</li>
+<li>A2.2 At every exit <code>*p</code> is valid.</li>
 <li>A2.3 The caller must pass a non-null pointer to a valid object. After the call it must assume every object reachable from <code>*p</code> may have changed, and that its pointers into them are no longer valid.</li>
-<li>A2.4 With <code>const</code>, nothing reachable from <code>*p</code> is written or moved, and what the caller knew still holds.</li>
+<li>A2.4 With <code>const</code>, the analysis assumes that nothing reachable from <code>*p</code> is written or moved, so what the caller knew still holds (6.3). C protects only <code>*p</code>, so the implementation is checked for writes that break this assumption (warning 120).</li>
 </ul>
 
 <h3 id="toc_42">A3. Results: <code>struct X* F(void)</code></h3>
 
 <ul>
 <li>A3.1 The result is not null and <code>*result</code> is valid. The caller does not own it.</li>
+<li>A3.2 The implementation must return a value on every path: reaching the closing <code>}</code> of a non-void function leaves the result uninitialized (warning 98). <code>main</code> is the exception, its end returns 0.</li>
 </ul>
 
 <h3 id="toc_43">A4. <code>_Opt</code></h3>
@@ -1248,21 +1300,21 @@ void f(int n, int* p)
 <li>A5.3 When <code>a</code> is an owner, <code>b</code> must be an owner too (or a null pointer constant); a view cannot be assigned to an owner. Owner to owner moves <code>b</code>. Owner to non-owner makes <code>a</code> a view of the object <code>b</code> still owns.</li>
 <li>A5.4 <code>= {}</code> may leave non-nullable members null until they are set and before the object is used.</li>
 <li>A5.5 Passing an argument and returning a value follow the same rules, with the parameter or the result as <code>a</code>. There <code>a</code> is a new object, uninitialized, so A5.1 always holds.</li>
+<li>A5.6 A move changes only which owner must release the object. After <code>a = b</code> between owners, the object is still alive and may be read through <code>b</code>. After <code>b</code> is passed to an <code>_Owner</code> parameter, the lifetime of the object may have ended and it must not be used through <code>b</code>.</li>
 </ul>
 
 <h3 id="toc_45">A6. <code>_Out</code></h3>
 
 <ul>
 <li>A6.1 <code>*p</code> is uninitialized at entry and must be fully initialized on every exit. Owner members not created are null.</li>
-<li>A6.2 The caller may pass <code>*p</code> in any state that holds no resource.</li>
+<li>A6.2 The caller must pass <code>*p</code> empty (A1.4).</li>
 </ul>
 
 <h3 id="toc_46">A7. <code>_Dtor</code></h3>
 
 <ul>
 <li>A7.1 The caller must pass a valid object (A1.1), with one exception: its non-nullable pointer members may be null, so a partially constructed object is accepted. The implementation assumes the same.</li>
-<li>A7.2 At every exit every owner member of <code>*p</code> is moved.</li>
-<li>A7.3 After the call <code>*p</code> is uninitialized and its memory is still the caller&#39;s.</li>
+<li>A7.2 At every exit every owner member of <code>*p</code> is moved.- A7.3 After the call <code>*p</code> is uninitialized and its memory is still the caller&#39;s.</li>
 <li>A7.4 <code>_Dtor</code> cannot be combined with <code>const</code>.</li>
 <li>A7.5 <code>_Dtor</code> may be used only on the pointed type of a parameter.</li>
 </ul>
@@ -1295,7 +1347,7 @@ void f(int n, int* p)
 <ul>
 <li>A11.1 An <code>_Owner</code> parameter must be moved on every exit; the argument is moved.</li>
 <li>A11.2 An <code>_Owner</code> result must be moved by the caller.</li>
-<li>A11.3 An object owns what its <code>_Owner</code> members point to; destroying the object moves them.</li>
+<li>A11.3 An object owns what its <code>_Owner</code> members point to; they must be moved before the object is destroyed.</li>
 <li>A11.4 <code>_Owner</code> may be used wherever an object is declared: local and file-scope variables, members, parameters and results. It is not limited to pointers (<code>_Owner int</code> for a file descriptor).</li>
 </ul>
 
@@ -1305,16 +1357,99 @@ void f(int n, int* p)
 <li>A12.1 Annotations combine; each adds its own contract and does not change the others.</li>
 </ul>
 
-<h3 id="toc_52">A13. Flow analysis</h3>
+<h3 id="toc_52">A13. Casts</h3>
 
 <ul>
-<li>A13.1 The analysis runs on one function at a time. A call is described only by the declaration of the callee.</li>
-<li>A13.2 At each point, every object has a set of possible states. Each state comes from at least one path. A diagnostic must be reported when some state supports it and must not be reported when none does.</li>
-<li>A13.3 Where paths meet, the set is the union of the arriving sets. A path that left by <code>return</code>, <code>break</code>, <code>continue</code>, <code>goto</code>, <code>throw</code> or a noreturn call does not arrive.</li>
-<li>A13.4 In the true branch of a condition only the states where it can be true remain; in the false branch, only those where it can be false.</li>
-<li>A13.5 Code no path reaches must be reported with warning 68, and its effects must not reach any later point.</li>
-<li>A13.6 When the first test of a loop condition is true in every state, the zero-iteration path must not exist. A <code>do</code> body runs at least once.</li>
-<li>A13.7 A fact supported by several paths is reported once.</li>
-<li>A13.8 An implementation that stops analysing a function must report warning 97 once and nothing else in that function.</li>
+<li>A13.1 Casts are not yet defined: whether a cast may add or remove an annotation (for example from <code>T* _Opt</code> to <code>T*</code>, or from <code>T* _Owner</code> to <code>T*</code>) is an open question.</li>
 </ul>
+
+<h3 id="toc_53">A14. Flow analysis</h3>
+
+<ul>
+<li>A14.1 The analysis runs on one function at a time. A call is described only by the declaration of the callee.</li>
+<li>A14.2 A file-scope object is not a parameter, but to each function it behaves as if it were one that does not appear in the parameter list. At entry it holds any value allowed by its type, and at every exit its contract must hold again.</li>
+<li>A14.3 At each point, every object has a set of possible states. Each state comes from at least one path. A diagnostic must be reported when some state supports it and must not be reported when none does.</li>
+<li>A14.4 Where paths meet, the set is the union of the arriving sets. A path that left by <code>return</code>, <code>break</code>, <code>continue</code>, <code>goto</code>, <code>throw</code> or a noreturn call does not arrive.</li>
+<li>A14.5 In the true branch of a condition only the states where it can be true remain; in the false branch, only those where it can be false.</li>
+<li>A14.6 Code no path reaches must be reported with warning 68, and its effects must not reach any later point.</li>
+<li>A14.7 When the first test of a loop condition is true in every state, the zero-iteration path must not exist. A <code>do</code> body runs at least once.</li>
+<li>A14.8 A fact supported by several paths is reported once.</li>
+<li>A14.9 An implementation that stops analysing a function must report warning 97 once and nothing else in that function.</li>
+</ul>
+
+<h3 id="toc_54">A15. Compatibility of annotated types</h3>
+
+<p><code>_Opt</code> is checked in two places. The flow analysis checks the value (whether it can be null at that point, branch by branch). The type checks the pointed objects, because writes through a pointer happen later, where the flow analysis does not see them.</p>
+
+<ul>
+<li>A15.1 The value copied by an assignment, argument or return (the top level) may drop <code>_Opt</code> (<code>T* _Opt</code> to <code>T*</code>); whether it is null there is checked by the flow analysis (A4.1). It may drop <code>_Owner</code> (A5.3), but it cannot gain <code>_Owner</code>.</li>
+<li>A15.2 Through a pointer, the pointed object is shared, so its annotations must allow every access the destination can make:
+
+<ul>
+<li>when the destination pointee is mutable, <code>_Opt</code> and <code>_Owner</code> must match exactly at every level;</li>
+<li>when the destination pointee is <code>const</code> (read only, as in <code>int * _Opt const *</code>), it may add <code>_Opt</code> but not remove it;</li>
+<li>when the destination pointee is <code>_Out</code> (write only), it may remove <code>_Opt</code> but not add it: <code>char * _Out _Opt *</code> cannot receive <code>&amp;s</code> when <code>s</code> is <code>char *</code>, because null may be stored in <code>s</code> (issue #523).</li>
+</ul></li>
+<li>A15.3 A function pointer may point to a function that accepts more and promises more: each parameter of the function may add <code>_Opt</code> (<code>void (*pf)(int *p)</code> may point to <code>void f(int * _Opt p)</code>, but not the opposite), and its result may remove <code>_Opt</code>. <code>_Owner</code> on parameters and results must match exactly.</li>
+<li>A15.4 A <code>[[nodiscard]]</code> function pointer may point to a function that is not <code>[[nodiscard]]</code>; a pointer without <code>[[nodiscard]]</code> cannot point to a <code>[[nodiscard]]</code> function. This is only between function types: the result of a call is a value, so <code>struct X * _Owner _Opt p = malloc(sizeof *p);</code> is fine even though <code>malloc</code> is <code>[[nodiscard]]</code>.</li>
+<li>A15.5 <code>[[noreturn]]</code>/<code>_Noreturn</code> must match exactly.</li>
+<li>A15.6 Only <code>_Opt</code> and <code>_Owner</code> (and, between functions, <code>[[nodiscard]]</code> and <code>[[noreturn]]</code>) are compared. <code>_Clear</code>, <code>_Uninitialized</code>, <code>_Dtor</code> and <code>_View</code> describe the state of an object and are not part of compatibility: <code>struct X * _Owner _Opt p = calloc(1, sizeof *p);</code> is fine with <code>_Clear void * _Owner _Opt calloc(...)</code>. <code>const</code> and <code>_Out</code> only select the A15.2 rule.</li>
+<li>A15.7 These rules apply only when the extensions are on (<code>#pragma safety enable</code>); otherwise compatibility is the one in C23 6.2.7.</li>
+<li>A15.8 In <code>c ? a : b</code> the <code>_Opt</code> of the result value is decided by the flow analysis, per branch (<code>p ? p : 0</code> may be null, <code>p ? p : q</code> is not), and <code>_Owner</code> stays in the type. Below the value, <code>a</code> and <code>b</code> point to shared objects, so <code>_Opt</code> and <code>_Owner</code> must match at every pointee level: <code>c ? (int * _Opt *) pp1 : (int **) pp2</code> is incompatible.</li>
+</ul>
+
+<p>Examples. Each line says what could go wrong if it were accepted.</p>
+
+<pre><code class="language-c">#pragma safety enable
+
+void f_ptr(int * p);
+void f_opt(int * _Opt p);
+int * _Opt g_opt(void);
+int * g_nonnull(void);
+void get(char * _Out _Owner _Opt * p);
+void free(void * _Owner _Opt p);
+
+void examples(int * p, int * _Opt q, int * _Owner o, int c)
+{
+    /* A15.1 the copied value */
+    int * a = q;                 /* flow: warning 35, q may be null here           */
+    int * b = o;                 /* ok: b is a view of what o owns                 */
+
+    /* A15.2 through a pointer: *pp is shared with the source */
+    int * _Opt * pp1 = &amp;p;       /* error: *pp1 = NULL would make p null           */
+    int ** pp2 = &amp;q;             /* error: *pp2 is read as non-null, q may be null */
+    int * _Opt const * pp3 = &amp;p; /* ok: read only, a non-null p is a valid _Opt    */
+    int * const * pp4 = &amp;q;      /* error: read as non-null, q may be null         */
+
+    char * _Owner s;
+    get(&amp;s);                     /* error: get may store null in s                 */
+    free(s);
+
+    /* A15.3 function pointers: calls through pf go to the function */
+    void (*pf1)(int * p) = f_opt;      /* ok: f_opt accepts more than pf1 passes */
+    void (*pf2)(int * _Opt p) = f_ptr; /* error: pf2(NULL) would reach f_ptr     */
+    int * _Opt (*pg1)(void) = g_nonnull; /* ok: g_nonnull promises more          */
+    int * (*pg2)(void) = g_opt;          /* error: g_opt may return null         */
+
+    /* A15.8 ?: the value is decided by flow, branch by branch */
+    int * r1 = q ? q : p;        /* ok: q is not null in the first branch          */
+    int * r2 = q ? q : 0;        /* flow: warning 35, the second branch is null    */
+    int * _Opt * r3 = c ? pp1 : &amp;p; /* error: int * _Opt * and int ** share *r3    */
+
+    free(o);
+}
+</code></pre>
+
+<pre><code class="language-c">#pragma safety enable
+
+[[nodiscard]] int h_nd(void);
+int h(void);
+
+void attributes(void)
+{
+    /* A15.4 the caller through the pointer must keep every promise of the function */
+    [[nodiscard]] int (*pn1)(void) = h; /* ok: the result is used, h does not care */
+    int (*pn2)(void) = h_nd;            /* error: pn2() would discard h_nd&#39;s result */
+}
+</code></pre>
 </article></body></html>

@@ -5,8 +5,6 @@
 
 #pragma once
 
-#define FLOW_CALL_ENDS_OWNER_POINTEES 1
-
 #include "flow_alternative.h"
 #include "osstream.h"
 
@@ -131,7 +129,8 @@ const struct flow_key_alternatives* _Opt flow_branch_entries_next(struct flow_br
 void flow_branch_set_object_moved(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
 void flow_branch_set_object_zero(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
 void flow_branch_set_object_uninitialized(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
-void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled);
+void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled, bool release_owned_pointees, bool reach_pointees);
+void flow_branch_set_reachable_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled);
 void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
 void flow_branch_apply_dtor_or_clear_effect(struct flow_branch* _Opt m, const struct object* obj, bool is_clear, const struct token* _Opt p_token);
 

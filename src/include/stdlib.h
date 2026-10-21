@@ -47,7 +47,7 @@
     [[nodiscard]] int atoi(const char* nptr);
     [[nodiscard]] long int atol(const char* nptr);
     [[nodiscard]] long long int atoll(const char* nptr);
-    double strtod(const char* restrict nptr, char** _Opt restrict endptr);
+    double strtod(const char* restrict nptr, char* _Out* _Opt restrict endptr);
     float strtof(const char* restrict nptr, char** _Opt restrict endptr);
     long double strtold(const char* restrict nptr, char** _Opt restrict endptr);
     long int strtol(const char* restrict nptr, char** _Opt restrict endptr, int base);
@@ -150,7 +150,7 @@
 
     long strtol(char const* _String, char** _Opt _EndPtr, int _Radix);
     long long strtoll(char const* _String, char** _Opt _EndPtr, int _Radix);
-    double strtod(char const* _String, char** _Opt _EndPtr);
+    double strtod(char const* _String, char* _Out* _Opt _EndPtr);
     long double strtold(char const* _String, char** _Opt _EndPtr);
     unsigned long strtoul(char const* _String, char** _Opt _EndPtr, int _Radix);
     unsigned long long strtoull(char const* _String, char** _Opt _EndPtr, int _Radix);

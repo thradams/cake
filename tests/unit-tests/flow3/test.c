@@ -1,8 +1,8 @@
 
-#pragma flow enable
+#pragma safety enable
 
 
-void f1(int * p)
+void f1(int * _Opt p)
 {
     if (p)
     {
@@ -10,7 +10,7 @@ void f1(int * p)
     }
     else
     {
-        compile_assert(p == 0);   /* ok */
+        compile_assert(p == 0);  
     }
 }
 
@@ -58,7 +58,7 @@ void f7(int * p)
 {
     if (!p)
     {
-        compile_assert(p == 0);   /* ok */
+        compile_assert(p == 0);   //lint 68 p is non-null by contract (A2.1)
     }
 }
 

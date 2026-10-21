@@ -507,7 +507,7 @@ bool platform_arch_is(const struct platform* p_platform, const char* arch)
 long long target_signed_max(const struct platform* target, enum object_type type)
 {
     const int bits = target_get_num_of_bits(target, type);
-    _Assert(bits <= sizeof(long long) * CHAR_BIT);
+    assert(bits <= sizeof(long long) * CHAR_BIT);
 
     if (bits >= sizeof(long long) * CHAR_BIT)
     {
@@ -520,7 +520,7 @@ long long target_signed_max(const struct platform* target, enum object_type type
 long long target_signed_min(const struct platform* target, enum object_type type)
 {
     const int bits = target_get_num_of_bits(target, type);
-    _Assert(bits <= sizeof(long long) * CHAR_BIT);
+    assert(bits <= sizeof(long long) * CHAR_BIT);
 
     if (bits >= sizeof(long long) * CHAR_BIT)
     {
@@ -533,7 +533,7 @@ long long target_signed_min(const struct platform* target, enum object_type type
 unsigned long long target_unsigned_max(const struct platform* target, enum object_type type)
 {
     const int bits = target_get_num_of_bits(target, type);
-    _Assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
+    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
     if (bits >= sizeof(unsigned long long) * CHAR_BIT)
         return ULLONG_MAX;
@@ -598,7 +598,7 @@ int target_get_num_of_bits(const struct platform* target, enum object_type type)
         break;
     }
 
-    _Assert(false);
+    assert(false);
     return 0;
 }
 

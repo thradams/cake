@@ -185,8 +185,65 @@ static struct declarator* _Opt expression_pointee_owner(const struct expression*
     return NULL;
 }
 
+/*
+    The variable an lvalue is reached from and how many indirections are crossed:
+    x->p->v is x with 2. A cast stops the walk, as in expression_reached_through_const.
+*/
+static struct declarator* _Opt expression_reachable_root(const struct expression* _Opt e, int* derefs)
+{
+    while (e != NULL)
+    {
+        switch (e->expression_type)
+        {
+            case EXPR_PRIMARY_PARENTHESIS:
+                e = e->right;
+                continue;
+
+            case EXPR_POSTFIX_DOT:
+                e = e->left;
+                continue;
+
+            case EXPR_POSTFIX_ARROW:
+                (*derefs)++;
+                e = e->left;
+                continue;
+
+            case EXPR_POSTFIX_ARRAY:
+                if (e->left && type_is_pointer(&e->left->object.type))
+                    (*derefs)++;
+                e = e->left;
+                continue;
+
+            case EXPR_UNARY_CONTENT:
+                (*derefs)++;
+                e = e->right;
+                continue;
+
+            case EXPR_PRIMARY_DECLARATOR:
+                return expression_named_declarator(e);
+
+            default:
+                return NULL;
+        }
+    }
+    return NULL;
+}
+
+/* p->q->v = 1: if p were const, this would break what callers assume (warning 120) */
+static void mark_pointee_reachable_written(const struct expression* _Opt p, int min_derefs)
+{
+    int derefs = 0;
+    struct declarator* _Opt p_root = expression_reachable_root(p, &derefs);
+    if (p_root != NULL && derefs >= min_derefs)
+    {
+        p_root->pointee_reachable_written = true;
+    }
+}
+
 static void mark_pointee_written(const struct expression* _Opt p_lvalue, bool counts_as_set)
 {
+    mark_pointee_reachable_written(p_lvalue, 2);
+
     struct declarator* _Opt p_declarator = expression_pointee_owner(p_lvalue);
     if (p_declarator != NULL)
     {
@@ -321,16 +378,39 @@ static void mark_pointee_escaped(const struct type* _Opt p_dest_type_opt,
     }
 
     const struct expression* _Opt p_e = p_source;
+    bool cast_drops_const = false;
 
     while (p_e != NULL &&
         (p_e->expression_type == EXPR_PRIMARY_PARENTHESIS ||
          p_e->expression_type == EXPR_CAST))
     {
+        if (p_e->expression_type == EXPR_CAST && p_e->left &&
+            type_is_pointer(&p_e->object.type) && !type_is_pointed_const(&p_e->object.type) &&
+            type_is_pointer(&p_e->left->object.type) && type_is_pointed_const(&p_e->left->object.type))
+        {
+            cast_drops_const = true;
+        }
         p_e = (p_e->expression_type == EXPR_CAST) ? p_e->left : p_e->right;
     }
 
     if (p_e == NULL)
     {
+        return;
+    }
+
+    if (cast_drops_const && p_e->expression_type == EXPR_POSTFIX_FUNCTION_CALL)
+    {
+        /*
+            `return (T*) f_const(p);` -- the non-const twin of a const lookup:
+            the result points into *p and leaves without const, so p escapes
+            and must not be suggested const.
+        */
+        for (const struct argument_expression* _Opt p_arg = p_e->argument_expression_list.head;
+             p_arg != NULL;
+             p_arg = p_arg->next)
+        {
+            mark_pointee_escaped(NULL, p_arg->expression);
+        }
         return;
     }
 
@@ -441,7 +521,7 @@ static void check_binary_operator_space_style(const struct parser_ctx* ctx,
 static void check_expr_space_after_comma_style(const struct parser_ctx* ctx,
                                                const struct token* token)
 {
-    _Assert(token->type == ',');
+    assert(token->type == ',');
 
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -486,7 +566,7 @@ static void check_expr_space_after_comma_style(const struct parser_ctx* ctx,
 static void check_no_space_before_paren_call_style(const struct parser_ctx* ctx,
                                                    const struct token* token)
 {
-    _Assert(token->type == '(');
+    assert(token->type == '(');
 
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
@@ -546,7 +626,7 @@ static struct osstream build_printf_format_text(const struct expression* p_fmt_e
 {
     struct osstream ss = { 0 };
 
-    struct object* _Opt it = p_fmt_expression->object.members.head;
+    const struct object* _Opt it = p_fmt_expression->object.members.head;
     while (it != NULL)
     {
         const unsigned char c = (unsigned char)it->value.host_long_long;
@@ -1604,6 +1684,126 @@ static void check_printf_like_call(const struct parser_ctx* ctx,
     ss_close(&ss);
 }
 
+/*
+    flow.md 6.3: the flow analysis assumes a call through `const T* p`
+    changes nothing reachable from *p. The const object an lvalue (or
+    pointer) is reached through, below its own level: x for x->p->v, ...
+    A cast stops the walk: an explicit cast is the programmer dropping const.
+*/
+static const struct expression* _Opt expression_reached_through_const(const struct expression* p_expression)
+{
+    const struct expression* _Opt p = p_expression;
+    while (p != NULL)
+    {
+        switch (p->expression_type)
+        {
+            case EXPR_PRIMARY_PARENTHESIS:
+                p = p->right;
+                continue;
+
+            case EXPR_POSTFIX_DOT:
+                p = p->left;
+                if (p && p != p_expression && type_is_const(&p->object.type))
+                    return p;
+                continue;
+
+            case EXPR_POSTFIX_ARROW:
+            case EXPR_POSTFIX_ARRAY:
+                p = p->left;
+                if (p && type_is_pointer(&p->object.type) && type_is_pointed_const(&p->object.type))
+                    return p;
+                continue;
+
+            case EXPR_UNARY_CONTENT:
+                p = p->right;
+                if (p && type_is_pointer(&p->object.type) && type_is_pointed_const(&p->object.type))
+                    return p;
+                continue;
+
+            default:
+                return NULL;
+        }
+    }
+    return NULL;
+}
+
+/* the const object of warning 120: x for x, (x) or (*x); otherwise the expression (r->listener) */
+static void expression_const_name(const struct expression* p_const, struct osstream* ss)
+{
+    const struct expression* p = p_const;
+    while ((p->expression_type == EXPR_PRIMARY_PARENTHESIS || p->expression_type == EXPR_UNARY_CONTENT) &&
+           p->right != NULL)
+    {
+        p = p->right;
+    }
+
+    if (p->expression_type == EXPR_PRIMARY_DECLARATOR)
+        flow_expression_to_string(p, ss);
+    else
+        flow_expression_to_string(p_const, ss);
+}
+
+/* a write to what is reachable from a const object: the analysis assumes it does not change */
+static void check_const_reachable_write(const struct parser_ctx* ctx, const struct expression* p_lvalue)
+{
+    if (type_is_const_recursive(&p_lvalue->object.type))
+        return; /* C reports it (error 920) */
+
+    const struct expression* _Opt p_const = expression_reached_through_const(p_lvalue);
+    if (p_const == NULL)
+        return;
+
+    struct osstream ss_name = { 0 };
+    struct osstream ss_const = { 0 };
+    flow_expression_to_string(p_lvalue, &ss_name);
+    expression_const_name(p_const, &ss_const);
+    /* a postfix ++/-- operand ends at the operator: name the operand alone */
+    if (ss_name.c_str && ss_name.size >= 2 &&
+        (strcmp(ss_name.c_str + ss_name.size - 2, "++") == 0 || strcmp(ss_name.c_str + ss_name.size - 2, "--") == 0))
+    {
+        ss_name.size -= 2;
+        ss_name.c_str[ss_name.size] = '\0';
+    }
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_lvalue->first_token, NULL,
+               "'const' qualifier on '%s' does not propagate to '%s'",
+               ss_const.c_str ? ss_const.c_str : "", ss_name.c_str ? ss_name.c_str : "");
+    ss_close(&ss_name);
+    ss_close(&ss_const);
+}
+
+/*
+    A pointer reachable from a const parameter passed to a non-const pointer
+    parameter: the callee may change it. To a const parameter it is fine:
+    that function assumes the same and is checked the same way.
+*/
+static void check_const_reachable_argument(const struct parser_ctx* ctx,
+                                           const struct type* p_param_type,
+                                           const struct expression* p_argument)
+{
+    /* a void* parameter (a callback's data, ...) is assumed not to change it */
+    if (!type_is_pointer(p_param_type) || type_is_pointed_const(p_param_type) || type_is_pointed_void(p_param_type))
+        return;
+    if (!type_is_pointer_or_array(&p_argument->object.type))
+        return;
+
+    /* f(p->q): if p were const, this would be warning 120 */
+    mark_pointee_reachable_written(p_argument, 1);
+
+    const struct expression* _Opt p_const = expression_reached_through_const(p_argument);
+    if (p_const == NULL)
+        return;
+
+    struct osstream ss_name = { 0 };
+    struct osstream ss_const = { 0 };
+    flow_expression_to_string(p_argument, &ss_name);
+    expression_const_name(p_const, &ss_const);
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_argument->first_token, NULL,
+               "'const' qualifier on '%s' does not propagate to '%s', passed to a non-const parameter",
+               ss_const.c_str ? ss_const.c_str : "", ss_name.c_str ? ss_name.c_str : "");
+    ss_close(&ss_name);
+    ss_close(&ss_const);
+}
+
 static int compare_function_arguments(const struct parser_ctx* ctx,
                                       const struct type* p_type,
                                       struct argument_expression_list* p_argument_expression_list)
@@ -1628,6 +1828,7 @@ static int compare_function_arguments(const struct parser_ctx* ctx,
         while (p_current_argument && p_current_parameter_type)
         {
             check_assigment(ctx, &p_current_parameter_type->type, p_current_argument->expression, ASSIGMENT_TYPE_PARAMETER);
+            check_const_reachable_argument(ctx, &p_current_parameter_type->type, p_current_argument->expression);
             p_current_argument = p_current_argument->next;
             p_current_parameter_type = p_current_parameter_type->next;
         }
@@ -1710,11 +1911,11 @@ bool is_enumeration_constant(const struct parser_ctx* ctx)
 
     if (is_enumerator)
     {
-        ctx->current->flags |= TK_FLAG_IDENTIFIER_IS_ENUMERATOR;
+        ctx->current->flags |= TK_FLAG_IDENTIFIER_IS_ENUMERATOR; //lint 120 (mutable)
     }
     else
     {
-        ctx->current->flags |= TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR;
+        ctx->current->flags |= TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR; //lint 120 (mutable)
     }
 
     return is_enumerator;
@@ -1845,7 +2046,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
             p_generic_association->p_type_name = type_name(ctx);
             if (p_generic_association->p_type_name == NULL) throw;
 
-            _Assert(p_generic_association->p_type_name->abstract_declarator != NULL);
+            assert(p_generic_association->p_type_name->abstract_declarator != NULL);
 
             ctx->inside_generic_association = old;
             p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->abstract_declarator);
@@ -1930,7 +2131,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
 
         if (selected)
         {
-            _Assert(p_generic_selection->p_view_selected_expression == NULL);
+            assert(p_generic_selection->p_view_selected_expression == NULL);
             p_generic_selection->p_view_selected_expression = p_generic_association->expression;
         }
 
@@ -2043,11 +2244,11 @@ void generic_association_delete(struct generic_association* _Owner _Opt p)
 {
     if (p)
     {
-        _Assert(p->next == NULL);
+        assert(p->next == NULL);
         type_name_delete(p->p_type_name);
         expression_delete(p->expression);
         type_destroy(&p->type);
-        free(p);
+        free(p); //lint 29 assert line 2247
     }
 }
 
@@ -2059,9 +2260,8 @@ void generic_assoc_list_add(struct generic_assoc_list* list, struct generic_asso
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = pitem;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = pitem; //lint 26 33
     }
     list->tail = pitem;
 }
@@ -2921,7 +3121,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
         break;
 
         default:
-            _Assert(false);
+            assert(false);
         break;
     }
 
@@ -2979,20 +3179,20 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
 
             if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
             {
-                _Assert(p_entry->data.p_enumerator != NULL);
-                struct enumerator* p_enumerator = p_entry->data.p_enumerator;
-                p_enumerator->used = true;
+                assert(p_entry->data.p_enumerator != NULL);
+                struct enumerator* p_enumerator = p_entry->data.p_enumerator; //lint 35 assert line 3182
+                p_enumerator->used = true; //lint 33 assert line 3182
                 p_expression_node->expression_type = EXPR_PRIMARY_ENUMERATOR;
-                p_expression_node->object = object_dup(&p_enumerator->value);
+                p_expression_node->object = object_dup(&p_enumerator->value); //lint 33 assert line 3182
 
                 type_destroy(&p_expression_node->object.type);
-                p_expression_node->object.type = type_make_enumerator(p_enumerator);
+                p_expression_node->object.type = type_make_enumerator(p_enumerator); //lint 35 assert line 3182
 
-                rename_record(&ctx->options, ctx->current, p_enumerator->token);
+                rename_record(&ctx->options, ctx->current, p_enumerator->token); //lint 33 assert line 3182
 
                 if (find_definition_is_cursor(ctx, ctx->current))
                 {
-                    find_definition_set(ctx, p_enumerator->token);
+                    find_definition_set(ctx, p_enumerator->token); //lint 33 assert line 3182
                     throw; /* found: leave the parser like an error */
                 }
             }
@@ -3003,40 +3203,40 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 struct init_declarator* _Opt p_init_declarator = NULL;
                 if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
-                    _Assert(p_entry->data.p_init_declarator != NULL);
+                    assert(p_entry->data.p_init_declarator != NULL);
                     p_init_declarator = p_entry->data.p_init_declarator;
-                    p_declarator = p_init_declarator->p_declarator;
+                    p_declarator = p_init_declarator->p_declarator; //lint 33 assert line 3206
                 }
                 else
                 {
                     p_declarator = p_entry->data.p_declarator;
                 }
 
-                _Assert(p_declarator != NULL);
+                assert(p_declarator != NULL);
 
-                rename_record(&ctx->options, ctx->current, p_declarator->name_opt);
+                rename_record(&ctx->options, ctx->current, p_declarator->name_opt); //lint 33 assert line 3215
 
                 if (find_definition_is_cursor(ctx, ctx->current))
                 {
-                    find_definition_set_declarator(ctx, p_declarator);
+                    find_definition_set_declarator(ctx, p_declarator); //lint 35 assert line 3215
                     throw; /* found: leave the parser like an error */
                 }
 
                 if (p_declarator->declaration_specifiers &&
-                    p_declarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
+                    p_declarator->declaration_specifiers->attributes_flags & STD_ATTRIBUTE_DEPRECATED) //lint 33 33 assert line 3215
                 {
                     diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
 
-                if (type_is_deprecated(&p_declarator->object.type))
+                if (type_is_deprecated(&p_declarator->object.type)) //lint 33 assert line 3215
                 {
                     diagnostic(W_DEPRECATED, ctx, ctx->current, NULL, "'%s' is deprecated", ctx->current->lexeme);
                 }
 
-                _Assert(p_scope != NULL);
+                assert(p_scope != NULL);
                 if (ctx->p_current_function_scope_opt)
                 {
-                    bool b_type_is_function = type_is_function(&p_declarator->object.type);
+                    bool b_type_is_function = type_is_function(&p_declarator->object.type); //lint 33 assert line 3215
                     bool declarator_is_from_enclosing_function = false;
 
                     if (p_scope->scope_level == 0)
@@ -3069,7 +3269,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                         !b_type_is_function &&
                         declarator_is_from_enclosing_function)
                     {
-                        if (type_is_vm(&p_declarator->object.type))
+                        if (type_is_vm(&p_declarator->object.type)) //lint 33 assert line 3215
                         {
                             diagnostic(C_ERROR_OUTER_SCOPE,
                                        ctx,
@@ -3083,7 +3283,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                         !b_type_is_function &&
                         declarator_is_from_enclosing_function &&
                         !(p_declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
-                        !(p_declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL))
+                        !(p_declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)) //lint 33 33 33 33 assert line 3215
                     {
                         if (diagnostic(C_ERROR_OUTER_SCOPE,
                                        ctx,
@@ -3091,13 +3291,13 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                                 NULL,
                                        "local function cannot use '%s' from the enclosing function", ctx->current->lexeme))
                         {
-                            if (p_declarator->name_opt)
+                            if (p_declarator->name_opt) //lint 33 33 33 assert line 3215
                             {
                                 const bool is_constant =
                                     type_is_constexpr(&p_declarator->object.type) ||
                                     (type_is_const(&p_declarator->object.type) &&
                                      !type_is_volatile_recursive(&p_declarator->object.type) &&
-                                     object_has_all_members_constants(&p_declarator->object));
+                                     object_has_all_members_constants(&p_declarator->object)); //lint 33 assert line 3215
 
                                 diagnostic(W_LOCATION,
                                            ctx,
@@ -3111,17 +3311,17 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                     }
                 }
 
-                p_declarator->num_uses++;
+                p_declarator->num_uses++; //lint 33 assert line 3215
                 if (ctx->unevaluated_operand_depth == 0)
-                    p_declarator->num_evaluated_uses++;
+                    p_declarator->num_evaluated_uses++; //lint 33 assert line 3215
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->p_init_declarator = p_init_declarator;
 
                 p_expression_node->expression_type = EXPR_PRIMARY_DECLARATOR;
 
-                p_expression_node->object = object_make_reference(&p_declarator->object);
+                p_expression_node->object = object_make_reference(&p_declarator->object); //lint 33 assert line 3215
                 type_destroy(&p_expression_node->object.type);
-                p_expression_node->object.type = type_dup(&p_declarator->object.type);
+                p_expression_node->object.type = type_dup(&p_declarator->object.type); //lint 33 assert line 3215
 
             }
             else if (ctx->p_current_function_opt &&
@@ -3249,7 +3449,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                 while (*it != '"')
                     it++;
 
-                _Assert(*it == '"');
+                assert(*it == '"');
                 it++; // skip "
 
                 unsigned int value = 0;
@@ -3559,7 +3759,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
         p_expression_node = NULL;
     }
 
-    _Assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token));
+    assert(p_expression_node == NULL || (p_expression_node->first_token && p_expression_node->last_token));
 
     return p_expression_node;
 }
@@ -3569,8 +3769,8 @@ void argument_expression_delete(_Dtor struct argument_expression* _Owner _Opt p)
     if (p)
     {
         expression_delete(p->expression);
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 3772
     }
 }
 
@@ -3993,10 +4193,10 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 if (p_expression_node_new->left->object.type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
-                    _Assert(p_expression_node_new->left->object.type.struct_or_union_specifier != NULL);
+                    assert(p_expression_node_new->left->object.type.struct_or_union_specifier != NULL);
 
                     struct struct_or_union_specifier* _Opt p_complete =
-                        find_struct_or_union_specifier(ctx, p_expression_node_new->left->object.type.struct_or_union_specifier->tag_name);
+                        find_struct_or_union_specifier(ctx, p_expression_node_new->left->object.type.struct_or_union_specifier->tag_name); //lint 33 assert line 4196
 
                     if (p_complete)
                         p_complete = get_complete_struct_or_union_specifier(p_complete);
@@ -4011,7 +4211,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                     if (p_complete)
                     {
-                        _Assert(ctx->current != NULL);
+                        assert(ctx->current != NULL);
 
                         int member_index = 0;
                         struct member_declarator* _Opt p_member_declarator =
@@ -4102,7 +4302,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                    ctx,
                                    ctx->current, NULL,
                                    "incomplete struct type '%s'",
-                                   p_expression_node_new->left->object.type.struct_or_union_specifier->tag_name);
+                                   p_expression_node_new->left->object.type.struct_or_union_specifier->tag_name); //lint 33 assert line 4196
                         /* print_scope(&ctx->scopes); */
                     }
 
@@ -4218,11 +4418,11 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                     if (type_is_struct_or_union(&item_type))
                     {
-                        _Assert(p_expression_node->object.type.next);
-                        _Assert(p_expression_node->object.type.next->struct_or_union_specifier);
+                        assert(p_expression_node->object.type.next && 
+                               p_expression_node->object.type.next->struct_or_union_specifier);
 
                         struct struct_or_union_specifier* _Opt p_complete =
-                            get_complete_struct_or_union_specifier(p_expression_node->object.type.next->struct_or_union_specifier);
+                            get_complete_struct_or_union_specifier(p_expression_node->object.type.next->struct_or_union_specifier); //lint 33 35 assert line 4421, 4422
 
                         if (p_complete && complete_is_cursor(ctx, ctx->current))
                         {
@@ -4295,7 +4495,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                 }
                                 else
                                 {
-                                    _Assert(false); // TODO
+                                    assert(false); // TODO
                                 }
                             }
                             else
@@ -4406,6 +4606,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                "lvalue required as increment operand");
                 }
 
+                check_const_reachable_write(ctx, p_expression_node);
                 if (type_is_const_recursive(&p_expression_node->object.type))
                 {
                     /*
@@ -4466,6 +4667,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                "lvalue required as decrement operand");
                 }
 
+                check_const_reachable_write(ctx, p_expression_node);
                 if (type_is_const_recursive(&p_expression_node->object.type))
                 {
                     struct osstream ss_name = { 0 };
@@ -4556,7 +4758,7 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
         if (p_expression_node == NULL)
             throw;
 
-        _Assert(p_expression_node->type_name == NULL);
+        assert(p_expression_node->type_name == NULL);
         p_expression_node->p_storage_class_specifiers = p_storage_class_specifiers_ /* moved */;
         p_storage_class_specifiers_ = NULL; /* MOVED */
 
@@ -4711,13 +4913,13 @@ struct expression* _Owner _Opt postfix_expression(struct parser_ctx* ctx, bool i
 
         if (first_of_type_name_ahead(ctx)) /* need to check if this is not a primary expression */
         {
-            _Assert(false); /* this case is handled inside cast_expression */
+            assert(false); /* this case is handled inside cast_expression */
             p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL)
                 throw;
 
-            _Assert(ctx->current != NULL);
-            p_expression_node->first_token = ctx->current;
+            assert(ctx->current != NULL);
+            p_expression_node->first_token = ctx->current; //lint 35 assert line 4921
             if (parser_match_tk(ctx, '(') != 0)
                 throw;
 
@@ -4868,10 +5070,10 @@ static int check_sizeof_argument(const struct parser_ctx* ctx,
     else if (category == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
     {
-        _Assert(p_type->struct_or_union_specifier);
+        assert(p_type->struct_or_union_specifier);
 
         struct struct_or_union_specifier* _Opt p_complete =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier); //lint 35 assert line 5073
         if (p_complete == NULL)
         {
             /* The sizeof operator shall not be applied to an expression that has function type or an incomplete type */
@@ -5028,8 +5230,8 @@ struct expression* _Owner _Opt static_assertion_expr(struct parser_ctx* ctx)
         p_new_expression->expression_type = EXPR_UNARY_STATIC_ASSERTION;
         p_new_expression->object.type = make_void_type();
         struct token* _Opt tk = parser_get_previous_token(ctx);
-        _Assert(tk);
-        p_new_expression->last_token = tk;
+        assert(tk);
+        p_new_expression->last_token = tk; //lint 35 assert line 5233
     }
     catch
     {
@@ -5094,6 +5296,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 throw;
             }
 
+            check_const_reachable_write(ctx, new_expression->right);
             if (type_is_const_recursive(&new_expression->right->object.type))
             {
                 /*
@@ -5705,8 +5908,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     throw;
                 }
                 p_node->first_token = ctx->current;
-                _Assert(p_last->next == NULL);
-                p_last->next = p_node;
+                assert(p_last->next == NULL);
+                p_last->next = p_node; //lint 26 assert line 5911
                 p_last = p_node;
 
                 if (ctx->current->type == '.')
@@ -5853,7 +6056,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 }
                 else
                 {
-                    _Assert(p_designator->index != NULL);
+                    assert(p_designator->index != NULL);
 
                     if (!type_is_array(&current_type))
                     {
@@ -5881,9 +6084,9 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     }
                     p_designator->element_size = element_size;
 
-                    if (object_has_constant_value(&p_designator->index->object))
+                    if (object_has_constant_value(&p_designator->index->object)) //lint 33 assert line 6059
                     {
-                        unsigned long long index = object_to_unsigned_long_long(&p_designator->index->object);
+                        unsigned long long index = object_to_unsigned_long_long(&p_designator->index->object); //lint 33 assert line 6059
 
                         /*
                           n3958: out of range subscription is undefined behavior.
@@ -6144,10 +6347,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 if (type_is_enum(&new_expression->type_name->abstract_declarator->object.type))
                 {
-                    _Assert(new_expression->type_name->type.enum_specifier);
+                    assert(new_expression->type_name->type.enum_specifier);
 
                     const struct enum_specifier* _Opt p_enum_specifier =
-                        get_enum_specifier_definition(new_expression->type_name->type.enum_specifier);
+                        get_enum_specifier_definition(new_expression->type_name->type.enum_specifier); //lint 35 assert line 6350
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
@@ -6230,10 +6433,10 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
 
                 if (type_is_enum(&new_expression->right->object.type))
                 {
-                    _Assert(new_expression->right->object.type.enum_specifier);
+                    assert(new_expression->right->object.type.enum_specifier);
 
                     const struct enum_specifier* _Opt p_enum_specifier =
-                        get_enum_specifier_definition(new_expression->right->object.type.enum_specifier);
+                        get_enum_specifier_definition(new_expression->right->object.type.enum_specifier); //lint 35 assert line 6436
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
@@ -6534,8 +6737,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
             switch (traits_token->type)
             {
                 case TK_KEYWORD_IS_LVALUE:
-                    _Assert(new_expression->right != NULL);
-                    new_expression->object = object_make_signed_int(&ctx->options.platform, expression_is_lvalue(new_expression->right));
+                    assert(new_expression->right != NULL);
+                    new_expression->object = object_make_signed_int(&ctx->options.platform, expression_is_lvalue(new_expression->right)); //lint 35 assert line 6740
                 break;
 
                 case TK_KEYWORD_IS_CONST:
@@ -6575,7 +6778,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 break;
 
                 default:
-                    _Assert(false);
+                    assert(false);
                 break;
             }
 
@@ -6893,7 +7096,7 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx, bool is_d
         else
         {
             diagnostic(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "expected an expression, got '%s'", get_diagnostic_token_text(ctx->current));
-            _Assert(p_expression_node == NULL);
+            assert(p_expression_node == NULL);
             throw;
         }
 
@@ -6974,7 +7177,7 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx,
                     new_expression->expression_type = EXPR_MULTIPLICATIVE_MOD;
                 break;
                 default:
-                    _Assert(false);
+                    assert(false);
                 break;
             }
 
@@ -8024,22 +8227,22 @@ void check_diferent_enuns(const struct parser_ctx* ctx,
     if (left->object.type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
         right->object.type.type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        _Assert(left->object.type.enum_specifier);
-        _Assert(right->object.type.enum_specifier);
+        assert(left->object.type.enum_specifier);
+        assert(right->object.type.enum_specifier);
 
         if (!enum_specifier_is_same_type(left->object.type.enum_specifier,
-                                         right->object.type.enum_specifier))
+                                         right->object.type.enum_specifier)) //lint 35 35 assert line 8230, 8231
         {
-            _Assert(left->object.type.enum_specifier != NULL);
-            _Assert(right->object.type.enum_specifier != NULL);
+            assert(left->object.type.enum_specifier != NULL);
+            assert(right->object.type.enum_specifier != NULL);
 
             const char* lefttag = "";
-            if (left->object.type.enum_specifier->tag_token)
-                lefttag = left->object.type.enum_specifier->tag_token->lexeme;
+            if (left->object.type.enum_specifier->tag_token) //lint 33 assert line 8236
+                lefttag = left->object.type.enum_specifier->tag_token->lexeme; //lint 33 assert line 8236
 
             const char* righttag = "";
-            if (right->object.type.enum_specifier->tag_token)
-                righttag = right->object.type.enum_specifier->tag_token->lexeme;
+            if (right->object.type.enum_specifier->tag_token) //lint 33 assert line 8237
+                righttag = right->object.type.enum_specifier->tag_token->lexeme; //lint 33 assert line 8237
 
             char finalmessage[200] = { 0 };
             snprintf(finalmessage,
@@ -8714,7 +8917,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
         if (p_expression_node == NULL)
             throw;
 
-        _Assert(p_expression_node->expression_type != EXPR_INVALID);
+        assert(p_expression_node->expression_type != EXPR_INVALID);
 
         while (ctx->current != NULL &&
             (ctx->current->type == '=' ||
@@ -8782,7 +8985,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
                     new_expression->expression_type = EXPR_ASSIGNMENT_OR_ASSIGN;
                 break;
                 default:
-                    _Assert(false);
+                    assert(false);
                 break;
             }
 
@@ -8825,6 +9028,7 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, boo
                 }
             }
 
+            check_const_reachable_write(ctx, new_expression->left);
             if (type_is_const_recursive(&new_expression->left->object.type))
             {
                 {
@@ -8941,7 +9145,7 @@ struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool i
         if (p_expression_node == NULL)
             throw;
 
-        _Assert(p_expression_node->expression_type != EXPR_INVALID);
+        assert(p_expression_node->expression_type != EXPR_INVALID);
 
         if (ctx->current == NULL)
         {
@@ -8991,9 +9195,8 @@ void argument_expression_list_push(struct argument_expression_list* list, struct
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = pitem;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = pitem; //lint 26 33
     }
     list->tail = pitem;
 }
@@ -9414,7 +9617,7 @@ bool expression_is_null_pointer_constant(const struct expression* expression)
 * this fix. Only const/volatile are merged; the cake contract qualifiers have
 * their own composition rules.
 */
-static void merge_pointee_qualifiers(const struct type* p_result, const struct type* p_other)
+static void merge_pointee_qualifiers(struct type* p_result, const struct type* p_other)
 {
     if (!type_is_pointer(p_result) || !type_is_pointer(p_other))
         return;
@@ -9425,6 +9628,28 @@ static void merge_pointee_qualifiers(const struct type* p_result, const struct t
     p_result->next->type_qualifier_flags |=
         (p_other->next->type_qualifier_flags &
             (TYPE_QUALIFIER_CONST | TYPE_QUALIFIER_VOLATILE));
+}
+
+/*
+* flow.md A15.8: in `c ? a : b` the _Opt of the result value is left to
+* flow, but below it a and b share the pointed objects, so _Opt and _Owner
+* must match at every pointee level.
+*/
+static bool conditional_pointees_are_compatible(const struct type* p_left, const struct type* p_right)
+{
+    const struct type* _Opt pa = p_left->next;
+    const struct type* _Opt pb = p_right->next;
+    while (pa && pb)
+    {
+        const enum type_qualifier_flags mask =
+            pa->category == TYPE_CATEGORY_POINTER ?
+            (TYPE_QUALIFIER_CAKE_OPT | TYPE_QUALIFIER_CAKE_OWNER) : TYPE_QUALIFIER_CAKE_OWNER;
+        if ((pa->type_qualifier_flags & mask) != (pb->type_qualifier_flags & mask))
+            return false;
+        pa = pa->next;
+        pb = pb->next;
+    }
+    return true;
 }
 
 static void diagnostic_conditional_incompatible(const struct parser_ctx* ctx, const struct token* p_token, const struct type* p_left, const struct type* p_right)
@@ -9458,7 +9683,8 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
         {
             struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof(struct expression));
             if (p_conditional_expression == NULL) throw;
-            p_conditional_expression->first_token = ctx->current;
+            /* the expression starts at its condition, so diagnostics name 'c ? a : b' */
+            p_conditional_expression->first_token = p_expression_node->first_token;
             p_conditional_expression->last_token = ctx->current;
             p_conditional_expression->expression_type = EXPR_CONDITIONAL;
             p_conditional_expression->condition_expr = p_expression_node;
@@ -9572,7 +9798,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                 ? p_conditional_expression->left
                 : p_conditional_expression->condition_expr;
 
-            _Assert(p_left_or_cond);
+            assert(p_left_or_cond);
 
             if (expression_is_subjected_to_lvalue_conversion(p_left_or_cond))
             {
@@ -9681,6 +9907,19 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                     }
                     else
                     {
+                        if (ctx->options.safety_enabled &&
+                            !conditional_pointees_are_compatible(&left_type, &right_type))
+                        {
+                            struct osstream ss_a = { 0 };
+                            struct osstream ss_b = { 0 };
+                            print_type_no_names(&ss_a, &left_type, &ctx->options.platform);
+                            print_type_no_names(&ss_b, &right_type, &ctx->options.platform);
+                            diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL,
+                                       "incompatible operand types in conditional expression ('%s' and '%s')",
+                                       ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                            ss_close(&ss_a);
+                            ss_close(&ss_b);
+                        }
                         type_swap(&p_conditional_expression->object.type, &right_type);
                         merge_pointee_qualifiers(&p_conditional_expression->object.type, &left_type);
                     }
@@ -9694,7 +9933,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
             {
                 if (expression_is_null_pointer_constant(p_left_or_cond) ||
                     type_is_nullptr_t(&left_type) ||
-                    type_is_void_ptr(&left_type))
+                    type_is_void_ptr(&left_type)) 
                 {
                     type_swap(&p_conditional_expression->object.type, &right_type);
                 }
@@ -9710,6 +9949,19 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx, bo
                     }
                     else
                     {
+                        if (ctx->options.safety_enabled &&
+                            !conditional_pointees_are_compatible(&left_type, &right_type))
+                        {
+                            struct osstream ss_a = { 0 };
+                            struct osstream ss_b = { 0 };
+                            print_type_no_names(&ss_a, &left_type, &ctx->options.platform);
+                            print_type_no_names(&ss_b, &right_type, &ctx->options.platform);
+                            diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL,
+                                       "incompatible operand types in conditional expression ('%s' and '%s')",
+                                       ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                            ss_close(&ss_a);
+                            ss_close(&ss_b);
+                        }
                         type_swap(&p_conditional_expression->object.type, &right_type);
                         merge_pointee_qualifiers(&p_conditional_expression->object.type, &left_type);
                     }
@@ -9996,6 +10248,30 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
             ss_close(&ss_b);
         }
     }
+
+    /* _Opt, _Owner and function attributes (flow.md A15) */
+    if (!expression_is_null_pointer_constant(p_b_expression))
+    {
+        struct type b_type = expression_is_subjected_to_lvalue_conversion(p_b_expression) ?
+            type_lvalue_conversion(p_b_type) : type_dup(p_b_type);
+        struct type a_type = (type_is_array(p_a_type) || type_is_function(p_a_type)) ?
+            type_lvalue_conversion(p_a_type) : type_dup(p_a_type);
+
+        if (!type_extensions_are_compatible(&b_type, &a_type))
+        {
+            struct osstream ss_a = { 0 };
+            struct osstream ss_b = { 0 };
+            print_type_no_names(&ss_a, &a_type, &ctx->options.platform);
+            print_type_no_names(&ss_b, &b_type, &ctx->options.platform);
+            diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx,
+                       p_b_expression->first_token, NULL,
+                       "incompatible types: '%s' from '%s'", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+            ss_close(&ss_a);
+            ss_close(&ss_b);
+        }
+        type_destroy(&a_type);
+        type_destroy(&b_type);
+    }
 }
 
 void check_assigment(const struct parser_ctx* ctx,
@@ -10127,10 +10403,10 @@ void check_assigment(const struct parser_ctx* ctx,
     */
     if (type_is_enum(p_b_type) && type_is_enum(p_a_type))
     {
-        _Assert(p_a_type->enum_specifier);
-        _Assert(p_b_type->enum_specifier);
+        assert(p_a_type->enum_specifier);
+        assert(p_b_type->enum_specifier);
 
-        if (!enum_specifier_is_same_type(p_a_type->enum_specifier, p_b_type->enum_specifier))
+        if (!enum_specifier_is_same_type(p_a_type->enum_specifier, p_b_type->enum_specifier)) //lint 35 35 assert line 10406, 10407
         {
             {
                 struct osstream ss_a = { 0 };
@@ -10155,16 +10431,16 @@ void check_assigment(const struct parser_ctx* ctx,
         {
             struct osstream ss_expr = { 0 };
             flow_expression_to_string(p_b_expression, &ss_expr);
-            _Assert(p_a_type->enum_specifier);
+            assert(p_a_type->enum_specifier);
 
             const char* enum_tag_name =
                 p_a_type->enum_specifier->tag_name[0] != 0 ?
-                p_a_type->enum_specifier->tag_name : "<anonymous>";
+                p_a_type->enum_specifier->tag_name : "<anonymous>"; //lint 33 33 assert line 10434
 
             if (object_has_constant_value(&p_b_expression->object))
             {
                 const struct enum_specifier* _Opt p_complete =
-                    get_complete_enum_specifier(p_a_type->enum_specifier);
+                    get_complete_enum_specifier(p_a_type->enum_specifier); //lint 35 assert line 10434
 
                 const struct enumerator* _Opt p_enumerator =
                     p_complete ?
@@ -10391,7 +10667,21 @@ void check_assigment(const struct parser_ctx* ctx,
                         struct osstream ss_b = { 0 };
                         print_type_no_names(&ss_a, p_a_type, &ctx->options.platform);
                         print_type_no_names(&ss_b, &b_type_lvalue, &ctx->options.platform);
-                        diagnostic(W_DISCARDED_QUALIFIERS, ctx, p_b_expression->first_token, NULL, assignment_type == ASSIGMENT_TYPE_PARAMETER ? "discarding const qualifier in argument: '%s' from '%s'" : "discarding const qualifier: '%s' from '%s'", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                        /* where the const comes from: the declaration of the variable, or of the function that returned it */
+                        char see_line[40] = { 0 };
+                        const struct expression* p_source_expression = p_b_expression;
+                        while (p_source_expression->expression_type == EXPR_PRIMARY_PARENTHESIS && p_source_expression->right)
+                            p_source_expression = p_source_expression->right;
+                        const struct declarator* _Opt p_source_declarator =
+                            p_source_expression->expression_type == EXPR_POSTFIX_FUNCTION_CALL ?
+                            expression_named_declarator(p_source_expression->left) :
+                            expression_named_declarator(p_source_expression);
+                        if (p_source_declarator && p_source_declarator->name_opt)
+                            snprintf(see_line, sizeof see_line, " (see line %d)", p_source_declarator->name_opt->line);
+
+                        diagnostic(W_DISCARDED_QUALIFIERS, ctx, p_b_expression->first_token, NULL,
+                                   assignment_type == ASSIGMENT_TYPE_PARAMETER ? "discarding const qualifier in argument: '%s' from '%s'%s" : "discarding const qualifier: '%s' from '%s'%s",
+                                   ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "", see_line);
                         ss_close(&ss_a);
                         ss_close(&ss_b);
                     }

@@ -29,7 +29,9 @@
     ((sizeof(t) > sizeof(__int64) || (sizeof(t) & (sizeof(t) - 1)) != 0) \
         ? **(t**)((ap += sizeof(__int64)) - sizeof(__int64))             \
         :  *(t* )((ap += sizeof(__int64)) - sizeof(__int64)))
-            #define va_end(ap) ((void)(ap = (va_list)0))
+            /* ap cannot be used after va_end; setting it to null would assign null
+               to a va_list that is not _Opt (warning 35) */
+            #define va_end(ap) ((void)(ap))
 
         #else /* x86 */
 
@@ -40,7 +42,7 @@
 
             #define va_start(ap, v) ((void)(ap = (va_list)__cake_ADDRESSOF(v) + __cake_INTSIZEOF(v)))
             #define va_arg(ap, t)   (*(t*)((ap += __cake_INTSIZEOF(t)) - __cake_INTSIZEOF(t)))
-            #define va_end(ap)      ((void)(ap = (va_list)0))
+            #define va_end(ap)      ((void)(ap))
 
         #endif
 
@@ -57,5 +59,17 @@
     #endif
 
 #else
+
     #include_next <stdarg.h>
+
+    #if defined(_WIN32)
+        /*
+           The msvc va_end (x86 and x64) is __crt_va_end, ((void)(ap = (va_list)0)):
+           null assigned to a va_list that is not _Opt (warning 35). ap cannot
+           be used after va_end, so setting it to null does nothing. The x64
+           va_start is in cake's vadefs.h.
+        */
+        #undef __crt_va_end
+        #define __crt_va_end(ap) ((void)(ap))
+    #endif
 #endif

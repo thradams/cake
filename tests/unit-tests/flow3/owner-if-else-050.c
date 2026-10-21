@@ -16,7 +16,7 @@ void f(int i) {
         }
         else
         {
-            p = malloc(1);
+            p = malloc(1); //lint 68 same condition as the outer if
         }     
     }
     

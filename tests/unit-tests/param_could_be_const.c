@@ -48,12 +48,12 @@ void addr_of_member_to_const(struct X* p)
     gic(&p->i);
 } //lint 82
 
-/* Writing through a POINTER member does not modify *p, and stays legal
-   under `const struct X*`. */
+/* Writing through a POINTER member does not modify *p, and is legal under
+   `const struct X*`, but const would be warning 120: not suggested. */
 void write_through_pointer_member(struct X* p)
 {
     p->buf[0] = 'x';
-} //lint 82
+}
 
 /* An array parameter and a pointer to array are reported too. */
 int read_array_param(int a[], int n)

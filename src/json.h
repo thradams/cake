@@ -39,9 +39,11 @@ struct json_error
 struct json_value *_Owner _Opt json_parse(const char * _Opt text, struct json_error * _Opt error);
 void json_delete(struct json_value * _Owner _Opt value);
 
-struct json_value * _Opt json_find_member(const struct json_value *object, const char *key);
+struct json_value * _Opt json_find_member(struct json_value *object, const char *key);
+const struct json_value * _Opt json_find_member_const(const struct json_value *object, const char *key);
 
-struct json_value *_Opt json_item(const struct json_value *value, size_t index);
+struct json_value *_Opt json_item(struct json_value *value, size_t index);
+const struct json_value *_Opt json_item_const(const struct json_value *value, size_t index);
 
 size_t json_count(const struct json_value *value);
 

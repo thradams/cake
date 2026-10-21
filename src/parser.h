@@ -122,7 +122,7 @@ struct diagnostic_item
 };
 
 void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _Owner e);
-void diagnostic_queue_flush(struct diagnostic_queue* q, const struct parser_ctx* ctx);
+void diagnostic_queue_flush(struct diagnostic_queue* q, struct parser_ctx* ctx);
 bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id);
 void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
 
@@ -1000,6 +1000,8 @@ struct declarator
     bool address_taken;
     bool pointee_written;
     bool pointee_escaped;
+    /* something reachable below the pointee is written or passed to a non-const pointer */
+    bool pointee_reachable_written;
     bool pointee_used;
 
     struct object object;
@@ -1032,7 +1034,8 @@ struct declarator
 
 struct function_declarator* _Opt declarator_find_function_declarator(const struct declarator* p_declarator);
 
-const struct declarator* _Opt declarator_get_function_definition(const struct declarator* p);
+const struct declarator* _Opt declarator_get_function_definition_const(const struct declarator* p);
+struct declarator* _Opt declarator_get_function_definition(struct declarator* declarator);
 
 struct declarator;
 void print_declarator(struct osstream* ss, struct declarator* declarator, bool is_abstract);
@@ -1116,7 +1119,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Opt specifier_qualifier_list,
     struct declaration_specifiers* _Opt declaration_specifiers,
     bool abstract_acceptable,
-    struct token** _Opt pptoken_name
+    struct token* _Opt* _Opt pptoken_name
 );
 
 struct parameter_type_list
@@ -1497,9 +1500,12 @@ struct case_label_list
 };
 
 void case_label_list_push(struct case_label_list* list, struct label* pnew);
-struct label* _Opt case_label_list_find(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object);
-struct label* _Opt case_label_list_find_default( const struct case_label_list* list);
-struct label* _Opt case_label_list_find_range(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end);
+struct label* _Opt case_label_list_find(const struct parser_ctx* ctx, struct case_label_list* list, const struct object* object);
+const struct label* _Opt case_label_list_find_const(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object);
+struct label* _Opt case_label_list_find_default( struct case_label_list* list);
+const struct label* _Opt case_label_list_find_default_const(const struct case_label_list* list);
+struct label* _Opt case_label_list_find_range(const struct parser_ctx* ctx, struct case_label_list* list, const struct object* begin, const struct object* end);
+const struct label* _Opt case_label_list_find_range_const(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end);
 
 struct selection_statement
 {

@@ -5,14 +5,14 @@
 void take(char* p);
 
 /* 1. String literal initializer. */
-int from_string_literal(void)
+void from_string_literal(void)
 {
     char* n = "a";
     take(n); /* ok: initialized from a string literal, non-null */
 }
 
 /* 2. Named array decaying to a pointer, then passed on. */
-int from_named_array(void)
+void from_named_array(void)
 {
     char buf[8] = "hi";
     char* p = buf;
@@ -20,7 +20,7 @@ int from_named_array(void)
 }
 
 /* 3. Reassignment (not just initialization) from a string literal. */
-int reassigned_from_string_literal(int flag)
+void reassigned_from_string_literal(int flag)
 {
     char* n = "a";
     if (flag)

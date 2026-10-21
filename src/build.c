@@ -497,7 +497,6 @@ static void build_docs(void)
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../diagnostics.md", "./web/diagnostics.html");
     generate_doc("../flow.md", "./web/flow.html");
-    generate_doc("../quickref.md", "./web/quickref.html");
 
     remove(EXE("hoedown"));
 }

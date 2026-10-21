@@ -27,9 +27,13 @@ enum flow_pointee_effect_kind
                                            whole object: every member ended */
     FLOW_EFFECT_ANY,                  /* _Out, or a plain mutable pointer:
                                            possibly-modified/unknown */
-    FLOW_EFFECT_DTOR                  /* _Dtor: every member set to
+    FLOW_EFFECT_DTOR,                 /* _Dtor: every member set to
                                            uninitialized (+ reachable owner
                                            pointees ended) */
+    FLOW_EFFECT_REACHABLE_ANY         /* const pointer (const is shallow): the
+                                           pointee is kept, what its pointer
+                                           members point to becomes ANY
+                                           (flow.md 6.3) */
 };
 
 struct flow_deferred_pointee_effect
@@ -86,6 +90,14 @@ struct flow_reported_finding
 struct flow_ctx
 {
     struct parser_ctx* const ctx;
+
+    /*
+        Arguments whose call may have changed what is reachable from them
+        (flow.md 6.3). A state set there is explained as a call effect, not
+        as "value set here". Reset for each function.
+    */
+    const struct expression* call_effect_arguments[64];
+    int call_effect_arguments_count;
 
     struct type* _Opt p_return_type;
     int parameter_list;
@@ -171,6 +183,9 @@ struct flow_ctx
 
     /* origin of the REF being followed as an assignment source; its values must be compatible */
     const struct flow_branch* _Opt p_source_ref_origin;
+
+    /* inside `a = b`: an unknown b overwrites the old value of a with ANY */
+    bool assignment_overwrites;
 
     /*
      * The subscript expression an assignment, compound assignment or ++/--

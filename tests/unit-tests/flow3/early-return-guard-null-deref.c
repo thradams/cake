@@ -29,7 +29,7 @@ struct ctx
     struct X* _Opt p;
 };
 
-void backwards_guard_member(const struct ctx* c)
+void backwards_guard_member(struct ctx* c)
 {
     if (c->p != NULL)
         return;

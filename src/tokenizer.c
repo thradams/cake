@@ -349,9 +349,8 @@ struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const ch
         }
         else
         {
-            _Assert(list->tail != NULL);
-            _Assert(list->tail->next == NULL);
-            list->tail->next = p_new_include_dir;
+            assert(list->tail != NULL && list->tail->next == NULL);
+            list->tail->next = p_new_include_dir; //lint 26 33
             list->tail = p_new_include_dir;
         }
         return list->tail;
@@ -671,10 +670,10 @@ void macro_argument_delete(struct macro_argument* _Owner _Opt p)
 {
     if (p)
     {
-        _Assert(p->next == NULL);
+        assert(p->next == NULL);
         token_list_destroy(&p->tokens);
         token_list_destroy(&p->expanded_list);
-        free(p);
+        free(p); //lint 29 assert line 673
     }
 }
 
@@ -750,18 +749,17 @@ struct macro_argument* _Opt find_macro_argument_by_name(struct macro_argument_li
 
 void argument_list_add(struct macro_argument_list* list, struct macro_argument* _Owner pnew)
 {
-    _Assert(pnew->next == NULL);
+    assert(pnew->next == NULL);
     if (list->head == NULL)
     {
         list->head = pnew;
-        _Assert(list->tail == NULL);
+        assert(list->tail == NULL);
         list->tail = pnew;
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = pnew;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = pnew; //lint 26 33
         list->tail = pnew;
     }
 }
@@ -1390,7 +1388,7 @@ static struct token* _Owner _Opt ppnumber(struct stream* stream)
     }
     else
     {
-        _Assert(false);
+        assert(false);
     }
 
     for (;;)
@@ -1568,7 +1566,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
         p_new_token->col = col;
         token_list_add(&list, p_new_token);
 
-        _Assert(list.head != NULL);
+        assert(list.head != NULL);
         *p_count = count;
     }
     catch
@@ -1956,16 +1954,14 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 has_space = false;
 
                 continue;
-            }
-
-            break;
+            }            
         }
     }
     catch
     {
     }
 
-    _Assert(list.head != NULL);
+    assert(list.head != NULL);
     return list;
 }
 
@@ -1989,14 +1985,14 @@ struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* inp
         }
         while (!token_list_is_empty(input_list))
         {
-            _Assert(input_list->head != NULL);
+            assert(input_list->head != NULL);
 
             if (input_list->head->type == TK_PREPROCESSOR_LINE &&
                 (preprocessor_token_ahead_is_identifier(input_list->head, "endif") ||
                     preprocessor_token_ahead_is_identifier(input_list->head, "else") ||
                     preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
                     preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
-                    preprocessor_token_ahead_is_identifier(input_list->head, "elifndef")))
+                    preprocessor_token_ahead_is_identifier(input_list->head, "elifndef"))) //lint 33 assert line 1988
             {
                 /*follow of group-part*/
                 break;
@@ -2151,8 +2147,8 @@ static void skip_blanks_level( struct token_list* dest, struct token_list* input
         {
             struct token* _Owner _Opt p =
                 token_list_pop_front_get(input_list);
-            _Assert(p != NULL); //because input_list is not empty
-            token_list_add(dest, p);
+            assert(p != NULL); //because input_list is not empty
+            token_list_add(dest, p); //lint 35 assert line 2150
         }
         else
             token_list_pop_front(input_list);
@@ -2167,9 +2163,9 @@ static void skip_blanks( struct token_list* dest, struct token_list* input_list)
             break;
         struct token* _Owner _Opt p =
             token_list_pop_front_get(input_list);
-        _Assert(p != NULL); //because input_list is not empty
+        assert(p != NULL); //because input_list is not empty
 
-        token_list_add(dest, p);
+        token_list_add(dest, p); //lint 35 assert line 2166
     }
 }
 
@@ -2185,9 +2181,9 @@ static void skip_blanks_including_newline( struct token_list* dest, struct token
 
         struct token* _Owner _Opt p =
             token_list_pop_front_get(input_list);
-        _Assert(p != NULL); //because input_list is not empty
+        assert(p != NULL); //because input_list is not empty
 
-        token_list_add(dest, p);
+        token_list_add(dest, p); //lint 35 assert line 2184
     }
 }
 
@@ -3409,7 +3405,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 struct token_list process_identifiers( _Dtor struct token_list* list)
 {
-    _Assert(!token_list_is_empty(list));
+    assert(!token_list_is_empty(list));
 
     struct token_list list2 = { 0 };
 
@@ -3431,18 +3427,18 @@ struct token_list process_identifiers( _Dtor struct token_list* list)
             */
 
                 struct token* _Owner _Opt p_new_token = token_list_pop_front_get(list);
-                _Assert(p_new_token != NULL); //because the list is not empty
-                p_new_token->type = TK_PPNUMBER;
+                assert(p_new_token != NULL); //because the list is not empty
+                p_new_token->type = TK_PPNUMBER; //lint 33 assert line 3430
 
-                if (strcmp(p_new_token->lexeme, "true") == 0)
+                if (strcmp(p_new_token->lexeme, "true") == 0) //lint 33 assert line 3430
                 {
-                    p_new_token->lexeme[0] = '1';
-                    p_new_token->lexeme[1] = '\0';
+                    p_new_token->lexeme[0] = '1'; //lint 33 assert line 3430
+                    p_new_token->lexeme[1] = '\0'; //lint 33 assert line 3430
                 }
-                else if (strcmp(p_new_token->lexeme, "false") == 0)
+                else if (strcmp(p_new_token->lexeme, "false") == 0) //lint 33 assert line 3430
                 {
-                    p_new_token->lexeme[0] = '0';
-                    p_new_token->lexeme[1] = '\0';
+                    p_new_token->lexeme[0] = '0'; //lint 33 assert line 3430
+                    p_new_token->lexeme[1] = '\0'; //lint 33 assert line 3430
                 }
                 else
                 {
@@ -3452,22 +3448,22 @@ struct token_list process_identifiers( _Dtor struct token_list* list)
                         token_delete(p_new_token);
                         throw;
                     }
-                    free(p_new_token->lexeme);
-                    p_new_token->lexeme = temp;
+                    free(p_new_token->lexeme); //lint 33 assert line 3430
+                    p_new_token->lexeme = temp; //lint 33 assert line 3430
                 }
 
-                token_list_add(&list2, p_new_token);
+                token_list_add(&list2, p_new_token); //lint 35 assert line 3430
             }
             else
             {
                 struct token* _Owner _Opt ptk = token_list_pop_front_get(list);
-                _Assert(ptk != NULL); //because the list is not empty
-                token_list_add(&list2, ptk);
+                assert(ptk != NULL); //because the list is not empty
+                token_list_add(&list2, ptk); //lint 35 assert line 3460
             }
         }
-        _Assert(!token_list_is_empty(&list2));
-        _Assert(list->head == NULL);
-        _Assert(list->tail == NULL);
+        assert(!token_list_is_empty(&list2));
+        assert(list->head == NULL);
+        assert(list->tail == NULL);
     }
     catch
     {
@@ -3483,8 +3479,8 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
         struct token* _Owner _Opt tk = token_list_pop_front_get(input_list);
-        _Assert(tk != NULL); //because the list is not empty
-        token_list_add(&r, tk);
+        assert(tk != NULL); //because the list is not empty
+        token_list_add(&r, tk); //lint 35 assert line 3482
     }
     return r;
 }
@@ -3494,9 +3490,9 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
                                            struct token_list* output_list,
                                            struct token_list* input_list)
 {
-    _Assert(input_list->head != NULL);
+    assert(input_list->head != NULL);
 
-    struct token* first = input_list->head;
+    struct token* first = input_list->head; //lint 35 assert line 3493
 
     ctx->conditional_inclusion = true;
 
@@ -3504,8 +3500,8 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
         struct token* _Owner _Opt tk = token_list_pop_front_get(input_list);
-        _Assert(tk != NULL); //because the list is not empty
-        token_list_add(&r, tk);
+        assert(tk != NULL); //because the list is not empty
+        token_list_add(&r, tk); //lint 35 assert line 3503
 
         /*
       We call preprocessor that emmit warnings if line continuation
@@ -3513,7 +3509,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
       Let's remove TK_FLAG_LINE_CONTINUATION from the original token
       to avoid warning inside constant expressions
     */
-        _Assert(r.tail != NULL);
+        assert(r.tail != NULL);
         r.tail->flags &= ~TK_FLAG_LINE_CONTINUATION;
     }
 
@@ -3550,7 +3546,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
         {
             struct token_list list4 = process_identifiers( &list3);
 
-            _Assert(list4.head != NULL);
+            assert(list4.head != NULL);
 
             struct preprocessor_ctx pre_ctx = { 0 };
 
@@ -3636,7 +3632,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 {
     *p_result = 0; //out
 
-    _Assert(input_list->head != NULL);
+    assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
     try
@@ -3653,7 +3649,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         if (input_list->head == NULL)
             throw;
 
-        _Assert(input_list->head->type == TK_IDENTIFIER);
+        assert(input_list->head->type == TK_IDENTIFIER);
         if (strcmp(input_list->head->lexeme, "ifdef") == 0)
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //ifdef
@@ -3734,8 +3730,8 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         }
         struct token_list r2 = group_opt(ctx, input_list, is_active && *p_result, level);
         token_list_append_list(&r, &r2);
-        _Assert(r2.head == NULL);
-        _Assert(r2.tail == NULL);
+        assert(r2.head == NULL);
+        assert(r2.tail == NULL);
     }
     catch
     {
@@ -3747,7 +3743,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* p_elif_result)
 {
     *p_elif_result = 0; //out
-    _Assert(input_list->head != NULL);
+    assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
 
@@ -3831,7 +3827,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
 
 struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* pelif_result)
 {
-    _Assert(input_list->head != NULL);
+    assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
     /*
@@ -3938,7 +3934,7 @@ struct token_list endif_line(struct preprocessor_ctx* ctx, struct token_list* in
 struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level);
 struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level);
 
-struct token_list def_line(struct preprocessor_ctx* ctx, struct token_list* input_list, int level, struct macro** pp_macro)
+struct token_list def_line(struct preprocessor_ctx* ctx, struct token_list* input_list, int level, struct macro* _Opt* pp_macro)
 {
     //https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3524.txt
 
@@ -4001,7 +3997,7 @@ def-line:
             macro_delete(macro);
             throw;
         }
-        _Assert(macro->name == NULL);
+        assert(macro->name == NULL);
         macro->name = temp;
 
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //nome da macro
@@ -4092,7 +4088,7 @@ def-line:
 
                     p_macro_parameter->name = temp3;
                     struct macro_parameter* _Opt p_last = macro->parameters;
-                    _Assert(p_last != NULL);
+                    assert(p_last != NULL);
                     while (p_last->next)
                     {
                         p_last = p_last->next;
@@ -4123,7 +4119,7 @@ def-line:
         item.p_macro = macro;
         hashmap_set(&ctx->macros, macro->name, &item);
         hash_item_set_destroy(&item);
-        *pp_macro = macro;
+        *pp_macro = macro; //lint 31 (lives inside map)
     }
     catch
     {
@@ -4248,7 +4244,7 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
      if-section:
        if-group elif-groups_opt else-group_opt endif-line
     */
-    _Assert(input_list->head != NULL);
+    assert(input_list->head != NULL);
 
     struct token_list r = { 0 };
 
@@ -4323,7 +4319,7 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
 
 struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level)
 {
-    _Assert(input_list->head != NULL);
+    assert(input_list->head != NULL);
     struct token_list r = { 0 };
 
     try
@@ -4349,8 +4345,8 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
         }
         p_macro_parameter->name = temp;
 
-        _Assert(macro->parameters == NULL);
-        macro->parameters = p_macro_parameter;
+        assert(macro->parameters == NULL);
+        macro->parameters = p_macro_parameter; //lint 26 assert line 4348
 
         struct macro_parameter* p_last_parameter = macro->parameters;
 
@@ -4400,8 +4396,8 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
 
             p_new_macro_parameter->name = temp2;
 
-            _Assert(p_last_parameter->next == NULL);
-            p_last_parameter->next = p_new_macro_parameter; //lint 32 bug ?
+            assert(p_last_parameter->next == NULL);
+            p_last_parameter->next = p_new_macro_parameter; //lint 32 26 26 bug ?
             p_last_parameter = p_last_parameter->next;
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
@@ -4441,7 +4437,7 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
             }
         }
 
-        _Assert(macro->replacement_list.head == NULL);
+        assert(macro->replacement_list.head == NULL);
         struct token_list copy = copy_replacement_list(ctx, &r);
         token_list_append_list(&macro->replacement_list, &copy);
         token_list_destroy(&copy);
@@ -5022,7 +5018,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 macro_delete(macro);
                 throw;
             }
-            _Assert(macro->name == NULL);
+            assert(macro->name == NULL);
             macro->name = temp;
 
             find_definition_macro(ctx, macro_name_token, macro);
@@ -5114,7 +5110,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                         p_macro_parameter->name = temp3;
                         struct macro_parameter* _Opt p_last = macro->parameters;
-                        _Assert(p_last != NULL);
+                        assert(p_last != NULL);
                         while (p_last->next)
                         {
                             p_last = p_last->next;
@@ -5204,7 +5200,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             find_definition_macro(ctx, input_list->head, find_macro(ctx, input_list->head->lexeme));
 
             struct macro* _Owner _Opt macro = (struct macro* _Owner _Opt) hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
-            _Assert(find_macro(ctx, input_list->head->lexeme) == NULL);
+            assert(find_macro(ctx, input_list->head->lexeme) == NULL);
             if (macro)
             {
                 macro_delete(macro);
@@ -5404,7 +5400,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level, is_active);
             token_list_append_list(&r, &r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
-            _Assert(r.tail != NULL);
+            assert(r.tail != NULL);
             r.tail->type = TK_PRAGMA_END;
             r.tail->flags |= TK_FLAG_FINAL;
             token_list_destroy(&r7);
@@ -5457,7 +5453,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             throw;
         }
 
-        _Assert(input_list->head->type == TK_IDENTIFIER); //macro name
+        assert(input_list->head->type == TK_IDENTIFIER); //macro name
         match_token_level(&macro_argument_list.tokens, input_list, TK_IDENTIFIER, level, ctx); //MACRO NAME
         const struct token* const _Opt macro_name_token = macro_argument_list.tokens.head;
 
@@ -5729,7 +5725,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
                     p_new_token->lexeme = temp;
                     p_new_token->type = TK_PLACEMARKER;
                     token_list_add(&newlist, p_new_token);
-                    _Assert(newlist.head != NULL);
+                    assert(newlist.head != NULL);
                     newlist.head->flags = r.tail->flags;
                 }
                 /*
@@ -5812,9 +5808,9 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
 
         while (input_list->head)
         {
-            _Assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-            _Assert(!token_is_blank(input_list->head));
-            _Assert(r.tail == NULL || !token_is_blank(r.tail));
+            assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
+            assert(!token_is_blank(input_list->head));
+            assert(r.tail == NULL || !token_is_blank(r.tail));
             struct macro_argument* _Opt p_argument = NULL;
             if (input_list->head->type == TK_IDENTIFIER)
             {
@@ -6409,7 +6405,7 @@ struct token_list copy_replacement_list_core(const struct preprocessor_ctx* ctx,
      
     try 
     {
-        struct token* _Opt current = list->head;
+        const struct token* _Opt current = list->head;
     
         /* remove all leading whitespace */
         if (!new_line_is_space)
@@ -6509,8 +6505,8 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, cons
         struct tokenizer_ctx tctx = { 0 };
         char line[50] = { 0 };
 
-        _Assert(origin != NULL);
-        snprintf(line, sizeof line, "%d", origin->line);
+        assert(origin != NULL);
+        snprintf(line, sizeof line, "%d", origin->line); //lint 33 assert line 6508
 
         struct token_list r = tokenizer(&tctx, line, "", 0, TK_FLAG_NONE);
 
@@ -6574,7 +6570,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     try
     {
-        _Assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
+        assert(!macro_already_expanded(p_list_of_macro_expanded_opt, macro->name));
 
         if (macro->is_function)
         {
@@ -6746,14 +6742,14 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 }
 
                 /* the macro name token was moved into arguments */
-                _Assert(arguments.tokens.head != NULL);
+                assert(arguments.tokens.head != NULL);
                 origin = arguments.tokens.head;
                 start_token = arguments.tokens.head;
 
                 /* expand_macro may change arguments, keep the position of the macro name */
-                const struct token* const _Opt start_token_origin = start_token->token_origin;
-                const int start_line = start_token->line;
-                const int start_col = start_token->col;
+                const struct token* const _Opt start_token_origin = start_token->token_origin; //lint 33 assert line 6745
+                const int start_line = start_token->line; //lint 33 assert line 6745
+                const int start_col = start_token->col; //lint 33 assert line 6745
 
                 /* -find-definition: the macro name, or a macro name inside its arguments as written */
                 if ((options_is_find_request(&ctx->options) && ctx->p_find_definition == NULL) || ctx->options.p_rename_list)
@@ -6892,7 +6888,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     if (is_final)
                     {
                         prematch(ctx, &r, input_list, is_active);
-                        _Assert(r.tail != NULL);
+                        assert(r.tail != NULL);
                         r.tail->flags |= TK_FLAG_FINAL;
                     }
                     else
@@ -6918,7 +6914,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             prematch(ctx, &r, input_list, is_active);
                             if (is_final)
                             {
-                                _Assert(r.tail != NULL);
+                                assert(r.tail != NULL);
                                 r.tail->flags |= TK_FLAG_FINAL;
                             }
                         }
@@ -6927,7 +6923,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             if (is_final)
                             {
                                 prematch(ctx, &r, input_list, is_active);
-                                _Assert(r.tail != NULL);
+                                assert(r.tail != NULL);
                                 r.tail->flags |= TK_FLAG_FINAL;
                             }
                             else
@@ -6958,9 +6954,9 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
          # non-directive
     */
 
-    _Assert(input_list->head != NULL);
+    assert(input_list->head != NULL);
 
-    if (input_list->head->type == TK_PREPROCESSOR_LINE)
+    if (input_list->head->type == TK_PREPROCESSOR_LINE) //lint 33 assert line 6957
     {
         if (preprocessor_token_ahead_is_identifier(input_list->head, "if") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "ifdef") ||
@@ -6982,18 +6978,18 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
             preprocessor_token_ahead_is_identifier(input_list->head, "line") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "error") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "pragma") ||
-            preprocessor_token_ahead_is(input_list->head, TK_NEWLINE))
+            preprocessor_token_ahead_is(input_list->head, TK_NEWLINE)) //lint 35 assert line 6957
         {
             return control_line(ctx, input_list, is_active, level);
         }
         else
         {
             /* #de| - a directive name being typed */
-            preprocessor_auto_complete(ctx, input_list->head);
+            preprocessor_auto_complete(ctx, input_list->head); //lint 35 assert line 6957
 
             if (is_active)
             {
-                struct token* _Opt p_token = preprocessor_look_ahead_core(input_list->head);
+                struct token* _Opt p_token = preprocessor_look_ahead_core(input_list->head); //lint 35 assert line 6957
                 const char* directive_name = p_token ? p_token->lexeme : "";
                 /*
                13 The execution of a non-directive preprocessing directive results in undefined behavior.
@@ -7068,7 +7064,7 @@ void preprocessor_mark_predefined_macros(const struct preprocessor_ctx* ctx)
 
             while (pentry != NULL)
             {
-                _Assert(pentry->data.p_macro != NULL);
+                assert(pentry->data.p_macro != NULL);
                 struct macro* macro = pentry->data.p_macro;
                 macro->used = true;
                 macro->p_name_token = NULL;
@@ -7093,10 +7089,10 @@ void preprocessor_register_unused_macros(const struct preprocessor_ctx* ctx, str
     {
         for (struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
         {
-            _Assert(pentry->data.p_macro != NULL);
+            assert(pentry->data.p_macro != NULL);
 
-            const struct macro* macro = pentry->data.p_macro;
-            const struct token* _Opt p_name = macro->p_name_token;
+            const struct macro* macro = pentry->data.p_macro; //lint 35 assert line 7092
+            const struct token* _Opt p_name = macro->p_name_token; //lint 33 assert line 7092
             if (p_name == NULL || p_name->token_origin == NULL)
                 continue; /* standard, builtin or -D */
 
@@ -7105,7 +7101,7 @@ void preprocessor_register_unused_macros(const struct preprocessor_ctx* ctx, str
             if (!is_file_under_project_folder(p, file))
                 continue; /* never reported, so not kept */
 
-            global_unused_register(p, GLOBAL_UNUSED_MACRO, macro->name, file, p_name->line, macro->used, true);
+            global_unused_register(p, GLOBAL_UNUSED_MACRO, macro->name, file, p_name->line, macro->used, true); //lint 33 33 assert line 7092
         }
     }
 }
@@ -7899,7 +7895,7 @@ void print_code_as_we_see(const struct token_list* list, bool remove_comments)
         return;
     }
 
-    struct token* _Opt current = list->head;
+    const struct token* _Opt current = list->head;
     while (current && current != list->tail->next)
     {
         if (current->level == 0 &&
@@ -7937,7 +7933,7 @@ const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool r
         return NULL;
 
     struct osstream ss = { 0 };
-    struct token* _Opt current = list->head;
+    const struct token* _Opt current = list->head;
     while (current && current != list->tail->next)
     {
         if (current->level == 0 &&
@@ -7986,7 +7982,7 @@ const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list)
 
     struct osstream ss = { 0 };
 
-    struct token* _Opt current = list->head;
+    const struct token* _Opt current = list->head;
     while (current && current != list->tail->next)
     {
         if (!(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
@@ -8142,7 +8138,7 @@ const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token
     bool first = true;
     while (current)
     {
-        _Assert(current->token_origin != NULL);
+        assert(current->token_origin != NULL);
         if (current->flags & TK_FLAG_FINAL)
         {
             if (!first && current->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
@@ -8201,7 +8197,7 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
     {
         struct map_entry* _Opt entry = prectx->macros.table[i]; //lint 33
         if (entry == NULL) continue;
-        _Assert(entry->data.p_macro != NULL);
+        assert(entry->data.p_macro != NULL);
 
         struct macro* macro = entry->data.p_macro;
         printf("#define %s", macro->name);

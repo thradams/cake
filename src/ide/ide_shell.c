@@ -354,10 +354,11 @@ struct find_results
 */
 enum look_in
 {
-    LOOK_IN_FILE,
+    /* the "Look in:" items' order */
     LOOK_IN_DIR,
-    LOOK_IN_INCLUDE_DIRS,
     LOOK_IN_PROJECT,
+    LOOK_IN_FILE,
+    LOOK_IN_INCLUDE_DIRS,
 };
 
 /*
@@ -776,6 +777,7 @@ enum help_id
     HELP_FLAG_CONST_LITERAL,
     HELP_FLAG_WALL,
     HELP_FLAG_ANNOTATIONS,
+    HELP_FLAG_IGNORE_LINT,
     HELP_COPTS_OUTPUT,
     HELP_COPTS_OPTIONS,
     HELP_COPTS_CONFIG,
@@ -3258,6 +3260,7 @@ static const char* const copts_styles[] = { "disabled", "cake", "gnu", "microsof
 static const char* const copts_diags[] = { "cake ide", "gcc", "msvc" };
 static const char* const copts_flags[] = {
     "-line-directives", "-flow", "-const-literal", "-Wall", "-safety",
+    "-ignore-lint",
 };
 
 static struct gui_node* add_select_of(struct ide* ide, struct gui_node* parent, int col, int row,
@@ -5312,6 +5315,9 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "`_Clear`, `_Opt`... and pointers without `_Opt` are non-null\n\n"
         "Without it the annotations are ignored, like empty macros. "
         "Same as `#pragma safety enable`." },
+    [HELP_FLAG_IGNORE_LINT] = { "flag-ignore-lint",
+        "## `-ignore-lint`\n\n`//lint` comments are ignored, treated as plain comments\n\n"
+        "Every diagnostic they suppressed is reported again." },
     [HELP_COPTS_OUTPUT] = { "copts-output",
         "# Output\n\nName of the built executable. Empty: derived from the "
         "source/project.\n\n"
@@ -5347,7 +5353,8 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "\n"
         "Suppress a diagnostic on one line with a trailing `lint` comment "
         "listing its number(s): `//lint 35`, `// lint 35`, or `/* lint 81 */`. "
-        "An unnecessary suppression is flagged with warning 59.\n"
+        "An unnecessary suppression is flagged with warning 59. "
+        "`-ignore-lint` ignores these comments.\n"
         "\n"
         "## Analysis\n"
         "\n"
@@ -6194,6 +6201,9 @@ static void build_help_texts(struct ide* ide)
     set_help(ide, gui_child_at(c->flags, 4),
              "`-safety`: Cake contracts (`_Owner`, `_Opt`, `_Out`...) are checked",
              HELP_FLAG_ANNOTATIONS);
+    set_help(ide, gui_child_at(c->flags, 5),
+             "`-ignore-lint`: `//lint` comments are ignored (treated as plain comments)",
+             HELP_FLAG_IGNORE_LINT);
     set_help(ide, c->output,
              "Name of the built executable (empty: derived from the source/project)",
              HELP_COPTS_OUTPUT);
@@ -8442,9 +8452,10 @@ static int fif_file(struct ide* ide, const char* path, const char* name, int rep
 
 /*
     The .c/.h... files of one folder (not its subfolders). Returns the count,
-    -1 when the folder cannot be read.
+    -1 when the folder cannot be read. first (optional): the file searched
+    before the others - the active document.
 */
-static int fif_dir(struct ide* ide, const char* dir, int full_names, int replace,
+static int fif_dir(struct ide* ide, const char* dir, const char* first, int full_names, int replace,
                    const struct ide_search* s, struct ide_text* out, int* searched, int* changed)
 {
     struct ide_dir_entry* entries = malloc(sizeof *entries * MAX_FOLDER_ENTRIES);
@@ -8455,12 +8466,21 @@ static int fif_dir(struct ide* ide, const char* dir, int full_names, int replace
         return -1;
     }
     int total = 0;
+    if (first && fif_type_matches(ide->fif.file_type, file_name(first)))
+    {
+        int c = fif_file(ide, first, full_names ? first : file_name(first), replace, s, out, searched);
+        total += c;
+        if (c > 0)
+            (*changed)++;
+    }
     for (int i = 0; i < n; i++)
     {
         if (entries[i].is_dir || !fif_type_matches(ide->fif.file_type, entries[i].name))
             continue;
         char path[1400] = { 0 };
         join_path(path, sizeof path, dir, entries[i].name);
+        if (first && ide_path_equal(path, first))
+            continue;
         int c = fif_file(ide, path, full_names ? path : entries[i].name, replace, s, out, searched);
         total += c;
         if (c > 0)
@@ -8527,7 +8547,7 @@ static void fif_run(struct ide* ide, int replace)
             char dir[1024] = { 0 };
             snprintf(dir, sizeof dir, "%s", d->path);
             parent_dir(dir);
-            total = fif_dir(ide, dir, 0, replace, &s, &out, &searched, &changed);
+            total = fif_dir(ide, dir, d->path, 0, replace, &s, &out, &searched, &changed);
             if (total < 0)
                 ide_text_printf(&out, "Could not open directory: %s\n", dir);
             else if (total == 0)
@@ -8566,7 +8586,7 @@ static void fif_run(struct ide* ide, int replace)
                 else
                     snprintf(abs, sizeof abs, "%s", i < 0 ? builtin : l->dirs[i]);
                 const char* dir = abs;
-                int n = fif_dir(ide, dir, 1, 0, &s, &out, &searched, &changed);
+                int n = fif_dir(ide, dir, NULL, 1, 0, &s, &out, &searched, &changed);
                 if (n >= 0)
                 {
                     total += n;
@@ -8593,6 +8613,8 @@ static void fif_run(struct ide* ide, int replace)
         }
         else
         {
+            /* pass 0: the active document, when in the project; pass 1: the others */
+            for (int pass = 0; pass < 2; pass++)
             for (int i = 0; i < p->files.count; i++)
             {
                 const char* entry = p->files.items[i];
@@ -8600,6 +8622,8 @@ static void fif_run(struct ide* ide, int replace)
                     continue;
                 char abs[1024] = { 0 };
                 ide_project_absolute(p, entry, abs, sizeof abs);
+                if ((d && ide_path_equal(abs, d->path)) != (pass == 0))
+                    continue;
                 int c = fif_file(ide, abs, entry, replace, &s, &out, &searched);
                 total += c;
                 if (c > 0)
@@ -8756,7 +8780,7 @@ static void settings_path(char* out, size_t cap)
 
 static void get_string(const struct json_value* obj, const char* key, char* out, size_t cap)
 {
-    const struct json_value* v = obj ? json_find_member(obj, key) : NULL;
+    const struct json_value* v = obj ? json_find_member_const(obj, key) : NULL;
     if (v && v->type == JSON_STRING && v->string)
         snprintf(out, cap, "%s", v->string);
 }
@@ -8764,13 +8788,13 @@ static void get_string(const struct json_value* obj, const char* key, char* out,
 /* The string member `key` of `obj`, "" when missing. */
 static const char* get_cstring(const struct json_value* obj, const char* key)
 {
-    const struct json_value* v = obj ? json_find_member(obj, key) : NULL;
+    const struct json_value* v = obj ? json_find_member_const(obj, key) : NULL;
     return v && v->type == JSON_STRING && v->string ? v->string : "";
 }
 
 static int get_int(const struct json_value* obj, const char* key, int fallback)
 {
-    const struct json_value* v = obj ? json_find_member(obj, key) : NULL;
+    const struct json_value* v = obj ? json_find_member_const(obj, key) : NULL;
     if (v && v->type == JSON_NUMBER)
         return (int)v->number;
     if (v && (v->type == JSON_TRUE || v->type == JSON_FALSE))
@@ -8838,7 +8862,7 @@ static void dirs_from_json(const struct json_value* dirs, struct include_dirs* l
     size_t n = json_count(dirs);
     for (size_t i = 0; i < n && l->count < MAX_INCLUDE_DIRS; i++)
     {
-        const struct json_value* d = json_item(dirs, i);
+        const struct json_value* d = json_item_const(dirs, i);
         if (d && d->type == JSON_STRING && d->string)
             snprintf(l->dirs[l->count++], sizeof l->dirs[0], "%s", d->string);
     }
@@ -8848,8 +8872,8 @@ static void dirs_from_json(const struct json_value* dirs, struct include_dirs* l
 static void build_from_json(const struct json_value* bld, struct target_settings* s)
 {
     static const char* const keys[] = { "command", "arguments", "directory" };
-    const struct json_value* pre = json_find_member(bld, "pre_build");
-    const struct json_value* post = json_find_member(bld, "post_build");
+    const struct json_value* pre = json_find_member_const(bld, "pre_build");
+    const struct json_value* post = json_find_member_const(bld, "post_build");
     for (int i = 0; i < 3; i++)
     {
         get_string(pre, keys[i], s->pre_build[i], sizeof s->pre_build[i]);
@@ -8882,10 +8906,10 @@ static void target_from_json(const struct json_value* c, struct target_settings*
     for (int i = 0; i < COUNT(flag_keys); i++)
         s->flags[i] = get_int(c, flag_keys[i], s->flags[i]);
     s->headers = get_int(c, "use_cake_headers", s->headers == 1) ? 1 : 0;
-    debug_from_json(json_find_member(c, "debug"), s);   /* the old files' name */
-    debug_from_json(json_find_member(c, "debugger"), s);
-    build_from_json(json_find_member(c, "build"), s);
-    dirs_from_json(json_find_member(c, "include_dirs"), &s->include_dirs);
+    debug_from_json(json_find_member_const(c, "debug"), s);   /* the old files' name */
+    debug_from_json(json_find_member_const(c, "debugger"), s);
+    build_from_json(json_find_member_const(c, "build"), s);
+    dirs_from_json(json_find_member_const(c, "include_dirs"), &s->include_dirs);
 }
 
 /*
@@ -8912,14 +8936,14 @@ static void compile_from_json(const struct json_value* c, struct compiler_settin
 {
     if (!c || c->type != JSON_OBJECT)
         return;
-    const struct json_value* list = json_find_member(c, "configurations");
+    const struct json_value* list = json_find_member_const(c, "configurations");
     if (!list || list->type != JSON_ARRAY)
         return;
     s->count = 0;
     size_t n = json_count(list);
     for (size_t i = 0; i < n && s->count < MAX_CONFIGURATIONS; i++)
     {
-        const struct json_value* o = json_item(list, i);
+        const struct json_value* o = json_item_const(list, i);
         if (!o || o->type != JSON_OBJECT)
             continue;
         struct target_settings* t = &s->configurations[s->count++];
@@ -9112,7 +9136,7 @@ static int project_load(struct ide* ide, const char* path, char* why, size_t why
     size_t n = files && files->type == JSON_ARRAY ? json_count(files) : 0;
     for (size_t i = 0; i < n; i++)
     {
-        const struct json_value* f = json_item(files, i);
+        const struct json_value* f = json_item_const(files, i);
         if (f && f->type == JSON_STRING && f->string)
             ide_strings_add(&p->files, f->string);
     }
@@ -9687,7 +9711,7 @@ static void settings_load(struct ide* ide)
     size_t n = tools && tools->type == JSON_ARRAY ? json_count(tools) : 0;
     for (size_t i = 0; i < n && ide->ext_tools.count < MAX_EXT_TOOLS; i++)
     {
-        const struct json_value* t = json_item(tools, i);
+        const struct json_value* t = json_item_const(tools, i);
         ext_tool_init(&ide->ext_tools.tools[ide->ext_tools.count++], get_cstring(t, "title"),
                       get_cstring(t, "command"), get_cstring(t, "arguments"), get_cstring(t, "directory"));
     }
@@ -9774,7 +9798,7 @@ static void session_save(struct ide* ide)
 
 static void load_dock(const struct json_value* root, const char* key, struct gui_node* win)
 {
-    const struct json_value* dock = json_find_member(root, key);
+    const struct json_value* dock = json_find_member_const(root, key);
     if (!dock)
         return;
     int side = get_int(dock, "side", 0);
@@ -9821,7 +9845,7 @@ static int session_load(struct ide* ide)
     size_t recent_n = recent && recent->type == JSON_ARRAY ? json_count(recent) : 0;
     for (size_t i = 0; i < recent_n && ide->recent_projects.count < MAX_RECENT_PROJECTS; i++)
     {
-        const struct json_value* r = json_item(recent, i);
+        const struct json_value* r = json_item_const(recent, i);
         if (r && r->type == JSON_STRING && r->string)
             ide_strings_add(&ide->recent_projects, r->string);
     }

@@ -1,6 +1,7 @@
 #pragma safety enable
 
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -22,7 +23,7 @@ enum
 
 static unsigned int flow_hash_key(const struct object* obj, int num_of_buckets)
 {
-    _Assert(num_of_buckets > 0);
+    assert(num_of_buckets > 0);
 
     /*
         Narrow the unsigned value itself: the flow analysis does not carry a
@@ -157,7 +158,7 @@ void object_set_destroy(_Dtor struct object_set* l)
 
 static void flow_branch_rehash(struct flow_branch* m, int new_num_of_buckets)
 {
-    _Assert(new_num_of_buckets > 0);
+    assert(new_num_of_buckets > 0);
 
     struct flow_key_alternatives* _Owner _Opt* _Owner _Opt new_buckets =
         calloc((size_t)new_num_of_buckets, sizeof(struct flow_key_alternatives*));
@@ -607,48 +608,103 @@ void flow_branch_set_object_uninitialized(struct flow_branch* _Opt m, const stru
     }
 }
 
-#ifdef FLOW_CALL_ENDS_OWNER_POINTEES
-/*
-    EXPERIMENT (2026-10-13), disabled by default.
+static void flow_branch_set_object_any_core(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled, bool release_owned_pointees, bool reach_pointees);
 
-    Worst case for a call taking a non-const pointer: the callee may have
+/*
+    A call may modify what the pointer members of its argument point to, one
+    level deep (flow.md 6.3): those objects become ANY. This is the only walk
+    that follows a pointer member's alternatives to its pointees. The pointees
+    are copied first, since setting them adds entries to the branch.
+
+    release_owned_pointees (an experiment from 2026-10-13, on today):
+    worst case for a call taking a non-const pointer: the callee may have
     freed what the owner pointers reachable from the argument pointed to, so
     aliases of those objects are dangling:
 
         struct X x = f();
         char* _Opt p = x.text;
         g(&x);           // void g(struct X* p) { free(p->text); p->text = 0; }
-        if (p) *p;       // warning 31 only with this define
+        if (p) *p;       // warning 31 only with release_owned_pointees
 
     Result of the test: cake's own source went from 8 to 13 warnings
     (hashmap_set(&map, k, &item) moving ownership in parser.c:7015 and
     codegen.c:6014, an ss_swap loop in codegen.c:6500, and a misleading
     "may be null" in parser.c:15648) and flow3/do-while-nested-if-unrelated-narrow.c
     started warning on a plain list walk (ptk = ptk->next after f(ptk)).
+
+    reach_pointees: any other pointee may have been modified (the deep model).
 */
-static void flow_branch_end_owner_pointees(struct flow_branch* m, const struct object* obj, const struct token* _Opt p_token)
+static void flow_branch_set_pointees_any(struct flow_branch* m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled, bool release_owned_pointees, bool reach_pointees)
 {
-    if (!type_is_owner(&obj->type) || !type_is_pointer(&obj->type))
+    if (!type_is_pointer(&obj->type))
+        return;
+
+    const bool release = release_owned_pointees && type_is_owner(&obj->type);
+    if (!release && !reach_pointees)
         return;
 
     struct flow_key_alternatives* _Opt e = flow_branch_search_up(m, obj);
-    if (e == NULL)
+    if (e == NULL || e->alternatives.size == 0)
         return;
 
+    const struct object** _Owner _Opt pointees = calloc(e->alternatives.size, sizeof pointees[0]);
+    if (pointees == NULL)
+        return;
+
+    int count = 0;
     for (int i = 0; i < e->alternatives.size; i++)
     {
         struct flow_alternative* _Opt a = e->alternatives.data[i]; //lint 33
         if (a &&
                 a->value_kind == FLOW_VALUE_KIND_PTR &&
-                a->value.p != NULL)
+                a->value.p != NULL &&
+                a->value.p != obj)
         {
-            flow_branch_set_object_lifetime_ended(m, a->value.p, p_token);
+            pointees[count++] = a->value.p;
         }
     }
-}
-#endif
 
-void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled)
+    for (int i = 0; i < count; i++)
+    {
+        /* the worst case: whoever set it to "any" may have freed the old pointee */
+        if (release)
+            flow_branch_set_object_lifetime_ended(m, pointees[i], p_token);
+        else
+            flow_branch_set_object_any_core(m, pointees[i], p_token, nullable_enabled, false, false);
+    }
+
+    free(pointees);
+}
+
+/* the pointee keeps its state; what its pointer members point to becomes ANY */
+void flow_branch_set_reachable_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled)
+{
+    if (m == NULL)
+        return;
+
+    if (obj->members.head)
+    {
+        for (const struct object* _Opt member = obj->members.head; member; member = member->next)
+        {
+            flow_branch_set_reachable_any_n(m, member, p_token, nullable_enabled);
+        }
+        return;
+    }
+
+    /* through const the owned objects are not released, only possibly modified */
+    flow_branch_set_pointees_any(m, obj, p_token, nullable_enabled, false, true);
+}
+
+/*
+    release_owned_pointees: what obj's owner pointer members point to may have been freed.
+    reach_pointees: what obj's pointer members point to (one level deep) becomes ANY.
+*/
+void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled, bool release_owned_pointees, bool reach_pointees)
+{
+    flow_branch_set_object_any_core(m, obj, p_token, nullable_enabled, release_owned_pointees, reach_pointees);
+}
+
+static void flow_branch_set_object_any_core(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled, bool release_owned_pointees, bool reach_pointees)
 {
     if (m == NULL)
         return;
@@ -659,15 +715,13 @@ void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct objec
         {
             for (const struct object* _Opt member = obj->members.head; member; member = member->next)
             {
-                flow_branch_set_object_any_n(m, member, p_token, nullable_enabled);
+                flow_branch_set_object_any_core(m, member, p_token, nullable_enabled, release_owned_pointees, reach_pointees);
             }
             return;
         }
 
-#ifdef FLOW_CALL_ENDS_OWNER_POINTEES
-        /* the worst case: whoever set it to "any" may have freed the old pointee */
-        flow_branch_end_owner_pointees(m, obj, p_token);
-#endif
+        /* one level deep only: the pointees' own pointer members are not followed */
+        flow_branch_set_pointees_any(m, obj, p_token, nullable_enabled, release_owned_pointees, reach_pointees);
 
         struct flow_key_alternatives* _Opt p_flow_key_alternatives = flow_branch_find_add(m, obj);
         if (p_flow_key_alternatives == NULL) throw;
@@ -886,7 +940,7 @@ static void flow_branch_free_entries(struct flow_branch* m)
     m->num_of_entries = 0;
 }
 
-static void flow_branch_move_entries(struct flow_branch* dest, const struct flow_branch* src)
+static void flow_branch_move_entries(struct flow_branch* dest, struct flow_branch* src)
 {
     if (src->buckets == NULL)
         return;
@@ -1172,7 +1226,7 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
         right_pair.p_true's own chain still depends on, and that the `&&`'s
         TRUE result (right_pair.p_true) -- returned to and used by the
         caller AFTER this false-branch merge already ran -- still needs.
-        (Confirmed via `_Assert(p && p->next); p->i = 1;`, equally
+        (Confirmed via `assert(p && p->next); p->i = 1;`, equally
         reproducible via `if (!(p && p->next)) return; p->i = 1;`.)
 
         child_count is only ever incremented (see flow_branch_arena_new), and

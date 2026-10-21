@@ -1,5 +1,5 @@
 #pragma safety enable
-int f(int condition)
+void f(int condition)
 {
     int * _Owner _Opt p = 0;
     try

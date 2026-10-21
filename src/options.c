@@ -108,7 +108,7 @@ int diagnostic_stack_push_empty(struct diagnostic_stack* diagnostic_stack)
 {
     if (diagnostic_stack->top_index >= _Countof(diagnostic_stack->stack))
     {
-        _Assert(false);
+        assert(false);
         return 0;
     }
 
@@ -128,7 +128,7 @@ void diagnostic_stack_pop(struct diagnostic_stack* diagnostic_stack)
     }
     else
     {
-        _Assert(false);
+        assert(false);
     }
 }
 
@@ -199,6 +199,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_PARAM_OWNER_CONSUMED_AT_EXIT:
     case W_FLOW_PARAM_UNINITIALIZED_AT_EXIT:
     case W_FLOW_NOT_DONE:
+    case W_FLOW_RETURN_TYPE:
     case W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME:
     case W_COMPILE_ASSERT_UNPROVEM:
 
@@ -258,6 +259,23 @@ static int has_prefix(const char* str, const char* prefix)
 {
     size_t len_prefix = strlen(prefix);
     return strncmp(str, prefix, len_prefix) == 0;
+}
+
+int option_value_count(const char* arg)
+{
+    if (strcmp(arg, "-o") == 0 ||
+        strcmp(arg, "-sarif-path") == 0 ||
+        strcmp(arg, "-I") == 0)
+        return 1;
+
+    if (strcmp(arg, "-find-definition") == 0 || strcmp(arg, "-find-declaration") == 0 ||
+        strcmp(arg, "-find-usages") == 0 || strcmp(arg, "-complete") == 0)
+        return 2; // line and col
+
+    if (strcmp(arg, "-rename") == 0)
+        return 3; // line, col and new name
+
+    return 0;
 }
 
 int fill_options(struct options* options,
@@ -476,6 +494,12 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-flow") == 0)
         {
             options->flow_analysis = true;
+            continue;
+        }
+
+        if (has_prefix(argv[i], "-flow-limit="))
+        {
+            options->flow_max_tracked_objects = atoi(argv[i] + (sizeof("-flow-limit=") - 1));
             continue;
         }
 
@@ -849,6 +873,7 @@ void print_help()
     print_option("-wall", "Enables all warnings");
     print_option("-Werror", "Treats every enabled warning as an error");
     print_option("-flow", "Runs flow analysis, including null checks (same as #pragma flow enable)");
+    print_option("-flow-limit=N", "Objects tracked per function before flow analysis stops (same as #pragma flow limit N)");
     print_option("-safety", "Checks Cake contracts: _Owner, _Opt, _Out..., pointers non-null by default; turns on -flow (same as #pragma safety enable)");
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");

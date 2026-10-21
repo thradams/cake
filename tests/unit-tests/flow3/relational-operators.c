@@ -2,29 +2,29 @@
 
 /* narrowing on >, >=, <, <=: the true branch records `var OP const`, the false branch the negation; every compile_assert here must be provable */
 
-/* -------- assert records the exact half-line constraint -------- */
+/* -------- the true branch records the exact half-line constraint -------- */
 
 void assert_greater(int a)
 {
-    _Assert(a > 0);
+    if (!(a > 0)) return;
     compile_assert(a > 0);
 }
 
 void assert_greater_equal(int a)
 {
-    _Assert(a >= 5);
+    if (!(a >= 5)) return;
     compile_assert(a >= 5);
 }
 
 void assert_less(int a)
 {
-    _Assert(a < 10);
+    if (!(a < 10)) return;
     compile_assert(a < 10);
 }
 
 void assert_less_equal(int a)
 {
-    _Assert(a <= -1);
+    if (!(a <= -1)) return;
     compile_assert(a <= -1);
 }
 
@@ -32,13 +32,13 @@ void assert_less_equal(int a)
 
 void constant_on_left(int a)
 {
-    _Assert(0 < a);          /* equivalent to a > 0 */
+    if (!(0 < a)) return;          /* equivalent to a > 0 */
     compile_assert(a > 0);
 }
 
 void constant_on_left_ge(int a)
 {
-    _Assert(10 >= a);        /* equivalent to a <= 10 */
+    if (!(10 >= a)) return;        /* equivalent to a <= 10 */
     compile_assert(a <= 10);
 }
 
@@ -46,7 +46,7 @@ void constant_on_left_ge(int a)
 
 void implication(int a)
 {
-    _Assert(a > 5);
+    if (!(a > 5)) return;
     compile_assert(a > 0);   /* a > 5 implies a > 0  */
     compile_assert(a >= 1);  /* ...and a >= 1        */
     compile_assert(a >= 5);  /* ...and a >= 5        */
@@ -103,7 +103,7 @@ void concrete_folds(void)
 
 void boundary_inclusive(int a)
 {
-    _Assert(a >= 0);
+    if (!(a >= 0)) return;
     compile_assert(a >= 0);
     /* a > 0 is not provable here: a could be exactly 0 */
 }
@@ -112,7 +112,7 @@ void boundary_inclusive(int a)
 
 void negative_bound(int a)
 {
-    _Assert(a < 0);
+    if (!(a < 0)) return;
     compile_assert(a < 0);
     compile_assert(a <= -1);   /* for ints, a < 0 implies a <= -1... */
     compile_assert(a < 1);     /* ...and certainly a < 1 */

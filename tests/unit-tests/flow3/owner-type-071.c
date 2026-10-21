@@ -24,10 +24,8 @@ void list_push(struct list* list, struct item* _Owner pnew)
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL); // -> operator applied to a null pointer
         pnew->previous = list->tail;
-        list->tail->next = pnew; // move pnew into the list
+        list->tail->next = pnew; //lint 33 26 tail may be null, tail->next may own
         list->tail = pnew; // ok: tail is a view (not a second ownership transfer)
     }
     

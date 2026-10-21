@@ -532,8 +532,8 @@ int compile_one_file(const char* file_name,
         if (tctx.n_errors > 0)
             throw;
 
-        const char* builtin = ctx.options.platform.builtins;
-        if (builtin[0] != '\0')
+        const char* _Opt builtin = ctx.options.platform.builtins;
+        if (builtin && builtin[0] != '\0')
         {
             struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 1, TK_FLAG_NONE);
             token_list_append_list_at_beginning(&tokens, &builtin_tokens);
@@ -772,7 +772,7 @@ static int compile_many_files(const char* file_name,
 
     if (file_name_extension == NULL)
     {
-        _Assert(false);
+        assert(false);
     }
 
     int num_files = 0;
@@ -855,65 +855,36 @@ static void full_path_or_copy(const char* path, char resolved[FS_MAX_PATH])
 static void longest_common_path(int argc, const char* const* argv, char root_dir[FS_MAX_PATH])
 {
     /*
-     * find the longest common path
+     * find the longest common path of the input files (option values are not files)
      */
+    bool first = true;
     for (int i = 1; i < argc; i++)
     {
-        if (strcmp(argv[i], "-o") == 0 ||
-            strcmp(argv[i], "-sarif-path") == 0 ||
-            strcmp(argv[i], "-I") == 0)
-        {
-            // ignore these files and consume next.
-            i++;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-find-definition") == 0 || strcmp(argv[i], "-find-declaration") == 0 ||
-            strcmp(argv[i], "-find-usages") == 0 || strcmp(argv[i], "-complete") == 0)
-        {
-            // consumes line and col
-            i += 2;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-rename") == 0)
-        {
-            // consumes line, col and new name
-            i += 3;
-            continue;
-        }
-
         if (argv[i][0] == '-')
+        {
+            i += option_value_count(argv[i]);
             continue;
+        }
 
         char fullpath_i[FS_MAX_PATH] = { 0 };
         full_path_or_copy(argv[i], fullpath_i);
-        strcpy(root_dir, fullpath_i);
-        dirname(root_dir);
-
-        for (int k = 0; k < FS_MAX_PATH; k++)
+        if (first)
         {
-            const char ch = fullpath_i[k];
-            for (int j = 2; j < argc; j++)
-            {
-                if (argv[j][0] == '-')
-                    continue;
+            strcpy(root_dir, fullpath_i);
+            dirname(root_dir);
+            first = false;
+            continue;
+        }
 
-                char fullpath_j[FS_MAX_PATH] = { 0 };
-                full_path_or_copy(argv[j], fullpath_j);
-                if (fullpath_j[k] != ch)
-                {
-                    memcpy(root_dir, fullpath_j, k);
-                    root_dir[k] = '\0';
-                    dirname(root_dir);
-                    goto exit;
-                }
-            }
-            if (ch == '\0')
-                break;
+        /* go up until the file is under root_dir */
+        while (root_dir[0] != '\0' && !path_is_under(fullpath_i, root_dir))
+        {
+            const size_t len = strlen(root_dir);
+            dirname(root_dir);
+            if (strlen(root_dir) == len)
+                break; /* drive or filesystem root */
         }
     }
-exit:;
 }
 
 void print_report(const struct report* report)
@@ -1323,7 +1294,10 @@ static void rename_run(const char* const* files, int count, struct options* opti
 
     /* declared outside the project (e.g. printf in stdio.h): cannot be renamed */
     char root_dir[FS_MAX_PATH] = { 0 };
-    longest_common_path(argc, argv, root_dir);
+    if (options->output_root[0] != '\0')
+        full_path_or_copy(options->output_root, root_dir);
+    else
+        longest_common_path(argc, argv, root_dir);
     if (!find_usages && !path_is_under(report.find_definition_file, root_dir))
     {
         printf("rename: '%s' is declared outside the project (%s)\n",
@@ -1534,7 +1508,7 @@ int compile(int argc, const char** argv, struct report* report)
 
                 strcpy(output_file, file_root);
                 strcat(output_file, "/");
-                strcat(output_file, options.platform.name);
+                strcat(output_file, options.platform.name ? options.platform.name : "");
 
                 strcat(output_file, fullpath + strlen(file_root));
 
@@ -1545,6 +1519,7 @@ int compile(int argc, const char** argv, struct report* report)
                 {
                     report->error_count++;
                     printf("error creating directory\n");
+                    free(unused_functions_state.root_dir);
                     return 1;
                 }
             }
@@ -1635,7 +1610,7 @@ int compile(int argc, const char** argv, struct report* report)
  * given a string s, produce argv by modifying the input string
  * return argc
  */
-static int strtoargv(char* s, int n, const char* _Opt  argv[ /* n */])
+static int strtoargv(char* s, int n, const char* argv[ /* n */])
 {
     int argvc = 0;
     char* p = s;
@@ -1775,8 +1750,8 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         if (tctx.n_errors > 0)
             throw;
 
-        const char* builtin = options.platform.builtins;
-        if (builtin[0] != '\0')
+        const char* _Opt builtin = options.platform.builtins;
+        if (builtin && builtin[0] != '\0')
         {
             /* level 1 - see the identical comment in compile_one_file() above. */
             struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 1, TK_FLAG_NONE);

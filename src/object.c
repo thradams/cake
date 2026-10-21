@@ -20,8 +20,6 @@
 #include <math.h>
 #include "fp_to_string.h"
 
-#define STATIC_ASSERT(cond) do { typedef char static_assert_error[(cond) ? 1 : -1]; } while (0)
-
 bool object_type_is_unsigned_bitfield(enum object_type t)
 {
     return t >= TYPE_UNSIGNED_BITFIELD_1 && t <= TYPE_UNSIGNED_BITFIELD_128;
@@ -45,7 +43,7 @@ int object_type_bitfield_width(enum object_type t)
     if (object_type_is_signed_bitfield(t))
         return (int)(t - TYPE_SIGNED_BITFIELD_1 + 1);
 
-    _Assert(false);
+    assert(false);
     return 0;
 }
 
@@ -72,7 +70,7 @@ int object_type_bitint_width(enum object_type t)
     if (object_type_is_signed_bitint(t))
         return (int)(t - TYPE_SIGNED_BITINT_1 + 1);
 
-    _Assert(false);
+    assert(false);
     return 0;
 }
 
@@ -136,7 +134,7 @@ static enum object_type object_type_switch_class(enum object_type t)
 
 static unsigned long long wrap_unsigned_integer(unsigned long long value, int bits)
 {
-    _Assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
+    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
     if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
         return value;
@@ -147,7 +145,7 @@ static unsigned long long wrap_unsigned_integer(unsigned long long value, int bi
 
 static long long wrap_signed_integer(long long value, int bits)
 {
-    _Assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
+    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
     if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
         return value;
@@ -456,7 +454,7 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
 
 void object_list_push(struct object_list* list, struct object* _Owner pnew)
 {
-    _Assert(pnew->next == NULL);
+    assert(pnew->next == NULL);
 
     if (list->head == NULL)
     {
@@ -465,9 +463,8 @@ void object_list_push(struct object_list* list, struct object* _Owner pnew)
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = pnew;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = pnew; //lint 26 33
         list->tail = pnew;
     }
     list->count++;
@@ -482,7 +479,7 @@ void object_swap(struct object* a, struct object* b)
 
 void object_destroy(_Opt _Dtor struct object* p)
 {
-    _Assert(p->next == NULL);
+    assert(p->next == NULL);
 
     type_destroy(&p->type);
     free((void* _Owner _Opt)p->member_designator);
@@ -495,7 +492,7 @@ void object_destroy(_Opt _Dtor struct object* p)
         object_delete(item);
         item = next;
     }
-}
+} //lint 29 assert line 484
 
 void object_delete(struct object* _Opt _Owner p)
 {
@@ -515,7 +512,7 @@ bool object_has_all_members_constants(const struct object* object)
 
     if (object->members.head != NULL)
     {
-        struct object* _Opt member = object->members.head;
+        const struct object* _Opt member = object->members.head;
         while (member)
         {
             if (!object_has_all_members_constants(member))
@@ -703,7 +700,7 @@ bool object_is_true(const struct object* a)
     default:
         break;
     }
-    _Assert(0);
+    assert(0);
     return 0;
 }
 
@@ -893,7 +890,7 @@ signed long long object_to_signed_long_long(const struct object* a)
     default:
         break;
     }
-    _Assert(0);
+    assert(0);
     return 0;
 }
 struct object object_make_unsigned_long_long( unsigned long long value)
@@ -938,7 +935,7 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
     default:
         break;
     }
-    _Assert(0);
+    assert(0);
     return 0;
 }
 
@@ -971,7 +968,7 @@ struct object object_make_long_double(const struct platform* target, long double
 
 struct object object_make_signed_bitfield(int width, long long value)
 {
-    _Assert(width >= 1 && width <= 128);
+    assert(width >= 1 && width <= 128);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_SIGNED_BITFIELD_1 + width - 1);
@@ -981,7 +978,7 @@ struct object object_make_signed_bitfield(int width, long long value)
 
 struct object object_make_unsigned_bitfield(int width, unsigned long long value)
 {
-    _Assert(width >= 1 && width <= 128);
+    assert(width >= 1 && width <= 128);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_UNSIGNED_BITFIELD_1 + width - 1);
@@ -991,7 +988,7 @@ struct object object_make_unsigned_bitfield(int width, unsigned long long value)
 
 struct object object_make_signed_bitint(int width, long long value)
 {
-    _Assert(width >= 2 && width <= 64);
+    assert(width >= 2 && width <= 64);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_SIGNED_BITINT_1 + width - 1);
@@ -1001,7 +998,7 @@ struct object object_make_signed_bitint(int width, long long value)
 
 struct object object_make_unsigned_bitint(int width, unsigned long long value)
 {
-    _Assert(width >= 1 && width <= 64);
+    assert(width >= 1 && width <= 64);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_UNSIGNED_BITINT_1 + width - 1);
@@ -1135,7 +1132,7 @@ struct object object_cast(const struct platform* target, enum object_type dest_t
         return r;
     }
 
-    _Assert(false);
+    assert(false);
     return r;
 }
 
@@ -1351,7 +1348,7 @@ bool object_is_zero(const struct object* p_object)
     default:
         break;
     }
-    _Assert(0);
+    assert(0);
     return 0;
 }
 
@@ -1391,7 +1388,7 @@ bool object_is_one(const struct object* p_object)
     default:
         break;
     }
-    _Assert(0);
+    assert(0);
     return 0;
 }
 
@@ -1455,7 +1452,7 @@ int object_set(
         if (object_is_derived(to))
         {
             struct object* _Opt it_to = to->members.head;
-            struct object* _Opt it_from = from->members.head;
+            const struct object* _Opt it_from = from->members.head;
 
             while (it_from && it_to)
             {
@@ -1467,7 +1464,7 @@ int object_set(
         }
         else
         {
-            _Assert(to->members.head == NULL);
+            assert(to->members.head == NULL);
 
             to->state = from->state;
 
@@ -1775,8 +1772,8 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
 
             *p_object = object_make_nullptr(target);
             p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
-            _Assert(p_object->member_designator == NULL);
-            p_object->member_designator = strdup(member_designator);
+            assert(p_object->member_designator == NULL);
+            p_object->member_designator = strdup(member_designator); //lint 26 assert line 1777
 
             type_destroy(&p_object->type);
             p_object->type = type_dup(p_type);
@@ -1986,8 +1983,8 @@ int make_object_with_member_designator(const struct type* p_type,
     object_destroy(obj);
     *obj = (struct object){ 0 };
 
-    _Assert(obj->members.head == NULL);
-    _Assert(obj->next == NULL);
+    assert(obj->members.head == NULL);
+    assert(obj->next == NULL);
 
     struct object* _Owner _Opt p = make_object_ptr_core(&type_copy, name, make_state, target);
     if (p)
@@ -2313,7 +2310,7 @@ void object_print_to_debug_core(const struct object* object, int n, const struct
 
         printf(" {\n");
 
-        struct object* _Opt member = object->members.head;
+        const struct object* _Opt member = object->members.head;
         while (member)
         {
             object_print_to_debug_core(member, n + 1, target);
@@ -3479,7 +3476,7 @@ struct object object_mod(const struct platform* target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        _Assert(false);
+        assert(false);
         snprintf(warning_message, 200, " invalid operands for");
         break;
 
@@ -3781,7 +3778,7 @@ struct object object_bitwise_xor(const struct platform* target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        _Assert(false);
+        assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 
@@ -3838,7 +3835,7 @@ struct object object_bitwise_or(const struct platform* target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        _Assert(false);
+        assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 
@@ -3895,7 +3892,7 @@ struct object object_bitwise_and(const struct platform* target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        _Assert(false);
+        assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 
@@ -3953,7 +3950,7 @@ struct object object_shift_left(const struct platform* target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        _Assert(false);
+        assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 
@@ -4009,7 +4006,7 @@ struct object object_shift_right(const struct platform* target,
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        _Assert(false);
+        assert(false);
         snprintf(warning_message, 200, " invalid operands");
         break;
 

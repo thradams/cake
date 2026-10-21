@@ -10,7 +10,7 @@ struct X
     int i;
 };
 
-int hard_clearing(_Out _Clear struct X* p)
+void hard_clearing(_Out _Clear struct X* p)
 {
     p->i = 0;
     p->text = 0;

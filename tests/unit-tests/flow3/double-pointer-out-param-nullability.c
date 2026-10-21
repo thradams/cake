@@ -12,7 +12,7 @@ struct map_entry* _Opt find_variables(const char* lexeme, struct scope* _Opt* _O
 /* BAD: inner non-nullable, forwarded to a callee that writes NULL -> warns. */
 struct map_entry* _Opt forward_bad(const char* lexeme, struct scope** _Opt pp)
 {
-    return find_variables(lexeme, pp); //lint 35 passing a possible null pointer '(*pp)' to non-nullable pointer parameter (see line 26)
+    return find_variables(lexeme, pp); //lint 54 35 passing a possible null pointer '(*pp)' to non-nullable pointer parameter (see line 26)
 }
 
 /* GOOD: inner _Opt matches the callee -> clean. */

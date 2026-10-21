@@ -19,4 +19,4 @@ void bug_in_loop(struct list* l, struct item* _Owner p_item)
         if (l->head == 0)
             l->head = p_item; //lint 32 (its true, moved twice..)
     }
-} //lint 29 p_item is not moved on every path
+} /* for (;;) never exits: the end is unreachable */

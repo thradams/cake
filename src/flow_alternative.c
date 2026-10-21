@@ -187,8 +187,8 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
             throw;
         }
         *p_new = *p_alternative;
-        vs->data[vs->size] = p_new; /*MOVED*/ //lint 33
-        vs->size++;
+        vs->data[vs->size] = p_new; /*MOVED*/
+        vs->size++; //lint 33 assert
     }
     catch
     {
@@ -210,8 +210,8 @@ void flow_alternatives_push(struct flow_alternatives* vs, const struct flow_alte
             throw;
         }
         *p_new = *p_alternative;
-        vs->data[vs->size] = p_new; /*MOVED*/ //lint 33
-        vs->size++;
+        vs->data[vs->size] = p_new; /*MOVED*/
+        vs->size++; //lint 33 assert
     }
     catch
     {
@@ -415,8 +415,8 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
             }
             else
             {
-                vs->data[new_size] = vs->data[i]; /*MOVED*/ //lint 33 33
-                new_size++;
+                vs->data[new_size] = vs->data[i]; /*MOVED*/
+                new_size++; //lint 33 33 assert
             }
         }
         vs->size = new_size;

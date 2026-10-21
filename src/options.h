@@ -171,7 +171,7 @@ enum diagnostic_id {
     W_UNUSED_EXTERN_FUNCTION = 95, /* -unused-extern-report: external function not used in any of the files */
     W_UNUSED_ENUMERATOR = 96, /* -unused-extern-report: enumerator not used in any of the files */
     W_FLOW_NOT_DONE = 97, /* flow analysis of a function was not done, the message says why */
-    W_UNUSED_WARNING_98 = 98,
+    W_FLOW_RETURN_TYPE = 98, /* non-void function can reach the end without return */
     W_UNUSED_WARNING_99 = 99,
     W_UNUSED_WARNING_100 = 100,
     W_UNUSED_WARNING_101 = 101,
@@ -193,7 +193,7 @@ enum diagnostic_id {
     W_UNUSED_WARNING_117 = 117,
     W_UNUSED_WARNING_118 = 118,
     W_UNUSED_WARNING_119 = 119,
-    W_UNUSED_WARNING_120 = 120,
+    W_CONST_REACHABLE_MODIFIED = 120,
     W_UNUSED_WARNING_121 = 121,
     W_UNUSED_WARNING_122 = 122,
     W_UNUSED_WARNING_123 = 123,
@@ -347,7 +347,7 @@ enum diagnostic_id {
     C_ERROR_DUPLICATE_ENUMERATOR = 2210,
     C_ERROR_BITINT_ENUM_UNDERLYING_TYPE = 2220,
     C_ERROR_RESTRICT_ON_NON_POINTER_TYPE = 2230,
-    C_ERROR_STATIC_VARIABLE_IN_EXTERN_INLINE_FUNCTION = 2240,
+    C_ERROR_NOT_USED = 2240,
     C_ERROR_FUNCTION_SPECIFIER_ON_NON_FUNCTION = 2250,
     C_ERROR_CAST_TO_NON_SCALAR_TYPE = 2260,
     C_ERROR_NULLPTR_COMPARISON = 2270,
@@ -498,6 +498,7 @@ struct options
 
 
     bool flow_analysis;         /* run flow analysis */
+    int flow_max_tracked_objects; /* objects tracked per function before warning 97: -flow-limit=N, #pragma flow limit N; 0 uses the default */
     bool test_mode;             /* -testmode : reports success with 0 errors/warnings */
     bool clear_error_at_end;    /* used by tests*/
 
@@ -647,6 +648,9 @@ bool options_is_find_request(const struct options* options);
 
 /* -find-declaration, -rename: the cursor resolves to the declaration, not the definition */
 bool options_find_wants_declaration(const struct options* options);
+
+/* number of values that follow the option arg (e.g. 3 for -rename: line, col and new name) */
+int option_value_count(const char* arg);
 
 int fill_options(struct options* options,
                  int argc,

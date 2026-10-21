@@ -3,6 +3,7 @@
 
 
 #include "cake_compat.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -132,7 +133,7 @@ static void json_buffer_free(_Dtor struct buffer *b)
     free(b->data);
 }
 
-static void json_fail(const struct parser *parser, const char *message)
+static void json_fail(struct parser *parser, const char *message)
 {
     /* Keep the first error: it is the most specific one. */
     if (parser->error->message[0] == 0)
@@ -177,9 +178,9 @@ static void json_append_child(struct json_value *parent, struct json_value * _Ow
     }
     else
     {
-        _Assert(parent->last_child);
-        _Assert(parent->last_child->next == NULL);
-        parent->last_child->next = child;
+        assert(parent->last_child &&
+               parent->last_child->next == NULL);
+        parent->last_child->next = child; //lint 26 33
     }
     parent->last_child = child;
 }
@@ -868,13 +869,13 @@ void json_delete(struct json_value * _Owner _Opt value)
     }
 }
 
-struct json_value * _Opt json_find_member(const struct json_value *object, const char *key)
+const struct json_value * _Opt json_find_member_const(const struct json_value *object, const char *key)
 {
-    struct json_value * _Opt result = NULL;
+    const struct json_value * _Opt result = NULL;
 
     if (object && object->type == JSON_OBJECT)
     {
-        struct json_value * _Opt child;
+        const struct json_value * _Opt child;
 
         for (child = object->first_child; child != NULL; child = child->next)
         {
@@ -889,10 +890,15 @@ struct json_value * _Opt json_find_member(const struct json_value *object, const
     return result;
 }
 
-struct json_value * _Opt json_item(const struct json_value *value, size_t index)
+struct json_value * _Opt json_find_member(struct json_value *object, const char *key)
 {
-    struct json_value * _Opt result = NULL;
-    struct json_value * _Opt child;
+    return (struct json_value * _Opt) json_find_member_const(object, key);
+}
+
+const struct json_value * _Opt json_item_const(const struct json_value *value, size_t index)
+{
+    const struct json_value * _Opt result = NULL;
+    const struct json_value * _Opt child;
 
     for (child = value->first_child; child != NULL; child = child->next)
     {
@@ -905,6 +911,11 @@ struct json_value * _Opt json_item(const struct json_value *value, size_t index)
     }
 
     return result;
+}
+
+struct json_value * _Opt json_item(struct json_value *value, size_t index)
+{
+    return (struct json_value * _Opt) json_item_const(value, index);
 }
 
 size_t json_count(const struct json_value *value)

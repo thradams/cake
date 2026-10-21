@@ -664,7 +664,7 @@ static void format_refix_preceding_comments(const struct parser_ctx* ctx, const 
     if (boundary == NULL)
         return;
 
-    struct token* _Opt p = boundary->prev;
+    const struct token* _Opt p = boundary->prev;
     while (p != NULL)
     {
         if (p->type == TK_LINE_COMMENT || p->type == TK_COMMENT)
@@ -688,7 +688,7 @@ static void check_space_after_comma_style(const struct parser_ctx* ctx, const st
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
-    _Assert(token->type == ',');
+    assert(token->type == ',');
 
     if (token->level != 0 ||
         (token->flags & TK_FLAG_MACRO_EXPANDED) ||
@@ -717,7 +717,7 @@ static void check_single_declarator_per_declaration_style(const struct parser_ct
 {
     if (!is_diagnostic_enabled(&ctx->options, W_STYLE))
         return;
-    _Assert(comma_token->type == ',');
+    assert(comma_token->type == ',');
 
     if (comma_token->level != 0 ||
         (comma_token->flags & TK_FLAG_MACRO_EXPANDED) ||
@@ -955,9 +955,9 @@ void scope_list_push(struct scope_list* list, struct scope* pnew)
     }
     else
     {
-        _Assert(list->tail != NULL);
+        assert(list->tail != NULL);
         pnew->previous = list->tail;
-        list->tail->next = pnew;
+        list->tail->next = pnew; //lint 33 assert line 958
         list->tail = pnew;
     }
 }
@@ -967,8 +967,8 @@ void scope_list_pop(struct scope_list* list)
 
     if (list->head == NULL)
         return;
-    _Assert(list->tail != NULL);
-    struct scope* p = list->tail;
+    assert(list->tail != NULL);
+    struct scope* p = list->tail; //lint 35 assert line 970
     if (list->head == list->tail)
     {
         list->head = NULL;
@@ -976,23 +976,23 @@ void scope_list_pop(struct scope_list* list)
     }
     else
     {
-        list->tail = list->tail->previous;
+        list->tail = list->tail->previous; //lint 33 assert line 970
         if (list->tail == list->head)
         {
-            _Assert(list->tail != NULL);
-            list->tail->next = NULL;
-            list->tail->previous = NULL;
+            assert(list->tail != NULL);
+            list->tail->next = NULL; //lint 33 assert line 982
+            list->tail->previous = NULL; //lint 33 assert line 982
         }
     }
-    p->next = NULL;
-    p->previous = NULL;
+    p->next = NULL; //lint 33 assert line 970
+    p->previous = NULL; //lint 33 assert line 970
 }
 
 void parser_ctx_destroy(_Dtor struct parser_ctx* ctx)
 {
     label_list_clear(&ctx->label_list);
-    _Assert(ctx->label_list.head == NULL);
-    _Assert(ctx->label_list.tail == NULL);
+    assert(ctx->label_list.head == NULL);
+    assert(ctx->label_list.tail == NULL);
 
     block_item_list_destroy(&ctx->used_incomplete_enums);
 
@@ -1004,8 +1004,7 @@ void parser_ctx_destroy(_Dtor struct parser_ctx* ctx)
     }
 }
 
-static void diagnostic_print(const struct diagnostic_item* e,
-    const struct parser_ctx* ctx)
+static void diagnostic_print(const struct diagnostic_item* e, struct parser_ctx* ctx)
 {
     if (e->is_error)
         ctx->p_report->error_count++;
@@ -1046,10 +1045,10 @@ static void diagnostic_free(struct diagnostic_item* _Owner _Opt e)
             diagnostic_free(child);
             child = next_child;
         }
-        _Assert(e->next == NULL);
+        assert(e->next == NULL);
         free(e->text);
         free(e->sarif_text);
-        free(e);
+        free(e); //lint 29 assert line 1048
     }
 }
 
@@ -1057,19 +1056,19 @@ void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _O
 {
     if (q->tail)
     {
-        _Assert(q->tail->next == NULL);
-        q->tail->next = e;
+        assert(q->tail->next == NULL);
+        q->tail->next = e; //lint 26 assert line 1059
     }
     else
     {
-        _Assert(q->head == NULL);
-        q->head = e;
+        assert(q->head == NULL);
+        q->head = e; //lint 26 assert line 1064
     }
     q->tail = e;
     q->count++;
 }
 
-void diagnostic_queue_flush(struct diagnostic_queue* db, const struct parser_ctx* ctx)
+void diagnostic_queue_flush(struct diagnostic_queue* db, struct parser_ctx* ctx)
 {
     struct diagnostic_item* _Owner _Opt it = db->head;
     while (it)
@@ -1086,35 +1085,48 @@ void diagnostic_queue_flush(struct diagnostic_queue* db, const struct parser_ctx
     db->count = 0;
 }
 
+/*
+* A //lint belongs to the statement that just ended, so it removes the most
+* recent queued diagnostic with that id, not the oldest: an unsuppressed one
+* far above (same id) must stay reported.
+*/
 bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id)
 {
+    struct diagnostic_item* _Opt found = NULL;
+    struct diagnostic_item* _Opt found_prev = NULL;
+
     struct diagnostic_item* _Opt prev = NULL;
     struct diagnostic_item* _Opt it = q->head;
     while (it)
     {
         if (it->id == id)
         {
-            if (prev)
-            {
-                prev->next = it->next; //lint 26
-            }
-            else
-            {
-                q->head = it->next; //lint 26
-            }
-
-            if (q->tail == it)
-                q->tail = prev;
-
-            it->next = NULL;
-            diagnostic_free(it); //lint 78
-            q->count--;
-            return true;
+            found = it;
+            found_prev = prev;
         }
         prev = it;
         it = it->next;
     }
-    return false;
+
+    if (found == NULL)
+        return false;
+
+    if (found_prev)
+    {
+        found_prev->next = found->next; //lint 26
+    }
+    else
+    {
+        q->head = found->next; //lint 26
+    }
+
+    if (q->tail == found)
+        q->tail = found_prev;
+
+    found->next = NULL;
+    diagnostic_free(found); //lint 78
+    q->count--;
+    return true; //lint 31 q->tail was moved off found above
 }
 
 int parse_diagnostic_suppression(const char* p, int ids[], int ids_max)
@@ -1371,23 +1383,15 @@ _Bool diagnostic(enum diagnostic_id w,
     /* format the user message */
     char buffer[200] = { 0 };
     va_list args = { 0 };
-#if _WIN32
     va_start(args, fmt);
-#else
-    va_start(args, fmt);
-#endif
     vsnprintf(buffer, sizeof(buffer), fmt, args);
- #if _WIN32
-    va_end(args); //lint 35 (only windows)
-#else
-    va_end(args); 
-#endif
+    va_end(args);
     struct diagnostic_queue* db = &((struct parser_ctx*)ctx)->diagnostic_queue;
 
     /* bound only: a smaller limit flushes before a statement's //lint can remove its own diagnostics */
     if (db->count > 1000)
     {
-        diagnostic_queue_flush(db, ctx);
+        diagnostic_queue_flush(db, (struct parser_ctx*)ctx);
     }
 
     struct diagnostic_item* _Opt _Owner e = calloc(1, sizeof * e);
@@ -1568,7 +1572,7 @@ void print_scope(struct scope_list* e)
 
 bool first_of_function_specifier(const struct parser_ctx* ctx)
 {
-    struct token* _Opt token = ctx->current;
+    const struct token* _Opt token = ctx->current;
 
     if (token == NULL)
         return false;
@@ -1741,10 +1745,10 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
         if (p_entry &&
             p_entry->type == TAG_TYPE_ENUM_SPECIFIER)
         {
-            _Assert(p_entry->data.p_enum_specifier != NULL);
+            assert(p_entry->data.p_enum_specifier != NULL);
 
             best = p_entry->data.p_enum_specifier;
-            if (best->enumerator_list.head != NULL)
+            if (best->enumerator_list.head != NULL) //lint 33 assert line 1748
                 return best; // OK bem completo
             else
             {
@@ -1759,14 +1763,14 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
 struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(const struct parser_ctx* ctx, const char* lexeme)
 {
     struct struct_or_union_specifier* _Opt p = NULL;
-    struct scope* _Opt scope = ctx->scopes.tail;
+    const struct scope* _Opt scope = ctx->scopes.tail;
     while (scope)
     {
         struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
         if (p_entry &&
             p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
         {
-            _Assert(p_entry->data.p_struct_or_union_specifier != NULL);
+            assert(p_entry->data.p_struct_or_union_specifier != NULL);
             p = p_entry->data.p_struct_or_union_specifier;
             break;
         }
@@ -1783,9 +1787,9 @@ struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char
     {
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
-            _Assert(p_entry->data.p_init_declarator != NULL);
-            struct init_declarator* p_init_declarator = p_entry->data.p_init_declarator;
-            return (struct declarator*)p_init_declarator->p_declarator;
+            assert(p_entry->data.p_init_declarator != NULL);
+            struct init_declarator* p_init_declarator = p_entry->data.p_init_declarator; //lint 35 assert line 1790
+            return (struct declarator*)p_init_declarator->p_declarator; //lint 33 assert line 1790
         }
         else if (p_entry->type == TAG_TYPE_DECLARATOR)
         {
@@ -2010,7 +2014,7 @@ bool first_of_static_assertion_declaration(const struct parser_ctx* ctx)
     if (!first_of_static_assertion(ctx))
         return false;
 
-    struct token* _Opt p = ctx->current;
+    const struct token* _Opt p = ctx->current;
     p = p->next; // skip 'static_assert'
     while (p && !token_is_final(p)) p = p->next;
 
@@ -2613,17 +2617,9 @@ bool pos_diagnostic(enum diagnostic_id w,
         /* format the user message */
         char buffer[200] = { 0 };
         va_list args = { 0 };
-#if _WIN32
         va_start(args, fmt);
-#else
-        va_start(args, fmt);
-#endif
         vsnprintf(buffer, sizeof(buffer), fmt, args);
-#if _WIN32
-        va_end(args); //lint 35 (only windows)
-#else
         va_end(args);
-#endif
 
         struct osstream ss = { 0 };
         ss_print_diagnostic_header(&ss, file, line, col,
@@ -2834,7 +2830,7 @@ void find_definition_set_declarator(struct parser_ctx* ctx, const struct declara
     }
     else if (type_is_function(&p_declarator->object.type))
     {
-        const struct declarator* _Opt p_function_definition = declarator_get_function_definition(p_declarator);
+        const struct declarator* _Opt p_function_definition = declarator_get_function_definition_const(p_declarator);
         if (p_function_definition)
         {
             ctx->p_find_definition = p_function_definition->name_opt;
@@ -2855,17 +2851,9 @@ void ctx_print(const struct parser_ctx* ctx, const char* fmt, ...)
 {
     (void)ctx;
     va_list args = { 0 };
-#if _WIN32
     va_start(args, fmt);
-#else
-    va_start(args, fmt);
-#endif
     vprintf(fmt, args);
-#if _WIN32
-    va_end(args); //lint 35 (only windows)
-#else
     va_end(args);
-#endif
 }
 
 bool complete_is_cursor(const struct parser_ctx* ctx, const struct token* _Opt p_token)
@@ -2905,9 +2893,9 @@ void complete_print_scopes(const struct parser_ctx* ctx)
             {
                 /* hidden by the same name in an inner scope */
                 bool hidden = false;
-                for (const struct scope* _Opt p_inner = ctx->scopes.tail; p_inner != p_scope; p_inner = p_inner->previous)
+                for (const struct scope* _Opt p_inner = ctx->scopes.tail; p_inner != NULL && p_inner != p_scope; p_inner = p_inner->previous)
                 {
-                    _Assert(p_inner != NULL);
+                    assert(p_inner != NULL);
                     if (hashmap_find(&p_inner->variables, p_entry->key))
                     {
                         hidden = true;
@@ -3078,7 +3066,7 @@ void print_declaration_specifiers(struct osstream* ss, const struct declaration_
         }
         else
         {
-            _Assert(false);
+            assert(false);
         }
     }
     else if (p_declaration_specifiers->struct_or_union_specifier)
@@ -3268,9 +3256,8 @@ void declaration_specifiers_add(struct declaration_specifiers* list, struct decl
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -3937,13 +3924,16 @@ static void check_const_candidate_parameters(const struct parser_ctx* ctx, struc
 
             p_declarator->pointee_used &&
             !p_declarator->pointee_written &&
-            !p_declarator->pointee_escaped;
+            !p_declarator->pointee_escaped &&
+
+            /* const would break what callers assume (warning 120) */
+            !p_declarator->pointee_reachable_written;
 
         if (is_candidate)
         {
             diagnostic(W_PARAM_COULD_BE_CONST,
                 ctx,
-                p_declarator->name_opt, NULL,            
+                p_declarator->name_opt, NULL,
                 "parameter '%s' does not modify the pointed object; it could be a pointer to const",
                 p_declarator->name_opt->lexeme);
         }
@@ -3995,7 +3985,7 @@ static void check_unused_parameters(const struct parser_ctx* ctx, struct paramet
 
 void check_function_types_complete(struct parser_ctx* ctx, struct declarator* funcdecl)
 {
-    _Assert(funcdecl->object.type.category == TYPE_CATEGORY_FUNCTION);
+    assert(funcdecl->object.type.category == TYPE_CATEGORY_FUNCTION);
 
     struct token* _Opt diagtok = NULL;
     if (funcdecl->name_opt)
@@ -4062,8 +4052,8 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
 
             if (storage_specifier_flags & STORAGE_SPECIFIER_BLOCK_SCOPE)
             {
-                _Assert(p_declaration->declaration_specifiers != NULL);
-                if (!(p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
+                assert(p_declaration->declaration_specifiers != NULL);
+                if (!(p_declaration->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)) //lint 33 assert line 4055
                 {
                     diagnostic(C_ERROR_UNEXPECTED, ctx, p_declaration->first_token,
                         NULL,
@@ -4085,7 +4075,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             * }
             */
 
-            _Assert(p_declaration->init_declarator_list.head != NULL); // because functions definitions have names
+            assert(p_declaration->init_declarator_list.head != NULL); // because functions definitions have names
 
             if (ctx->current == NULL)
             {
@@ -4135,8 +4125,8 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
             if (p_function_body == NULL)
                 throw;
 
-            _Assert(p_declaration->function_body == NULL);
-            p_declaration->function_body = p_function_body;
+            assert(p_declaration->function_body == NULL);
+            p_declaration->function_body = p_function_body; //lint 26 assert line 4128
             p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
             struct init_declarator* _Opt p_first_init_declarator = p_declaration->init_declarator_list.head;
@@ -4236,7 +4226,7 @@ struct declaration* _Owner _Opt declaration(struct parser_ctx* ctx,
         p_declaration = NULL;
     }
 
-    _Assert(p_attribute_specifier_sequence == NULL);
+    assert(p_attribute_specifier_sequence == NULL);
     attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
     return p_declaration;
 
@@ -4254,8 +4244,8 @@ void declaration_specifier_delete(struct declaration_specifier* _Owner _Opt p)
         type_specifier_qualifier_delete(p->type_specifier_qualifier);
         storage_class_specifier_delete(p->storage_class_specifier);
         alignment_specifier_delete(p->alignment_specifier);
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 4247
     }
 }
 
@@ -4319,8 +4309,8 @@ void init_declarator_delete(struct init_declarator* _Owner _Opt p)
 
         initializer_delete(p->initializer);
         declarator_delete(p->p_declarator);
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 4312
     }
 }
 
@@ -4417,7 +4407,7 @@ static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_t
 
             case TYPE_CATEGORY_FUNCTION:
             {
-                struct param* _Opt pa = p->params.head;
+                const struct param* _Opt pa = p->params.head;
 
                 while (pa)
                 {
@@ -4464,7 +4454,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 false,
                 &tkname);
             if (p_temp_declarator == NULL) throw;
-            _Assert(p_init_declarator->p_declarator == NULL);
+            assert(p_init_declarator->p_declarator == NULL);
             p_init_declarator->p_declarator = p_temp_declarator;
         }
 
@@ -4488,7 +4478,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            _Assert(p_init_declarator->p_declarator->object.type.type_specifier_flags == 0);
+            assert(p_init_declarator->p_declarator->object.type.type_specifier_flags == 0);
             /*
                 Through a temporary: make_type_using_declarator takes the
                 declarator non-const and can write its ->type, so assigning
@@ -4569,7 +4559,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             }
         }
 
-        _Assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
+        assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
 
         if (type_is_void(&p_init_declarator->p_declarator->object.type) &&
             !(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
@@ -4581,7 +4571,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 "this use of 'void' is not valid");
         }
 
-        _Assert(ctx->scopes.tail != NULL);
+        assert(ctx->scopes.tail != NULL);
 
         if (ctx->scopes.tail->scope_level == 0)
         {
@@ -4633,8 +4623,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 p_previous_declarator->object.type.next->attributes_flags |= STD_ATTRIBUTE_NORETURN;
             }
 
-            _Assert(out_scope != NULL);
-            _Assert(ctx->scopes.tail != NULL);
+            assert(out_scope != NULL);
+            assert(ctx->scopes.tail != NULL);
 
             if (out_scope->scope_level == ctx->scopes.tail->scope_level)
             {
@@ -4773,13 +4763,13 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 {
                     if (type_is_function(&p_previous_declarator->object.type))
                     {
-                        _Assert(p_previous_declarator->declaration_specifiers != NULL);
+                        assert(p_previous_declarator->declaration_specifiers != NULL);
 
                         /* TCC accepts it, and its mingw headers rely on it (__CRT_INLINE is static __inline__) */
                         if (!(ctx->options.platform.tcc_like_static_redeclaration && ctx->current->level > 0) &&
                             !(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
-                            )
+                            ) //lint 33 assert
                         {
                             /*
                             * void f();
@@ -4800,7 +4790,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         }
                         else if (out_scope->scope_level > 0 &&
                                  (p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
-                                 !(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
+                                 !(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)) //lint 33 assert line 4766
                         {
                             /*
                             * void f() {
@@ -4824,11 +4814,11 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    _Assert(p_previous_declarator->declaration_specifiers != NULL);
+                    assert(p_previous_declarator->declaration_specifiers != NULL);
 
                     if (!(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                         (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
-                        )
+                        ) //lint 33 assert
                     {
                         /* 
                         * extern int shared_counter;
@@ -4969,8 +4959,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
             parser_match(ctx);
 
-            _Assert(p_init_declarator->initializer == NULL);
-            p_init_declarator->initializer = initializer(ctx, false);
+            assert(p_init_declarator->initializer == NULL);
+            p_init_declarator->initializer = initializer(ctx, false); //lint 26 assert line 4962
 
             if (p_init_declarator->initializer == NULL)
             {
@@ -5028,7 +5018,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 else
                 {
                     if (p_init_declarator->p_declarator->declaration_specifiers &&
-                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO) //lint 31 assert
                     {
                         diagnostic(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token_opt, NULL, "'auto' requires a plain identifier");
                         throw;
@@ -5124,7 +5114,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                 /* 
                 * Fixing the type of auto declarator
                 */
-                _Assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
+                assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
 
                 if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
                 {
@@ -5156,10 +5146,10 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
 
                     type_remove_names(&t);
-                    _Assert(t.name_opt == NULL);
+                    assert(t.name_opt == NULL);
                     if (p_init_declarator->p_declarator->name_opt)
                     {
-                        t.name_opt = strdup(p_init_declarator->p_declarator->name_opt->lexeme);
+                        t.name_opt = strdup(p_init_declarator->p_declarator->name_opt->lexeme); //lint 26 assert line 5149
                     }
 
                     /* 
@@ -5458,7 +5448,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
 
         if (type_is_vm(&p_init_declarator->p_declarator->object.type))
         {
-            _Assert(ctx->scopes.tail != NULL);
+            assert(ctx->scopes.tail != NULL);
             if (ctx->scopes.tail->scope_level == 0)
             {
                 diagnostic(C_ERROR_LOCAL_FUNCTION_STORAGE, ctx,
@@ -5486,7 +5476,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
             p_init_declarator->p_declarator->declaration_specifiers &&
             type_is_function(&p_init_declarator->p_declarator->object.type) &&
             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags &
-             (STORAGE_SPECIFIER_AUTO | STORAGE_SPECIFIER_REGISTER | STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_CONSTEXPR)))
+             (STORAGE_SPECIFIER_AUTO | STORAGE_SPECIFIER_REGISTER | STORAGE_SPECIFIER_THREAD_LOCAL | STORAGE_SPECIFIER_CONSTEXPR))) //lint 31 assert
         {
             /*
             * void f() { auto void g(void); }
@@ -5539,9 +5529,8 @@ void init_declarator_list_add(struct init_declarator_list* list, struct init_dec
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -5693,9 +5682,8 @@ void storage_class_specifiers_push(struct storage_class_specifiers* p,
         }
         else
         {
-            _Assert(p->tail != NULL);
-            _Assert(p->tail->next == NULL);
-            p->tail->next = pnew;
+            assert(p->tail != NULL && p->tail->next == NULL);
+            p->tail->next = pnew; //lint 26 33
             p->tail = pnew;
         }
 
@@ -5710,8 +5698,8 @@ void storage_class_specifier_node_delete(struct storage_class_specifier_node* _O
 {
     if (p)
     {
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 5701
     }
 }
 
@@ -6608,7 +6596,7 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
                 find_declarator(ctx, ctx->current->lexeme, NULL);
 
             /* if we got here, it must already exist (reuse?) */
-            _Assert(p_type_specifier->typedef_declarator != NULL);
+            assert(p_type_specifier->typedef_declarator != NULL);
 
             if (p_type_specifier->typedef_declarator)
                 rename_record(&ctx->options, ctx->current, p_type_specifier->typedef_declarator->name_opt);
@@ -6810,7 +6798,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
             throw;
         }
 
-        _Assert(p_struct_or_union_specifier->attribute_specifier_sequence_opt == NULL);
+        assert(p_struct_or_union_specifier->attribute_specifier_sequence_opt == NULL);
         p_struct_or_union_specifier->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
         struct struct_or_union_specifier* _Opt p_first_tag_in_this_scope = NULL;
@@ -6853,14 +6841,14 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
                 /* this tag already exists in this scope */
                 if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
                 {
-                    _Assert(p_entry->data.p_struct_or_union_specifier != NULL);
+                    assert(p_entry->data.p_struct_or_union_specifier != NULL);
                     if (p_struct_or_union_specifier->first_token->type ==
-                        p_entry->data.p_struct_or_union_specifier->first_token->type)
+                        p_entry->data.p_struct_or_union_specifier->first_token->type) //lint 33 assert line 6844
                     {
                         p_first_tag_in_this_scope = p_entry->data.p_struct_or_union_specifier;
-                        p_struct_or_union_specifier->first_tag_token = p_first_tag_in_this_scope->first_tag_token;
+                        p_struct_or_union_specifier->first_tag_token = p_first_tag_in_this_scope->first_tag_token; //lint 33 assert line 6844
                         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
-                        p_previous_definition = get_complete_struct_or_union_specifier(p_first_tag_in_this_scope);
+                        p_previous_definition = get_complete_struct_or_union_specifier(p_first_tag_in_this_scope); //lint 35 assert line 6844
                     }
                     else
                     {
@@ -7216,7 +7204,7 @@ struct struct_or_union_specifier* _Owner _Opt struct_or_union_specifier(struct p
         }
     }
 
-    return p_struct_or_union_specifier;
+    return p_struct_or_union_specifier; //lint 90 BUG: false positive, the delete at the catch is followed by = NULL
 }
 
 struct member_declarator* _Owner _Opt member_declarator(
@@ -7468,9 +7456,9 @@ void member_declarator_delete(struct member_declarator* _Owner _Opt p)
     if (p)
     {
         expression_delete(p->constant_expression);
-        _Assert(p->next == NULL);
+        assert(p->next == NULL);
         declarator_delete(p->declarator);
-        free(p);
+        free(p); //lint 29 assert line 7459
     }
 }
 
@@ -7482,9 +7470,8 @@ void member_declarator_list_add(struct member_declarator_list* list, struct memb
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -7561,9 +7548,8 @@ void member_declaration_list_add(struct member_declaration_list* list, struct me
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -7632,13 +7618,13 @@ void member_declaration_delete(struct member_declaration* _Owner _Opt p)
 {
     if (p)
     {
-        _Assert(p->next == NULL);
+        assert(p->next == NULL);
         specifier_qualifier_list_delete(p->specifier_qualifier_list);
         member_declarator_list_delete(p->member_declarator_list_opt);
         attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
         static_assertion_delete(p->static_assertion);
         pragma_declaration_delete(p->pragma_declaration);
-        free(p);
+        free(p); //lint 29 assert line 7621
     }
 }
 
@@ -7670,7 +7656,7 @@ struct member_declaration* _Owner _Opt member_declaration(struct parser_ctx* ctx
         }
         else
         {
-            _Assert(p_member_declaration->p_attribute_specifier_sequence == NULL);
+            assert(p_member_declaration->p_attribute_specifier_sequence == NULL);
             p_member_declaration->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
 
             p_member_declaration->specifier_qualifier_list = specifier_qualifier_list(ctx);
@@ -7943,9 +7929,8 @@ void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct 
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -8068,8 +8053,8 @@ struct specifier_qualifier_list* _Owner _Opt specifier_qualifier_list(struct par
                 p_specifier_qualifier_list->type_qualifier_flags |= p_type_specifier_qualifier->type_qualifier->flags;
             }
 
-            _Assert(p_specifier_qualifier_list->p_attribute_specifier_sequence == NULL);
-            p_specifier_qualifier_list->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
+            assert(p_specifier_qualifier_list->p_attribute_specifier_sequence == NULL);
+            p_specifier_qualifier_list->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx); //lint 26 assert line 8056
 
             /* struct X {...} __attribute__((packed)) */
             if (p_type_specifier_qualifier->type_specifier &&
@@ -8116,16 +8101,16 @@ void type_specifier_qualifier_delete(struct type_specifier_qualifier* _Owner _Op
 {
     if (p)
     {
-        _Assert(p->next == NULL);
+        assert(p->next == NULL);
         if (p->type_qualifier)
         {
-            _Assert(p->type_qualifier->next == NULL);
-            free(p->type_qualifier);
+            assert(p->type_qualifier->next == NULL);
+            free(p->type_qualifier); //lint 29 assert line 8107
         }
         alignment_specifier_delete(p->alignment_specifier);
 
         type_specifier_delete(p->type_specifier);
-        free(p);
+        free(p); //lint 29 assert line 8104
     }
 }
 
@@ -8157,7 +8142,7 @@ struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier(struct par
         }
         else
         {
-            _Assert(false);
+            assert(false);
         }
     }
     catch
@@ -8175,7 +8160,7 @@ const struct enumerator* _Opt find_enumerator_by_value(const struct parser_ctx* 
         return NULL;
     }
 
-    struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
+    const struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
     while (p)
     {
         if (object_is_equal(&ctx->options.platform, &p->value, object))
@@ -8542,9 +8527,8 @@ void enumerator_list_add(struct enumerator_list* list, struct enumerator* _Owner
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -8748,11 +8732,11 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
             return; //lint 29 not a leak
         }
 
-        _Assert(p->next == NULL);
+        assert(p->next == NULL);
         attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
         expression_delete(p->constant_expression_opt);
         object_destroy(&p->value);
-        free(p);
+        free(p); //lint 29 assert line 8735
     }
 }
 
@@ -8825,8 +8809,8 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
         if (ctx->current->type == '=')
         {
             parser_match(ctx);
-            _Assert(p_enumerator->constant_expression_opt == NULL);
-            p_enumerator->constant_expression_opt = constant_expression(ctx, true, false);
+            assert(p_enumerator->constant_expression_opt == NULL);
+            p_enumerator->constant_expression_opt = constant_expression(ctx, true, false); //lint 26 assert line 8812
             if (p_enumerator->constant_expression_opt == NULL) throw;
             if (!type_is_integer(&p_enumerator->constant_expression_opt->object.type))
             {
@@ -9471,7 +9455,7 @@ struct direct_declarator* _Owner _Opt direct_declarator(struct parser_ctx* ctx,
             }
             p_direct_declarator = p_direct_declarator2;
 
-            _Assert(p_direct_declarator->p_attribute_specifier_sequence == NULL);
+            assert(p_direct_declarator->p_attribute_specifier_sequence == NULL);
             p_direct_declarator->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
         }
     }
@@ -9689,8 +9673,8 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
 
         p_function_declarator->direct_declarator = p_direct_declarator;
         p_direct_declarator = NULL; /* MOVED */
-        _Assert(ctx->scopes.tail != NULL);
-        p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
+        assert(ctx->scopes.tail != NULL);
+        p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1; //lint 33 assert line 9676
         p_function_declarator->parameters_scope.variables.capacity = 5;
         p_function_declarator->parameters_scope.tags.capacity = 1;
 
@@ -9731,12 +9715,12 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
                         hashmap_find(&ctx->scopes.tail->tags, p_entry->key) == NULL)
                     {
                         struct struct_or_union_specifier* _Owner _Opt p_moved = hashmap_remove(p_parameters_tags, p_entry->key, NULL);
-                        _Assert(p_moved != NULL);
-                        p_moved->p_parameters_scope_opt = &p_function_declarator->parameters_scope;
+                        assert(p_moved != NULL);
+                        p_moved->p_parameters_scope_opt = &p_function_declarator->parameters_scope; //lint 33 assert line 9718
 
                         struct hash_item_set item = { 0 };
                         item.p_struct_or_union_specifier = p_moved;
-                        hashmap_set(&ctx->scopes.tail->tags, p_moved->tag_name, &item);
+                        hashmap_set(&ctx->scopes.tail->tags, p_moved->tag_name, &item); //lint 33 assert line 9718
                         hash_item_set_destroy(&item);
                     }
                     p_entry = p_next;
@@ -9877,7 +9861,7 @@ struct pointer* _Owner _Opt pointer_opt(struct parser_ctx* ctx)
 
             if (first_of_type_qualifier(ctx))
             {
-                _Assert(ctx->current != NULL);
+                assert(ctx->current != NULL);
 
                 /* without -annotations _View is ignored, like an empty macro */
                 if (ctx->current->type == TK_KEYWORD_CAKE_VIEW && ctx->options.safety_enabled)
@@ -9920,9 +9904,8 @@ void type_qualifier_list_add(struct type_qualifier_list* list, struct type_quali
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -10061,9 +10044,8 @@ void parameter_list_add(struct parameter_list* list, struct parameter_declaratio
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -10188,8 +10170,8 @@ void parameter_declaration_delete(struct parameter_declaration* _Owner _Opt p)
         declaration_specifiers_delete(p->declaration_specifiers);
         declarator_delete(p->declarator);
 
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 10173
     }
 }
 
@@ -10324,7 +10306,7 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
             struct hash_item_set item = { 0 };
             item.p_declarator = declarator_add_ref(p_parameter_declaration->declarator);
 
-            _Assert(p_parameter_declaration->declarator->name_opt != NULL); // add_ref will not change that
+            assert(p_parameter_declaration->declarator->name_opt != NULL); // add_ref will not change that
 
             /* void parameter has no name */
             hashmap_set(&ctx->scopes.tail->variables,
@@ -10334,8 +10316,8 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
             /* print_scope(ctx->current_scope); */
             hash_item_set_destroy(&item);
 
-            rename_record(&ctx->options, p_parameter_declaration->declarator->name_opt, p_parameter_declaration->declarator->name_opt);
-            if (find_definition_is_cursor(ctx, p_parameter_declaration->declarator->name_opt))
+            rename_record(&ctx->options, p_parameter_declaration->declarator->name_opt, p_parameter_declaration->declarator->name_opt); //lint 35 assert line 10309
+            if (find_definition_is_cursor(ctx, p_parameter_declaration->declarator->name_opt)) //lint 35 assert line 10309
                 find_definition_set_declarator(ctx, p_parameter_declaration->declarator);
         }
     }
@@ -10367,9 +10349,9 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 
     if (p_direct_declarator->function_declarator)
     {
-        _Assert(p_direct_declarator->function_declarator->direct_declarator != NULL);
+        assert(p_direct_declarator->function_declarator->direct_declarator != NULL);
 
-        print_direct_declarator(ss, p_direct_declarator->function_declarator->direct_declarator, is_abstract);
+        print_direct_declarator(ss, p_direct_declarator->function_declarator->direct_declarator, is_abstract); //lint 35 assert line 10352
 
         ss_fprintf(ss, "(");
         struct parameter_list* _Opt p_parameter_list =
@@ -10432,7 +10414,10 @@ const struct direct_declarator* _Opt get_innermost_direct_declarator(const struc
     return previous;
 }
 
-const struct declarator* _Opt declarator_get_function_definition(const struct declarator* declarator)
+
+
+
+const struct declarator* _Opt declarator_get_function_definition_const(const struct declarator* declarator)
 {
     const struct declarator* _Opt p_function_defined = NULL;
     if (declarator->function_body)
@@ -10455,9 +10440,38 @@ const struct declarator* _Opt declarator_get_function_definition(const struct de
         p_function_defined = declarator->p_complete_declarator->p_complete_declarator;
     }
 
-    _Assert(p_function_defined == NULL || (p_function_defined && p_function_defined->function_body));
+    assert(p_function_defined == NULL || (p_function_defined && p_function_defined->function_body));
     return p_function_defined;
 }
+
+
+struct declarator* _Opt declarator_get_function_definition(struct declarator* declarator)
+{
+    struct declarator* _Opt p_function_defined = NULL;
+    if (declarator->function_body)
+    {
+        p_function_defined = declarator;
+    }
+
+    if (!p_function_defined &&
+        declarator->p_complete_declarator &&
+        declarator->p_complete_declarator->function_body)
+    {
+        p_function_defined = declarator->p_complete_declarator;
+    }
+
+    if (!p_function_defined &&
+        declarator->p_complete_declarator &&
+        declarator->p_complete_declarator->p_complete_declarator &&
+        declarator->p_complete_declarator->p_complete_declarator->function_body)
+    {
+        p_function_defined = declarator->p_complete_declarator->p_complete_declarator;
+    }
+
+    assert(p_function_defined == NULL || (p_function_defined && p_function_defined->function_body));
+    return p_function_defined;
+}
+
 
 void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool is_abstract)
 {
@@ -10686,9 +10700,8 @@ void defer_list_add(struct defer_list* list, struct defer_list_item* _Owner p_it
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -10715,9 +10728,8 @@ void initializer_list_add(struct initializer_list* list, struct initializer_list
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -10728,8 +10740,8 @@ void initializer_list_item_delete(struct initializer_list_item* _Owner _Opt p)
     {
         designation_delete(p->designation);
         initializer_delete(p->initializer);
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 10743
     }
 }
 
@@ -10913,9 +10925,8 @@ void designator_list_add(struct designator_list* list, struct designator* _Owner
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -10976,9 +10987,9 @@ void designator_delete(struct designator* _Owner _Opt p)
 {
     if (p)
     {
-        _Assert(p->next == NULL);
+        assert(p->next == NULL);
         expression_delete(p->constant_expression_opt);
-        free(p);
+        free(p); //lint 29 assert line 10990
     }
 }
 
@@ -11174,18 +11185,33 @@ void execute_pragma_declaration(struct parser_ctx* ctx, struct pragma_declaratio
             if (p_pragma_token == NULL)
                 throw;
 
-            if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
-                strcmp(p_pragma_token->lexeme, "disable") != 0)
+            if (strcmp(p_pragma_token->lexeme, "limit") == 0)
             {
-                diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected 'enable' or 'disable'");
-                throw;
+                /* #pragma flow limit N: objects tracked per function before warning 97 (tests use a small one) */
+                p_pragma_token = pragma_declaration_match(p_pragma_token);
+                if (p_pragma_token == NULL || p_pragma_token->type != TK_PPNUMBER)
+                {
+                    diagnostic(W_ATTRIBUTES, ctx, p_pragma_token ? p_pragma_token : ctx->current, NULL, "expected a number");
+                    throw;
+                }
+                ctx->options.flow_max_tracked_objects = atoi(p_pragma_token->lexeme);
+                p_pragma_token = pragma_declaration_match(p_pragma_token);
             }
+            else
+            {
+                if (strcmp(p_pragma_token->lexeme, "enable") != 0 &&
+                    strcmp(p_pragma_token->lexeme, "disable") != 0)
+                {
+                    diagnostic(W_ATTRIBUTES, ctx, p_pragma_token, NULL, "expected 'enable', 'disable' or 'limit'");
+                    throw;
+                }
 
-            const bool flow1_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
+                const bool flow1_enable = strcmp(p_pragma_token->lexeme, "enable") == 0;
 
-            p_pragma_token = pragma_declaration_match(p_pragma_token);
+                p_pragma_token = pragma_declaration_match(p_pragma_token);
 
-            ctx->options.flow_analysis = flow1_enable;
+                ctx->options.flow_analysis = flow1_enable;
+            }
         }
         else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "safety") == 0)
         {
@@ -11352,7 +11378,7 @@ struct pragma_declaration* _Owner _Opt pragma_declaration(struct parser_ctx* ctx
     {
         if (ctx->current == NULL || ctx->current->type != TK_PRAGMA)
         {
-            _Assert(false);
+            assert(false);
             throw;
         }
 
@@ -11490,9 +11516,8 @@ void attribute_specifier_sequence_add(struct attribute_specifier_sequence* list,
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -11559,9 +11584,9 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                     if (p_attribute_specifier == NULL)
                         throw;
 
-                    _Assert(p_attribute_specifier->attribute_list != NULL);
+                    assert(p_attribute_specifier->attribute_list != NULL);
                     p_attribute_specifier_sequence->attributes_flags |=
-                        p_attribute_specifier->attribute_list->attributes_flags;
+                        p_attribute_specifier->attribute_list->attributes_flags; //lint 33 assert line 11587
 
                     attribute_specifier_sequence_add(p_attribute_specifier_sequence, p_attribute_specifier);
                 }
@@ -11616,8 +11641,8 @@ void attribute_specifier_delete(struct attribute_specifier* _Owner _Opt p)
     if (p)
     {
         attribute_list_delete(p->attribute_list);
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 11644
     }
 }
 
@@ -11678,8 +11703,8 @@ void attribute_delete(struct attribute* _Owner _Opt p)
     if (p)
     {
         attribute_argument_clause_delete(p->attribute_argument_clause);
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 11706
     }
 }
 
@@ -11691,9 +11716,8 @@ void attribute_list_add(struct attribute_list* list, struct attribute* _Owner p_
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 }
@@ -12047,8 +12071,8 @@ struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct p
                 new_token->token = ctx->current;
                 if (p_balanced_token_sequence->tail == NULL)
                 {
-                    _Assert(p_balanced_token_sequence->head == NULL); // if tail is null head also is
-                    p_balanced_token_sequence->head = new_token;
+                    assert(p_balanced_token_sequence->head == NULL); // if tail is null head also is
+                    p_balanced_token_sequence->head = new_token; //lint 26 assert line 12074
                 }
                 else
                 {
@@ -12120,7 +12144,7 @@ struct statement* _Owner _Opt statement(struct parser_ctx* ctx, struct attribute
 
 struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
 {
-    _Assert(ctx->current != NULL);
+    assert(ctx->current != NULL);
     struct primary_block* _Owner _Opt p_primary_block = calloc(1, sizeof(struct primary_block));
     try
     {
@@ -12146,13 +12170,13 @@ struct primary_block* _Owner _Opt primary_block(struct parser_ctx* ctx)
                 throw;
         }
         else if (ctx->current->type == TK_KEYWORD_CAKE_TRY ||
-            ctx->current->type == TK_KEYWORD_MSVC__TRY)
+            ctx->current->type == TK_KEYWORD_MSVC__TRY) //lint 33 33 assert line 12147
         {
             p_primary_block->try_statement = try_statement(ctx);
             if (p_primary_block->try_statement == NULL)
                 throw;
         }
-        else if (ctx->current->type == TK_KEYWORD__ASM)
+        else if (ctx->current->type == TK_KEYWORD__ASM) //lint 33 assert line 12147
         {
             p_primary_block->asm_statement = asm_statement(ctx);
             if (p_primary_block->asm_statement == NULL)
@@ -12635,16 +12659,16 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                         p_label->constant_expression->first_token, NULL,
                         "case range '%s' ... '%s' overlaps a previous case", str1, str2);
 
-                    _Assert(p_label->constant_expression != NULL); // because case have values
+                    assert(p_label->constant_expression != NULL); // because case have values
                     /*
                         case_label_list_find_range only matches labels whose own
                         constant_expression is non-null (see the p->constant_expression
                         && guard there), so a match guarantees this.
                     */
-                    _Assert(p_existing_label->constant_expression != NULL);
+                    assert(p_existing_label->constant_expression != NULL);
                     diagnostic(W_LOCATION,
                         ctx,
-                        p_existing_label->constant_expression->first_token, NULL, "previous case");
+                        p_existing_label->constant_expression->first_token, NULL, "previous case"); //lint 33 assert line 12668
                 }
             }
             else
@@ -12665,16 +12689,16 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                         p_label->constant_expression->first_token, NULL,
                         "duplicate case '%s'", str);
 
-                    _Assert(p_label->constant_expression != NULL); // because case have values
+                    assert(p_label->constant_expression != NULL); // because case have values
                     /*
                         case_label_list_find only matches labels whose own
                         constant_expression is non-null (see the p->constant_expression
                         && guard there), so a match guarantees this.
                     */
-                    _Assert(p_existing_label->constant_expression != NULL);
+                    assert(p_existing_label->constant_expression != NULL);
                     diagnostic(W_LOCATION,
                         ctx,
-                        p_existing_label->constant_expression->first_token, NULL, "previous declaration");
+                        p_existing_label->constant_expression->first_token, NULL, "previous declaration"); //lint 33 assert line 12698
                 }
             }
 
@@ -12830,14 +12854,14 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
         label_delete(p_label);
         p_label = NULL;
     }
-    _Assert(p_attribute_specifier_sequence == NULL);
+    assert(p_attribute_specifier_sequence == NULL);
     attribute_specifier_sequence_delete(p_attribute_specifier_sequence);
     return p_label;
 }
 
-struct label* _Opt case_label_list_find_default( const struct case_label_list* list)
+const struct label* _Opt case_label_list_find_default_const(const struct case_label_list* list)
 {
-    struct label* _Opt p = list->head;
+    const struct label* _Opt p = list->head;
     while (p)
     {
         if (p->p_first_token->type == TK_KEYWORD_DEFAULT)
@@ -12847,9 +12871,14 @@ struct label* _Opt case_label_list_find_default( const struct case_label_list* l
     return NULL;
 }
 
-struct label* _Opt case_label_list_find_range(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end)
+struct label* _Opt case_label_list_find_default(struct case_label_list* list)
 {
-    struct label* _Opt p = list->head;
+    return (struct label* _Opt) case_label_list_find_default_const(list);
+}
+
+const struct label* _Opt case_label_list_find_range_const(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end)
+{
+    const struct label* _Opt p = list->head;
     while (p)
     {
         if (p->constant_expression_end == NULL)
@@ -12878,9 +12907,14 @@ struct label* _Opt case_label_list_find_range(const struct parser_ctx* ctx, cons
     return NULL;
 }
 
-struct label* _Opt case_label_list_find(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object)
+struct label* _Opt case_label_list_find_range(const struct parser_ctx* ctx, struct case_label_list* list, const struct object* begin, const struct object* end)
 {
-    struct label* _Opt p = list->head;
+    return (struct label* _Opt) case_label_list_find_range_const(ctx, list, begin, end);
+}
+
+const struct label* _Opt case_label_list_find_const(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object)
+{
+    const struct label* _Opt p = list->head;
     while (p)
     {
         if (p->constant_expression_end == NULL)
@@ -12905,6 +12939,11 @@ struct label* _Opt case_label_list_find(const struct parser_ctx* ctx, const stru
     return NULL;
 }
 
+struct label* _Opt case_label_list_find(const struct parser_ctx* ctx, struct case_label_list* list, const struct object* object)
+{
+    return (struct label* _Opt) case_label_list_find_const(ctx, list, object);
+}
+
 void case_label_list_push(struct case_label_list* list, struct label* pnew)
 {
     if (list->head == NULL)
@@ -12914,8 +12953,8 @@ void case_label_list_push(struct case_label_list* list, struct label* pnew)
     }
     else
     {
-        _Assert(list->tail != NULL);
-        list->tail->next = pnew;
+        assert(list->tail != NULL);
+        list->tail->next = pnew; //lint 33 assert line 12956
         list->tail = pnew;
     }
 }
@@ -13104,7 +13143,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                 struct init_declarator* _Opt p_init_declarator = NULL;
                 if (entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
-                    _Assert(entry->data.p_init_declarator != NULL);
+                    assert(entry->data.p_init_declarator != NULL);
                     p_init_declarator = entry->data.p_init_declarator;
                     p_declarator = p_init_declarator->p_declarator;
                 }
@@ -13118,7 +13157,7 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                     p_declarator->declaration_specifiers &&
                     (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                     type_is_function(&p_declarator->object.type) &&
-                    declarator_get_function_definition(p_declarator) == NULL &&
+                    declarator_get_function_definition_const(p_declarator) == NULL &&
                     p_declarator->name_opt)
                 {
                     /*
@@ -13199,9 +13238,8 @@ void block_item_list_add(struct block_item_list* list, struct block_item* _Owner
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_item;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_item; //lint 26 33
     }
     list->tail = p_item;
 
@@ -13315,8 +13353,8 @@ void block_item_delete(struct block_item* _Owner _Opt p)
         declaration_delete(p->declaration);
         label_delete(p->label);
         unlabeled_statement_delete(p->unlabeled_statement);
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 13356
     }
 }
 
@@ -13763,7 +13801,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             check_indentation_style(ctx, ctx->current);
             parser_match(ctx);
 
-            _Assert(p_try_statement->catch_secondary_block_opt == NULL);
+            assert(p_try_statement->catch_secondary_block_opt == NULL);
 
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
@@ -13775,7 +13813,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
             check_indentation_style(ctx, ctx->current);
             parser_match(ctx);
 
-            _Assert(p_try_statement->catch_secondary_block_opt == NULL);
+            assert(p_try_statement->catch_secondary_block_opt == NULL);
 
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
@@ -13794,7 +13832,7 @@ struct try_statement* _Owner _Opt try_statement(struct parser_ctx* ctx)
 
             if (parser_match_tk(ctx, ')') != 0) throw;
 
-            _Assert(p_try_statement->catch_secondary_block_opt == NULL);
+            assert(p_try_statement->catch_secondary_block_opt == NULL);
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
         }
@@ -13828,11 +13866,46 @@ void selection_statement_delete(struct selection_statement* _Owner _Opt p)
     }
 }
 
-static bool is_constant_expression(const struct expression* p_expression)
+/* warning 44 naming the expression and, for an identifier, the line where it is defined */
+static void warn_conditional_is_constant(const struct parser_ctx* ctx, const struct expression* p_expression)
 {
-    return object_has_constant_value(&p_expression->object);
-}
+    if (!object_has_constant_value(&p_expression->object))
+        return;
 
+    const struct token* _Opt p_defined = NULL;
+    if (p_expression->expression_type == EXPR_PRIMARY_ENUMERATOR)
+    {
+        const struct enumerator* _Opt p_enumerator = find_enumerator(ctx, p_expression->first_token->lexeme, NULL);
+        if (p_enumerator)
+            p_defined = p_enumerator->token;
+    }
+    else if (p_expression->expression_type == EXPR_PRIMARY_DECLARATOR && p_expression->declarator)
+    {
+        p_defined = p_expression->declarator->name_opt;
+    }
+
+    char see_line_text[40] = { 0 };
+    /* see line only makes sense in the same file */
+    if (p_defined &&
+        p_defined->token_origin == p_expression->first_token->token_origin &&
+        p_defined->line != p_expression->first_token->line)
+    {
+        snprintf(see_line_text, sizeof see_line_text, " (see line %d)", p_defined->line);
+    }
+
+    struct osstream ss = { 0 };
+    flow_expression_to_string(p_expression, &ss);
+
+    diagnostic(W_CONDITIONAL_IS_CONSTANT,
+        ctx,
+        p_expression->first_token,
+        NULL,
+        "conditional expression '%s' is constant%s",
+        ss.c_str ? ss.c_str : "",
+        see_line_text);
+
+    ss_close(&ss);
+}
 
 static void check_constant_condition(const struct parser_ctx* ctx, const struct expression* p_expression)
 {
@@ -13845,14 +13918,7 @@ static void check_constant_condition(const struct parser_ctx* ctx, const struct 
             "assignment in condition, use '==' for comparison or extra parentheses to silence");
     }
 
-    if (is_constant_expression(p_expression))
-    {
-        diagnostic(W_CONDITIONAL_IS_CONSTANT,
-            ctx,
-            p_expression->first_token,
-            NULL,
-            "conditional expression is constant");
-    }
+    warn_conditional_is_constant(ctx, p_expression);
 }
 /* 
 * C23 6.8.4.1, 6.8.5.1 the controlling expression of an if, while, do or
@@ -14191,14 +14257,9 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (!is_if &&
             p_selection_statement->condition &&
-            p_selection_statement->condition->expression &&
-            is_constant_expression(p_selection_statement->condition->expression))
+            p_selection_statement->condition->expression)
         {
-            diagnostic(W_CONDITIONAL_IS_CONSTANT,
-                ctx,
-                p_selection_statement->condition->expression->first_token,
-                NULL,
-                "conditional expression is constant");
+            warn_conditional_is_constant(ctx, p_selection_statement->condition->expression);
         }
 
         p_selection_statement->close_parentesis_token = ctx->current;
@@ -14271,7 +14332,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         }
 
-        _Assert(p_selection_statement->secondary_block == NULL); //lint 28
+        assert(p_selection_statement->secondary_block == NULL);
 
         p_selection_statement->secondary_block = p_secondary_block;
 
@@ -14282,7 +14343,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
             check_else_placement_style(ctx, ctx->current);
             p_selection_statement->else_token_opt = ctx->current;
             parser_match(ctx);
-            _Assert(p_selection_statement->else_secondary_block_opt == NULL);
+            assert(p_selection_statement->else_secondary_block_opt == NULL);
 
             struct secondary_block* _Owner _Opt p_secondary_block2 = secondary_block(ctx);
             if (p_secondary_block2 == NULL) throw;
@@ -14306,7 +14367,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
         if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
         {
-            check_switch_fallthrough(ctx, p_selection_statement);//lint 35 BUG flow
+            check_switch_fallthrough(ctx, p_selection_statement);
 
             // switch of enum without default, then we check if all items were used
             if (case_label_list_find_default( &p_selection_statement->label_list) == NULL)
@@ -14322,7 +14383,7 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
 
                 if (p_enum_specifier)
                 {
-                    struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
+                    const struct enumerator* _Opt p = p_enum_specifier->enumerator_list.head;
                     while (p)
                     {
                         struct label* _Opt p_used = case_label_list_find(ctx, &p_selection_statement->label_list, &p->value);
@@ -14919,7 +14980,7 @@ struct jump_statement* _Owner _Opt jump_statement(struct parser_ctx* ctx)
         }
         else
         {
-            _Assert(false);
+            assert(false);
         }
 
         if (ctx->current == NULL)
@@ -15021,9 +15082,8 @@ void declaration_list_add(struct declaration_list* list, struct declaration* _Ow
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = p_declaration;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = p_declaration; //lint 26 33
     }
     list->tail = p_declaration;
 }
@@ -15211,8 +15271,8 @@ void declaration_delete(struct declaration* _Owner _Opt p)
 
         init_declarator_list_destroy(&p->init_declarator_list);
         defer_list_destroy(&p->defer_list);
-        _Assert(p->next == NULL);
-        free(p);
+        assert(p->next == NULL);
+        free(p); //lint 29 assert line 15251
     }
 }
 
@@ -15428,7 +15488,7 @@ static bool declaration_is_maybe_unused(const struct declaration* p)
     return result;
 }
 
-static void check_unused_declarators(const struct parser_ctx* ctx, struct declaration_list* declaration_list)
+static void check_unused_declarators(struct parser_ctx* ctx, struct declaration_list* declaration_list)
 {
     struct declaration* _Opt p = declaration_list->head;
     while (p)
@@ -15458,18 +15518,18 @@ static void check_unused_declarators(const struct parser_ctx* ctx, struct declar
                     struct declarator* _Opt p_declarator_local = NULL;
                     if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
                     {
-                        _Assert(p_entry->data.p_init_declarator != NULL);
-                        p_declarator_local = p_entry->data.p_init_declarator->p_declarator;
+                        assert(p_entry->data.p_init_declarator != NULL);
+                        p_declarator_local = p_entry->data.p_init_declarator->p_declarator; //lint 33 assert line 15498
                     }
                     else
                     {
                         p_declarator_local = p_entry->data.p_declarator;
                     }
 
-                    _Assert(p_declarator_local);
+                    assert(p_declarator_local);
 
                     if (type_is_function(&p->init_declarator_list.head->p_declarator->object.type) &&
-                        declarator_get_function_definition(p_declarator_local) == NULL)
+                        declarator_get_function_definition_const(p_declarator_local) == NULL) //lint 35 assert line 15506
                     {
                         diagnostic(W_STATIC_FUNCTION_NOT_DEFINED,
                             ctx,
@@ -15479,7 +15539,7 @@ static void check_unused_declarators(const struct parser_ctx* ctx, struct declar
                             p->init_declarator_list.head->p_declarator->name_opt->lexeme);
                     }
 
-                    int num_uses = p_declarator_local->num_uses;
+                    int num_uses = p_declarator_local->num_uses; //lint 33 assert line 15506
                     if (num_uses == 0 && !declaration_is_maybe_unused(p))
                     {
                         if (type_is_function(&p->init_declarator_list.head->p_declarator->object.type))
@@ -15512,14 +15572,14 @@ static void check_unused_declarators(const struct parser_ctx* ctx, struct declar
                  type_is_function(&p->init_declarator_list.head->p_declarator->object.type))
         {
             const struct token* _Opt name_token = p->init_declarator_list.head->p_declarator->name_opt;
-            _Assert(name_token != NULL); /* checked in the condition above */
+            assert(name_token != NULL); /* checked in the condition above */
 
             struct map_entry* _Opt p_entry = find_variables(ctx, name_token->lexeme, NULL);
             struct declarator* _Opt p_declarator_local = NULL;
             if (p_entry && p_entry->type == TAG_TYPE_INIT_DECLARATOR)
             {
-                _Assert(p_entry->data.p_init_declarator != NULL);
-                p_declarator_local = p_entry->data.p_init_declarator->p_declarator;
+                assert(p_entry->data.p_init_declarator != NULL);
+                p_declarator_local = p_entry->data.p_init_declarator->p_declarator; //lint 33 assert line 15558
             }
             else if (p_entry && p_entry->type == TAG_TYPE_DECLARATOR)
             {
@@ -15540,7 +15600,7 @@ static void check_unused_declarators(const struct parser_ctx* ctx, struct declar
                 const struct token* location_token = name_token;
                 bool has_definition_here = false;
 
-                const struct declarator* _Opt p_definition = declarator_get_function_definition(p_declarator_local);
+                const struct declarator* _Opt p_definition = declarator_get_function_definition_const(p_declarator_local);
                 if (p_definition != NULL &&
                     p_definition->name_opt != NULL &&
                     p_definition->name_opt->level == 0)
@@ -15756,9 +15816,8 @@ void label_list_push(struct label_list* list, struct label_list_item* _Owner pit
     }
     else
     {
-        _Assert(list->tail != NULL);
-        _Assert(list->tail->next == NULL);
-        list->tail->next = pitem;
+        assert(list->tail != NULL && list->tail->next == NULL);
+        list->tail->next = pitem; //lint 26 33
     }
     list->tail = pitem;
 }
@@ -15842,7 +15901,7 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, s
         scope_list_push(&ctx->scopes, &file_scope);
 
         bool local_error = false;
-        _Assert(ctx->p_input_list == list);
+        assert(ctx->p_input_list == list);
         ctx->current = list->head;
         parser_skip_blanks(ctx, NULL);
 
@@ -16180,21 +16239,11 @@ static struct object* _Opt find_last_suboject_of_suboject_old(struct type* p_typ
         return p_object; // tODO
     }
 
-    struct object* _Opt it = p_object->members.head;
-
-    while (it)
-    {
-        if (it->next == NULL)
-            return find_last_suboject_of_suboject_old(p_type_not_used, it, p_type_out);
-
+    struct object* it = p_object->members.head;
+    while (it->next)
         it = it->next;
-    }
 
-    struct type t = type_dup(&p_object->type);
-    type_swap(&t, p_type_out);
-    type_destroy(&t);
-
-    return p_object;
+    return find_last_suboject_of_suboject_old(p_type_not_used, it, p_type_out);
 }
 
 static struct object* _Opt find_last_suboject_of_suboject(struct type* p_type_not_used, struct object* p_object, struct type* p_type_out)
@@ -16286,10 +16335,10 @@ static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     {
         if (type_is_struct_or_union(p_current_object_type))
         {
-            _Assert(p_current_object_type->struct_or_union_specifier);
+            assert(p_current_object_type->struct_or_union_specifier);
 
             struct struct_or_union_specifier* _Opt p_struct_or_union_specifier =
-                get_complete_struct_or_union_specifier(p_current_object_type->struct_or_union_specifier);
+                get_complete_struct_or_union_specifier(p_current_object_type->struct_or_union_specifier); //lint 35 assert line 16325
 
             if (p_struct_or_union_specifier == NULL)
             {
@@ -16497,9 +16546,9 @@ int initializer_init_new(struct parser_ctx* ctx,
 
 static struct initializer_list_item* _Opt find_innner_initializer_list_item(const struct braced_initializer* braced_initializer)
 {
-    _Assert(braced_initializer->initializer_list);
+    assert(braced_initializer->initializer_list);
 
-    struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
+    struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head; //lint 33 assert line 16536
 
     while ( p_initializer_list_item &&
             p_initializer_list_item->initializer->braced_initializer)
@@ -16510,7 +16559,7 @@ static struct initializer_list_item* _Opt find_innner_initializer_list_item(cons
 
         if (p_initializer_list_item == NULL)
         {
-            _Assert(false);
+            assert(false);
             return NULL;
         }
 
@@ -16614,7 +16663,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
         struct object* const _Opt next_copy = current_object->next;
         current_object->next = NULL; //lint 26
         // once this object's own subobjects are exhausted)
-        struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
+        const struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head;
         ptrdiff_t array_to_expand_index = -1;
         ptrdiff_t array_to_expand_max_index = -1;
         bool compute_array_size = false;
@@ -16851,13 +16900,13 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
                 if (is_subobject_of_union)
                 {
-                    _Assert(p_subobject);
-                    _Assert(p_subobject->parent);
+                    assert(p_subobject);
+                    assert(p_subobject->parent);
                     struct type t = { 0 };
                     is_subobject_of_union = true;
                     p_subobject = find_last_suboject_of_suboject(&p_subobject->parent->type,
                         p_subobject->parent,
-                        &t);
+                        &t); //lint 35 35 35 35 35 35 assert line 16891
                     type_swap(&t, &subobject_type);
                     type_destroy(&t);
                     if (p_subobject)
@@ -16869,8 +16918,6 @@ static int braced_initializer_new(struct parser_ctx* ctx,
                 }
                 else if (entire_object_initialized)
                 {
-                    _Assert(p_subobject);
-
                     struct type t = { 0 };
                     is_subobject_of_union = type_is_union(p_current_object_type);
                     p_subobject = find_last_suboject_of_suboject(&subobject_type, p_subobject, &t);
