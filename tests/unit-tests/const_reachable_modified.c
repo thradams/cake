@@ -27,11 +27,11 @@ void forwards_mutable(const struct X * x)
     f1(x->p); //lint 120
 }
 
-/* a void* parameter is assumed not to change it */
+/* a non-const void* parameter says it may write, like any pointer */
 void * memset(void * s, int c, unsigned long n);
 void forwards_void(const struct X * x)
 {
-    memset(x->p, 0, sizeof * x->p);
+    memset(x->p, 0, sizeof * x->p); //lint 120
 }
 
 /* a const member: what it reaches is not changed either */

@@ -14,7 +14,7 @@ void wrapper(struct token** pp)
 }
 
 /* Non-_Opt pointee: dereferencing (*pp)->x is safe -> clean. */
-int read_non_opt(struct token** pp)
+int read_non_opt(struct token* const* pp)
 {
     return (*pp)->x;
 }

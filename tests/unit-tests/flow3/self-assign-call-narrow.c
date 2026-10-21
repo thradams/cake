@@ -16,7 +16,7 @@ struct parser_ctx
 
 const unsigned char* decode(const unsigned char* s, unsigned int* c);
 
-void f(struct parser_ctx* ctx)
+void f(const struct parser_ctx* ctx)
 {
     try
     {

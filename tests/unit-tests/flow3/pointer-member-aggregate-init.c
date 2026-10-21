@@ -17,7 +17,7 @@ struct expression
 };
 
 /* the original false positive: returning the aggregate must not report "uninitialized" */
-struct marker expression_to_marker(const struct expression* p)
+struct marker expression_to_marker(struct expression* p)
 {
     struct marker m = {
         .p_token_begin = p->first_token,

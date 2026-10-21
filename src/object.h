@@ -170,6 +170,7 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
 
 void object_default_initialization(struct object* p_object, bool is_constant);
 
+const struct object* _Opt object_get_member_const(const struct object* p_object, size_t index);
 struct object* _Opt object_get_member(const struct object* p_object, size_t index);
 
 int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum make_state make_state, const struct platform* target);

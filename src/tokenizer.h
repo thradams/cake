@@ -127,7 +127,7 @@ void print_tokens(bool color_enabled, const struct token* _Opt p_token);
 void print_preprocessed(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
-void preprocessor_mark_predefined_macros(const struct preprocessor_ctx* ctx);
+void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx);
 
 /*
   -unused-extern-report: what the files of one invocation define, collected

@@ -115,7 +115,7 @@ void hashmap_destroy(_Dtor struct hash_map* map)
     assert(map->table == NULL);
 } //lint 29 assert line 115
 
-struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
+const struct map_entry* _Opt hashmap_find_const(const struct hash_map* map, const char* key)
 {
     if (map->table == NULL)
         return NULL;
@@ -125,7 +125,7 @@ struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
     const unsigned int hash = string_hash(key);
     const int index = hash % map->capacity; //lint 36 assert line 123
 
-    struct map_entry* _Opt pentry = map->table[index];
+    const struct map_entry* _Opt pentry = map->table[index];
 
     for (; pentry != NULL; pentry = pentry->next)
     {
@@ -136,6 +136,11 @@ struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
     }
 
     return NULL;
+}
+
+struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
+{
+    return (struct map_entry* _Opt)hashmap_find_const(map, key);
 }
 
 void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt)

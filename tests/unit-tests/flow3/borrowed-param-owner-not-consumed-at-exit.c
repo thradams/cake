@@ -12,7 +12,7 @@ struct person {
 };
 
 /* Must warn: early return leaves p->name freed and never reassigned. */
-void set_leaves_dangling_on_early_return(struct person* p, char* name)
+void set_leaves_dangling_on_early_return(struct person* p, const char* name)
 {
     free(p->name);
     char* _Opt _Owner temp = strdup(name);
@@ -21,7 +21,7 @@ void set_leaves_dangling_on_early_return(struct person* p, char* name)
 }
 
 /* Must NOT warn: the failure path restores p->name before returning. */
-void set_restores_on_failure(struct person* p, char* name)
+void set_restores_on_failure(struct person* p, const char* name)
 {
     free(p->name);
     p->name = 0;
@@ -31,7 +31,7 @@ void set_restores_on_failure(struct person* p, char* name)
 }
 
 /* must NOT warn: p->name freed and reassigned unconditionally */
-void set_always_reassigns(struct person* p, char* name)
+void set_always_reassigns(struct person* p, const char* name)
 {
     free(p->name);
     p->name = strdup(name);

@@ -10,21 +10,21 @@ struct node
 
 struct node* _Opt fallback();
 
-int true_arm_narrowed(struct node* _Opt p)
+int true_arm_narrowed(const struct node* _Opt p)
 {
     /* p narrowed to non-null in the true arm by the condition itself */
     int v = p ? p->value : -1;
     return v;
 }
 
-int false_arm_narrowed(struct node* _Opt p)
+int false_arm_narrowed(const struct node* _Opt p)
 {
     /* p is provably null in the false arm -- must still warn */
     int v = p ? 1 : p->value; //lint 33 -> operator applied to a null pointer
     return v;
 }
 
-int unrelated_condition_not_narrowed(struct node* _Opt p, int cond)
+int unrelated_condition_not_narrowed(const struct node* _Opt p, int cond)
 {
     /* cond is unrelated to p, so p is not narrowed in either arm */
     int v = cond ? p->value : -1; //lint 33 -> operator applied to a null pointer
@@ -83,7 +83,7 @@ int nested_ternary_parenthesized(int a, int b)
     return r;
 }
 
-int ternary_as_condition(struct node* _Opt p)
+int ternary_as_condition(const struct node* _Opt p)
 {
     /* p is narrowed non-null while the ternary is evaluated as an if condition */
     if (p ? p->value > 0 : 0)

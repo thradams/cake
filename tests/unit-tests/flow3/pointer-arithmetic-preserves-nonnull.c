@@ -20,7 +20,7 @@ void h(int* a)
     *a = 1; /* ok: decrement, same rule */
 }
 
-void loop(char* p)
+void loop(const char* p)
 {
     while (*p)
     {

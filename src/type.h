@@ -337,6 +337,7 @@ bool type_is_clear(const struct type* p_type);
 bool type_is_uninit(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_const_recursive(const struct type* p_type);
+bool type_has_pointer_to_non_const_member(const struct type* p_type);
 bool type_is_volatile_recursive(const struct type* p_type);
 bool type_is_pointed_void(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);

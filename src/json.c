@@ -921,7 +921,7 @@ struct json_value * _Opt json_item(struct json_value *value, size_t index)
 size_t json_count(const struct json_value *value)
 {
     size_t count = 0;
-    struct json_value * _Opt child;
+    const struct json_value * _Opt child;
 
     for (child = value->first_child; child != NULL; child = child->next)
     {

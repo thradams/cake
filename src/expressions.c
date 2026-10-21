@@ -116,7 +116,7 @@ static struct declarator* _Opt expression_named_declarator(const struct expressi
 
     if (e->expression_type == EXPR_PRIMARY_DECLARATOR)
     {
-        return e->declarator;
+        return (struct declarator* _Opt)e->declarator; /* like strchr: the caller decides */
     }
 
     if (e->expression_type == EXPR_PRIMARY_PARENTHESIS)
@@ -1727,6 +1727,46 @@ static const struct expression* _Opt expression_reached_through_const(const stru
     return NULL;
 }
 
+/*
+    True when the const reaching p comes through a pointer (x->m, x[i], *x with x pointing to const):
+    that object belongs to someone else. A const object of our own (f(const struct X x)) still has
+    to move its owners at the end of its lifetime.
+*/
+static bool expression_const_through_pointer(const struct expression* p_expression)
+{
+    const struct expression* _Opt p = p_expression;
+    while (p != NULL)
+    {
+        switch (p->expression_type)
+        {
+            case EXPR_PRIMARY_PARENTHESIS:
+                p = p->right;
+                continue;
+
+            case EXPR_POSTFIX_DOT:
+                p = p->left;
+                continue;
+
+            case EXPR_POSTFIX_ARROW:
+            case EXPR_POSTFIX_ARRAY:
+                p = p->left;
+                if (p && type_is_pointer(&p->object.type) && type_is_pointed_const(&p->object.type))
+                    return true;
+                continue;
+
+            case EXPR_UNARY_CONTENT:
+                p = p->right;
+                if (p && type_is_pointer(&p->object.type) && type_is_pointed_const(&p->object.type))
+                    return true;
+                continue;
+
+            default:
+                return false;
+        }
+    }
+    return false;
+}
+
 /* the const object of warning 120: x for x, (x) or (*x); otherwise the expression (r->listener) */
 static void expression_const_name(const struct expression* p_const, struct osstream* ss)
 {
@@ -1741,6 +1781,13 @@ static void expression_const_name(const struct expression* p_const, struct osstr
         flow_expression_to_string(p, ss);
     else
         flow_expression_to_string(p_const, ss);
+
+    /* a struct member (x->members) prints with a trailing '.' */
+    if (ss->c_str && ss->size > 0 && ss->c_str[ss->size - 1] == '.')
+    {
+        ss->size--;
+        ss->c_str[ss->size] = '\0';
+    }
 }
 
 /* a write to what is reachable from a const object: the analysis assumes it does not change */
@@ -1776,20 +1823,63 @@ static void check_const_reachable_write(const struct parser_ctx* ctx, const stru
     parameter: the callee may change it. To a const parameter it is fine:
     that function assumes the same and is checked the same way.
 */
+const struct expression* skip_parenthesis(const struct expression* expr)
+{
+    while (expr->expression_type == EXPR_PRIMARY_PARENTHESIS)
+    {
+        if (expr->right == NULL)
+        {
+           assert(0);
+           break;
+        }
+        expr = expr->right;
+    }
+    return expr;
+}
+
+/* x->q or &x->q->v: the const object the pointer value lets out, as non-const; &x->v is C's error */
+static const struct expression* _Opt pointer_value_reached_through_const(const struct expression* p_value)
+{
+    const struct expression* p = skip_parenthesis(p_value);
+
+    if (p->expression_type == EXPR_UNARY_ADDRESSOF && p->right != NULL)
+    {
+        if (type_is_const(&p->right->object.type))
+            return NULL;
+        return expression_reached_through_const(p->right);
+    }
+    return expression_reached_through_const(p);
+}
+
+/* &x->q->v lets out what x reaches, like x->q: mark it for 82 */
+static void mark_pointer_value_reachable_written(const struct expression* p_value)
+{
+    const struct expression* p = skip_parenthesis(p_value);
+
+    if (p->expression_type == EXPR_UNARY_ADDRESSOF && p->right != NULL)
+        mark_pointee_reachable_written(p->right, 2);
+    else
+        mark_pointee_reachable_written(p, 1);
+}
+
 static void check_const_reachable_argument(const struct parser_ctx* ctx,
                                            const struct type* p_param_type,
                                            const struct expression* p_argument)
 {
-    /* a void* parameter (a callback's data, ...) is assumed not to change it */
-    if (!type_is_pointer(p_param_type) || type_is_pointed_const(p_param_type) || type_is_pointed_void(p_param_type))
+    /* a non-const void* says it may write (memset); one that does not takes const void* */
+    if (!type_is_pointer(p_param_type) || type_is_pointed_const(p_param_type))
+        return;
+    /* free(x->p): a move, checked by extended_check_assigment (99/120) */
+    if (ctx->options.safety_enabled && type_is_owner(p_param_type) &&
+        (p_argument->object.type.type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER))
         return;
     if (!type_is_pointer_or_array(&p_argument->object.type))
         return;
 
     /* f(p->q): if p were const, this would be warning 120 */
-    mark_pointee_reachable_written(p_argument, 1);
+    mark_pointer_value_reachable_written(p_argument);
 
-    const struct expression* _Opt p_const = expression_reached_through_const(p_argument);
+    const struct expression* _Opt p_const = pointer_value_reached_through_const(p_argument);
     if (p_const == NULL)
         return;
 
@@ -1804,13 +1894,73 @@ static void check_const_reachable_argument(const struct parser_ctx* ctx,
     ss_close(&ss_const);
 }
 
+/* y = *x, return *x, f(*x): a struct copied by value carries its pointers without the const of x */
+static void check_const_reachable_struct_copy(const struct parser_ctx* ctx,
+                                              const struct type* p_dest_type,
+                                              const struct expression* p_src,
+                                              enum assigment_type assignment_type)
+{
+    if (!type_is_struct_or_union(p_dest_type) || !type_has_pointer_to_non_const_member(p_dest_type))
+        return;
+
+    /* f(struct X* p) { struct X y = *p; }: if p were const, this would be warning 120 */
+    mark_pointee_reachable_written(p_src, 1);
+
+    const struct expression* _Opt p_const = expression_reached_through_const(p_src);
+    if (p_const == NULL)
+        return;
+
+    struct osstream ss_name = { 0 };
+    struct osstream ss_const = { 0 };
+    flow_expression_to_string(p_src, &ss_name);
+    expression_const_name(p_const, &ss_const);
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_src->first_token, NULL,
+               assignment_type == ASSIGMENT_TYPE_RETURN ? "'const' qualifier on '%s' does not propagate to the pointers in '%s', returned by value" :
+               assignment_type == ASSIGMENT_TYPE_PARAMETER ? "'const' qualifier on '%s' does not propagate to the pointers in '%s', passed by value" :
+               "'const' qualifier on '%s' does not propagate to the pointers in '%s', copied by value",
+               ss_const.c_str ? ss_const.c_str : "", ss_name.c_str ? ss_name.c_str : "");
+    ss_close(&ss_name);
+    ss_close(&ss_const);
+}
+
+/* p = x->p or return x->p: the non-const copy can change what const x reaches */
+static void check_const_reachable_copy(const struct parser_ctx* ctx,
+                                       const struct type* p_dest_type,
+                                       const struct expression* p_src,
+                                       enum assigment_type assignment_type)
+{
+    if (!type_is_pointer(p_dest_type) || type_is_pointed_const(p_dest_type))
+        return;
+    if (!type_is_pointer_or_array(&p_src->object.type))
+        return;
+
+    /* p = x->q: if x were const, this would be warning 120 */
+    mark_pointer_value_reachable_written(p_src);
+
+    const struct expression* _Opt p_const = pointer_value_reached_through_const(p_src);
+    if (p_const == NULL)
+        return;
+
+    struct osstream ss_name = { 0 };
+    struct osstream ss_const = { 0 };
+    flow_expression_to_string(p_src, &ss_name);
+    expression_const_name(p_const, &ss_const);
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_src->first_token, NULL,
+               assignment_type == ASSIGMENT_TYPE_RETURN ?
+                   "'const' qualifier on '%s' does not propagate to '%s', returned as a non-const pointer" :
+                   "'const' qualifier on '%s' does not propagate to '%s', copied to a non-const pointer",
+               ss_const.c_str ? ss_const.c_str : "", ss_name.c_str ? ss_name.c_str : "");
+    ss_close(&ss_name);
+    ss_close(&ss_const);
+}
+
 static int compare_function_arguments(const struct parser_ctx* ctx,
                                       const struct type* p_type,
                                       struct argument_expression_list* p_argument_expression_list)
 {
     try
     {
-        struct param* _Opt p_current_parameter_type = NULL;
+        const struct param* _Opt p_current_parameter_type = NULL;
 
         const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(p_type);
         if (p_param_list == NULL) throw;
@@ -4795,7 +4945,8 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
 
             p_expression_node->expression_type = EXPR_POSTFIX_FUNCTION_LITERAL;
 
-            struct scope* parameters_scope = &p_innermost_direct_declarator->function_declarator->parameters_scope;
+            /* the parser enters the parameters scope of the declarator it is building */
+            struct scope* parameters_scope = (struct scope*)&p_innermost_direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
 
@@ -6354,7 +6505,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
-                        struct enumerator* _Opt p =
+                        const struct enumerator* _Opt p =
                             p_enum_specifier->enumerator_list.head;
                         while (p)
                         {
@@ -6440,7 +6591,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
-                        struct enumerator* _Opt p =
+                        const struct enumerator* _Opt p =
                             p_enum_specifier->enumerator_list.head;
                         while (p)
                         {
@@ -10119,10 +10270,17 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
                                      const struct expression* p_b_expression, /* src */
                                      enum assigment_type assignment_type)
 {
+    const struct type* const p_b_type = &p_b_expression->object.type;
+
+    /* arguments: check_const_reachable_argument; owner moves: below */
+    const bool is_move = ctx->options.safety_enabled && type_is_owner(p_a_type) &&
+                         (p_b_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER);
+    if (assignment_type != ASSIGMENT_TYPE_PARAMETER && !is_move)
+        check_const_reachable_copy(ctx, p_a_type, p_b_expression, assignment_type);
+    check_const_reachable_struct_copy(ctx, p_a_type, p_b_expression, assignment_type);
+
     if (!ctx->options.safety_enabled)
         return;
-
-    const struct type* const p_b_type = &p_b_expression->object.type;
 
     if (type_is_owner(p_a_type) && !type_is_owner(p_b_type))
     {
@@ -10140,6 +10298,35 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
                 ss_close(&ss_name);
             }
             return;
+        }
+    }
+
+    /*
+      A move is a write to the owner state: const through a pointer forbids it, directly (99) or
+      reached (120). A const object of our own still moves its owners at the end of its lifetime.
+    */
+    if (type_is_owner(p_a_type) &&
+        (p_b_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER) &&
+        !(p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN))
+    {
+        /* f(struct X* p) { free(p->q); }: p cannot be suggested const (82) */
+        mark_pointee_written(p_b_expression, false);
+
+        if (type_is_const(p_b_type))
+        {
+            if (expression_const_through_pointer(p_b_expression))
+            {
+                struct osstream ss_name = { 0 };
+                flow_expression_to_string(p_b_expression, &ss_name);
+                diagnostic(W_MOVE_FROM_CONST_OWNER, ctx, p_b_expression->first_token, NULL,
+                           "cannot move from const owner '%s'",
+                           ss_name.c_str ? ss_name.c_str : "");
+                ss_close(&ss_name);
+            }
+        }
+        else
+        {
+            check_const_reachable_write(ctx, p_b_expression);
         }
     }
 

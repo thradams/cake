@@ -90,7 +90,7 @@ static void generate_name(int n, int sz, char* out)
     }
 }
 
-int generate_file_scope_new_name(const struct codegen_ctx* ctx, const char* current_name, int sz, char new_name[])
+int generate_file_scope_new_name(struct codegen_ctx* ctx, const char* current_name, int sz, char new_name[])
 {
     struct map_entry* _Opt it =
         hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
@@ -139,7 +139,7 @@ static void declarator_save_original_name(struct declarator* p_declarator)
         p_declarator->original_name = strdup(p_declarator->name_opt->lexeme);
 }
 
-int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, struct init_declarator* p_init_declarator)
+int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     try
     {
@@ -5961,7 +5961,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
             {
                 if (p_type->struct_or_union_specifier)
                 {
-                    struct struct_or_union_specifier* _Opt p_complete =
+                    const struct struct_or_union_specifier* _Opt p_complete =
                         get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
 
                     if (p_complete == NULL)
@@ -6858,7 +6858,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
         else
         {
             /* under -no-bitfields a run of bitfields is initialized as its tiles */
-            struct object* _Opt member = object->members.head;
+            const struct object* _Opt member = object->members.head;
             int index = 0;
             while (member)
             {
@@ -6867,7 +6867,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
                 if (codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
                 {
                     int count = 0;
-                    struct object* _Opt p = member;
+                    const struct object* _Opt p = member;
                     while (p && codegen_object_is_lowered_bitfield(ctx, p, &p_owner, &p_member))
                     {
                         count++;

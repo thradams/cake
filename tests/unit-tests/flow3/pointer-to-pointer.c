@@ -10,7 +10,7 @@ struct node
 
 struct node* _Opt get();
 
-int both_levels_checked(struct node* _Opt* _Opt pp)
+int both_levels_checked(struct node* _Opt const* _Opt pp)
 {
     if (pp)
     {
@@ -23,13 +23,13 @@ int both_levels_checked(struct node* _Opt* _Opt pp)
     return -1;
 }
 
-int pp_unchecked(struct node* _Opt* _Opt pp)
+int pp_unchecked(struct node* _Opt const* _Opt pp)
 {
     /* pp itself was never checked */
     return (*pp)->value; //lint 33 possible null pointer dereference
 }
 
-int chain_both_links_checked(struct node* _Opt p)
+int chain_both_links_checked(const struct node* _Opt p)
 {
     if (p && p->next)
     {
@@ -48,7 +48,7 @@ void assign_through_pp_no_crash(struct node* _Opt* _Opt pp)
     }
 }
 
-int pp_checked_star_pp_not_checked(struct node* _Opt* _Opt pp)
+int pp_checked_star_pp_not_checked(struct node* _Opt const* _Opt pp)
 {
     if (pp)
     {
@@ -58,7 +58,7 @@ int pp_checked_star_pp_not_checked(struct node* _Opt* _Opt pp)
     return -1;
 }
 
-int chain_only_first_link_checked(struct node* _Opt p)
+int chain_only_first_link_checked(const struct node* _Opt p)
 {
     if (p)
     {

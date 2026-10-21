@@ -1051,7 +1051,7 @@ static void defer_visit_direct_declarator(struct defer_visit_ctx* ctx, const str
 {
     if (p_direct_declarator->function_declarator)
     {
-        struct parameter_declaration* _Opt parameter = NULL;
+        const struct parameter_declaration* _Opt parameter = NULL;
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt &&
             p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)

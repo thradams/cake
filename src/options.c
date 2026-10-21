@@ -160,6 +160,7 @@ bool diagnostic_can_happen(const struct options* options, enum diagnostic_id w)
     case W_USING_TEMPORARY_OWNER:
     case W_POINTER_TO_OWNER_EXPECTED:
     case W_OWNER_ALIASED_BY_NON_OWNER_POINTER:
+    case W_MOVE_FROM_CONST_OWNER:
         return options->safety_enabled;
     default:
         break;

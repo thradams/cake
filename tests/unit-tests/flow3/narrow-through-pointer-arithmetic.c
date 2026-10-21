@@ -12,7 +12,7 @@ int reserve(struct osstream* st, int n);
 int take(char* p);
 
 /* No invalidating call before the guard. */
-int arithmetic_only(struct osstream* st)
+int arithmetic_only(const struct osstream* st)
 {
     if (st->c_str == 0)
     {
@@ -62,7 +62,7 @@ int guarded_in_same_expression(struct osstream* st, int n)
 }
 
 /* Contrast: with no check at all the warning is still expected. */
-int unguarded(struct osstream* st)
+int unguarded(const struct osstream* st)
 {
     return take(st->c_str + st->size); //lint 35
 }

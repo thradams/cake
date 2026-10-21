@@ -29,7 +29,7 @@ void use(void)
 struct hash_map { int x; };
 int find_entry(struct hash_map* m, const char* key);
 
-int pass_array_to_another_function(struct hash_map* m, char new_name[])
+int pass_array_to_another_function(struct hash_map* m, const char new_name[])
 {
     return find_entry(m, new_name); /* ok: new_name is still just as non-null as any other array parameter */
 }

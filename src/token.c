@@ -98,7 +98,7 @@ void token_list_pop_back(struct token_list* list)
     assert(list->head == NULL || list->head->prev == NULL);
 }
 
-void token_list_pop_front(struct token_list* list) /*unchecked*/
+void token_list_pop_front(struct token_list* list)
 {
     if (list->head == NULL)
         return;
@@ -263,7 +263,7 @@ bool token_list_is_equal(const struct token_list* list_a, const struct token_lis
     return p_tka == NULL && p_tkb == NULL;
 }
 
-struct token* token_list_add(struct token_list* list, struct token* _Owner pnew) /*unchecked*/
+struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
 {
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
@@ -509,7 +509,7 @@ struct token* _Owner _Opt clone_token(const struct token* p)
         return NULL;
     }
 
-    *token = *p;
+    *token = *p; //lint 120 shallow clone, not playing with the rules
     token->lexeme = lexeme; //lint 26
     token->next = NULL; //lint 26
     token->prev = NULL;

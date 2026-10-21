@@ -685,7 +685,7 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
         return true;
     }
 
-    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence = NULL;
+    const struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence = NULL;
 
     if (p_type->struct_or_union_specifier)
     {
@@ -1098,6 +1098,59 @@ static bool struct_or_union_has_const_member(struct struct_or_union_specifier* p
                 return true;
         }
 
+        d = d->next;
+    }
+    return false;
+}
+
+/*
+  struct X { struct Y* p; }: copying a struct X by value copies p without the
+  const of where it came from (warning 120).
+*/
+bool type_has_pointer_to_non_const_member(const struct type* p_type)
+{
+    if (type_is_array(p_type))
+    {
+        struct type item_type = get_array_item_type(p_type);
+        const bool b = type_has_pointer_to_non_const_member(&item_type);
+        type_destroy(&item_type);
+        return b;
+    }
+
+    if (type_is_pointer(p_type))
+        return !type_is_pointed_const(p_type);
+
+    if (!type_is_struct_or_union(p_type) || p_type->struct_or_union_specifier == NULL)
+        return false;
+
+    const struct struct_or_union_specifier* _Opt p_complete =
+        get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+    if (p_complete == NULL)
+        return false;
+
+    const struct member_declaration* _Opt d = p_complete->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            const struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                if (md->declarator && type_has_pointer_to_non_const_member(&md->declarator->object.type))
+                    return true;
+                md = md->next;
+            }
+        }
+        else if (d->specifier_qualifier_list &&
+                 d->specifier_qualifier_list->struct_or_union_specifier)
+        {
+            /*anonymous struct/union member*/
+            struct type anonymous = { .category = TYPE_CATEGORY_ITSELF,
+                                      .type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION,
+                                      .struct_or_union_specifier = (struct struct_or_union_specifier*)d->specifier_qualifier_list->struct_or_union_specifier }; /* only read */
+            if (type_has_pointer_to_non_const_member(&anonymous))
+                return true;
+        }
         d = d->next;
     }
     return false;
@@ -2461,7 +2514,7 @@ struct type type_dup(const struct type* p_type)
                 throw;
             }
 
-            *p_new = *p;
+            *p_new = *p; //lint 120 shallow clone, not following rules
 
             //actually I was not the _Owner of p_new->next
             p_new->next = NULL; //lint 26 not following rules
@@ -4715,7 +4768,7 @@ void type_set_specifiers_using_declarator(struct type* p_type, const struct decl
         p_type->bitint_width = pdeclarator->declaration_specifiers->bitint_width;
 
         p_type->enum_specifier = pdeclarator->declaration_specifiers->enum_specifier;
-        p_type->struct_or_union_specifier = pdeclarator->declaration_specifiers->struct_or_union_specifier;
+        p_type->struct_or_union_specifier = (struct struct_or_union_specifier* _Opt)pdeclarator->declaration_specifiers->struct_or_union_specifier; /* the type links to the AST */
 
     }
     else if (pdeclarator->specifier_qualifier_list)
@@ -4724,7 +4777,7 @@ void type_set_specifiers_using_declarator(struct type* p_type, const struct decl
             pdeclarator->specifier_qualifier_list->type_specifier_flags;
         p_type->bitint_width = pdeclarator->specifier_qualifier_list->bitint_width;
         p_type->enum_specifier = pdeclarator->specifier_qualifier_list->enum_specifier;
-        p_type->struct_or_union_specifier = pdeclarator->specifier_qualifier_list->struct_or_union_specifier;
+        p_type->struct_or_union_specifier = (struct struct_or_union_specifier* _Opt)pdeclarator->specifier_qualifier_list->struct_or_union_specifier; /* the type links to the AST */
 
     }
 

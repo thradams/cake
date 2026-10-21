@@ -391,7 +391,7 @@ static bool pragma_once_already_included(const struct preprocessor_ctx* ctx, con
     //FAILING ON EMSCRIPT
     //_Assert(path_is_absolute(path));
     //_Assert(path_is_normalized(path));
-    return hashmap_find(&ctx->pragma_once_map, path) != NULL;
+    return hashmap_find_const(&ctx->pragma_once_map, path) != NULL;
 }
 
 const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
@@ -2027,9 +2027,9 @@ bool is_never_final(enum token_type type)
 
 enum token_type is_keyword(const char* text, const struct platform* target);
 
-struct token* _Opt preprocessor_look_ahead_core(const struct token* p)
+const struct token* _Opt preprocessor_look_ahead_core_const(const struct token* p)
 {
-    struct token* _Opt current = p->next;
+    const struct token* _Opt current = p->next;
 
     while (current &&
         (current->type == TK_BLANKS ||
@@ -2042,9 +2042,14 @@ struct token* _Opt preprocessor_look_ahead_core(const struct token* p)
     return current;
 }
 
+struct token* _Opt preprocessor_look_ahead_core(const struct token* p)
+{
+    return (struct token* _Opt)preprocessor_look_ahead_core_const(p);
+}
+
 bool preprocessor_token_ahead_is(const struct token* p, enum token_type t)
 {
-    struct token* _Opt p_token = preprocessor_look_ahead_core(p);
+    const struct token* _Opt p_token = preprocessor_look_ahead_core_const(p);
     if (p_token != NULL && p_token->type == t)
         return true;
     return false;
@@ -2128,7 +2133,7 @@ bool preprocessor_token_ahead_is_identifier(const struct token* _Opt p, const ch
     if (p == NULL)
         return false;
 
-    struct token* _Opt p_token = preprocessor_look_ahead_core(p);
+    const struct token* _Opt p_token = preprocessor_look_ahead_core_const(p);
     if (p_token != NULL && p_token->type == TK_IDENTIFIER)
     {
         return strcmp(p_token->lexeme, lexeme) == 0;
@@ -2575,7 +2580,7 @@ static void preprocessor_auto_complete(struct preprocessor_ctx* ctx, const struc
     }
     ctx->preprocessor_auto_complete_done = true;
 
-    const struct token* _Opt p_name = preprocessor_look_ahead_core(p_hash);
+    const struct token* _Opt p_name = preprocessor_look_ahead_core_const(p_hash);
     if (p_name == NULL || p_name->type == TK_NEWLINE ||
         p_name->col + (int)strlen(p_name->lexeme) >= ctx->options.find_definition_col)
     {
@@ -2591,7 +2596,7 @@ static void preprocessor_auto_complete(struct preprocessor_ctx* ctx, const struc
     const char* name = p_name->lexeme;
     if (strcmp(name, "include") == 0 || strcmp(name, "include_next") == 0 || strcmp(name, "embed") == 0)
     {
-        const struct token* _Opt p_arg = preprocessor_look_ahead_core(p_name);
+        const struct token* _Opt p_arg = preprocessor_look_ahead_core_const(p_name);
         if (p_arg && p_arg->type != TK_NEWLINE && p_arg->col < ctx->options.find_definition_col)
             complete_include(ctx, p_arg);
         return;
@@ -4738,7 +4743,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 if (ctx->include_listener && ctx->source_file)
                 {
-                    ctx->include_listener->callback(ctx->include_listener->data, ctx->source_file, full_path_result);
+                    ctx->include_listener->callback((void*)ctx->include_listener->data, ctx->source_file, full_path_result);
                 }
 
                 struct tokenizer_ctx tctx = { 0 };
@@ -7053,9 +7058,9 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
   as unused, and with no definition token - the tokens that defined them
   are destroyed right after, so p_name_token would dangle.
 */
-void preprocessor_mark_predefined_macros(const struct preprocessor_ctx* ctx)
+void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx)
 {
-    const struct hash_map* map = &ctx->macros;
+    struct hash_map* map = &ctx->macros;
     if (map->table != NULL)
     {
         for (int i = 0; i < map->capacity; i++)
@@ -7087,7 +7092,7 @@ void preprocessor_register_unused_macros(const struct preprocessor_ctx* ctx, str
 
     for (int i = 0; i < map->capacity; i++)
     {
-        for (struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
+        for (const struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
         {
             assert(pentry->data.p_macro != NULL);
 
@@ -8195,17 +8200,17 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
 {
     for (int i = 0; i < prectx->macros.capacity; i++)
     {
-        struct map_entry* _Opt entry = prectx->macros.table[i]; //lint 33
+        const struct map_entry* _Opt entry = prectx->macros.table[i]; //lint 33
         if (entry == NULL) continue;
         assert(entry->data.p_macro != NULL);
 
-        struct macro* macro = entry->data.p_macro;
+        const struct macro* macro = entry->data.p_macro;
         printf("#define %s", macro->name);
         if (macro->is_function)
         {
             printf("(");
 
-            struct macro_parameter* _Opt parameter = macro->parameters;
+            const struct macro_parameter* _Opt parameter = macro->parameters;
             while (parameter)
             {
                 printf("%s", parameter->name);
@@ -8217,7 +8222,7 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
         }
         printf(" ");
 
-        struct token* _Opt token = macro->replacement_list.head;
+        const struct token* _Opt token = macro->replacement_list.head;
         while (token)
         {
             printf("%s", token->lexeme);
@@ -8295,7 +8300,7 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx,
 
     for (int i = 0; i < ctx->copy_headers.capacity; i++)
     {
-        struct map_entry* _Opt p = ctx->copy_headers.table[i];
+        const struct map_entry* _Opt p = ctx->copy_headers.table[i];
 
         while (p)
         {

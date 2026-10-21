@@ -537,7 +537,8 @@ static void check_indentation_style(const struct parser_ctx* ctx, const struct t
         they are never marked final (the compiler doesn't see whitespace),
         so stop at the first one found either way.
     */
-    struct token* _Opt prev = token->prev;
+    /* formatting rewrites the blanks of the previous token */
+    struct token* _Opt prev = (struct token*)token->prev;
     while (prev != NULL &&
         prev->type != TK_BLANKS &&
         prev->type != TK_NEWLINE &&
@@ -1720,7 +1721,8 @@ struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* 
     if (ppscope_opt != NULL)
         *ppscope_opt = NULL; // out
 
-    struct scope* _Opt scope = ctx->scopes.tail;
+    /* the scopes are the parser's state, not part of what const ctx promises */
+    struct scope* _Opt scope = (struct scope*)ctx->scopes.tail;
     while (scope)
     {
         struct map_entry* _Opt p_entry = hashmap_find(&scope->variables, lexeme);
@@ -1763,7 +1765,8 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
 struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(const struct parser_ctx* ctx, const char* lexeme)
 {
     struct struct_or_union_specifier* _Opt p = NULL;
-    const struct scope* _Opt scope = ctx->scopes.tail;
+    /* the scopes are the parser's state, not part of what const ctx promises */
+    struct scope* _Opt scope = (struct scope*)ctx->scopes.tail;
     while (scope)
     {
         struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
@@ -2135,20 +2138,25 @@ bool first_of_designator(const struct parser_ctx* ctx)
     return ctx->current->type == '[' || ctx->current->type == '.';
 }
 
-struct token* _Opt previous_parser_token(const struct token* token)
+const struct token* _Opt previous_parser_token_const(const struct token* token)
 {
     if (token->prev == NULL)
     {
         return NULL;
     }
 
-    struct token* _Opt prev = token->prev;
+    const struct token* _Opt prev = token->prev;
     while (prev && !(prev->flags & TK_FLAG_FINAL))
     {
         prev = prev->prev;
     }
 
     return prev;
+}
+
+struct token* _Opt previous_parser_token(const struct token* token)
+{
+    return (struct token* _Opt)previous_parser_token_const(token);
 }
 
 /* 
@@ -2563,7 +2571,8 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return NULL;
 
-    struct token* _Opt p = ctx->current->next;
+    /* look-ahead promotes tokens of the stream; ctx is const for the parser position only */
+    struct token* _Opt p = (struct token*)ctx->current->next;
     while (p && !(p->flags & TK_FLAG_FINAL))
     {
         p = p->next;
@@ -2577,14 +2586,19 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
     return p;
 }
 
-static struct token* _Opt pragma_declaration_match(const struct token* p_current)
+static const struct token* _Opt pragma_declaration_match_const(const struct token* p_current)
 {
-    struct token* _Opt p_token = p_current->next;
+    const struct token* _Opt p_token = p_current->next;
     while (p_token && p_token->type == TK_BLANKS)
     {
         p_token = p_token->next;
     }
     return p_token;
+}
+
+static struct token* _Opt pragma_declaration_match(const struct token* p_current)
+{
+    return (struct token* _Opt)pragma_declaration_match_const(p_current);
 }
 
 /*
@@ -2896,7 +2910,7 @@ void complete_print_scopes(const struct parser_ctx* ctx)
                 for (const struct scope* _Opt p_inner = ctx->scopes.tail; p_inner != NULL && p_inner != p_scope; p_inner = p_inner->previous)
                 {
                     assert(p_inner != NULL);
-                    if (hashmap_find(&p_inner->variables, p_entry->key))
+                    if (hashmap_find_const(&p_inner->variables, p_entry->key))
                     {
                         hidden = true;
                         break;
@@ -5192,7 +5206,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         type_is_const_or_constexpr(&p_init_declarator->p_declarator->object.type);
 
                     const struct type* p_object_type = &p_init_declarator->p_declarator->object.type;
-                    const struct expression* p_init_expression = p_init_declarator->initializer->assignment_expression;
+                    struct expression* p_init_expression = p_init_declarator->initializer->assignment_expression;
 
                     /*
                       const struct P p = (struct P){1, 2};
@@ -6705,14 +6719,14 @@ struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(co
         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->member_declaration_list.head)
     {
         /* p_struct_or_union_specifier is the first seem tag tag points directly to complete */
-        return p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection;
+        return (struct struct_or_union_specifier* _Opt)p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection; /* like strchr */
     }
     else if (p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection &&
         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection &&
         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection->member_declaration_list.head)
     {
         /* all others points to the first seem that points to the complete */
-        return p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection;
+        return (struct struct_or_union_specifier* _Opt)p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection; /* like strchr */
     }
 
     return NULL;
@@ -7847,7 +7861,7 @@ struct member_declarator* _Opt find_member_declarator_by_index(struct member_dec
     return find_member_declarator_by_index_core(list, member_index, &count);
 }
 
-static struct object* _Opt find_object_declarator_by_index_core(const struct object* p_object0, struct member_declaration_list* list, int member_index, int* p_count)
+static const struct object* _Opt find_object_declarator_by_index_core_const(const struct object* p_object0, struct member_declaration_list* list, int member_index, int* p_count)
 {
     const struct object* p_object = object_is_reference(p_object0) ? object_get_referenced(p_object0) : p_object0;
 
@@ -7859,7 +7873,7 @@ static struct object* _Opt find_object_declarator_by_index_core(const struct obj
         return NULL;
     }
 
-    struct object* _Opt p_member_object = p_object->members.head;
+    const struct object* _Opt p_member_object = p_object->members.head;
 
     struct member_declaration* _Opt p_member_declaration = list->head;
     while (p_member_declaration)
@@ -7902,7 +7916,7 @@ static struct object* _Opt find_object_declarator_by_index_core(const struct obj
                 struct member_declaration_list* p_member_declaration_list =
                     &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
 
-                struct object* _Opt p_member_object2 = find_object_declarator_by_index_core(p_member_object, p_member_declaration_list, member_index, p_count);
+                const struct object* _Opt p_member_object2 = find_object_declarator_by_index_core_const(p_member_object, p_member_declaration_list, member_index, p_count);
                 if (p_member_object2)
                     return p_member_object2;
 
@@ -7913,6 +7927,11 @@ static struct object* _Opt find_object_declarator_by_index_core(const struct obj
         p_member_declaration = p_member_declaration->next;
     }
     return NULL;
+}
+
+static struct object* _Opt find_object_declarator_by_index_core(const struct object* p_object0, struct member_declaration_list* list, int member_index, int* p_count)
+{
+    return (struct object* _Opt)find_object_declarator_by_index_core_const(p_object0, list, member_index, p_count);
 }
 
 struct object* _Opt find_object_declarator_by_index(const struct object* p_object, struct member_declaration_list* list, int member_index)
@@ -9296,7 +9315,7 @@ struct function_declarator* _Opt declarator_find_function_declarator(const struc
                     return p;
             }
 
-            return p_declarator->direct_declarator->function_declarator;
+            return (struct function_declarator* _Opt)p_declarator->direct_declarator->function_declarator; /* like strchr */
         }
     }
     return NULL;
@@ -12258,7 +12277,7 @@ struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx)
 
 bool unlabeled_statement_ends_with_jump(const struct unlabeled_statement* p_unlabeled_statement)
 {
-    struct expression* _Opt p_expression = NULL;
+    const struct expression* _Opt p_expression = NULL;
 
     if (p_unlabeled_statement->expression_statement)
     {
@@ -15632,7 +15651,7 @@ static void register_unused_enumerators(const struct parser_ctx* ctx, struct glo
     const struct hash_map* map = &p_file_scope->variables;
     for (int i = 0; i < map->capacity; i++)
     {
-        for (struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
+        for (const struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
         {
             if (pentry->type != TAG_TYPE_ENUMERATOR || pentry->data.p_enumerator == NULL)
                 continue;
@@ -15940,7 +15959,7 @@ struct ast get_ast(const struct options* options,
 
     try
     {
-        prectx.options = *options;
+        prectx.options = *(struct options*)options; /* shares the options strings */
         prectx.macros.capacity = 5000;
 
         add_standard_macros(&prectx, &options->platform);
@@ -15954,7 +15973,7 @@ struct ast get_ast(const struct options* options,
         if (prectx.n_errors != 0)
             throw;
 
-        ctx.options = *options;
+        ctx.options = *(struct options*)options; /* shares the options strings */
 
         bool berror = false;
         ast.declaration_list = parse(&ctx, &ast.token_list, &ast.file_scope, &berror);
@@ -16325,7 +16344,7 @@ struct find_object_result
 static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     const struct type* p_current_object_type,
     struct object* current_object,
-    struct designator* p_designator,
+    const struct designator* p_designator,
     bool is_constant,
     struct type* p_type_out2,
     bool not_error,
@@ -16544,11 +16563,11 @@ int initializer_init_new(struct parser_ctx* ctx,
     bool is_constant,
     bool requires_constant_initialization);
 
-static struct initializer_list_item* _Opt find_innner_initializer_list_item(const struct braced_initializer* braced_initializer)
+static const struct initializer_list_item* _Opt find_innner_initializer_list_item_const(const struct braced_initializer* braced_initializer)
 {
     assert(braced_initializer->initializer_list);
 
-    struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head; //lint 33 assert line 16536
+    const struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head; //lint 33 assert line 16536
 
     while ( p_initializer_list_item &&
             p_initializer_list_item->initializer->braced_initializer)
@@ -16607,8 +16626,8 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
         if (type_is_scalar(p_current_object_type))
         {
-            struct initializer_list_item* _Opt p_initializer_list_item =
-                find_innner_initializer_list_item(braced_initializer);
+            const struct initializer_list_item* _Opt p_initializer_list_item =
+                find_innner_initializer_list_item_const(braced_initializer);
 
             if (p_initializer_list_item == NULL)
             {
@@ -16674,7 +16693,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             compute_array_size = p_current_object_type->p_array_num_elements_expression == NULL;
             if (type_is_char(&array_item_type))
             {
-                struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
+                const struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item_const(braced_initializer);
                 if (p_initializer_list_item2 == NULL)
                 {
                     type_destroy(&array_item_type);
@@ -16742,7 +16761,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             if (p_initializer_list_item->designation &&
                 p_initializer_list_item->designation->designator_list->head != NULL)
             {
-                struct designator* p_first_designator = p_initializer_list_item->designation->designator_list->head;
+                const struct designator* p_first_designator = p_initializer_list_item->designation->designator_list->head;
 
                 if (compute_array_size && p_first_designator->constant_expression_opt != NULL)
                 {

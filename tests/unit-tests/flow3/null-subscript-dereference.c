@@ -8,7 +8,7 @@ void null_subscript_as_argument(void)
     g(p[0]); //lint 33
 }
 
-void checked_subscript(char* _Opt p)
+void checked_subscript(const char* _Opt p)
 {
     if (p)
         g(p[0]);

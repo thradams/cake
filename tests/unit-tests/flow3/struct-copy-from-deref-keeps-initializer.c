@@ -18,7 +18,7 @@ void two_int_members(const struct s2* _Opt const* list, int count)
 struct s_union
 {
     int value_kind;
-    union { long long i; unsigned long long u; void* p; } value;
+    union { long long i; unsigned long long u; const void* p; } value;
     int rel;
 };
 

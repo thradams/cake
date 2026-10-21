@@ -1069,7 +1069,7 @@ struct json_value * _Opt json_item(struct json_value *value, size_t index)
 size_t json_count(const struct json_value *value)
 {
     size_t count = 0;
-    struct json_value * _Opt child;
+    const struct json_value * _Opt child;
 
     for (child = value->first_child; child != NULL; child = child->next)
     {
@@ -2050,6 +2050,7 @@ struct hash_map
 
 void hashmap_remove_all(struct hash_map* map);
 void hashmap_destroy(_Dtor struct hash_map* map);
+const struct map_entry* _Opt hashmap_find_const(const struct hash_map* map, const char* key);
 struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key);
 void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt);
 
@@ -2405,7 +2406,7 @@ enum diagnostic_id {
     W_UNUSED_ENUMERATOR = 96, /* -unused-extern-report: enumerator not used in any of the files */
     W_FLOW_NOT_DONE = 97, /* flow analysis of a function was not done, the message says why */
     W_FLOW_RETURN_TYPE = 98, /* non-void function can reach the end without return */
-    W_UNUSED_WARNING_99 = 99,
+    W_MOVE_FROM_CONST_OWNER = 99, /* const object cannot be moved: someone may be pointing to it */
     W_UNUSED_WARNING_100 = 100,
     W_UNUSED_WARNING_101 = 101,
     W_UNUSED_WARNING_102 = 102,
@@ -3467,7 +3468,7 @@ void print_tokens(bool color_enabled, const struct token* _Opt p_token);
 void print_preprocessed(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
 const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
-void preprocessor_mark_predefined_macros(const struct preprocessor_ctx* ctx);
+void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx);
 
 /*
   -unused-extern-report: what the files of one invocation define, collected
@@ -3600,7 +3601,7 @@ void token_list_pop_back(struct token_list* list)
     assert(list->head == NULL || list->head->prev == NULL);
 }
 
-void token_list_pop_front(struct token_list* list) /*unchecked*/
+void token_list_pop_front(struct token_list* list)
 {
     if (list->head == NULL)
         return;
@@ -3765,7 +3766,7 @@ bool token_list_is_equal(const struct token_list* list_a, const struct token_lis
     return p_tka == NULL && p_tkb == NULL;
 }
 
-struct token* token_list_add(struct token_list* list, struct token* _Owner pnew) /*unchecked*/
+struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
 {
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
@@ -4011,7 +4012,7 @@ struct token* _Owner _Opt clone_token(const struct token* p)
         return NULL;
     }
 
-    *token = *p;
+    *token = *p; //lint 120 shallow clone, not playing with the rules
     token->lexeme = lexeme; //lint 26
     token->next = NULL; //lint 26
     token->prev = NULL;
@@ -6455,7 +6456,7 @@ void hashmap_destroy(_Dtor struct hash_map* map)
     assert(map->table == NULL);
 } //lint 29 assert line 115
 
-struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
+const struct map_entry* _Opt hashmap_find_const(const struct hash_map* map, const char* key)
 {
     if (map->table == NULL)
         return NULL;
@@ -6465,7 +6466,7 @@ struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
     const unsigned int hash = string_hash(key);
     const int index = hash % map->capacity; //lint 36 assert line 123
 
-    struct map_entry* _Opt pentry = map->table[index];
+    const struct map_entry* _Opt pentry = map->table[index];
 
     for (; pentry != NULL; pentry = pentry->next)
     {
@@ -6476,6 +6477,11 @@ struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
     }
 
     return NULL;
+}
+
+struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
+{
+    return (struct map_entry* _Opt)hashmap_find_const(map, key);
 }
 
 void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt)
@@ -7277,7 +7283,7 @@ static bool pragma_once_already_included(const struct preprocessor_ctx* ctx, con
     //FAILING ON EMSCRIPT
     //_Assert(path_is_absolute(path));
     //_Assert(path_is_normalized(path));
-    return hashmap_find(&ctx->pragma_once_map, path) != NULL;
+    return hashmap_find_const(&ctx->pragma_once_map, path) != NULL;
 }
 
 const char* _Owner _Opt find_and_read_include_file(struct preprocessor_ctx* ctx,
@@ -8913,9 +8919,9 @@ bool is_never_final(enum token_type type)
 
 enum token_type is_keyword(const char* text, const struct platform* target);
 
-struct token* _Opt preprocessor_look_ahead_core(const struct token* p)
+const struct token* _Opt preprocessor_look_ahead_core_const(const struct token* p)
 {
-    struct token* _Opt current = p->next;
+    const struct token* _Opt current = p->next;
 
     while (current &&
         (current->type == TK_BLANKS ||
@@ -8928,9 +8934,14 @@ struct token* _Opt preprocessor_look_ahead_core(const struct token* p)
     return current;
 }
 
+struct token* _Opt preprocessor_look_ahead_core(const struct token* p)
+{
+    return (struct token* _Opt)preprocessor_look_ahead_core_const(p);
+}
+
 bool preprocessor_token_ahead_is(const struct token* p, enum token_type t)
 {
-    struct token* _Opt p_token = preprocessor_look_ahead_core(p);
+    const struct token* _Opt p_token = preprocessor_look_ahead_core_const(p);
     if (p_token != NULL && p_token->type == t)
         return true;
     return false;
@@ -9014,7 +9025,7 @@ bool preprocessor_token_ahead_is_identifier(const struct token* _Opt p, const ch
     if (p == NULL)
         return false;
 
-    struct token* _Opt p_token = preprocessor_look_ahead_core(p);
+    const struct token* _Opt p_token = preprocessor_look_ahead_core_const(p);
     if (p_token != NULL && p_token->type == TK_IDENTIFIER)
     {
         return strcmp(p_token->lexeme, lexeme) == 0;
@@ -9461,7 +9472,7 @@ static void preprocessor_auto_complete(struct preprocessor_ctx* ctx, const struc
     }
     ctx->preprocessor_auto_complete_done = true;
 
-    const struct token* _Opt p_name = preprocessor_look_ahead_core(p_hash);
+    const struct token* _Opt p_name = preprocessor_look_ahead_core_const(p_hash);
     if (p_name == NULL || p_name->type == TK_NEWLINE ||
         p_name->col + (int)strlen(p_name->lexeme) >= ctx->options.find_definition_col)
     {
@@ -9477,7 +9488,7 @@ static void preprocessor_auto_complete(struct preprocessor_ctx* ctx, const struc
     const char* name = p_name->lexeme;
     if (strcmp(name, "include") == 0 || strcmp(name, "include_next") == 0 || strcmp(name, "embed") == 0)
     {
-        const struct token* _Opt p_arg = preprocessor_look_ahead_core(p_name);
+        const struct token* _Opt p_arg = preprocessor_look_ahead_core_const(p_name);
         if (p_arg && p_arg->type != TK_NEWLINE && p_arg->col < ctx->options.find_definition_col)
             complete_include(ctx, p_arg);
         return;
@@ -11624,7 +11635,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 if (ctx->include_listener && ctx->source_file)
                 {
-                    ctx->include_listener->callback(ctx->include_listener->data, ctx->source_file, full_path_result);
+                    ctx->include_listener->callback((void*)ctx->include_listener->data, ctx->source_file, full_path_result);
                 }
 
                 struct tokenizer_ctx tctx = { 0 };
@@ -13939,9 +13950,9 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
   as unused, and with no definition token - the tokens that defined them
   are destroyed right after, so p_name_token would dangle.
 */
-void preprocessor_mark_predefined_macros(const struct preprocessor_ctx* ctx)
+void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx)
 {
-    const struct hash_map* map = &ctx->macros;
+    struct hash_map* map = &ctx->macros;
     if (map->table != NULL)
     {
         for (int i = 0; i < map->capacity; i++)
@@ -13973,7 +13984,7 @@ void preprocessor_register_unused_macros(const struct preprocessor_ctx* ctx, str
 
     for (int i = 0; i < map->capacity; i++)
     {
-        for (struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
+        for (const struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
         {
             assert(pentry->data.p_macro != NULL);
 
@@ -15081,17 +15092,17 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
 {
     for (int i = 0; i < prectx->macros.capacity; i++)
     {
-        struct map_entry* _Opt entry = prectx->macros.table[i]; //lint 33
+        const struct map_entry* _Opt entry = prectx->macros.table[i]; //lint 33
         if (entry == NULL) continue;
         assert(entry->data.p_macro != NULL);
 
-        struct macro* macro = entry->data.p_macro;
+        const struct macro* macro = entry->data.p_macro;
         printf("#define %s", macro->name);
         if (macro->is_function)
         {
             printf("(");
 
-            struct macro_parameter* _Opt parameter = macro->parameters;
+            const struct macro_parameter* _Opt parameter = macro->parameters;
             while (parameter)
             {
                 printf("%s", parameter->name);
@@ -15103,7 +15114,7 @@ void print_all_macros(const struct preprocessor_ctx* prectx)
         }
         printf(" ");
 
-        struct token* _Opt token = macro->replacement_list.head;
+        const struct token* _Opt token = macro->replacement_list.head;
         while (token)
         {
             printf("%s", token->lexeme);
@@ -15181,7 +15192,7 @@ int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx,
 
     for (int i = 0; i < ctx->copy_headers.capacity; i++)
     {
-        struct map_entry* _Opt p = ctx->copy_headers.table[i];
+        const struct map_entry* _Opt p = ctx->copy_headers.table[i];
 
         while (p)
         {
@@ -22659,6 +22670,7 @@ bool diagnostic_can_happen(const struct options* options, enum diagnostic_id w)
     case W_USING_TEMPORARY_OWNER:
     case W_POINTER_TO_OWNER_EXPECTED:
     case W_OWNER_ALIASED_BY_NON_OWNER_POINTER:
+    case W_MOVE_FROM_CONST_OWNER:
         return options->safety_enabled;
     default:
         break;
@@ -23966,6 +23978,7 @@ bool type_is_clear(const struct type* p_type);
 bool type_is_uninit(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_const_recursive(const struct type* p_type);
+bool type_has_pointer_to_non_const_member(const struct type* p_type);
 bool type_is_volatile_recursive(const struct type* p_type);
 bool type_is_pointed_void(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);
@@ -24269,6 +24282,7 @@ bool signed_long_long_mul(_Out signed long long* result, signed long long a, sig
 
 void object_default_initialization(struct object* p_object, bool is_constant);
 
+const struct object* _Opt object_get_member_const(const struct object* p_object, size_t index);
 struct object* _Opt object_get_member(const struct object* p_object, size_t index);
 
 int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum make_state make_state, const struct platform* target);
@@ -24733,6 +24747,7 @@ void check_assigment(const struct parser_ctx* ctx,
 struct marker expression_to_marker(const struct expression* p_expression);
 
 void flow_expression_to_string(const struct expression* p_expression, struct osstream* oss);
+const struct expression* skip_parenthesis(const struct expression* expr);
 
 #line 14 "parser.h"
 #include <stdbool.h>
@@ -25023,6 +25038,7 @@ void complete_print_scopes(const struct parser_ctx* ctx);
 /* -complete: prints the members of the struct or union (after '.' or '->') */
 void complete_print_members(const struct parser_ctx* ctx, struct struct_or_union_specifier* p_complete);
 
+const struct token* _Opt previous_parser_token_const(const struct token* token);
 struct token* _Opt previous_parser_token(const struct token* token);
 struct token* _Opt parser_get_previous_token(const struct parser_ctx* ctx);
 struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);
@@ -28141,14 +28157,14 @@ static void object_fix_parent(struct object* p_object, struct object* parent)
     }
 }
 
-struct object* _Opt object_get_member(const struct object* p_object, size_t index)
+const struct object* _Opt object_get_member_const(const struct object* p_object, size_t index)
 {
     p_object = object_get_referenced(p_object);
 
     if (p_object->members.head == NULL)
         return NULL; //tODO
 
-    struct object* _Opt it = p_object->members.head;
+    const struct object* _Opt it = p_object->members.head;
     size_t count = 0;
     while (it)
     {
@@ -28159,6 +28175,11 @@ struct object* _Opt object_get_member(const struct object* p_object, size_t inde
     }
 
     return NULL;
+}
+
+struct object* _Opt object_get_member(const struct object* p_object, size_t index)
+{
+    return (struct object* _Opt)object_get_member_const(p_object, index);
 }
 
 int object_set(
@@ -28754,11 +28775,12 @@ struct object object_dup(const struct object* src)
         result.member_designator = src->member_designator ? strdup(src->member_designator) : NULL;
         result.value = src->value;
         result.parent = NULL;
-        result.p_init_expression = src->p_init_expression;
-        result.p_ref = src->p_ref;
+        /* the copy shares the AST links of src, it does not change them */
+        result.p_init_expression = (struct expression* _Opt)src->p_init_expression;
+        result.p_ref = (struct object* _Opt)src->p_ref;
         result.next = NULL;
 
-        for (struct object* _Opt p = src->members.head; p; p = p->next)
+        for (const struct object* _Opt p = src->members.head; p; p = p->next)
         {
             struct object* _Opt _Owner pnew = calloc(1, sizeof * pnew);
             if (pnew == NULL) throw;
@@ -30907,7 +30929,7 @@ static struct declarator* _Opt expression_named_declarator(const struct expressi
 
     if (e->expression_type == EXPR_PRIMARY_DECLARATOR)
     {
-        return e->declarator;
+        return (struct declarator* _Opt)e->declarator; /* like strchr: the caller decides */
     }
 
     if (e->expression_type == EXPR_PRIMARY_PARENTHESIS)
@@ -32518,6 +32540,46 @@ static const struct expression* _Opt expression_reached_through_const(const stru
     return NULL;
 }
 
+/*
+    True when the const reaching p comes through a pointer (x->m, x[i], *x with x pointing to const):
+    that object belongs to someone else. A const object of our own (f(const struct X x)) still has
+    to move its owners at the end of its lifetime.
+*/
+static bool expression_const_through_pointer(const struct expression* p_expression)
+{
+    const struct expression* _Opt p = p_expression;
+    while (p != NULL)
+    {
+        switch (p->expression_type)
+        {
+            case EXPR_PRIMARY_PARENTHESIS:
+                p = p->right;
+                continue;
+
+            case EXPR_POSTFIX_DOT:
+                p = p->left;
+                continue;
+
+            case EXPR_POSTFIX_ARROW:
+            case EXPR_POSTFIX_ARRAY:
+                p = p->left;
+                if (p && type_is_pointer(&p->object.type) && type_is_pointed_const(&p->object.type))
+                    return true;
+                continue;
+
+            case EXPR_UNARY_CONTENT:
+                p = p->right;
+                if (p && type_is_pointer(&p->object.type) && type_is_pointed_const(&p->object.type))
+                    return true;
+                continue;
+
+            default:
+                return false;
+        }
+    }
+    return false;
+}
+
 /* the const object of warning 120: x for x, (x) or (*x); otherwise the expression (r->listener) */
 static void expression_const_name(const struct expression* p_const, struct osstream* ss)
 {
@@ -32532,6 +32594,13 @@ static void expression_const_name(const struct expression* p_const, struct osstr
         flow_expression_to_string(p, ss);
     else
         flow_expression_to_string(p_const, ss);
+
+    /* a struct member (x->members) prints with a trailing '.' */
+    if (ss->c_str && ss->size > 0 && ss->c_str[ss->size - 1] == '.')
+    {
+        ss->size--;
+        ss->c_str[ss->size] = '\0';
+    }
 }
 
 /* a write to what is reachable from a const object: the analysis assumes it does not change */
@@ -32567,20 +32636,63 @@ static void check_const_reachable_write(const struct parser_ctx* ctx, const stru
     parameter: the callee may change it. To a const parameter it is fine:
     that function assumes the same and is checked the same way.
 */
+const struct expression* skip_parenthesis(const struct expression* expr)
+{
+    while (expr->expression_type == EXPR_PRIMARY_PARENTHESIS)
+    {
+        if (expr->right == NULL)
+        {
+           assert(0);
+           break;
+        }
+        expr = expr->right;
+    }
+    return expr;
+}
+
+/* x->q or &x->q->v: the const object the pointer value lets out, as non-const; &x->v is C's error */
+static const struct expression* _Opt pointer_value_reached_through_const(const struct expression* p_value)
+{
+    const struct expression* p = skip_parenthesis(p_value);
+
+    if (p->expression_type == EXPR_UNARY_ADDRESSOF && p->right != NULL)
+    {
+        if (type_is_const(&p->right->object.type))
+            return NULL;
+        return expression_reached_through_const(p->right);
+    }
+    return expression_reached_through_const(p);
+}
+
+/* &x->q->v lets out what x reaches, like x->q: mark it for 82 */
+static void mark_pointer_value_reachable_written(const struct expression* p_value)
+{
+    const struct expression* p = skip_parenthesis(p_value);
+
+    if (p->expression_type == EXPR_UNARY_ADDRESSOF && p->right != NULL)
+        mark_pointee_reachable_written(p->right, 2);
+    else
+        mark_pointee_reachable_written(p, 1);
+}
+
 static void check_const_reachable_argument(const struct parser_ctx* ctx,
                                            const struct type* p_param_type,
                                            const struct expression* p_argument)
 {
-    /* a void* parameter (a callback's data, ...) is assumed not to change it */
-    if (!type_is_pointer(p_param_type) || type_is_pointed_const(p_param_type) || type_is_pointed_void(p_param_type))
+    /* a non-const void* says it may write (memset); one that does not takes const void* */
+    if (!type_is_pointer(p_param_type) || type_is_pointed_const(p_param_type))
+        return;
+    /* free(x->p): a move, checked by extended_check_assigment (99/120) */
+    if (ctx->options.safety_enabled && type_is_owner(p_param_type) &&
+        (p_argument->object.type.type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER))
         return;
     if (!type_is_pointer_or_array(&p_argument->object.type))
         return;
 
     /* f(p->q): if p were const, this would be warning 120 */
-    mark_pointee_reachable_written(p_argument, 1);
+    mark_pointer_value_reachable_written(p_argument);
 
-    const struct expression* _Opt p_const = expression_reached_through_const(p_argument);
+    const struct expression* _Opt p_const = pointer_value_reached_through_const(p_argument);
     if (p_const == NULL)
         return;
 
@@ -32595,13 +32707,73 @@ static void check_const_reachable_argument(const struct parser_ctx* ctx,
     ss_close(&ss_const);
 }
 
+/* y = *x, return *x, f(*x): a struct copied by value carries its pointers without the const of x */
+static void check_const_reachable_struct_copy(const struct parser_ctx* ctx,
+                                              const struct type* p_dest_type,
+                                              const struct expression* p_src,
+                                              enum assigment_type assignment_type)
+{
+    if (!type_is_struct_or_union(p_dest_type) || !type_has_pointer_to_non_const_member(p_dest_type))
+        return;
+
+    /* f(struct X* p) { struct X y = *p; }: if p were const, this would be warning 120 */
+    mark_pointee_reachable_written(p_src, 1);
+
+    const struct expression* _Opt p_const = expression_reached_through_const(p_src);
+    if (p_const == NULL)
+        return;
+
+    struct osstream ss_name = { 0 };
+    struct osstream ss_const = { 0 };
+    flow_expression_to_string(p_src, &ss_name);
+    expression_const_name(p_const, &ss_const);
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_src->first_token, NULL,
+               assignment_type == ASSIGMENT_TYPE_RETURN ? "'const' qualifier on '%s' does not propagate to the pointers in '%s', returned by value" :
+               assignment_type == ASSIGMENT_TYPE_PARAMETER ? "'const' qualifier on '%s' does not propagate to the pointers in '%s', passed by value" :
+               "'const' qualifier on '%s' does not propagate to the pointers in '%s', copied by value",
+               ss_const.c_str ? ss_const.c_str : "", ss_name.c_str ? ss_name.c_str : "");
+    ss_close(&ss_name);
+    ss_close(&ss_const);
+}
+
+/* p = x->p or return x->p: the non-const copy can change what const x reaches */
+static void check_const_reachable_copy(const struct parser_ctx* ctx,
+                                       const struct type* p_dest_type,
+                                       const struct expression* p_src,
+                                       enum assigment_type assignment_type)
+{
+    if (!type_is_pointer(p_dest_type) || type_is_pointed_const(p_dest_type))
+        return;
+    if (!type_is_pointer_or_array(&p_src->object.type))
+        return;
+
+    /* p = x->q: if x were const, this would be warning 120 */
+    mark_pointer_value_reachable_written(p_src);
+
+    const struct expression* _Opt p_const = pointer_value_reached_through_const(p_src);
+    if (p_const == NULL)
+        return;
+
+    struct osstream ss_name = { 0 };
+    struct osstream ss_const = { 0 };
+    flow_expression_to_string(p_src, &ss_name);
+    expression_const_name(p_const, &ss_const);
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_src->first_token, NULL,
+               assignment_type == ASSIGMENT_TYPE_RETURN ?
+                   "'const' qualifier on '%s' does not propagate to '%s', returned as a non-const pointer" :
+                   "'const' qualifier on '%s' does not propagate to '%s', copied to a non-const pointer",
+               ss_const.c_str ? ss_const.c_str : "", ss_name.c_str ? ss_name.c_str : "");
+    ss_close(&ss_name);
+    ss_close(&ss_const);
+}
+
 static int compare_function_arguments(const struct parser_ctx* ctx,
                                       const struct type* p_type,
                                       struct argument_expression_list* p_argument_expression_list)
 {
     try
     {
-        struct param* _Opt p_current_parameter_type = NULL;
+        const struct param* _Opt p_current_parameter_type = NULL;
 
         const struct param_list* _Opt p_param_list = type_get_func_or_func_ptr_params(p_type);
         if (p_param_list == NULL) throw;
@@ -35586,7 +35758,8 @@ struct expression* _Owner _Opt postfix_expression_compound_func_literal(struct p
 
             p_expression_node->expression_type = EXPR_POSTFIX_FUNCTION_LITERAL;
 
-            struct scope* parameters_scope = &p_innermost_direct_declarator->function_declarator->parameters_scope;
+            /* the parser enters the parameters scope of the declarator it is building */
+            struct scope* parameters_scope = (struct scope*)&p_innermost_direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
 
@@ -37145,7 +37318,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
-                        struct enumerator* _Opt p =
+                        const struct enumerator* _Opt p =
                             p_enum_specifier->enumerator_list.head;
                         while (p)
                         {
@@ -37231,7 +37404,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                     size_t nelements = 0;
                     if (p_enum_specifier)
                     {
-                        struct enumerator* _Opt p =
+                        const struct enumerator* _Opt p =
                             p_enum_specifier->enumerator_list.head;
                         while (p)
                         {
@@ -40910,10 +41083,17 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
                                      const struct expression* p_b_expression, /* src */
                                      enum assigment_type assignment_type)
 {
+    const struct type* const p_b_type = &p_b_expression->object.type;
+
+    /* arguments: check_const_reachable_argument; owner moves: below */
+    const bool is_move = ctx->options.safety_enabled && type_is_owner(p_a_type) &&
+                         (p_b_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER);
+    if (assignment_type != ASSIGMENT_TYPE_PARAMETER && !is_move)
+        check_const_reachable_copy(ctx, p_a_type, p_b_expression, assignment_type);
+    check_const_reachable_struct_copy(ctx, p_a_type, p_b_expression, assignment_type);
+
     if (!ctx->options.safety_enabled)
         return;
-
-    const struct type* const p_b_type = &p_b_expression->object.type;
 
     if (type_is_owner(p_a_type) && !type_is_owner(p_b_type))
     {
@@ -40931,6 +41111,35 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
                 ss_close(&ss_name);
             }
             return;
+        }
+    }
+
+    /*
+      A move is a write to the owner state: const through a pointer forbids it, directly (99) or
+      reached (120). A const object of our own still moves its owners at the end of its lifetime.
+    */
+    if (type_is_owner(p_a_type) &&
+        (p_b_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER) &&
+        !(p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN))
+    {
+        /* f(struct X* p) { free(p->q); }: p cannot be suggested const (82) */
+        mark_pointee_written(p_b_expression, false);
+
+        if (type_is_const(p_b_type))
+        {
+            if (expression_const_through_pointer(p_b_expression))
+            {
+                struct osstream ss_name = { 0 };
+                flow_expression_to_string(p_b_expression, &ss_name);
+                diagnostic(W_MOVE_FROM_CONST_OWNER, ctx, p_b_expression->first_token, NULL,
+                           "cannot move from const owner '%s'",
+                           ss_name.c_str ? ss_name.c_str : "");
+                ss_close(&ss_name);
+            }
+        }
+        else
+        {
+            check_const_reachable_write(ctx, p_b_expression);
         }
     }
 
@@ -43229,7 +43438,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.30"
+#define CAKE_VERSION "0.15.32"
 
 
  
@@ -43869,7 +44078,8 @@ static void check_indentation_style(const struct parser_ctx* ctx, const struct t
         they are never marked final (the compiler doesn't see whitespace),
         so stop at the first one found either way.
     */
-    struct token* _Opt prev = token->prev;
+    /* formatting rewrites the blanks of the previous token */
+    struct token* _Opt prev = (struct token*)token->prev;
     while (prev != NULL &&
         prev->type != TK_BLANKS &&
         prev->type != TK_NEWLINE &&
@@ -45052,7 +45262,8 @@ struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* 
     if (ppscope_opt != NULL)
         *ppscope_opt = NULL; // out
 
-    struct scope* _Opt scope = ctx->scopes.tail;
+    /* the scopes are the parser's state, not part of what const ctx promises */
+    struct scope* _Opt scope = (struct scope*)ctx->scopes.tail;
     while (scope)
     {
         struct map_entry* _Opt p_entry = hashmap_find(&scope->variables, lexeme);
@@ -45095,7 +45306,8 @@ struct enum_specifier* _Opt find_enum_specifier(struct parser_ctx* ctx, const ch
 struct struct_or_union_specifier* _Opt find_struct_or_union_specifier(const struct parser_ctx* ctx, const char* lexeme)
 {
     struct struct_or_union_specifier* _Opt p = NULL;
-    const struct scope* _Opt scope = ctx->scopes.tail;
+    /* the scopes are the parser's state, not part of what const ctx promises */
+    struct scope* _Opt scope = (struct scope*)ctx->scopes.tail;
     while (scope)
     {
         struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
@@ -45467,20 +45679,25 @@ bool first_of_designator(const struct parser_ctx* ctx)
     return ctx->current->type == '[' || ctx->current->type == '.';
 }
 
-struct token* _Opt previous_parser_token(const struct token* token)
+const struct token* _Opt previous_parser_token_const(const struct token* token)
 {
     if (token->prev == NULL)
     {
         return NULL;
     }
 
-    struct token* _Opt prev = token->prev;
+    const struct token* _Opt prev = token->prev;
     while (prev && !(prev->flags & TK_FLAG_FINAL))
     {
         prev = prev->prev;
     }
 
     return prev;
+}
+
+struct token* _Opt previous_parser_token(const struct token* token)
+{
+    return (struct token* _Opt)previous_parser_token_const(token);
 }
 
 /* 
@@ -45895,7 +46112,8 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return NULL;
 
-    struct token* _Opt p = ctx->current->next;
+    /* look-ahead promotes tokens of the stream; ctx is const for the parser position only */
+    struct token* _Opt p = (struct token*)ctx->current->next;
     while (p && !(p->flags & TK_FLAG_FINAL))
     {
         p = p->next;
@@ -45909,14 +46127,19 @@ struct token* _Opt parser_look_ahead(const struct parser_ctx* ctx)
     return p;
 }
 
-static struct token* _Opt pragma_declaration_match(const struct token* p_current)
+static const struct token* _Opt pragma_declaration_match_const(const struct token* p_current)
 {
-    struct token* _Opt p_token = p_current->next;
+    const struct token* _Opt p_token = p_current->next;
     while (p_token && p_token->type == TK_BLANKS)
     {
         p_token = p_token->next;
     }
     return p_token;
+}
+
+static struct token* _Opt pragma_declaration_match(const struct token* p_current)
+{
+    return (struct token* _Opt)pragma_declaration_match_const(p_current);
 }
 
 /*
@@ -46228,7 +46451,7 @@ void complete_print_scopes(const struct parser_ctx* ctx)
                 for (const struct scope* _Opt p_inner = ctx->scopes.tail; p_inner != NULL && p_inner != p_scope; p_inner = p_inner->previous)
                 {
                     assert(p_inner != NULL);
-                    if (hashmap_find(&p_inner->variables, p_entry->key))
+                    if (hashmap_find_const(&p_inner->variables, p_entry->key))
                     {
                         hidden = true;
                         break;
@@ -48524,7 +48747,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         type_is_const_or_constexpr(&p_init_declarator->p_declarator->object.type);
 
                     const struct type* p_object_type = &p_init_declarator->p_declarator->object.type;
-                    const struct expression* p_init_expression = p_init_declarator->initializer->assignment_expression;
+                    struct expression* p_init_expression = p_init_declarator->initializer->assignment_expression;
 
                     /*
                       const struct P p = (struct P){1, 2};
@@ -50037,14 +50260,14 @@ struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier(co
         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->member_declaration_list.head)
     {
         /* p_struct_or_union_specifier is the first seem tag tag points directly to complete */
-        return p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection;
+        return (struct struct_or_union_specifier* _Opt)p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection; /* like strchr */
     }
     else if (p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection &&
         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection &&
         p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection->member_declaration_list.head)
     {
         /* all others points to the first seem that points to the complete */
-        return p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection;
+        return (struct struct_or_union_specifier* _Opt)p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection; /* like strchr */
     }
 
     return NULL;
@@ -51179,7 +51402,7 @@ struct member_declarator* _Opt find_member_declarator_by_index(struct member_dec
     return find_member_declarator_by_index_core(list, member_index, &count);
 }
 
-static struct object* _Opt find_object_declarator_by_index_core(const struct object* p_object0, struct member_declaration_list* list, int member_index, int* p_count)
+static const struct object* _Opt find_object_declarator_by_index_core_const(const struct object* p_object0, struct member_declaration_list* list, int member_index, int* p_count)
 {
     const struct object* p_object = object_is_reference(p_object0) ? object_get_referenced(p_object0) : p_object0;
 
@@ -51191,7 +51414,7 @@ static struct object* _Opt find_object_declarator_by_index_core(const struct obj
         return NULL;
     }
 
-    struct object* _Opt p_member_object = p_object->members.head;
+    const struct object* _Opt p_member_object = p_object->members.head;
 
     struct member_declaration* _Opt p_member_declaration = list->head;
     while (p_member_declaration)
@@ -51234,7 +51457,7 @@ static struct object* _Opt find_object_declarator_by_index_core(const struct obj
                 struct member_declaration_list* p_member_declaration_list =
                     &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
 
-                struct object* _Opt p_member_object2 = find_object_declarator_by_index_core(p_member_object, p_member_declaration_list, member_index, p_count);
+                const struct object* _Opt p_member_object2 = find_object_declarator_by_index_core_const(p_member_object, p_member_declaration_list, member_index, p_count);
                 if (p_member_object2)
                     return p_member_object2;
 
@@ -51245,6 +51468,11 @@ static struct object* _Opt find_object_declarator_by_index_core(const struct obj
         p_member_declaration = p_member_declaration->next;
     }
     return NULL;
+}
+
+static struct object* _Opt find_object_declarator_by_index_core(const struct object* p_object0, struct member_declaration_list* list, int member_index, int* p_count)
+{
+    return (struct object* _Opt)find_object_declarator_by_index_core_const(p_object0, list, member_index, p_count);
 }
 
 struct object* _Opt find_object_declarator_by_index(const struct object* p_object, struct member_declaration_list* list, int member_index)
@@ -52628,7 +52856,7 @@ struct function_declarator* _Opt declarator_find_function_declarator(const struc
                     return p;
             }
 
-            return p_declarator->direct_declarator->function_declarator;
+            return (struct function_declarator* _Opt)p_declarator->direct_declarator->function_declarator; /* like strchr */
         }
     }
     return NULL;
@@ -55590,7 +55818,7 @@ struct secondary_block* _Owner _Opt secondary_block(struct parser_ctx* ctx)
 
 bool unlabeled_statement_ends_with_jump(const struct unlabeled_statement* p_unlabeled_statement)
 {
-    struct expression* _Opt p_expression = NULL;
+    const struct expression* _Opt p_expression = NULL;
 
     if (p_unlabeled_statement->expression_statement)
     {
@@ -58964,7 +59192,7 @@ static void register_unused_enumerators(const struct parser_ctx* ctx, struct glo
     const struct hash_map* map = &p_file_scope->variables;
     for (int i = 0; i < map->capacity; i++)
     {
-        for (struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
+        for (const struct map_entry* _Opt pentry = map->table[i]; pentry != NULL; pentry = pentry->next)
         {
             if (pentry->type != TAG_TYPE_ENUMERATOR || pentry->data.p_enumerator == NULL)
                 continue;
@@ -59272,7 +59500,7 @@ struct ast get_ast(const struct options* options,
 
     try
     {
-        prectx.options = *options;
+        prectx.options = *(struct options*)options; /* shares the options strings */
         prectx.macros.capacity = 5000;
 
         add_standard_macros(&prectx, &options->platform);
@@ -59286,7 +59514,7 @@ struct ast get_ast(const struct options* options,
         if (prectx.n_errors != 0)
             throw;
 
-        ctx.options = *options;
+        ctx.options = *(struct options*)options; /* shares the options strings */
 
         bool berror = false;
         ast.declaration_list = parse(&ctx, &ast.token_list, &ast.file_scope, &berror);
@@ -59657,7 +59885,7 @@ struct find_object_result
 static struct object* _Opt find_designated_subobject(struct parser_ctx* ctx,
     const struct type* p_current_object_type,
     struct object* current_object,
-    struct designator* p_designator,
+    const struct designator* p_designator,
     bool is_constant,
     struct type* p_type_out2,
     bool not_error,
@@ -59876,11 +60104,11 @@ int initializer_init_new(struct parser_ctx* ctx,
     bool is_constant,
     bool requires_constant_initialization);
 
-static struct initializer_list_item* _Opt find_innner_initializer_list_item(const struct braced_initializer* braced_initializer)
+static const struct initializer_list_item* _Opt find_innner_initializer_list_item_const(const struct braced_initializer* braced_initializer)
 {
     assert(braced_initializer->initializer_list);
 
-    struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head; //lint 33 assert line 16536
+    const struct initializer_list_item* _Opt p_initializer_list_item = braced_initializer->initializer_list->head; //lint 33 assert line 16536
 
     while ( p_initializer_list_item &&
             p_initializer_list_item->initializer->braced_initializer)
@@ -59939,8 +60167,8 @@ static int braced_initializer_new(struct parser_ctx* ctx,
 
         if (type_is_scalar(p_current_object_type))
         {
-            struct initializer_list_item* _Opt p_initializer_list_item =
-                find_innner_initializer_list_item(braced_initializer);
+            const struct initializer_list_item* _Opt p_initializer_list_item =
+                find_innner_initializer_list_item_const(braced_initializer);
 
             if (p_initializer_list_item == NULL)
             {
@@ -60006,7 +60234,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             compute_array_size = p_current_object_type->p_array_num_elements_expression == NULL;
             if (type_is_char(&array_item_type))
             {
-                struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item(braced_initializer);
+                const struct initializer_list_item* _Opt p_initializer_list_item2 = find_innner_initializer_list_item_const(braced_initializer);
                 if (p_initializer_list_item2 == NULL)
                 {
                     type_destroy(&array_item_type);
@@ -60074,7 +60302,7 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             if (p_initializer_list_item->designation &&
                 p_initializer_list_item->designation->designator_list->head != NULL)
             {
-                struct designator* p_first_designator = p_initializer_list_item->designation->designator_list->head;
+                const struct designator* p_first_designator = p_initializer_list_item->designation->designator_list->head;
 
                 if (compute_array_size && p_first_designator->constant_expression_opt != NULL)
                 {
@@ -61928,7 +62156,7 @@ int compile(int argc, const char** argv, struct report* report)
             compile_one_file(fullpath, &options, output_file, argc, argv, &report_local);
 
             if (report->include_listener && report->include_listener->file_done)
-                report->include_listener->file_done(report->include_listener->data, fullpath, report_local.error_count);
+                report->include_listener->file_done((void*)report->include_listener->data, fullpath, report_local.error_count);
 
             report->error_count += report_local.error_count;
             report->warnings_count += report_local.warnings_count;
@@ -63247,7 +63475,7 @@ static void defer_visit_direct_declarator(struct defer_visit_ctx* ctx, const str
 {
     if (p_direct_declarator->function_declarator)
     {
-        struct parameter_declaration* _Opt parameter = NULL;
+        const struct parameter_declaration* _Opt parameter = NULL;
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt &&
             p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
@@ -63526,7 +63754,7 @@ static void generate_name(int n, int sz, char* out)
     }
 }
 
-int generate_file_scope_new_name(const struct codegen_ctx* ctx, const char* current_name, int sz, char new_name[])
+int generate_file_scope_new_name(struct codegen_ctx* ctx, const char* current_name, int sz, char new_name[])
 {
     struct map_entry* _Opt it =
         hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
@@ -63575,7 +63803,7 @@ static void declarator_save_original_name(struct declarator* p_declarator)
         p_declarator->original_name = strdup(p_declarator->name_opt->lexeme);
 }
 
-int rename_file_scope_declarator_if_necessary(const struct codegen_ctx* ctx, struct init_declarator* p_init_declarator)
+int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     try
     {
@@ -69397,7 +69625,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
             {
                 if (p_type->struct_or_union_specifier)
                 {
-                    struct struct_or_union_specifier* _Opt p_complete =
+                    const struct struct_or_union_specifier* _Opt p_complete =
                         get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
 
                     if (p_complete == NULL)
@@ -70294,7 +70522,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
         else
         {
             /* under -no-bitfields a run of bitfields is initialized as its tiles */
-            struct object* _Opt member = object->members.head;
+            const struct object* _Opt member = object->members.head;
             int index = 0;
             while (member)
             {
@@ -70303,7 +70531,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
                 if (codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
                 {
                     int count = 0;
-                    struct object* _Opt p = member;
+                    const struct object* _Opt p = member;
                     while (p && codegen_object_is_lowered_bitfield(ctx, p, &p_owner, &p_member))
                     {
                         count++;
@@ -73127,7 +73355,7 @@ struct object* _Opt flow_allocated_object_arena_new(struct flow_allocated_object
     return NULL;
 }
 
-static struct flow_key_alternatives* _Opt flow_branch_find(const struct flow_branch* m, const struct object* obj)
+static const struct flow_key_alternatives* _Opt flow_branch_find_const(const struct flow_branch* m, const struct object* obj)
 {
     if (!m->buckets)
     {
@@ -73135,7 +73363,7 @@ static struct flow_key_alternatives* _Opt flow_branch_find(const struct flow_bra
     }
 
     unsigned int idx = flow_hash_key(obj, m->num_of_buckets);
-    for (struct flow_key_alternatives* _Opt e = m->buckets[idx]; e; e = e->next)
+    for (const struct flow_key_alternatives* _Opt e = m->buckets[idx]; e; e = e->next)
     {
         if (e->p_obj_key == obj)
         {
@@ -73143,6 +73371,11 @@ static struct flow_key_alternatives* _Opt flow_branch_find(const struct flow_bra
         }
     }
     return NULL;
+}
+
+static struct flow_key_alternatives* _Opt flow_branch_find(const struct flow_branch* m, const struct object* obj)
+{
+    return (struct flow_key_alternatives* _Opt)flow_branch_find_const(m, obj);
 }
 
 struct flow_key_alternatives* _Opt flow_branch_search_up(struct flow_branch* _Opt m, const struct object* obj)
@@ -73809,7 +74042,7 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
 
             for (int j = 0; j < cur->num_of_buckets; j++)
             {
-                for (struct flow_key_alternatives* _Opt e = cur->buckets[j]; e; e = e->next)
+                for (const struct flow_key_alternatives* _Opt e = cur->buckets[j]; e; e = e->next)
                 {
                     object_set_add(&objs, e->p_obj_key);
                 }
@@ -74071,7 +74304,7 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
         }
         for (int i = 0; i < cur->num_of_buckets; i++)
         {
-            for (struct flow_key_alternatives* _Opt e = cur->buckets[i]; e; e = e->next)
+            for (const struct flow_key_alternatives* _Opt e = cur->buckets[i]; e; e = e->next)
             {
                 object_set_add(&objs, e->p_obj_key);
             }
@@ -74652,7 +74885,7 @@ static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct 
 
 
 static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
-static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
+static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, const struct token* first_token, const struct token* last_token);
 
 static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt, bool root_is_pointer);
 static void flow_check_arena_objects_at_function_exit(const struct flow_ctx* ctx);
@@ -74693,7 +74926,7 @@ enum init_type
 };
 
 static void flow_check_object_init_assigment(struct flow_ctx* ctx,
-                                             struct expression* p_expression,
+                                             const struct expression* p_expression,
                                              const struct object* _Opt p_object_dest, /* uninitialized alawys */
                                              const struct object* _Opt p_object_src,
                                              enum init_type init_type,
@@ -75175,7 +75408,7 @@ static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct 
     else if (p_item->declarator)
     {
         const struct declarator* p_declarator = p_item->declarator;
-        struct token* _Opt p_token = NULL;
+        const struct token* _Opt p_token = NULL;
         if (p_declarator->name_opt)
             p_token = p_declarator->name_opt;
         else if (p_declarator->specifier_qualifier_list)
@@ -75232,7 +75465,7 @@ static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
     }
 }
 
-static void flow_defer_item_set_end_of_lifetime(struct flow_ctx* ctx, struct defer_list_item* p_item, const struct token* position_token)
+static void flow_defer_item_set_end_of_lifetime(struct flow_ctx* ctx, const struct defer_list_item* p_item, const struct token* position_token)
 {
     try
     {
@@ -75247,7 +75480,7 @@ static void flow_defer_item_set_end_of_lifetime(struct flow_ctx* ctx, struct def
         }
         else if (p_item->declarator)
         {
-            struct declarator* p_declarator = p_item->declarator;
+            const struct declarator* p_declarator = p_item->declarator;
 
             if (!is_automatic_variable(p_declarator->object.type.storage_class_specifier_flags))
             {
@@ -75279,7 +75512,7 @@ static void flow_defer_list_set_end_of_lifetime(struct flow_ctx* ctx,
     if (ctx->stopped)
         return;
 
-    struct defer_list_item* _Opt p_item = p_defer_list->head;
+    const struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
     {
         flow_defer_item_set_end_of_lifetime(ctx, p_item, position_token);
@@ -75933,7 +76166,6 @@ static void flow_alternative_describe_value(struct osstream* ss, const struct fl
     }
 }
 
-static const struct expression* skip_parenthesis(const struct expression* expr);
 
 /* ==, !=, <, <=, >, >=, && and ||: each reports its own known result (warning 85) where it is evaluated */
 static bool flow_expression_is_comparison(const struct expression* p)
@@ -77022,7 +77254,7 @@ static void flow_access_name_to_string(const char* root_name,
 static void flow_check_object_access(struct flow_ctx* ctx,
                                      const char* parent_expression_str,
                                      const struct flow_access_name_link* _Opt p_name_link,
-                                     struct expression* p_expression,
+                                     const struct expression* p_expression,
                                      const struct object* p_object_src,
                                      bool check_unitialized,
                                      const struct flow_branch* _Opt p_origin_filter,
@@ -77204,7 +77436,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
 
         for (int ri = 0; ri < p_source_key_alternatives->alternatives.size; ri++)
         {
-            struct flow_alternative* p_alternative = p_source_key_alternatives->alternatives.data[ri]; //lint 33
+            const struct flow_alternative* p_alternative = p_source_key_alternatives->alternatives.data[ri]; //lint 33
             /* flow_alternative_print(p_alternative); */
             /* printf("\n"); */
 
@@ -77502,7 +77734,7 @@ static void flow_seed_all_members_default(struct flow_ctx* ctx, struct object* p
     Array destinations go through the element type (flow_dest_pointee_is_*).
 */
 static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
-                                            struct expression* p_expression,
+                                            const struct expression* p_expression,
                                             const struct object* p_object_dest,
                                             const struct object* pointee,
                                             bool dtor_here,
@@ -77659,7 +77891,7 @@ static void flow_make_lazy_array(struct flow_ctx* ctx, struct object* _Opt p_arr
 }
 
 static void flow_check_object_init_assigment(struct flow_ctx* ctx,
-                                             struct expression* p_expression,
+                                             const struct expression* p_expression,
                                              const struct object* _Opt p_object_dest, /* uninitialized always */
                                              const struct object* _Opt p_object_src,
                                              enum init_type init_type,
@@ -77970,7 +78202,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
 
         for (int ri = 0; ri < p_src_key_alternatives->alternatives.size; ri++)
         {
-            struct flow_alternative* p_src_alternative = p_src_key_alternatives->alternatives.data[ri]; //lint 33
+            const struct flow_alternative* p_src_alternative = p_src_key_alternatives->alternatives.data[ri]; //lint 33
 
             if (ctx->p_source_ref_origin != NULL &&
                     !flow_origins_compatible(p_src_alternative->p_origin_map, ctx->p_source_ref_origin))
@@ -78649,7 +78881,7 @@ static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
 
 static void flow_check_assigment(struct flow_ctx* ctx,
                                  const struct expression* p_expression_dest,
-                                 struct expression* p_expression_src)
+                                 const struct expression* p_expression_src)
 {
     const struct flow_key_alternatives* _Opt p_expression_dest_key_alternatives =
         flow_branch_search_up(ctx->p_current_flow_branch, &p_expression_dest->object);
@@ -78901,7 +79133,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
 
         while (p_current_argument)
         {
-            struct expression* p_arg_expr = p_current_argument->expression;
+            const struct expression* p_arg_expr = p_current_argument->expression;
             /* a variadic argument is only read: its own type, as a view */
             struct type variadic_type = { 0 };
             const struct type* p_param_type = &variadic_type;
@@ -79053,19 +79285,6 @@ static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct 
     check_dianostic_suppression_phase(ctx->ctx, p_token, 2);
 }
 
-static const struct expression* skip_parenthesis(const struct expression* expr)
-{
-    while (expr->expression_type == EXPR_PRIMARY_PARENTHESIS)
-    {
-        if (expr->right == NULL)
-        {
-           assert(0);
-           break;
-        }
-        expr = expr->right;
-    }
-    return expr;
-}
 
 /* The value for ctx->p_owner_sink while visiting p_src, the source of a p_dest_type destination. */
 static const struct expression* _Opt flow_owner_sink_of(const struct type* p_dest_type, const struct expression* p_src)
@@ -79231,8 +79450,8 @@ static void flow_invalidate_unknown_index_write(struct flow_ctx* ctx,
 
 static void flow_expression_static_debug(struct flow_ctx* ctx, const struct expression* p_expression)
 {
-    struct token* first_token = p_expression->first_token;
-    struct token* last_token = p_expression->last_token;
+    const struct token* first_token = p_expression->first_token;
+    const struct token* last_token = p_expression->last_token;
     p_expression = skip_parenthesis(p_expression);
     object_static_debug(ctx, &p_expression->object, first_token, last_token);
 }
@@ -80057,7 +80276,8 @@ static void flow_branch_tag_pointer_target_arm(const struct flow_branch* p_arm)
     {
         for (int alternative_index = 0; alternative_index < p_entry->alternatives.size; alternative_index++)
         {
-            struct flow_alternative* p_alternative = p_entry->alternatives.data[alternative_index]; //lint 33
+            /* the iterator hands out const entries, but narrowing records its origin on the alternative */
+            struct flow_alternative* p_alternative = (struct flow_alternative*)p_entry->alternatives.data[alternative_index]; //lint 35
             bool origin_on_chain = p_alternative->p_origin_map == NULL;
             for (const struct flow_branch* _Opt m = p_arm; m != NULL && !origin_on_chain; m = m->p_parent_map)
             {
@@ -81914,7 +82134,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 element pointer type, so vlist_many[j] below needs
                                 no '&'.
                             */
-                            struct flow_alternative* _Owner _Opt* _Opt vlist_many = NULL;
+                            struct flow_alternative* _Owner _Opt const* _Opt vlist_many = NULL;
                             if (value_alts != NULL)
                             {
                                 vlist_many = value_alts->alternatives.data;
@@ -82446,7 +82666,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
 
                         /* data holds pointers: with no REF, use a one-element array holding a0. */
                         struct flow_alternative* _Opt single_list[1];
-                        struct flow_alternative* _Opt* _Opt list;
+                        struct flow_alternative* _Opt const* _Opt list;
                         if (p_vals != NULL)
                         {
                             list = p_vals->alternatives.data; /* lint 81 */
@@ -82591,7 +82811,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_POSTFIX_INCREMENT:
             case EXPR_POSTFIX_DECREMENT:
             {
-                struct expression* _Opt p_operand = NULL;
+                const struct expression* _Opt p_operand = NULL;
 
                 if (p_expression->expression_type == EXPR_UNARY_INCREMENT ||
                 p_expression->expression_type == EXPR_UNARY_DECREMENT)
@@ -85136,7 +85356,7 @@ static void flow_check_arena_objects_at_function_exit(const struct flow_ctx* ctx
 {
     for (int i = 0; i < ctx->allocated_object_arena.size; i++)
     {
-        struct object* _Opt p_obj = ctx->allocated_object_arena.data[i]; //lint 33
+        const struct object* _Opt p_obj = ctx->allocated_object_arena.data[i]; //lint 33
         if (p_obj == NULL)
         {
             continue;
@@ -85758,7 +85978,7 @@ static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_sta
     flow_check_exiting_objects(ctx, p_jump_statement->expression_opt, &marker);
 }
 
-static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statement* p_jump_statement)
+static void flow_visit_jump_statement(struct flow_ctx* ctx, const struct jump_statement* p_jump_statement)
 {
     
     try
@@ -86276,8 +86496,8 @@ static void flow_visit_pragma_declaration(struct flow_ctx* ctx, struct pragma_de
 
 static void object_static_debug(struct flow_ctx* ctx,
                                 const struct object* p_object,
-                                struct token* first_token,
-                                struct token* last_token)
+                                const struct token* first_token,
+                                const struct token* last_token)
 {
     const struct object* _Opt member = p_object->members.head;
     if (member)
@@ -86434,7 +86654,7 @@ static void flow_visit_static_assertion(struct flow_ctx* ctx, const struct stati
     }
 }
 
-static void flow_visit_direct_declarator(struct flow_ctx* ctx, const struct direct_declarator* p_direct_declarator)
+static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
     {
@@ -90961,7 +91181,7 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
         return true;
     }
 
-    struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence = NULL;
+    const struct attribute_specifier_sequence* _Opt p_attribute_specifier_sequence = NULL;
 
     if (p_type->struct_or_union_specifier)
     {
@@ -91374,6 +91594,59 @@ static bool struct_or_union_has_const_member(struct struct_or_union_specifier* p
                 return true;
         }
 
+        d = d->next;
+    }
+    return false;
+}
+
+/*
+  struct X { struct Y* p; }: copying a struct X by value copies p without the
+  const of where it came from (warning 120).
+*/
+bool type_has_pointer_to_non_const_member(const struct type* p_type)
+{
+    if (type_is_array(p_type))
+    {
+        struct type item_type = get_array_item_type(p_type);
+        const bool b = type_has_pointer_to_non_const_member(&item_type);
+        type_destroy(&item_type);
+        return b;
+    }
+
+    if (type_is_pointer(p_type))
+        return !type_is_pointed_const(p_type);
+
+    if (!type_is_struct_or_union(p_type) || p_type->struct_or_union_specifier == NULL)
+        return false;
+
+    const struct struct_or_union_specifier* _Opt p_complete =
+        get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+    if (p_complete == NULL)
+        return false;
+
+    const struct member_declaration* _Opt d = p_complete->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            const struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                if (md->declarator && type_has_pointer_to_non_const_member(&md->declarator->object.type))
+                    return true;
+                md = md->next;
+            }
+        }
+        else if (d->specifier_qualifier_list &&
+                 d->specifier_qualifier_list->struct_or_union_specifier)
+        {
+            /*anonymous struct/union member*/
+            struct type anonymous = { .category = TYPE_CATEGORY_ITSELF,
+                                      .type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION,
+                                      .struct_or_union_specifier = (struct struct_or_union_specifier*)d->specifier_qualifier_list->struct_or_union_specifier }; /* only read */
+            if (type_has_pointer_to_non_const_member(&anonymous))
+                return true;
+        }
         d = d->next;
     }
     return false;
@@ -92737,7 +93010,7 @@ struct type type_dup(const struct type* p_type)
                 throw;
             }
 
-            *p_new = *p;
+            *p_new = *p; //lint 120 shallow clone, not following rules
 
             //actually I was not the _Owner of p_new->next
             p_new->next = NULL; //lint 26 not following rules
@@ -94991,7 +95264,7 @@ void type_set_specifiers_using_declarator(struct type* p_type, const struct decl
         p_type->bitint_width = pdeclarator->declaration_specifiers->bitint_width;
 
         p_type->enum_specifier = pdeclarator->declaration_specifiers->enum_specifier;
-        p_type->struct_or_union_specifier = pdeclarator->declaration_specifiers->struct_or_union_specifier;
+        p_type->struct_or_union_specifier = (struct struct_or_union_specifier* _Opt)pdeclarator->declaration_specifiers->struct_or_union_specifier; /* the type links to the AST */
 
     }
     else if (pdeclarator->specifier_qualifier_list)
@@ -95000,7 +95273,7 @@ void type_set_specifiers_using_declarator(struct type* p_type, const struct decl
             pdeclarator->specifier_qualifier_list->type_specifier_flags;
         p_type->bitint_width = pdeclarator->specifier_qualifier_list->bitint_width;
         p_type->enum_specifier = pdeclarator->specifier_qualifier_list->enum_specifier;
-        p_type->struct_or_union_specifier = pdeclarator->specifier_qualifier_list->struct_or_union_specifier;
+        p_type->struct_or_union_specifier = (struct struct_or_union_specifier* _Opt)pdeclarator->specifier_qualifier_list->struct_or_union_specifier; /* the type links to the AST */
 
     }
 

@@ -1547,7 +1547,7 @@ int compile(int argc, const char** argv, struct report* report)
             compile_one_file(fullpath, &options, output_file, argc, argv, &report_local);
 
             if (report->include_listener && report->include_listener->file_done)
-                report->include_listener->file_done(report->include_listener->data, fullpath, report_local.error_count);
+                report->include_listener->file_done((void*)report->include_listener->data, fullpath, report_local.error_count);
 
             report->error_count += report_local.error_count;
             report->warnings_count += report_local.warnings_count;

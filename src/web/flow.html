@@ -1190,7 +1190,15 @@ int f(void)
 
 <p>In C a <code>const struct X* p</code> protects only <code>*p</code>: <code>p-&gt;m</code> cannot be written, but <code>p-&gt;m-&gt;x</code> can. The analysis assumes more: after a call through <code>const</code>, the caller keeps what it knew about everything reachable from <code>*p</code>.</p>
 
-<p>Where a function&#39;s implementation does not agree with that, warning 120 reports it: writing <code>p-&gt;m-&gt;x</code> (or <code>++</code>, <code>+=</code>...) through a <code>const</code> pointer <code>p</code>, or passing <code>p-&gt;m</code> to a pointer parameter that is not <code>const</code> (<code>void*</code> is assumed not to change it). Passing it to a <code>const</code> parameter is fine: that function assumes the same and is checked the same way. An explicit cast is taken as intended. The same is reported through any <code>const</code> pointer (a local, a member), not only a parameter: it may not be what the programmer meant.</p>
+<p>Where a function&#39;s implementation does not agree with that, warning 120 reports it: writing <code>p-&gt;m-&gt;x</code> (or <code>++</code>, <code>+=</code>...) through a <code>const</code> pointer <code>p</code>, or letting <code>p-&gt;m</code> out as a pointer that is not <code>const</code>: passed to such a parameter, copied to such a pointer (<code>struct m* q = p-&gt;m;</code>, <code>int* q = &amp;p-&gt;m-&gt;x;</code>) or returned as one. Once out, the copy could change what <code>const</code> promised. A <code>void*</code> parameter follows the same rule: a non-<code>const</code> <code>void*</code> says it may write (<code>memset</code>), one that only reads takes <code>const void*</code> (the source of <code>memcpy</code>). A struct copied by value (<code>struct X y = *p;</code>, <code>return *p;</code>, <code>f(*p)</code>) carries its pointer members without the <code>const</code>, so it is reported too when it has pointers to non-<code>const</code>. Passing it to a <code>const</code> parameter is fine: that function assumes the same and is checked the same way. An explicit cast is taken as intended. The same is reported through any <code>const</code> pointer (a local, a member), not only a parameter: it may not be what the programmer meant.</p>
+
+<p>A move is also a write: it does not change any byte, but it changes the owner&#39;s state to &quot;moved&quot;. So <code>const</code> applies to it. Moving <code>p-&gt;head</code> from a <code>const struct list* p</code> is warning 99 (C does not see a move as a write), and moving <code>p-&gt;head-&gt;next</code> is warning 120. Someone may be pointing to the <code>const</code> object and still expect it to own what it owns.</p>
+
+<p>This applies only to <code>const</code> reached through a pointer, an object that belongs to someone else. A <code>const</code> object of our own (a local, or a parameter by value as in <code>void f(const struct X x)</code>) still has to move its owners at the end of its lifetime, like any other object: destroying it is not changing it.</p>
+
+<p>For the same reason, a parameter whose owner is moved is not suggested <code>const</code> (warning 82): <code>void f(struct list* p) { free(p-&gt;head); ... }</code> would no longer compile cleanly with <code>const</code>.</p>
+
+<p>A function that receives <code>const</code> and hands out something reachable from it as non-<code>const</code> (a lookup, like <code>strchr</code>) breaks the promise for its callers. Provide two versions: <code>T* find(const C*)</code> for callers that change the result, and <code>const T* find_const(const C*)</code> for callers that only read it.</p>
 
 <h3 id="toc_35">6.4 Functions That Are Too Large</h3>
 
@@ -1274,7 +1282,7 @@ void f(int n, int* p)
 <li>A2.1 The implementation assumes <code>p</code> is not null, <code>*p</code> is valid, and <code>p</code> does not own <code>*p</code>.</li>
 <li>A2.2 At every exit <code>*p</code> is valid.</li>
 <li>A2.3 The caller must pass a non-null pointer to a valid object. After the call it must assume every object reachable from <code>*p</code> may have changed, and that its pointers into them are no longer valid.</li>
-<li>A2.4 With <code>const</code>, the analysis assumes that nothing reachable from <code>*p</code> is written or moved, so what the caller knew still holds (6.3). C protects only <code>*p</code>, so the implementation is checked for writes that break this assumption (warning 120).</li>
+<li>A2.4 With <code>const</code>, the analysis assumes that nothing reachable from <code>*p</code> is written or moved, so what the caller knew still holds (6.3). C protects only <code>*p</code>, so the implementation is checked for writes that break this assumption, and for pointers reachable from <code>*p</code> that leave as non-<code>const</code> (passed, <code>void*</code> included; copied, also as <code>&amp;p-&gt;m-&gt;x</code>; returned; or inside a struct copied by value) (warning 120).</li>
 </ul>
 
 <h3 id="toc_42">A3. Results: <code>struct X* F(void)</code></h3>
@@ -1349,6 +1357,7 @@ void f(int n, int* p)
 <li>A11.2 An <code>_Owner</code> result must be moved by the caller.</li>
 <li>A11.3 An object owns what its <code>_Owner</code> members point to; they must be moved before the object is destroyed.</li>
 <li>A11.4 <code>_Owner</code> may be used wherever an object is declared: local and file-scope variables, members, parameters and results. It is not limited to pointers (<code>_Owner int</code> for a file descriptor).</li>
+<li>A11.5 A move changes the owner&#39;s state, so it is a write: an owner that is <code>const</code> through a pointer cannot be moved (warning 99), nor an owner reachable from a <code>const</code> object (warning 120, 6.3). A <code>const</code> object of our own (local, parameter by value) still moves its owners at the end of its lifetime.</li>
 </ul>
 
 <h3 id="toc_51">A12. Combination</h3>

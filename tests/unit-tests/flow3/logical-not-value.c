@@ -7,14 +7,14 @@ struct options { int color_disabled; int flag; };
 void use(int a, int b);
 
 /* bool from a negated member: c is initialized. */
-void from_not(struct options* o)
+void from_not(const struct options* o)
 {
     const bool c = !o->color_disabled;
     use(o->flag, c);              /* clean */
 }
 
 /* int result of ! is a boolean too. */
-void int_not(struct options* o)
+void int_not(const struct options* o)
 {
     const int c = !o->color_disabled;
     use(o->flag, c);              /* clean */

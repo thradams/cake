@@ -1415,14 +1415,14 @@ static void object_fix_parent(struct object* p_object, struct object* parent)
     }
 }
 
-struct object* _Opt object_get_member(const struct object* p_object, size_t index)
+const struct object* _Opt object_get_member_const(const struct object* p_object, size_t index)
 {
     p_object = object_get_referenced(p_object);
 
     if (p_object->members.head == NULL)
         return NULL; //tODO
 
-    struct object* _Opt it = p_object->members.head;
+    const struct object* _Opt it = p_object->members.head;
     size_t count = 0;
     while (it)
     {
@@ -1433,6 +1433,11 @@ struct object* _Opt object_get_member(const struct object* p_object, size_t inde
     }
 
     return NULL;
+}
+
+struct object* _Opt object_get_member(const struct object* p_object, size_t index)
+{
+    return (struct object* _Opt)object_get_member_const(p_object, index);
 }
 
 int object_set(
@@ -2028,11 +2033,12 @@ struct object object_dup(const struct object* src)
         result.member_designator = src->member_designator ? strdup(src->member_designator) : NULL;
         result.value = src->value;
         result.parent = NULL;
-        result.p_init_expression = src->p_init_expression;
-        result.p_ref = src->p_ref;
+        /* the copy shares the AST links of src, it does not change them */
+        result.p_init_expression = (struct expression* _Opt)src->p_init_expression;
+        result.p_ref = (struct object* _Opt)src->p_ref;
         result.next = NULL;
 
-        for (struct object* _Opt p = src->members.head; p; p = p->next)
+        for (const struct object* _Opt p = src->members.head; p; p = p->next)
         {
             struct object* _Opt _Owner pnew = calloc(1, sizeof * pnew);
             if (pnew == NULL) throw;

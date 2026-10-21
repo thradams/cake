@@ -17,7 +17,7 @@ struct holder {
 
 void take_inner(const struct inner* q);
 
-void copy_is_initialized(struct holder* h)
+void copy_is_initialized(const struct holder* h)
 {
     struct inner tmp = h->p->in;   /* struct copy: initializes every member */
     tmp.flags = 0;

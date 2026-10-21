@@ -172,7 +172,7 @@ enum diagnostic_id {
     W_UNUSED_ENUMERATOR = 96, /* -unused-extern-report: enumerator not used in any of the files */
     W_FLOW_NOT_DONE = 97, /* flow analysis of a function was not done, the message says why */
     W_FLOW_RETURN_TYPE = 98, /* non-void function can reach the end without return */
-    W_UNUSED_WARNING_99 = 99,
+    W_MOVE_FROM_CONST_OWNER = 99, /* const object cannot be moved: someone may be pointing to it */
     W_UNUSED_WARNING_100 = 100,
     W_UNUSED_WARNING_101 = 101,
     W_UNUSED_WARNING_102 = 102,

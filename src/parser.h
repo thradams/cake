@@ -299,6 +299,7 @@ void complete_print_scopes(const struct parser_ctx* ctx);
 /* -complete: prints the members of the struct or union (after '.' or '->') */
 void complete_print_members(const struct parser_ctx* ctx, struct struct_or_union_specifier* p_complete);
 
+const struct token* _Opt previous_parser_token_const(const struct token* token);
 struct token* _Opt previous_parser_token(const struct token* token);
 struct token* _Opt parser_get_previous_token(const struct parser_ctx* ctx);
 struct declarator* _Opt find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Opt* _Opt ppscope_opt);

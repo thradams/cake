@@ -372,7 +372,7 @@ struct object* _Opt flow_allocated_object_arena_new(struct flow_allocated_object
     return NULL;
 }
 
-static struct flow_key_alternatives* _Opt flow_branch_find(const struct flow_branch* m, const struct object* obj)
+static const struct flow_key_alternatives* _Opt flow_branch_find_const(const struct flow_branch* m, const struct object* obj)
 {
     if (!m->buckets)
     {
@@ -380,7 +380,7 @@ static struct flow_key_alternatives* _Opt flow_branch_find(const struct flow_bra
     }
 
     unsigned int idx = flow_hash_key(obj, m->num_of_buckets);
-    for (struct flow_key_alternatives* _Opt e = m->buckets[idx]; e; e = e->next)
+    for (const struct flow_key_alternatives* _Opt e = m->buckets[idx]; e; e = e->next)
     {
         if (e->p_obj_key == obj)
         {
@@ -388,6 +388,11 @@ static struct flow_key_alternatives* _Opt flow_branch_find(const struct flow_bra
         }
     }
     return NULL;
+}
+
+static struct flow_key_alternatives* _Opt flow_branch_find(const struct flow_branch* m, const struct object* obj)
+{
+    return (struct flow_key_alternatives* _Opt)flow_branch_find_const(m, obj);
 }
 
 struct flow_key_alternatives* _Opt flow_branch_search_up(struct flow_branch* _Opt m, const struct object* obj)
@@ -1054,7 +1059,7 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
 
             for (int j = 0; j < cur->num_of_buckets; j++)
             {
-                for (struct flow_key_alternatives* _Opt e = cur->buckets[j]; e; e = e->next)
+                for (const struct flow_key_alternatives* _Opt e = cur->buckets[j]; e; e = e->next)
                 {
                     object_set_add(&objs, e->p_obj_key);
                 }
@@ -1316,7 +1321,7 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
         }
         for (int i = 0; i < cur->num_of_buckets; i++)
         {
-            for (struct flow_key_alternatives* _Opt e = cur->buckets[i]; e; e = e->next)
+            for (const struct flow_key_alternatives* _Opt e = cur->buckets[i]; e; e = e->next)
             {
                 object_set_add(&objs, e->p_obj_key);
             }

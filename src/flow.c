@@ -35,7 +35,7 @@ static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct 
 
 
 static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
-static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, struct token* first_token, struct token* last_token);
+static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, const struct token* first_token, const struct token* last_token);
 
 static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt, bool root_is_pointer);
 static void flow_check_arena_objects_at_function_exit(const struct flow_ctx* ctx);
@@ -76,7 +76,7 @@ enum init_type
 };
 
 static void flow_check_object_init_assigment(struct flow_ctx* ctx,
-                                             struct expression* p_expression,
+                                             const struct expression* p_expression,
                                              const struct object* _Opt p_object_dest, /* uninitialized alawys */
                                              const struct object* _Opt p_object_src,
                                              enum init_type init_type,
@@ -558,7 +558,7 @@ static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct 
     else if (p_item->declarator)
     {
         const struct declarator* p_declarator = p_item->declarator;
-        struct token* _Opt p_token = NULL;
+        const struct token* _Opt p_token = NULL;
         if (p_declarator->name_opt)
             p_token = p_declarator->name_opt;
         else if (p_declarator->specifier_qualifier_list)
@@ -615,7 +615,7 @@ static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
     }
 }
 
-static void flow_defer_item_set_end_of_lifetime(struct flow_ctx* ctx, struct defer_list_item* p_item, const struct token* position_token)
+static void flow_defer_item_set_end_of_lifetime(struct flow_ctx* ctx, const struct defer_list_item* p_item, const struct token* position_token)
 {
     try
     {
@@ -630,7 +630,7 @@ static void flow_defer_item_set_end_of_lifetime(struct flow_ctx* ctx, struct def
         }
         else if (p_item->declarator)
         {
-            struct declarator* p_declarator = p_item->declarator;
+            const struct declarator* p_declarator = p_item->declarator;
 
             if (!is_automatic_variable(p_declarator->object.type.storage_class_specifier_flags))
             {
@@ -662,7 +662,7 @@ static void flow_defer_list_set_end_of_lifetime(struct flow_ctx* ctx,
     if (ctx->stopped)
         return;
 
-    struct defer_list_item* _Opt p_item = p_defer_list->head;
+    const struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
     {
         flow_defer_item_set_end_of_lifetime(ctx, p_item, position_token);
@@ -1316,7 +1316,6 @@ static void flow_alternative_describe_value(struct osstream* ss, const struct fl
     }
 }
 
-static const struct expression* skip_parenthesis(const struct expression* expr);
 
 /* ==, !=, <, <=, >, >=, && and ||: each reports its own known result (warning 85) where it is evaluated */
 static bool flow_expression_is_comparison(const struct expression* p)
@@ -2405,7 +2404,7 @@ static void flow_access_name_to_string(const char* root_name,
 static void flow_check_object_access(struct flow_ctx* ctx,
                                      const char* parent_expression_str,
                                      const struct flow_access_name_link* _Opt p_name_link,
-                                     struct expression* p_expression,
+                                     const struct expression* p_expression,
                                      const struct object* p_object_src,
                                      bool check_unitialized,
                                      const struct flow_branch* _Opt p_origin_filter,
@@ -2587,7 +2586,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
 
         for (int ri = 0; ri < p_source_key_alternatives->alternatives.size; ri++)
         {
-            struct flow_alternative* p_alternative = p_source_key_alternatives->alternatives.data[ri]; //lint 33
+            const struct flow_alternative* p_alternative = p_source_key_alternatives->alternatives.data[ri]; //lint 33
             /* flow_alternative_print(p_alternative); */
             /* printf("\n"); */
 
@@ -2885,7 +2884,7 @@ static void flow_seed_all_members_default(struct flow_ctx* ctx, struct object* p
     Array destinations go through the element type (flow_dest_pointee_is_*).
 */
 static void flow_apply_pointee_param_effect(struct flow_ctx* ctx,
-                                            struct expression* p_expression,
+                                            const struct expression* p_expression,
                                             const struct object* p_object_dest,
                                             const struct object* pointee,
                                             bool dtor_here,
@@ -3042,7 +3041,7 @@ static void flow_make_lazy_array(struct flow_ctx* ctx, struct object* _Opt p_arr
 }
 
 static void flow_check_object_init_assigment(struct flow_ctx* ctx,
-                                             struct expression* p_expression,
+                                             const struct expression* p_expression,
                                              const struct object* _Opt p_object_dest, /* uninitialized always */
                                              const struct object* _Opt p_object_src,
                                              enum init_type init_type,
@@ -3353,7 +3352,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
 
         for (int ri = 0; ri < p_src_key_alternatives->alternatives.size; ri++)
         {
-            struct flow_alternative* p_src_alternative = p_src_key_alternatives->alternatives.data[ri]; //lint 33
+            const struct flow_alternative* p_src_alternative = p_src_key_alternatives->alternatives.data[ri]; //lint 33
 
             if (ctx->p_source_ref_origin != NULL &&
                     !flow_origins_compatible(p_src_alternative->p_origin_map, ctx->p_source_ref_origin))
@@ -4032,7 +4031,7 @@ static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
 
 static void flow_check_assigment(struct flow_ctx* ctx,
                                  const struct expression* p_expression_dest,
-                                 struct expression* p_expression_src)
+                                 const struct expression* p_expression_src)
 {
     const struct flow_key_alternatives* _Opt p_expression_dest_key_alternatives =
         flow_branch_search_up(ctx->p_current_flow_branch, &p_expression_dest->object);
@@ -4284,7 +4283,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
 
         while (p_current_argument)
         {
-            struct expression* p_arg_expr = p_current_argument->expression;
+            const struct expression* p_arg_expr = p_current_argument->expression;
             /* a variadic argument is only read: its own type, as a view */
             struct type variadic_type = { 0 };
             const struct type* p_param_type = &variadic_type;
@@ -4436,19 +4435,6 @@ static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct 
     check_dianostic_suppression_phase(ctx->ctx, p_token, 2);
 }
 
-static const struct expression* skip_parenthesis(const struct expression* expr)
-{
-    while (expr->expression_type == EXPR_PRIMARY_PARENTHESIS)
-    {
-        if (expr->right == NULL)
-        {
-           assert(0);
-           break;
-        }
-        expr = expr->right;
-    }
-    return expr;
-}
 
 /* The value for ctx->p_owner_sink while visiting p_src, the source of a p_dest_type destination. */
 static const struct expression* _Opt flow_owner_sink_of(const struct type* p_dest_type, const struct expression* p_src)
@@ -4614,8 +4600,8 @@ static void flow_invalidate_unknown_index_write(struct flow_ctx* ctx,
 
 static void flow_expression_static_debug(struct flow_ctx* ctx, const struct expression* p_expression)
 {
-    struct token* first_token = p_expression->first_token;
-    struct token* last_token = p_expression->last_token;
+    const struct token* first_token = p_expression->first_token;
+    const struct token* last_token = p_expression->last_token;
     p_expression = skip_parenthesis(p_expression);
     object_static_debug(ctx, &p_expression->object, first_token, last_token);
 }
@@ -5440,7 +5426,8 @@ static void flow_branch_tag_pointer_target_arm(const struct flow_branch* p_arm)
     {
         for (int alternative_index = 0; alternative_index < p_entry->alternatives.size; alternative_index++)
         {
-            struct flow_alternative* p_alternative = p_entry->alternatives.data[alternative_index]; //lint 33
+            /* the iterator hands out const entries, but narrowing records its origin on the alternative */
+            struct flow_alternative* p_alternative = (struct flow_alternative*)p_entry->alternatives.data[alternative_index]; //lint 35
             bool origin_on_chain = p_alternative->p_origin_map == NULL;
             for (const struct flow_branch* _Opt m = p_arm; m != NULL && !origin_on_chain; m = m->p_parent_map)
             {
@@ -7297,7 +7284,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 element pointer type, so vlist_many[j] below needs
                                 no '&'.
                             */
-                            struct flow_alternative* _Owner _Opt* _Opt vlist_many = NULL;
+                            struct flow_alternative* _Owner _Opt const* _Opt vlist_many = NULL;
                             if (value_alts != NULL)
                             {
                                 vlist_many = value_alts->alternatives.data;
@@ -7829,7 +7816,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
 
                         /* data holds pointers: with no REF, use a one-element array holding a0. */
                         struct flow_alternative* _Opt single_list[1];
-                        struct flow_alternative* _Opt* _Opt list;
+                        struct flow_alternative* _Opt const* _Opt list;
                         if (p_vals != NULL)
                         {
                             list = p_vals->alternatives.data; /* lint 81 */
@@ -7974,7 +7961,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_POSTFIX_INCREMENT:
             case EXPR_POSTFIX_DECREMENT:
             {
-                struct expression* _Opt p_operand = NULL;
+                const struct expression* _Opt p_operand = NULL;
 
                 if (p_expression->expression_type == EXPR_UNARY_INCREMENT ||
                 p_expression->expression_type == EXPR_UNARY_DECREMENT)
@@ -10519,7 +10506,7 @@ static void flow_check_arena_objects_at_function_exit(const struct flow_ctx* ctx
 {
     for (int i = 0; i < ctx->allocated_object_arena.size; i++)
     {
-        struct object* _Opt p_obj = ctx->allocated_object_arena.data[i]; //lint 33
+        const struct object* _Opt p_obj = ctx->allocated_object_arena.data[i]; //lint 33
         if (p_obj == NULL)
         {
             continue;
@@ -11141,7 +11128,7 @@ static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_sta
     flow_check_exiting_objects(ctx, p_jump_statement->expression_opt, &marker);
 }
 
-static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statement* p_jump_statement)
+static void flow_visit_jump_statement(struct flow_ctx* ctx, const struct jump_statement* p_jump_statement)
 {
     
     try
@@ -11659,8 +11646,8 @@ static void flow_visit_pragma_declaration(struct flow_ctx* ctx, struct pragma_de
 
 static void object_static_debug(struct flow_ctx* ctx,
                                 const struct object* p_object,
-                                struct token* first_token,
-                                struct token* last_token)
+                                const struct token* first_token,
+                                const struct token* last_token)
 {
     const struct object* _Opt member = p_object->members.head;
     if (member)
@@ -11817,7 +11804,7 @@ static void flow_visit_static_assertion(struct flow_ctx* ctx, const struct stati
     }
 }
 
-static void flow_visit_direct_declarator(struct flow_ctx* ctx, const struct direct_declarator* p_direct_declarator)
+static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
     {
