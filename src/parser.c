@@ -3550,10 +3550,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
     bool without_semicolon)
 {
     /* 
-    * declaration-specifiers init-declarator-list_opt ;
-    * attribute-specifier-sequence declaration-specifiers init-declarator-list ;
-    * static_assert-declaration
-    * attribute-declaration
+     declaration-specifiers init-declarator-list_opt ;
+     attribute-specifier-sequence declaration-specifiers init-declarator-list ;
+     static_assert-declaration
+     attribute-declaration
     */
 
     struct declaration* _Owner _Opt p_declaration = NULL;
@@ -3591,10 +3591,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
             p_declaration->static_assertion = static_assertion(ctx);
 
             /* 
-            * parser_match_tk_lint, not parser_match_tk: the plain version
-            * drops a trailing `//lint N`, so a suppression written on a
-            * compile_assert line was attached to nothing -- never checked,
-            * never reported as unrecognized, silently ineffective.
+              parser_match_tk_lint, not parser_match_tk: the plain version
+              drops a trailing `//lint N`, so a suppression written on a
+              compile_assert line was attached to nothing -- never checked,
+              never reported as unrecognized, silently ineffective.
             */
             if (p_declaration->static_assertion != NULL)
             {
@@ -3630,6 +3630,22 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 {
                     unexpected_end_of_file(ctx);
                     throw;
+                }
+
+                if (first_of_pragma_declaration(ctx))
+                {
+                    /* clang header is doing this ... */
+                    /*                       
+                       struct X { int i; } 
+                       #pragma anything
+                       ;
+                    */
+                    if (p_declaration->pragma_declaration != NULL)
+                    {
+                        assert(0);
+                    }
+                    pragma_declaration_delete(p_declaration->pragma_declaration);
+                    p_declaration->pragma_declaration = pragma_declaration(ctx);
                 }
 
                 if (ctx->current->type != ';')

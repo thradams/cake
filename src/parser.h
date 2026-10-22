@@ -648,11 +648,16 @@ struct declaration
         attribute-specifier-sequence declaration-specifiers init-declarator-list ;
         static_assert-declaration
         attribute-declaration
+
+        declaration-specifiers init-declarator-list _Opt pragma-declaration ; (cake)
+        attribute-specifier-sequence declaration-specifiers init-declarator-list pragma-declaration ; (cake)
+        pragma-declaration (cake)
     */
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
 
     struct static_assertion* _Owner _Opt static_assertion;
-    struct pragma_declaration* _Owner _Opt pragma_declaration;
+
+    struct pragma_declaration* _Owner _Opt pragma_declaration; /* can be alone or not */
 
 
     struct declaration_specifiers* _Owner _Opt  declaration_specifiers;
