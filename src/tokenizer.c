@@ -7189,6 +7189,20 @@ int preprocessor_load_config(struct preprocessor_ctx* ctx)
         }
     }
 
+    /*
+        cake.json "diagnostics-color": boolean default for diagnostics.
+        false = no colors, true = colors.
+    */
+    const struct json_value* _Opt color = json_find_member(root, "diagnostics-color");
+    if (color != NULL && color->type == JSON_FALSE)
+    {
+        ctx->options.color_disabled = true;
+    }
+    else if (color != NULL && color->type == JSON_TRUE)
+    {
+        ctx->options.color_disabled = false;
+    }
+
     json_delete(root);
 
     return 0;
