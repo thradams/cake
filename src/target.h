@@ -135,7 +135,7 @@ void platform_default(_Out struct platform* p);
 bool platform_os_is(const struct platform* p_platform, const char* os);
 bool platform_arch_is(const struct platform* p_platform, const char* arch);
 
-int target_get_num_of_bits(const struct platform* target, enum object_type type);
+unsigned int target_get_num_of_bits(const struct platform* target, enum object_type type);
 long long target_signed_max(const struct platform* target, enum object_type type);
 long long target_signed_min(const struct platform* target, enum object_type type);
 unsigned long long target_unsigned_max(const struct platform* target, enum object_type type);
