@@ -127,6 +127,7 @@ enum token_type
     TK_KEYWORD_MSVC__INT16,
     TK_KEYWORD_MSVC__INT32,
     TK_KEYWORD_MSVC__INT64,
+    TK_KEYWORD_GCC__INT128, /* alias of long long long when it has 128 bits */
 
     TK_KEYWORD_REGISTER,
     TK_KEYWORD_RESTRICT,

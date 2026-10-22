@@ -34,7 +34,7 @@ struct flow_true_false_branches
 static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct token* p_token);
 
 
-static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
+static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, struct expression* _Opt p_expression);
 static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, const struct token* first_token, const struct token* last_token);
 
 static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt, bool root_is_pointer);
@@ -506,7 +506,7 @@ static struct flow_true_false_branches flow_ensure_branch_pair(struct flow_ctx* 
 
 
 static void flow_visit_unlabeled_statement(struct flow_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
-static void flow_visit_static_assertion(struct flow_ctx* ctx, const struct static_assertion* p_static_assertion);
+static void flow_visit_static_assertion(struct flow_ctx* ctx, struct static_assertion* p_static_assertion);
 static void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration);
 static void flow_visit_secondary_block(struct flow_ctx* ctx, struct secondary_block* _Opt p_secondary_block);
 static void flow_visit_struct_or_union_specifier(struct flow_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
@@ -514,17 +514,17 @@ static void flow_visit_statement(struct flow_ctx* ctx, struct statement* p_state
 static void flow_visit_enum_specifier(struct flow_ctx* ctx, struct enum_specifier* p_enum_specifier);
 static void flow_visit_type_specifier(struct flow_ctx* ctx, struct type_specifier* p_type_specifier);
 static void flow_visit_bracket_initializer_list(struct flow_ctx* ctx, struct braced_initializer* p_bracket_initializer_list);
-static void flow_visit_expression_statement(struct flow_ctx* ctx, const struct expression_statement* p_expression_statement);
+static void flow_visit_expression_statement(struct flow_ctx* ctx, struct expression_statement* p_expression_statement);
 static void flow_visit_block_item(struct flow_ctx* ctx, struct block_item* p_block_item);
 static void flow_visit_initializer(struct flow_ctx* ctx, struct initializer* p_initializer);
-static void flow_visit_declarator(struct flow_ctx* ctx, const struct declarator* p_declarator);
+static void flow_visit_declarator(struct flow_ctx* ctx, struct declarator* p_declarator);
 static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label);
 
-static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression);
-static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, const struct expression* p_expression);
+static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, struct expression* p_expression);
+static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, struct expression* p_expression);
 
 
-static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct defer_list_item* p_item, const struct token* position_token)
+static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, struct defer_list_item* p_item, const struct token* position_token)
 {
     if (p_item->defer_statement)
     {
@@ -594,7 +594,7 @@ static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct 
 }
 
 static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
-                                             const struct defer_list* p_defer_list,
+                                             struct defer_list* p_defer_list,
                                              const struct token* position_token)
 {
     if (ctx->stopped)
@@ -607,7 +607,7 @@ static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
     if (ctx->p_current_flow_branch != NULL && ctx->p_current_flow_branch->is_unreachable)
         return;
 
-    const struct defer_list_item* _Opt p_item = p_defer_list->head;
+    struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
     {
         flow_exit_block_visit_defer_item(ctx, p_item, position_token);
@@ -722,17 +722,17 @@ static void flow_object_init(struct flow_ctx* ctx, struct object* p_object, cons
     if (type_is_pointer(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_PTR;
-        value.value.p = (void*)(uintptr_t)p_object->value.host_u_long_long;
+        value.value.p = (void*)(uintptr_t)p_object->value.host_wide_integer.lo;
     }
     else if (type_is_signed(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_SIGNED;
-        value.value.i = p_object->value.host_long_long;
+        value.value.i = ((long long)p_object->value.host_wide_integer.lo);
     }
     else
     {
         value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-        value.value.u = p_object->value.host_u_long_long;
+        value.value.u = p_object->value.host_wide_integer.lo;
     }
 
     switch (p_object->state)
@@ -826,12 +826,12 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
         else if (type_is_signed(&p_object->type))
         {
             value.value_kind = FLOW_VALUE_KIND_SIGNED;
-            value.value.i = p_object->value.host_long_long;
+            value.value.i = ((long long)p_object->value.host_wide_integer.lo);
         }
         else
         {
             value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-            value.value.u = p_object->value.host_u_long_long;
+            value.value.u = p_object->value.host_wide_integer.lo;
         }
 
         switch (p_object->state)
@@ -1185,7 +1185,7 @@ static void flow_visit_init_declarator(struct flow_ctx* ctx, struct init_declara
     {
         if (p_init_declarator->initializer->assignment_expression)
         {
-            const struct expression* p_init_expr = p_init_declarator->initializer->assignment_expression;
+            struct expression* p_init_expr = p_init_declarator->initializer->assignment_expression;
             const struct expression* _Opt p_saved_owner_sink = ctx->p_owner_sink;
             ctx->p_owner_sink = flow_owner_sink_of(&p_init_declarator->p_declarator->object.type, p_init_expr);
             flow_visit_full_expression(ctx, p_init_expr);
@@ -1997,7 +1997,7 @@ static void flow_visit_initializer_list(struct flow_ctx* ctx, struct initializer
     }
 }
 
-static void flow_visit_generic_selection(struct flow_ctx* ctx, const struct generic_selection* p_generic_selection)
+static void flow_visit_generic_selection(struct flow_ctx* ctx, struct generic_selection* p_generic_selection)
 {
     if (p_generic_selection->expression)
     {
@@ -4256,7 +4256,7 @@ static const struct flow_key_alternatives* _Opt flow_pointer_pointee_on_demand(s
 
 static void flow_visit_function_arguments(struct flow_ctx* ctx,
                                           const struct type* p_type,
-                                          const struct argument_expression_list* p_argument_expression_list)
+                                          struct argument_expression_list* p_argument_expression_list)
 {
     try
     {
@@ -4270,7 +4270,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
         }
 
         const struct param* _Opt p_current_parameter_type = p_param_list->head;
-        const struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
+        struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
         /*
             Collect pointee write-effects and apply them after all arguments:
@@ -4283,7 +4283,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
 
         while (p_current_argument)
         {
-            const struct expression* p_arg_expr = p_current_argument->expression;
+            struct expression* p_arg_expr = p_current_argument->expression;
             /* a variadic argument is only read: its own type, as a view */
             struct type variadic_type = { 0 };
             const struct type* p_param_type = &variadic_type;
@@ -4606,7 +4606,7 @@ static void flow_expression_static_debug(struct flow_ctx* ctx, const struct expr
     object_static_debug(ctx, &p_expression->object, first_token, last_token);
 }
 
-static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression)
+static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, struct expression* p_expression)
 {
     return flow_visit_expression(ctx, p_expression);
 }
@@ -4615,7 +4615,7 @@ static struct flow_true_false_branches flow_visit_full_expression(struct flow_ct
     Visits an expression whose value is tested (if, loops, ?:, !, &&, ||):
     flow_narrow_map_into then checks it for warning 30.
 */
-static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, const struct expression* p_expression)
+static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, struct expression* p_expression)
 {
     const struct expression* _Opt p_previous = ctx->p_condition;
     ctx->p_condition = skip_parenthesis(p_expression);
@@ -6215,7 +6215,8 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                                     }
                                     else
                                     {
-                                        result_val = l / r;
+                                        /* LLONG_MIN / -1 overflows, and the host division traps (x64); the wrapped value is used */
+                                        result_val = (r == -1) ? (long long)(0ULL - (unsigned long long)l) : l / r;
                                         result_rel = FLOW_RELATION_EQUAL;
                                     }
                                 break;
@@ -6230,7 +6231,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                                     }
                                     else
                                     {
-                                        result_val = l % r;
+                                        result_val = (r == -1) ? 0 : l % r; /* LLONG_MIN % -1 traps too */
                                         result_rel = FLOW_RELATION_EQUAL;
                                     }
                                 break;
@@ -6689,7 +6690,7 @@ static void flow_check_dereferenced_value(struct flow_ctx* ctx,
     }
 }
 
-static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression)
+static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, struct expression* _Opt p_expression)
 {
     /*
         left/right are _Owner _Opt in the AST, and callers hand them straight
@@ -6773,17 +6774,17 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     if (type_is_pointer(&p_obj->type))
                     {
                         value.value_kind = FLOW_VALUE_KIND_PTR;
-                        value.value.p = (void*)(uintptr_t)p_obj->value.host_u_long_long;
+                        value.value.p = (void*)(uintptr_t)p_obj->value.host_wide_integer.lo;
                     }
                     else if (type_is_signed(&p_obj->type))
                     {
                         value.value_kind = FLOW_VALUE_KIND_SIGNED;
-                        value.value.i = p_obj->value.host_long_long;
+                        value.value.i = ((long long)p_obj->value.host_wide_integer.lo);
                     }
                     else
                     {
                         value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-                        value.value.u = p_obj->value.host_u_long_long;
+                        value.value.u = p_obj->value.host_wide_integer.lo;
                     }
 
                     struct flow_key_alternatives* _Opt e1 = flow_branch_find_add(ctx->p_current_flow_branch, p_obj);
@@ -6833,7 +6834,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_PRIMARY_PARENTHESIS:
             {
                 assert(p_expression->right != NULL);
-                const struct expression* p_inner = skip_parenthesis(p_expression->right); //lint 35 assert line 6813
+                struct expression* p_inner = skip_parenthesis(p_expression->right); //lint 15
                 struct flow_true_false_branches paren_pair = flow_visit_expression(ctx, p_inner);
 
                 /*
@@ -7961,7 +7962,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_POSTFIX_INCREMENT:
             case EXPR_POSTFIX_DECREMENT:
             {
-                const struct expression* _Opt p_operand = NULL;
+                struct expression* _Opt p_operand = NULL;
 
                 if (p_expression->expression_type == EXPR_UNARY_INCREMENT ||
                 p_expression->expression_type == EXPR_UNARY_DECREMENT)
@@ -8585,10 +8586,11 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                     result = lv * rv;
                                 break;
                                 case EXPR_ASSIGNMENT_DIV_ASSIGN:
-                                    result = rv != 0 ? lv / rv : lv;
+                                    /* LLONG_MIN / -1 overflows, and the host division traps (x64); the wrapped value is used */
+                                    result = rv == 0 ? lv : rv == -1 ? (signed long long)(0ULL - (unsigned long long)lv) : lv / rv;
                                 break;
                                 case EXPR_ASSIGNMENT_MOD_ASSIGN:
-                                    result = rv != 0 ? lv % rv : lv;
+                                    result = rv == 0 ? lv : rv == -1 ? 0 : lv % rv; /* LLONG_MIN % -1 traps too */
                                 break;
                                 case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
                                     result = lv << rv;
@@ -9524,7 +9526,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 /* true branch */
                 ctx->p_current_flow_branch = cond_pair.p_true;
                 /* Elvis: left==NULL means use condition_expr value on true branch */
-                const struct expression* p_true_expr = p_expression->left
+                struct expression* p_true_expr = p_expression->left
                     ? p_expression->left
                     : p_expression->condition_expr; //lint 35 assert
                 /* a nested ?: arm is the sink too: `q = a ? (b ? p : r) : 0` */
@@ -9673,7 +9675,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
     return identity_pair;
 }
 
-static void flow_visit_expression_statement(struct flow_ctx* ctx, const struct expression_statement* p_expression_statement)
+static void flow_visit_expression_statement(struct flow_ctx* ctx, struct expression_statement* p_expression_statement)
 {
     /*
         Only meant to bridge a report from THIS statement's own expression
@@ -10179,8 +10181,8 @@ static struct flow_branch* _Opt flow_loop_body_end(struct flow_ctx* ctx,
 */
 static void flow_visit_loop(struct flow_ctx* ctx,
                             struct iteration_statement* p_iteration_statement,
-                            const struct expression* _Opt p_condition,
-                            const struct expression* _Opt p_next,
+                            struct expression* _Opt p_condition,
+                            struct expression* _Opt p_next,
                             bool join_zero_iterations,
                             bool condition_first)
 {
@@ -11101,7 +11103,7 @@ static void flow_check_exiting_objects(struct flow_ctx* ctx,
     }
 }
 
-static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_statement* p_jump_statement)
+static void flow_check_function_exit(struct flow_ctx* ctx, struct jump_statement* p_jump_statement)
 {
     if (ctx->stopped)
         return;
@@ -11128,7 +11130,7 @@ static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_sta
     flow_check_exiting_objects(ctx, p_jump_statement->expression_opt, &marker);
 }
 
-static void flow_visit_jump_statement(struct flow_ctx* ctx, const struct jump_statement* p_jump_statement)
+static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statement* p_jump_statement)
 {
     
     try
@@ -11755,7 +11757,7 @@ static void flow_visit_compile_assert(struct flow_ctx* ctx, const struct static_
                       p_static_assertion->first_token);
 }
 
-static void flow_visit_static_assertion(struct flow_ctx* ctx, const struct static_assertion* p_static_assertion)
+static void flow_visit_static_assertion(struct flow_ctx* ctx, struct static_assertion* p_static_assertion)
 {
     if (p_static_assertion->first_token->type == TK_KEYWORD_RUNTIME_ASSERT)
     {
@@ -11840,7 +11842,7 @@ static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_dec
     }
 }
 
-static void flow_visit_declarator(struct flow_ctx* ctx, const struct declarator* p_declarator)
+static void flow_visit_declarator(struct flow_ctx* ctx, struct declarator* p_declarator)
 {
     if (p_declarator->object.type.category != TYPE_CATEGORY_FUNCTION)
     {
@@ -11870,7 +11872,7 @@ static void flow_visit_init_declarator_list(struct flow_ctx* ctx, struct init_de
     }
 }
 
-static void flow_visit_member_declarator(struct flow_ctx* ctx, const struct member_declarator* p_member_declarator)
+static void flow_visit_member_declarator(struct flow_ctx* ctx, struct member_declarator* p_member_declarator)
 {
     if (p_member_declarator->declarator)
     {
@@ -11911,7 +11913,7 @@ static void flow_visit_struct_or_union_specifier(struct flow_ctx* ctx, struct st
     flow_visit_member_declaration_list(ctx, &p_struct_or_union_specifier->member_declaration_list);
 }
 
-static void flow_visit_enumerator(struct flow_ctx* ctx, const struct enumerator* p_enumerator)
+static void flow_visit_enumerator(struct flow_ctx* ctx, struct enumerator* p_enumerator)
 {
     if (p_enumerator->constant_expression_opt)
     {

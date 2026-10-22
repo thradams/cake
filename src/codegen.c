@@ -331,14 +331,14 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
                                         struct osstream* oss,
                                         struct declarator* function_definition);
 
-static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
+static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, struct object* object, bool* first);
 static void codegen_visit_secondary_block(struct codegen_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
 static void codegen_visit_init_declarator(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
 static void codegen_visit_init_declarator_list(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
 static void codegen_visit_compound_statement(struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement, struct osstream* _Opt parameters_vars, struct osstream* _Opt parameters_init);
 static void codegen_visit_statement(struct codegen_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
-static void assign_each_member_from_initialization(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object,
+static void assign_each_member_from_initialization(struct codegen_ctx* ctx, struct osstream* ss, struct object* object,
                                                    const char* declarator_name,
                                                    bool all,
                                                    bool initialize_objects_that_does_not_have_initializer);
@@ -347,15 +347,15 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
                                                            const char* dest_prefix, const struct object* dest, const struct object* source, bool* first);
 static bool codegen_expr_takes_postfix_suffix(const struct expression* p_expression);
 
-static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt, bool name_unnamed_parameters);
+static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, struct type* p_type0, const char* _Opt name_opt, bool name_unnamed_parameters);
 static void d_print_type(struct codegen_ctx* ctx,
                          struct osstream* ss,
-                         const struct type* p_type,
+                         struct type* p_type,
                          const char* _Opt name_opt,
                          bool print_storage_qualifier,
                          bool name_unnamed_parameters);
 
-static void print_cast_array_to_vm(struct codegen_ctx* ctx, struct osstream* oss, const struct type* p_type)
+static void print_cast_array_to_vm(struct codegen_ctx* ctx, struct osstream* oss, struct type* p_type)
 {
     assert(type_is_vm(p_type));
 
@@ -662,6 +662,30 @@ static const char* _Opt codegen_unsigned_type_of_size(const struct codegen_ctx* 
     return NULL;
 }
 
+/*
+  long long long is a cake extension. It is emitted as the target type that
+  has its size: long long when both have the same width, otherwise __int128.
+*/
+static void codegen_print_type_specifier_flags(const struct codegen_ctx* ctx,
+                                               struct osstream* ss,
+                                               bool* first,
+                                               enum type_specifier_flags flags)
+{
+    if (flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+    {
+        const struct platform* p = &ctx->options.platform;
+        flags &= ~(TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT);
+        if (p->long_long_long_n_bits != p->long_long_n_bits)
+        {
+            print_type_specifier_flags(ss, first, flags, 0);
+            print_item(ss, first, "__int128");
+            return;
+        }
+        flags |= TYPE_SPECIFIER_LONG_LONG;
+    }
+    print_type_specifier_flags(ss, first, flags, 0);
+}
+
 static size_t codegen_bitfield_tile_size(const struct codegen_ctx* ctx, size_t pos, size_t end, size_t cap)
 {
     size_t size = cap;
@@ -816,11 +840,16 @@ static size_t codegen_print_bitfield_tiles(const struct codegen_ctx* ctx, struct
 /* the type of the value of bitfield p_member after the integer promotions */
 static void codegen_print_bitfield_promoted_type(struct codegen_ctx* ctx,
                                                  struct osstream* oss,
-                                                 const struct member_declarator* p_member)
+                                                 struct member_declarator* p_member)
 {
-    assert(p_member->declarator != NULL && p_member->constant_expression != NULL);
-    const struct type* p_type = &p_member->declarator->object.type; //lint 33 assert line 820
-    const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object); //lint 33 assert line 820
+    if (p_member->declarator == NULL || p_member->constant_expression == NULL)
+    {
+       assert(0);
+       return;
+    }
+    
+    struct type* p_type = &p_member->declarator->object.type;
+    const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object);
     const int int_bits = ctx->options.platform.int_n_bits;
     const bool is_unsigned = type_is_bool(p_type) || (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
 
@@ -840,7 +869,7 @@ static void codegen_emit_bitfield_read(struct codegen_ctx* ctx,
                                        struct osstream* oss,
                                        const char* base,
                                        struct struct_or_union_specifier* p_owner,
-                                       const struct member_declarator* p_member)
+                                       struct member_declarator* p_member)
 {
     size_t start = 0, end = 0, cap = 0;
     if (p_member->constant_expression == NULL ||
@@ -959,7 +988,7 @@ static void codegen_emit_bitfield_store(struct codegen_ctx* ctx,
                                         struct osstream* oss,
                                         const char* base,
                                         struct struct_or_union_specifier* p_owner,
-                                        const struct member_declarator* p_member,
+                                        struct member_declarator* p_member,
                                         const char* value,
                                         bool value_is_floating,
                                         const struct object* _Opt p_constant,
@@ -2086,24 +2115,41 @@ static void codegen_emit_wrap_text(const struct codegen_ctx* ctx,
                                    bool source_is_floating,
                                    bool text_is_unsigned)
 {
-    const unsigned long long mask = (width >= 64) ? ~0ULL : ((1ULL << width) - 1);
-    const unsigned long long sign = 1ULL << (width - 1);
-
     /* when N is below the target int width the whole computation fits in int */
     const bool use_int = width < ctx->options.platform.int_n_bits;
-    const char* const u_type = use_int ? "unsigned" : "unsigned long long";
-    const char* const s_type = use_int ? "int" : "long long";
-    const char* const u_suffix = use_int ? "U" : "ULL";
-    const char* const s_suffix = use_int ? "" : "LL";
+
+    /* above a long long it is done in the 128-bit type, that has no literals */
+    const bool use_wide = width > ctx->options.platform.long_long_n_bits;
+
+    const char* const u_type = use_int ? "unsigned" : use_wide ? "unsigned __int128" : "unsigned long long";
+    const char* const s_type = use_int ? "int" : use_wide ? "__int128" : "long long";
+
+    char mask_text[100] = { 0 };
+    char sign_text[100] = { 0 };
+    if (use_wide)
+    {
+        const struct wide_integer mask = wide_integer_wrap_u(wide_integer_from_signed(-1), width);
+        const struct wide_integer sign = wide_integer_shl(wide_integer_from_unsigned(1), width - 1);
+        snprintf(mask_text, sizeof mask_text, "((unsigned __int128)0x%llxULL << %d | 0x%llxULL)", mask.hi, WIDE_INTEGER_HALF_BITS, mask.lo);
+        /* 2^(N - 1) with N below 128 is a positive __int128 */
+        snprintf(sign_text, sizeof sign_text, "((__int128)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", sign.hi, WIDE_INTEGER_HALF_BITS, sign.lo);
+    }
+    else
+    {
+        const unsigned long long mask = (width >= 64) ? ~0ULL : ((1ULL << width) - 1);
+        const unsigned long long sign = 1ULL << (width - 1);
+        snprintf(mask_text, sizeof mask_text, "0x%llx%s", mask, use_int ? "U" : "ULL");
+        snprintf(sign_text, sizeof sign_text, "0x%llx%s", sign, use_int ? "" : "LL");
+    }
 
     /* text & MASK; a text that is already an unsigned value needs no cast */
     struct osstream masked = { 0 };
     if (source_is_floating)
-        ss_fprintf(&masked, "(%s)(long long)(%s) & 0x%llx%s", u_type, text, mask, u_suffix);
+        ss_fprintf(&masked, "(%s)(long long)(%s) & %s", u_type, text, mask_text);
     else if (text_is_unsigned)
-        ss_fprintf(&masked, "%s & 0x%llx%s", text, mask, u_suffix);
+        ss_fprintf(&masked, "%s & %s", text, mask_text);
     else
-        ss_fprintf(&masked, "(%s)(%s) & 0x%llx%s", u_type, text, mask, u_suffix);
+        ss_fprintf(&masked, "(%s)(%s) & %s", u_type, text, mask_text);
 
     if (masked.c_str == NULL)
         return;
@@ -2111,15 +2157,15 @@ static void codegen_emit_wrap_text(const struct codegen_ctx* ctx,
     if (is_unsigned)
         ss_fprintf(oss, "((%s)(%s))", lowered, masked.c_str);
     else
-        ss_fprintf(oss, "((%s)(((%s)(%s) ^ 0x%llx%s) - 0x%llx%s))",
-                   lowered, s_type, masked.c_str, sign, s_suffix, sign, s_suffix);
+        ss_fprintf(oss, "((%s)(((%s)(%s) ^ %s) - %s))",
+                   lowered, s_type, masked.c_str, sign_text, sign_text);
 
     ss_close(&masked);
 }
 
 static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
                                           struct osstream* oss,
-                                          const struct type* p_type,
+                                          struct type* p_type,
                                           const char* text,
                                           bool source_is_floating)
 {
@@ -2141,7 +2187,7 @@ static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
 */
 static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
                                               struct osstream* oss,
-                                              const struct type* p_type,
+                                              struct type* p_type,
                                               const struct object* p_source)
 {
     if (!object_has_constant_value(p_source) || !type_is_integer(&p_source->type))
@@ -2150,6 +2196,32 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
     }
 
     const int width = p_type->bitint_width;
+
+    if (width > ctx->options.platform.long_long_n_bits)
+    {
+        /* the 128-bit value, wrapped by the cast; written from its halves when it has no literal */
+        struct object wrapped = object_cast(&ctx->options.platform, type_to_object_type(p_type, &ctx->options.platform), p_source);
+        const struct wide_integer v = wrapped.value.host_wide_integer;
+        object_destroy(&wrapped);
+
+        struct osstream lowered = { 0 };
+        d_print_type(ctx, &lowered, p_type, NULL, false, false);
+
+        const bool is_unsigned = (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED) != 0;
+        const bool fits = is_unsigned ?
+            v.hi == 0 :
+            wide_integer_equal(v, wide_integer_from_signed((long long)v.lo)) && (long long)v.lo != LLONG_MIN;
+
+        if (fits && is_unsigned)
+            ss_fprintf(oss, "((%s)%lluULL)", lowered.c_str, v.lo);
+        else if (fits)
+            ss_fprintf(oss, "((%s)%lldLL)", lowered.c_str, (long long)v.lo);
+        else
+            ss_fprintf(oss, "((%s)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", lowered.c_str, v.hi, WIDE_INTEGER_HALF_BITS, v.lo);
+
+        ss_close(&lowered);
+        return true;
+    }
 
     const unsigned long long bits = type_is_signed_integer(&p_source->type) ?
         (unsigned long long)object_to_signed_long_long(p_source) :
@@ -2161,13 +2233,13 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
         struct object wrapped = object_make_unsigned_bitint(width, bits);
-        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, wrapped.value.host_u_long_long);
+        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, wrapped.value.host_wide_integer.lo);
         object_destroy(&wrapped);
     }
     else
     {
         struct object wrapped = object_make_signed_bitint(width, (long long)bits);
-        const long long value = wrapped.value.host_long_long;
+        const long long value = ((long long)wrapped.value.host_wide_integer.lo);
         object_destroy(&wrapped);
         if (value == LLONG_MIN)
             ss_fprintf(oss, "((%s)(-%lld - 1))", lowered.c_str, LLONG_MAX);
@@ -2187,7 +2259,7 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
 */
 static void codegen_emit_converted_text(struct codegen_ctx* ctx,
                                         struct osstream* oss,
-                                        const struct type* p_target_type,
+                                        struct type* p_target_type,
                                         const char* text,
                                         bool source_is_floating)
 {
@@ -2211,7 +2283,7 @@ static void codegen_emit_converted_text(struct codegen_ctx* ctx,
 */
 static void codegen_emit_converted_expression(struct codegen_ctx* ctx,
                                               struct osstream* oss,
-                                              const struct type* p_target_type,
+                                              struct type* p_target_type,
                                               struct expression* p_expression)
 {
     if (type_is_bool(p_target_type))
@@ -5317,7 +5389,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
 
             print_identation(ctx, &ss);
 
-            const struct type* controlling_type =
+            struct type* controlling_type =
                 p_selection_statement->condition->p_init_declarator ?
                 &p_selection_statement->condition->p_init_declarator->p_declarator->object.type :
                 &p_selection_statement->condition->expression->object.type; //lint 33 33 33 assert line 5165
@@ -5946,12 +6018,12 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
 }
 
 static void register_struct_types_and_functions(struct codegen_ctx* ctx,
-                                                const struct type* p_type0,
+                                                struct type* p_type0,
                                                 struct struct_entry* _Opt p_struct_entry0)
 {
     try
     {
-        const struct type* _Opt p_type = p_type0;
+        struct type* _Opt p_type = p_type0;
 
         while (p_type)
         {
@@ -5961,8 +6033,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
             {
                 if (p_type->struct_or_union_specifier)
                 {
-                    const struct struct_or_union_specifier* _Opt p_complete =
-                        get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
+                    struct struct_or_union_specifier* _Opt p_complete = get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
 
                     if (p_complete == NULL)
                     {
@@ -6133,12 +6204,12 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                             struct type t2 = get_array_item_type(&t);
                                             if (type_is_struct_or_union(&t2))
                                             {
-                                                assert(t.struct_or_union_specifier);
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
-                                                    get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                    get_complete_struct_or_union_specifier(t.struct_or_union_specifier); //lint 35: 't.struct_or_union_specifier' may be null (type_is_struct_or_union)
 
                                                 if (p_complete_member == NULL)
                                                 {
+                                                    type_destroy(&t);
                                                     type_destroy(&t2);
                                                     throw;
                                                 }
@@ -6189,7 +6260,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
 
             case TYPE_CATEGORY_FUNCTION:
             {
-                const struct param* _Opt pa = p_type->params.head;
+                struct param* _Opt pa = p_type->params.head;
                 while (pa)
                 {
                     register_struct_types_and_functions(ctx, &pa->type, p_struct_entry0);
@@ -6231,11 +6302,11 @@ static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum 
 */
 static void d_print_type_core(struct codegen_ctx* ctx,
                               struct osstream* ss,
-                              const struct type* p_type0,
+                              struct type* p_type0,
                               const char* _Opt name_opt,
                               bool name_unnamed_parameters)
 {
-    const struct type* _Opt p_type = p_type0;
+    struct type* _Opt p_type = p_type0;
 
     while (p_type)
     {
@@ -6279,7 +6350,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                 enum type_specifier_flags enum_type_specifier_flags =
                     get_enum_type_specifier_flags(p_type->enum_specifier);
 
-                print_type_specifier_flags(&local, &first, enum_type_specifier_flags, 0);
+                codegen_print_type_specifier_flags(ctx, &local, &first, enum_type_specifier_flags);
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
@@ -6305,14 +6376,14 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                       type_get_sizeof/type_get_alignof report.
                     */
                     const bool is_unsigned = p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED;
-                    print_type_specifier_flags(&local,
-                                               &first,
-                                               bitint_lowered_type_specifier_flags(p_type->bitint_width, is_unsigned, &ctx->options.platform),
-                                               0);
+                    codegen_print_type_specifier_flags(ctx,
+                                                       &local,
+                                                       &first,
+                                                       bitint_lowered_type_specifier_flags(p_type->bitint_width, is_unsigned, &ctx->options.platform));
                 }
                 else
                 {
-                    print_type_specifier_flags(&local, &first, p_type->type_specifier_flags, 0);
+                    codegen_print_type_specifier_flags(ctx, &local, &first, p_type->type_specifier_flags);
                 }
             }
 
@@ -6342,7 +6413,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                 names[][300]) is not VM: it prints [] and the inner
                 dimensions are kept.
             */
-            const struct type* _Opt it = p_type;
+            struct type* _Opt it = p_type;
             bool vm = false;
             while (it && it->category == TYPE_CATEGORY_ARRAY)
             {
@@ -6419,7 +6490,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
             }
             ss_fprintf(ss, "(");
 
-            const struct param* _Opt pa = p_type->params.head;
+            struct param* _Opt pa = p_type->params.head;
 
             while (pa)
             {
@@ -6524,7 +6595,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
 
 static void d_print_type(struct codegen_ctx* ctx,
                          struct osstream* ss,
-                         const struct type* p_type,
+                         struct type* p_type,
                          const char* _Opt name_opt,
                          bool print_storage_qualifiers,
                          bool name_unnamed_parameters)
@@ -6817,11 +6888,11 @@ static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss,
     }
 }
 
-static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first)
+static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, struct object* object, bool* first)
 {
     if (object_is_reference(object))
     {
-        object = object_get_referenced(object);
+        object = object_get_referenced(object); //lint 15
     }
 
     if (object->p_init_expression &&
@@ -6842,7 +6913,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
             /* in C89, only the first member can be initialized */
             //we could make the first member be array of unsigned int
             //then initialize it
-            const struct object* _Opt member = object->members.head;
+            struct object* _Opt member = object->members.head;
             struct struct_or_union_specifier* _Opt p_owner = NULL;
             struct member_declarator* _Opt p_member = NULL;
             if (member && codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
@@ -6858,7 +6929,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
         else
         {
             /* under -no-bitfields a run of bitfields is initialized as its tiles */
-            const struct object* _Opt member = object->members.head;
+            struct object* _Opt member = object->members.head;
             int index = 0;
             while (member)
             {
@@ -6867,7 +6938,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
                 if (codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
                 {
                     int count = 0;
-                    const struct object* _Opt p = member;
+                    struct object* _Opt p = member;
                     while (p && codegen_object_is_lowered_bitfield(ctx, p, &p_owner, &p_member))
                     {
                         count++;
@@ -6936,7 +7007,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
 
 static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                                                    struct osstream* ss,
-                                                   const struct object* object,
+                                                   struct object* object,
                                                    const char* declarator_name,
                                                    bool all,
                                                    bool initialize_objects_that_does_not_have_initializer)
@@ -6945,7 +7016,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
     {
         if (object_is_reference(object))
         {
-            object = object_get_referenced(object);
+            object = object_get_referenced(object); //lint 15
         }
 
         if (object->members.head != NULL)
@@ -6953,7 +7024,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
             if (type_is_union(&object->type))
             {
                 /* in C89, only the first member can be initialized */
-                const struct object* _Opt member = object->members.head;
+                struct object* _Opt member = object->members.head;
 
                 if (member->p_init_expression &&
                     object_has_constant_value(&member->p_init_expression->object) &&
@@ -7096,7 +7167,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                         ss_close(&local);
                         ctx->memcpy_used = true;
                     }
-                    const struct object* _Opt member = object->members.head;
+                    struct object* _Opt member = object->members.head;
                     while (member)
                     {
                         assign_each_member_from_initialization(ctx, ss, member, declarator_name, all, false);
@@ -7105,7 +7176,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 }
                 else
                 {
-                    const struct object* _Opt member = object->members.head;
+                    struct object* _Opt member = object->members.head;
                     while (member)
                     {
                         assign_each_member_from_initialization(ctx, ss, member, declarator_name, all,
@@ -7574,7 +7645,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
             p_init_declarator->p_declarator->name_opt ?
             p_init_declarator->p_declarator->name_opt->lexeme : "";
 
-        const struct type* decl_type = &p_init_declarator->p_declarator->object.type;
+        struct type* decl_type = &p_init_declarator->p_declarator->object.type;
 
         if (!is_typedef &&
             type_is_constexpr(decl_type) &&

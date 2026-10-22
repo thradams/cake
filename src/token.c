@@ -332,6 +332,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_MSVC__INT16:
     case TK_KEYWORD_MSVC__INT32:
     case TK_KEYWORD_MSVC__INT64:
+    case TK_KEYWORD_GCC__INT128:
 
     case TK_KEYWORD_REGISTER:
     case TK_KEYWORD_RESTRICT:

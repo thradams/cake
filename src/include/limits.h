@@ -78,7 +78,7 @@
     #define ULLONG_MAX   0xffffffffffffffffULL
     #define ULLONG_WIDTH 64
 
-    #define BITINT_MAXWIDTH 64
+    #define BITINT_MAXWIDTH __BITINT_MAXWIDTH__
 
 #else
     #include_next <limits.h>

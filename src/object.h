@@ -20,6 +20,7 @@
 #include <wchar.h>
 #include "error.h"
 #include "type.h"
+#include "wide_integer.h"
 #include <inttypes.h>
 struct parser_ctx;
 
@@ -64,9 +65,8 @@ struct object
 
     union
     {
-        signed long long  host_long_long;
-        unsigned long long  host_u_long_long;
-        long double host_long_double;
+        struct wide_integer host_wide_integer; /* 2x long long */        
+        long double host_long_double; /* */
     } value;
 
     /* the enclosing array or struct; set where the object is built in place (make_object), NULL in object_dup copies. flow follows it from an element pointer to the whole array */
@@ -161,12 +161,7 @@ int object_is_not_equal(const struct platform* target, const struct object* a, c
 
 
 //Overflow checks
-bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
 bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b);
 
 void object_default_initialization(struct object* p_object, bool is_constant);
 

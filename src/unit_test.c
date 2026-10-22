@@ -85,6 +85,15 @@ void quasi_recursive_macro(void);
 void newline_macro_func(void);
 void hash_hash_at_ends_of_replacement_list(void);
 
+/* tests from wide_integer.c*/
+void wide_integer_arithmetic_test(void);
+void wide_integer_shift_test(void);
+void wide_integer_compare_test(void);
+void wide_integer_divmod_test(void);
+void wide_integer_wrap_test(void);
+void wide_integer_conversion_test(void);
+void wide_integer_from_digits_test(void);
+
 /* tests from target.c*/
 void target_self_test(void);
 
@@ -164,6 +173,13 @@ g_unit_test_success_count = 0;
     quasi_recursive_macro();
     newline_macro_func();
     hash_hash_at_ends_of_replacement_list();
+    wide_integer_arithmetic_test();
+    wide_integer_shift_test();
+    wide_integer_compare_test();
+    wide_integer_divmod_test();
+    wide_integer_wrap_test();
+    wide_integer_conversion_test();
+    wide_integer_from_digits_test();
     target_self_test();
 return g_unit_test_error_count;
 

@@ -19,6 +19,9 @@ enum object_type
     TYPE_SIGNED_LONG_LONG,
     TYPE_UNSIGNED_LONG_LONG,
 
+    TYPE_SIGNED_LONG_LONG_LONG,
+    TYPE_UNSIGNED_LONG_LONG_LONG,
+
     TYPE_FLOAT,
     TYPE_DOUBLE,
     TYPE_LONG_DOUBLE,
@@ -103,6 +106,10 @@ struct platform
     int long_long_n_bits;
     int long_long_alignment;
 
+    /* the rank above long long, never narrower than it; 128 bits is spelled __int128 */
+    int long_long_long_n_bits;
+    int long_long_long_alignment;
+
     int float_n_bits;
     int float_alignment;
 
@@ -135,7 +142,10 @@ void platform_default(_Out struct platform* p);
 bool platform_os_is(const struct platform* p_platform, const char* os);
 bool platform_arch_is(const struct platform* p_platform, const char* arch);
 
-int target_get_num_of_bits(const struct platform* target, enum object_type type);
+unsigned int target_get_num_of_bits(const struct platform* target, enum object_type type);
+
+/* the widest _BitInt(N): long long long when it is wider than 64 bits, else 64 */
+int target_bitint_maxwidth(const struct platform* target);
 long long target_signed_max(const struct platform* target, enum object_type type);
 long long target_signed_min(const struct platform* target, enum object_type type);
 unsigned long long target_unsigned_max(const struct platform* target, enum object_type type);

@@ -46,6 +46,9 @@
     <ClCompile Include="..\src\type.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\wide_integer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\object.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -115,6 +118,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\version.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\wide_integer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\object.h">

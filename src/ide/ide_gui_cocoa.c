@@ -45,13 +45,22 @@ static const char* const ui_font_candidates[] = { "Helvetica Neue", "Helvetica",
 
 /* AppKit constants exported as symbols; their headers are Objective-C. */
 extern id NSPasteboardTypeString;
-extern id NSAppearanceNameAqua;
-extern id NSAppearanceNameDarkAqua;
 
 #define MSG(ret, ...) ((ret (*)(__VA_ARGS__))objc_msgSend)
 
 static id cls(const char* name) { return (id)objc_getClass(name); }
 static SEL sel(const char* name) { return sel_registerName(name); }
+
+/*
+    NSAppearanceNameAqua / NSAppearanceNameDarkAqua are AppKit NSString
+    constants whose values are simply the name strings. DarkAqua is only
+    exported by the 10.14+ SDK, so referencing the symbol directly would make
+    the IDE fail to link on older macOS; build the name at runtime instead.
+*/
+static id appearance_name(const char* name)
+{
+    return MSG(id, id, SEL, const char*)(cls("NSString"), sel("stringWithUTF8String:"), name);
+}
 
 struct gui_canvas
 {
@@ -482,10 +491,14 @@ static void sync_titlebar(struct cocoa_window* win)
     id ns_color = MSG(id, id, SEL, CGFloat, CGFloat, CGFloat, CGFloat)(
         cls("NSColor"), sel("colorWithSRGBRed:green:blue:alpha:"), r, g, b, 1.0);
     MSG(void, id, SEL, id)(win->window, sel("setBackgroundColor:"), ns_color);
-    double luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    id appearance = MSG(id, id, SEL, id)(cls("NSAppearance"), sel("appearanceNamed:"),
-                                         luma < 0.5 ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua);
-    MSG(void, id, SEL, id)(win->window, sel("setAppearance:"), appearance);
+    /* -[NSWindow setAppearance:] is 10.14+; earlier systems have no dark mode. */
+    if (MSG(BOOL, id, SEL, SEL)(win->window, sel("respondsToSelector:"), sel("setAppearance:")))
+    {
+        double luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        id appearance = MSG(id, id, SEL, id)(cls("NSAppearance"), sel("appearanceNamed:"),
+                                             appearance_name(luma < 0.5 ? "NSAppearanceNameDarkAqua" : "NSAppearanceNameAqua"));
+        MSG(void, id, SEL, id)(win->window, sel("setAppearance:"), appearance);
+    }
 }
 
 static void set_timer(struct cocoa_window* win, int ms)

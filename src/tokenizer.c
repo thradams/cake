@@ -7189,6 +7189,20 @@ int preprocessor_load_config(struct preprocessor_ctx* ctx)
         }
     }
 
+    /*
+        cake.json "diagnostics-color": boolean default for diagnostics.
+        false = no colors, true = colors.
+    */
+    const struct json_value* _Opt color = json_find_member(root, "diagnostics-color");
+    if (color != NULL && color->type == JSON_FALSE)
+    {
+        ctx->options.color_disabled = true;
+    }
+    else if (color != NULL && color->type == JSON_TRUE)
+    {
+        ctx->options.color_disabled = false;
+    }
+
     json_delete(root);
 
     return 0;
@@ -7264,7 +7278,11 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
     add_builtin_define(ctx, "#define __STDC_EMBED_NOT_FOUND__ 0 \n");
     add_builtin_define(ctx, "#define __STDC_EMBED_FOUND__ 1 \n");
     add_builtin_define(ctx, "#define __STDC_EMBED_EMPTY__ 2 \n");
-    add_builtin_define(ctx, "#define __BITINT_MAXWIDTH__  64 \n");
+    {
+        char bitint_maxwidth[100] = { 0 };
+        snprintf(bitint_maxwidth, sizeof bitint_maxwidth, "#define __BITINT_MAXWIDTH__  %d \n", target_bitint_maxwidth(target));
+        add_builtin_define(ctx, bitint_maxwidth);
+    }
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
@@ -7288,6 +7306,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
              "#define __CAKE_SIZEOF_INT__ %d\n"
              "#define __CAKE_SIZEOF_LONG__ %d\n"
              "#define __CAKE_SIZEOF_LONG_LONG__ %d\n"
+             "#define __CAKE_SIZEOF_LONG_LONG_LONG__ %d\n"
              "#define __CAKE_SIZEOF_POINTER__ %d\n"
              "#define __CAKE_SIZEOF_LONG_DOUBLE__ %d\n"
              "#define __CAKE_SIZEOF_WCHAR_T__ %d\n"
@@ -7299,6 +7318,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
              p_platform->int_n_bits / 8,
              p_platform->long_n_bits / 8,
              p_platform->long_long_n_bits / 8,
+             p_platform->long_long_long_n_bits / 8,
              p_platform->pointer_n_bits / 8,
              p_platform->long_double_n_bits / 8,
              target_get_num_of_bits(target, p_platform->wchar_t_type) / 8,
@@ -7496,6 +7516,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD_MSVC__INT16: return "TK_KEYWORD_MSVC__INT16";
         case TK_KEYWORD_MSVC__INT32: return "TK_KEYWORD_MSVC__INT32";
         case TK_KEYWORD_MSVC__INT64: return "TK_KEYWORD_MSVC__INT64";
+        case TK_KEYWORD_GCC__INT128: return "TK_KEYWORD_GCC__INT128";
 
         case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
         case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";
@@ -7726,6 +7747,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
         case TK_KEYWORD_MSVC__INT16: return "__int16";
         case TK_KEYWORD_MSVC__INT32: return "__int32";
         case TK_KEYWORD_MSVC__INT64: return "__int64";
+        case TK_KEYWORD_GCC__INT128: return "__int128";
 
         case TK_KEYWORD_REGISTER: return "register";
         case TK_KEYWORD_RESTRICT: return "restrict";

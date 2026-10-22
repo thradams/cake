@@ -1849,7 +1849,7 @@ bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
     return false;
 }
 
-bool first_of_type_specifier(const struct parser_ctx* ctx);
+bool first_of_type_specifier(struct parser_ctx* ctx);
 bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* token);
 
 bool first_of_type_name_ahead(const struct parser_ctx* ctx)
@@ -1874,7 +1874,7 @@ bool first_of_type_name_token(const struct parser_ctx* ctx, struct token* p_toke
     return first_of_type_specifier_token(ctx, p_token) || first_of_type_qualifier_token(p_token);
 }
 
-bool first_of_type_name(const struct parser_ctx* ctx)
+bool first_of_type_name(struct parser_ctx* ctx)
 {
     return first_of_type_specifier(ctx) || first_of_type_qualifier(ctx);
 }
@@ -1905,6 +1905,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_MSVC__INT16 ||
         p_token->type == TK_KEYWORD_MSVC__INT32 ||
         p_token->type == TK_KEYWORD_MSVC__INT64 ||
+        p_token->type == TK_KEYWORD_GCC__INT128 ||
 
         first_of_atomic_type_specifier(ctx) ||
         first_of_struct_or_union_token(p_token) ||
@@ -1912,7 +1913,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         first_of_typedef_name(ctx, p_token);
 }
 
-bool first_of_type_specifier(const struct parser_ctx* ctx)
+bool first_of_type_specifier(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -2454,6 +2455,14 @@ enum token_type is_keyword(const char* text, const struct platform* target)
 
             if (strcmp("_Thread_local", text) == 0)
                 return TK_KEYWORD__THREAD_LOCAL;
+
+            /*
+              __int128 is an alias of long long long, like __int64 is of int64_type.
+              It has the size of long long long, 128 bits only where the target has it
+              (__SIZEOF_INT128__ tells), like long double has the size of double on msvc.
+            */
+            if (strcmp("__int128", text) == 0)
+                return TK_KEYWORD_GCC__INT128;
 
             if (strcmp("_BitInt", text) == 0)
                 return TK_KEYWORD__BITINT; /* C23 */
@@ -3106,7 +3115,8 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
         (flags & TYPE_SPECIFIER_LONG) ||
         (flags & TYPE_SPECIFIER_INT) ||
         (flags & TYPE_SPECIFIER_BITINT) ||
-        (flags & TYPE_SPECIFIER_LONG_LONG))
+        (flags & TYPE_SPECIFIER_LONG_LONG) ||
+        (flags & TYPE_SPECIFIER_LONG_LONG_LONG))
     {
         return true;
     }
@@ -3134,17 +3144,23 @@ int add_specifier(const struct parser_ctx* ctx,
     enum type_specifier_flags new_flag)
 {
     const enum type_specifier_flags old_flags = *flags;
-    /* 
+    /*
     * transform the sequence of two longs
     * in
     * TYPE_SPECIFIER_LONG_LONG
+    * and three longs in TYPE_SPECIFIER_LONG_LONG_LONG (cake extension)
     */
     if (new_flag & TYPE_SPECIFIER_LONG) /* adding a long */
     {
-        if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
+        if ((*flags) & TYPE_SPECIFIER_LONG_LONG_LONG) /* already had long long long */
         {
-            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long' declaration specifier");
+            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long long' declaration specifier");
             return 1;
+        }
+        else if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
+        {
+            (*flags) = (*flags) & ~TYPE_SPECIFIER_LONG_LONG;
+            (*flags) |= TYPE_SPECIFIER_LONG_LONG_LONG;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) /* already had one long */
         {
@@ -3194,6 +3210,12 @@ int add_specifier(const struct parser_ctx* ctx,
         case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // signed long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG: // unsigned long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // unsigned long long int
+        case TYPE_SPECIFIER_LONG_LONG_LONG: // long long long
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG_LONG: // signed long long long
+        case TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // long long long int
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // signed long long long int
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG: // unsigned long long long
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // unsigned long long long int
         case TYPE_SPECIFIER_BITINT: // _BitInt(N)
         case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_BITINT: // signed _BitInt(N)
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_BITINT: // unsigned _BitInt(N)
@@ -3550,10 +3572,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
     bool without_semicolon)
 {
     /* 
-    * declaration-specifiers init-declarator-list_opt ;
-    * attribute-specifier-sequence declaration-specifiers init-declarator-list ;
-    * static_assert-declaration
-    * attribute-declaration
+     declaration-specifiers init-declarator-list_opt ;
+     attribute-specifier-sequence declaration-specifiers init-declarator-list ;
+     static_assert-declaration
+     attribute-declaration
     */
 
     struct declaration* _Owner _Opt p_declaration = NULL;
@@ -3591,10 +3613,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
             p_declaration->static_assertion = static_assertion(ctx);
 
             /* 
-            * parser_match_tk_lint, not parser_match_tk: the plain version
-            * drops a trailing `//lint N`, so a suppression written on a
-            * compile_assert line was attached to nothing -- never checked,
-            * never reported as unrecognized, silently ineffective.
+              parser_match_tk_lint, not parser_match_tk: the plain version
+              drops a trailing `//lint N`, so a suppression written on a
+              compile_assert line was attached to nothing -- never checked,
+              never reported as unrecognized, silently ineffective.
             */
             if (p_declaration->static_assertion != NULL)
             {
@@ -3630,6 +3652,22 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 {
                     unexpected_end_of_file(ctx);
                     throw;
+                }
+
+                if (first_of_pragma_declaration(ctx))
+                {
+                    /* clang header is doing this ... */
+                    /*                       
+                       struct X { int i; } 
+                       #pragma anything
+                       ;
+                    */
+                    if (p_declaration->pragma_declaration != NULL)
+                    {
+                        assert(0);
+                    }
+                    pragma_declaration_delete(p_declaration->pragma_declaration);
+                    p_declaration->pragma_declaration = pragma_declaration(ctx);
                 }
 
                 if (ctx->current->type != ';')
@@ -6449,6 +6487,12 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
                 parser_match(ctx);
                 return p_type_specifier;
 
+            case TK_KEYWORD_GCC__INT128:
+                p_type_specifier->token = ctx->current;
+                p_type_specifier->flags = TYPE_SPECIFIER_LONG_LONG_LONG;
+                parser_match(ctx);
+                return p_type_specifier;
+
             case TK_KEYWORD_LONG:
                 p_type_specifier->token = ctx->current;
                 p_type_specifier->flags = TYPE_SPECIFIER_LONG;
@@ -6587,9 +6631,9 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
                 {
                     diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_type_specifier->token, NULL, "_BitInt width must be greater than zero");
                 }
-                else if (width > 64)
+                else if (width > target_bitint_maxwidth(&ctx->options.platform))
                 {
-                    diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_type_specifier->token, NULL, "_BitInt width %lld exceeds the maximum supported width 64", width);
+                    diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_type_specifier->token, NULL, "_BitInt width %lld exceeds the maximum supported width %d", width, target_bitint_maxwidth(&ctx->options.platform));
                 }
                 else
                 {
@@ -8574,18 +8618,18 @@ void enumerator_list_destroy(_Dtor struct enumerator_list* p)
 static void update_enumerator_list_range(const struct enumerator* p_enumerator, long long* min_value, unsigned long long* max_value)
 {
     bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-    bool is_negative = is_signed && p_enumerator->value.value.host_long_long < 0;
+    bool is_negative = is_signed && ((long long)p_enumerator->value.value.host_wide_integer.lo) < 0;
 
-    if (is_signed && p_enumerator->value.value.host_long_long < *min_value)
+    if (is_signed && ((long long)p_enumerator->value.value.host_wide_integer.lo) < *min_value)
     {
-        *min_value = p_enumerator->value.value.host_long_long;
+        *min_value = ((long long)p_enumerator->value.value.host_wide_integer.lo);
     }
     if (
-        (is_signed && !is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > *max_value) ||
-        (!is_signed && p_enumerator->value.value.host_u_long_long > *max_value)
+        (is_signed && !is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > *max_value) ||
+        (!is_signed && p_enumerator->value.value.host_wide_integer.lo > *max_value)
         )
     {
-        *max_value = p_enumerator->value.value.host_u_long_long;
+        *max_value = p_enumerator->value.value.host_wide_integer.lo;
     }
 }
 
@@ -8843,13 +8887,13 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
                 object_destroy(&newvalue);
 
                 bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-                is_negative = is_signed && (p_enumerator->value.value.host_long_long < 0);
+                is_negative = is_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < 0);
 
                 if (p_enum_specifier->has_underlying)
                 {
                     bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
-                    bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
-                    bool over_range = (underlying_signed && (!is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+                    bool under_range = underlying_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < lo_limit);
+                    bool over_range = (underlying_signed && (!is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_wide_integer.lo > hi_limit));
 
                     if (under_range || over_range)
                     {
@@ -8874,13 +8918,13 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             object_swap(&p_enumerator->value, &newvalue);
             object_destroy(&newvalue);
 
-            is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (p_enumerator->value.value.host_long_long < 0);
+            is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (((long long)p_enumerator->value.value.host_wide_integer.lo) < 0);
 
             if (p_enum_specifier->has_underlying)
             {
                 bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
-                bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
-                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+                bool under_range = underlying_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < lo_limit);
+                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_wide_integer.lo > hi_limit));
 
                 if (under_range || over_range)
                 {

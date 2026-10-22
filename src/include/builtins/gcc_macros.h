@@ -1,5 +1,6 @@
 
 #define _CONSOLE
+#define _FORTIFY_SOURCE 0
 #define __STDC_NO_COMPLEX__  __STDC_NO_COMPLEX__
 #define __STDC_NO_THREADS__   __STDC_NO_THREADS__
 #define __STDC_NO_VLA__    __STDC_NO_VLA__
@@ -278,6 +279,9 @@
 #define __SIZEOF_WCHAR_T__ __CAKE_SIZEOF_WCHAR_T__
 #define __SIZEOF_WINT_T__ 4
 #define __SIZEOF_PTRDIFF_T__ __CAKE_SIZEOF_PTRDIFF_T__
+#if __CAKE_SIZEOF_LONG_LONG_LONG__ == 16
+#define __SIZEOF_INT128__ 16
+#endif
 
 
 /* memory orders used by <stdatomic.h> and the __atomic/__c11_atomic builtins */

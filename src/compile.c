@@ -340,7 +340,7 @@ static int collect_system_include_dirs(struct json_value* dirs)
     ide.c) - is read back and written out unchanged, so re-running auto-config
     never costs the user their compiler options.
 */
-int generate_config_file(const char* configpath)
+int generate_config_file(const char* configpath, bool color_disabled)
 {
     struct json_value* _Opt _Owner root = NULL;
 
@@ -363,6 +363,15 @@ int generate_config_file(const char* configpath)
     {
         printf("Out of memory generating '%s'.\n", configpath);
         return ENOMEM;
+    }
+
+    /*
+        "diagnostics-color" is written once so the key is always visible and
+        the user only has to change the value. An existing value is preserved.
+    */
+    if (json_find_member(root, "diagnostics-color") == NULL)
+    {
+        json_set_bool(root, "diagnostics-color", color_disabled ? 0 : 1);
     }
 
     /*
@@ -457,6 +466,14 @@ int compile_one_file(const char* file_name,
     {
         /* optional */
     }
+
+    /*
+        cake.json may set "diagnostics-color". preprocessor_load_config()
+        works on a copy of the options. Only publish a config *disable* so an
+        explicit -fdiagnostics-color=never on the command line always wins.
+    */
+    if (prectx.options.color_disabled)
+        options->color_disabled = true;
 
     struct ast ast = { 0 };
 
@@ -1410,7 +1427,7 @@ int compile(int argc, const char** argv, struct report* report)
     if (options.auto_config) // -autoconfig
     {
         report->ignore_this_report = true;
-        return generate_config_file(cakeconfig_path);
+        return generate_config_file(cakeconfig_path, options.color_disabled);
     }
 
     report->test_mode = options.test_mode;
@@ -1767,6 +1784,8 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         {
             // cake.json is optional
         }
+        if (prectx.options.color_disabled)
+            options.color_disabled = true;
 
         ast.token_list = preprocessor(&prectx, &list, 0);
         report->warnings_count += prectx.n_warnings;

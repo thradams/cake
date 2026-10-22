@@ -629,7 +629,7 @@ static struct osstream build_printf_format_text(const struct expression* p_fmt_e
     const struct object* _Opt it = p_fmt_expression->object.members.head;
     while (it != NULL)
     {
-        const unsigned char c = (unsigned char)it->value.host_long_long;
+        const unsigned char c = (unsigned char)((long long)it->value.host_wide_integer.lo);
         if (c == '\0')
             break; // the appended terminator, not part of the format text
 
@@ -942,6 +942,8 @@ static const char* object_type_to_name(enum object_type t)
         case TYPE_UNSIGNED_LONG: return "unsigned long";
         case TYPE_SIGNED_LONG_LONG: return "long long";
         case TYPE_UNSIGNED_LONG_LONG: return "unsigned long long";
+        case TYPE_SIGNED_LONG_LONG_LONG: return "long long long";
+        case TYPE_UNSIGNED_LONG_LONG_LONG: return "unsigned long long long";
         case TYPE_FLOAT: return "float";
         case TYPE_DOUBLE: return "double";
         case TYPE_LONG_DOUBLE: return "long double";
@@ -2806,7 +2808,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 else
                 {
                     struct object obj = object_make_char(&ctx->options.platform, (int)c);
-                    value = obj.value.host_long_long;
+                    value = ((long long)obj.value.host_wide_integer.lo);
                     object_destroy(&obj);
                 }
 
@@ -2941,7 +2943,10 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 break;
             }
 
-            if (value == unsigned_long_long_max_value && errno == ERANGE)
+            /* a _BitInt literal (wb, uwb) can be wider than an unsigned long long, it is checked below */
+            const bool suffix_is_bitint = suffix[0] == 'W' || (suffix[0] == 'U' && suffix[1] == 'W');
+
+            if (value == unsigned_long_long_max_value && errno == ERANGE && !suffix_is_bitint)
             {
                 diagnostic(
                 C_ERROR_LITERAL_OVERFLOW,
@@ -2982,13 +2987,39 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                   smallest width that holds the value; the signed one keeps
                   one extra bit for the sign.
                 */
+                /* read again, the value can be wider than an unsigned long long */
+                const char* digits = buffer;
+                int base = 10;
+                switch (token->type)
+                {
+                    case TK_COMPILER_OCTAL_CONSTANT:
+                        digits = (buffer[1] == 'o' || buffer[1] == 'O') ? buffer + 2 : buffer + 1;
+                        base = 8;
+                        break;
+                    case TK_COMPILER_HEXADECIMAL_CONSTANT:
+                        digits = buffer + 2;
+                        base = 16;
+                        break;
+                    case TK_COMPILER_BINARY_CONSTANT:
+                        digits = buffer + 2;
+                        base = 2;
+                        break;
+                    default:
+                        break;
+                }
+
+                bool too_wide = false;
+                const struct wide_integer wide_value = wide_integer_from_digits(digits, base, &too_wide);
+
                 int width = 0;
-                unsigned long long v = value;
-                while (v != 0)
+                struct wide_integer v = wide_value;
+                while (!wide_integer_is_zero(v))
                 {
                     width++;
-                    v >>= 1;
+                    v = wide_integer_shr_u(v, 1);
                 }
+
+                const int maxwidth = target_bitint_maxwidth(&ctx->options.platform);
 
                 if (suffix_uwb)
                 {
@@ -2996,7 +3027,17 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     {
                         width = 1;
                     }
-                    p_expression_node->object = object_make_unsigned_bitint(width, value);
+
+                    if (too_wide || width > maxwidth)
+                    {
+                        diagnostic(C_ERROR_LITERAL_OVERFLOW,
+                                   ctx,
+                                   token,
+                                   NULL,
+                                   "integer literal is too large to be represented in an unsigned _BitInt of the supported width");
+                        width = maxwidth;
+                    }
+                    p_expression_node->object = object_make_unsigned_bitint(width, 0);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_BITINT;
                 }
                 else
@@ -3007,18 +3048,23 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                         width = 2;
                     }
 
-                    if (width > 64)
+                    if (too_wide || width > maxwidth)
                     {
                         diagnostic(C_ERROR_LITERAL_OVERFLOW,
                                    ctx,
                                    token,
                                    NULL,
                                    "integer literal is too large to be represented in a signed _BitInt of the supported width");
-                        width = 64;
+                        width = maxwidth;
                     }
-                    p_expression_node->object = object_make_signed_bitint(width, (long long)value);
+                    p_expression_node->object = object_make_signed_bitint(width, 0);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_BITINT;
                 }
+
+                /* the value fits in width bits (the sign bit is 0 for wb), unless it was reported above */
+                p_expression_node->object.value.host_wide_integer = suffix_uwb ?
+                    wide_integer_wrap_u(wide_value, width) :
+                    wide_integer_wrap_s(wide_value, width);
                 p_expression_node->object.type.bitint_width = width;
             }
             else if (suffix_none)

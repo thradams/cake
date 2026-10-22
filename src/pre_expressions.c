@@ -565,7 +565,8 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx, struct p
                 }
                 else
                 {
-                    ectx->value = (left_value / ectx->value);
+                    /* LLONG_MIN / -1 overflows, and the host division traps (x64); the wrapped value is used */
+                    ectx->value = (ectx->value == -1) ? (long long)(0ULL - (unsigned long long)left_value) : (left_value / ectx->value);
                 }
             }
             else if (op == '%')
@@ -577,7 +578,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx, struct p
                 }
                 else
                 {
-                    ectx->value = (left_value % ectx->value);
+                    ectx->value = (ectx->value == -1) ? 0 : (left_value % ectx->value); /* LLONG_MIN % -1 traps too */
                 }
             }
         }

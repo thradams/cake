@@ -2118,6 +2118,9 @@ enum object_type
     TYPE_SIGNED_LONG_LONG,
     TYPE_UNSIGNED_LONG_LONG,
 
+    TYPE_SIGNED_LONG_LONG_LONG,
+    TYPE_UNSIGNED_LONG_LONG_LONG,
+
     TYPE_FLOAT,
     TYPE_DOUBLE,
     TYPE_LONG_DOUBLE,
@@ -2202,6 +2205,10 @@ struct platform
     int long_long_n_bits;
     int long_long_alignment;
 
+    /* the rank above long long, never narrower than it; 128 bits is spelled __int128 */
+    int long_long_long_n_bits;
+    int long_long_long_alignment;
+
     int float_n_bits;
     int float_alignment;
 
@@ -2234,7 +2241,10 @@ void platform_default(_Out struct platform* p);
 bool platform_os_is(const struct platform* p_platform, const char* os);
 bool platform_arch_is(const struct platform* p_platform, const char* arch);
 
-int target_get_num_of_bits(const struct platform* target, enum object_type type);
+unsigned int target_get_num_of_bits(const struct platform* target, enum object_type type);
+
+/* the widest _BitInt(N): long long long when it is wider than 64 bits, else 64 */
+int target_bitint_maxwidth(const struct platform* target);
 long long target_signed_max(const struct platform* target, enum object_type type);
 long long target_signed_min(const struct platform* target, enum object_type type);
 unsigned long long target_unsigned_max(const struct platform* target, enum object_type type);
@@ -3032,6 +3042,7 @@ enum token_type
     TK_KEYWORD_MSVC__INT16,
     TK_KEYWORD_MSVC__INT32,
     TK_KEYWORD_MSVC__INT64,
+    TK_KEYWORD_GCC__INT128, /* alias of long long long when it has 128 bits */
 
     TK_KEYWORD_REGISTER,
     TK_KEYWORD_RESTRICT,
@@ -3835,6 +3846,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_MSVC__INT16:
     case TK_KEYWORD_MSVC__INT32:
     case TK_KEYWORD_MSVC__INT64:
+    case TK_KEYWORD_GCC__INT128:
 
     case TK_KEYWORD_REGISTER:
     case TK_KEYWORD_RESTRICT:
@@ -5315,7 +5327,7 @@ static void assert_func(int condition, const char* func, const char* file, int l
 #define assert(expression) assert_func(expression, __func__, __FILE__, __LINE__, #expression)
 
 
-#line 1774 "token.c"
+#line 1775 "token.c"
 
 void token_list_remove_get_test()
 {
@@ -14081,6 +14093,20 @@ int preprocessor_load_config(struct preprocessor_ctx* ctx)
         }
     }
 
+    /*
+        cake.json "diagnostics-color": boolean default for diagnostics.
+        false = no colors, true = colors.
+    */
+    const struct json_value* _Opt color = json_find_member(root, "diagnostics-color");
+    if (color != NULL && color->type == JSON_FALSE)
+    {
+        ctx->options.color_disabled = true;
+    }
+    else if (color != NULL && color->type == JSON_TRUE)
+    {
+        ctx->options.color_disabled = false;
+    }
+
     json_delete(root);
 
     return 0;
@@ -14156,7 +14182,11 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
     add_builtin_define(ctx, "#define __STDC_EMBED_NOT_FOUND__ 0 \n");
     add_builtin_define(ctx, "#define __STDC_EMBED_FOUND__ 1 \n");
     add_builtin_define(ctx, "#define __STDC_EMBED_EMPTY__ 2 \n");
-    add_builtin_define(ctx, "#define __BITINT_MAXWIDTH__  64 \n");
+    {
+        char bitint_maxwidth[100] = { 0 };
+        snprintf(bitint_maxwidth, sizeof bitint_maxwidth, "#define __BITINT_MAXWIDTH__  %d \n", target_bitint_maxwidth(target));
+        add_builtin_define(ctx, bitint_maxwidth);
+    }
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
@@ -14180,6 +14210,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
              "#define __CAKE_SIZEOF_INT__ %d\n"
              "#define __CAKE_SIZEOF_LONG__ %d\n"
              "#define __CAKE_SIZEOF_LONG_LONG__ %d\n"
+             "#define __CAKE_SIZEOF_LONG_LONG_LONG__ %d\n"
              "#define __CAKE_SIZEOF_POINTER__ %d\n"
              "#define __CAKE_SIZEOF_LONG_DOUBLE__ %d\n"
              "#define __CAKE_SIZEOF_WCHAR_T__ %d\n"
@@ -14191,6 +14222,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
              p_platform->int_n_bits / 8,
              p_platform->long_n_bits / 8,
              p_platform->long_long_n_bits / 8,
+             p_platform->long_long_long_n_bits / 8,
              p_platform->pointer_n_bits / 8,
              p_platform->long_double_n_bits / 8,
              target_get_num_of_bits(target, p_platform->wchar_t_type) / 8,
@@ -14388,6 +14420,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD_MSVC__INT16: return "TK_KEYWORD_MSVC__INT16";
         case TK_KEYWORD_MSVC__INT32: return "TK_KEYWORD_MSVC__INT32";
         case TK_KEYWORD_MSVC__INT64: return "TK_KEYWORD_MSVC__INT64";
+        case TK_KEYWORD_GCC__INT128: return "TK_KEYWORD_GCC__INT128";
 
         case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
         case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";
@@ -14618,6 +14651,7 @@ const char* get_diagnostic_friendly_token_name(enum token_type tk)
         case TK_KEYWORD_MSVC__INT16: return "__int16";
         case TK_KEYWORD_MSVC__INT32: return "__int32";
         case TK_KEYWORD_MSVC__INT64: return "__int64";
+        case TK_KEYWORD_GCC__INT128: return "__int128";
 
         case TK_KEYWORD_REGISTER: return "register";
         case TK_KEYWORD_RESTRICT: return "restrict";
@@ -18710,9 +18744,9 @@ static const char file_limits_h[] = {
 ,32,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,76,10
 ,32,32,32,32,35,100,101,102,105,110,101,32,85,76,76,79,78,71,95,87,73,68,84,72,32
 ,54,52,10,10,32,32,32,32,35,100,101,102,105,110,101,32,66,73,84,73,78,84,95,77,65
-,88,87,73,68,84,72,32,54,52,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99
-,108,117,100,101,95,110,101,120,116,32,60,108,105,109,105,116,115,46,104,62,10,35,101,110,100
-,105,102,10
+,88,87,73,68,84,72,32,95,95,66,73,84,73,78,84,95,77,65,88,87,73,68,84,72,95
+,95,10,10,35,101,108,115,101,10,32,32,32,32,35,105,110,99,108,117,100,101,95,110,101,120
+,116,32,60,108,105,109,105,116,115,46,104,62,10,35,101,110,100,105,102,10
 #line 726 "fs.c"
 , 0 };
 static const char file_locale_h[] = {
@@ -23603,6 +23637,722 @@ struct style_options style_options_microsoft(void)
 }
 
 
+#line 1 "wide_integer.c"
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
+#pragma safety enable
+
+
+
+#line 1 "wide_integer.h"
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
+//#pragma once
+
+
+#include <stdbool.h>
+#include <limits.h>
+
+/*
+ *  wide_integer: an integer with the double of the bits of an unsigned
+ *  long long of the host, made of two of them, so it works on hosts that
+ *  have nothing wider (msvc). cake keeps the constant value of every
+ *  integer in one (struct object::value.host_wide_integer), up to a long
+ *  long long.
+ *
+ *  struct wide_integer is only the bits, in two's complement. Like in the
+ *  hardware, the same bits are a signed or an unsigned value: the
+ *  operations where that matters have a _s and a _u version.
+ *
+ *  Shift counts are 0..WIDE_INTEGER_BITS - 1 and widths are 1..WIDE_INTEGER_BITS;
+ *  anything else is a caller error (asserted).
+ */
+
+#define WIDE_INTEGER_HALF_BITS ((int)(sizeof(unsigned long long) * CHAR_BIT))
+#define WIDE_INTEGER_BITS (2 * WIDE_INTEGER_HALF_BITS)
+
+struct wide_integer
+{
+    unsigned long long lo;
+    unsigned long long hi;
+};
+
+struct wide_integer wide_integer_from_signed(long long value);
+struct wide_integer wide_integer_from_unsigned(unsigned long long value);
+
+/*
+ *  The value of the digits of text in base (2, 8, 10 or 16), up to the
+ *  first character that is not one. *overflow tells it did not fit in
+ *  WIDE_INTEGER_BITS (the result is then the value modulo 2^WIDE_INTEGER_BITS).
+ */
+struct wide_integer wide_integer_from_digits(const char* text, int base, _Out bool* overflow);
+
+/* truncates toward zero; the value must fit in WIDE_INTEGER_BITS */
+struct wide_integer wide_integer_from_long_double(long double value);
+long double wide_integer_to_long_double_s(struct wide_integer a);
+long double wide_integer_to_long_double_u(struct wide_integer a);
+
+bool wide_integer_is_zero(struct wide_integer a);
+bool wide_integer_is_negative(struct wide_integer a);
+bool wide_integer_equal(struct wide_integer a, struct wide_integer b);
+
+/* -1, 0 or 1 */
+int wide_integer_compare_s(struct wide_integer a, struct wide_integer b);
+int wide_integer_compare_u(struct wide_integer a, struct wide_integer b);
+
+/* these wrap around modulo 2^WIDE_INTEGER_BITS */
+struct wide_integer wide_integer_add(struct wide_integer a, struct wide_integer b);
+struct wide_integer wide_integer_sub(struct wide_integer a, struct wide_integer b);
+struct wide_integer wide_integer_neg(struct wide_integer a);
+struct wide_integer wide_integer_mul(struct wide_integer a, struct wide_integer b);
+
+struct wide_integer wide_integer_not(struct wide_integer a);
+struct wide_integer wide_integer_and(struct wide_integer a, struct wide_integer b);
+struct wide_integer wide_integer_or(struct wide_integer a, struct wide_integer b);
+struct wide_integer wide_integer_xor(struct wide_integer a, struct wide_integer b);
+
+struct wide_integer wide_integer_shl(struct wide_integer a, int count);
+struct wide_integer wide_integer_shr_u(struct wide_integer a, int count); /* fills with 0 */
+struct wide_integer wide_integer_shr_s(struct wide_integer a, int count); /* fills with the sign bit */
+
+/*
+ *  Quotient truncated toward zero, remainder with the sign of the dividend
+ *  (C semantics). Return false, leaving *quotient and *remainder 0, when the
+ *  divisor is 0. The signed MIN / -1 wraps to MIN with remainder 0.
+ */
+bool wide_integer_divmod_s(struct wide_integer a, struct wide_integer b, _Out struct wide_integer* quotient, _Out struct wide_integer* remainder);
+bool wide_integer_divmod_u(struct wide_integer a, struct wide_integer b, _Out struct wide_integer* quotient, _Out struct wide_integer* remainder);
+
+/*
+ *  Keep the low 'width' bits. _u fills the bits above with 0, _s copies
+ *  bit width - 1 into them, so the result is the value as a 'width' bit
+ *  integer seen in WIDE_INTEGER_BITS.
+ */
+struct wide_integer wide_integer_wrap_u(struct wide_integer a, int width);
+struct wide_integer wide_integer_wrap_s(struct wide_integer a, int width);
+
+/*
+ *  Decimal text, NUL-terminated, returns its length. buffer must hold at
+ *  least WIDE_INTEGER_TO_STRING_MIN_SIZE bytes (the digits of 2^WIDE_INTEGER_BITS, a sign
+ *  and the NUL); a smaller size writes an empty string and returns 0.
+ */
+#define WIDE_INTEGER_TO_STRING_MIN_SIZE (WIDE_INTEGER_BITS * 302 / 1000 + 3)
+
+int wide_integer_to_string_s(struct wide_integer a, char* buffer, int size);
+int wide_integer_to_string_u(struct wide_integer a, char* buffer, int size);
+
+#line 10 "wide_integer.c"
+#include <assert.h>
+#include <string.h>
+
+/* 2^WIDE_INTEGER_HALF_BITS, the weight of hi */
+#define WIDE_INTEGER_HI_WEIGHT ((long double)ULLONG_MAX + 1.0L)
+
+/* 2^-WIDE_INTEGER_HALF_BITS; halving is exact, and needs no libm (ldexpl is not C89) */
+static long double wide_integer_hi_scale(void)
+{
+    long double scale = 1.0L;
+    for (int i = 0; i < WIDE_INTEGER_HALF_BITS; i++)
+        scale *= 0.5L;
+    return scale;
+}
+
+static const struct wide_integer wide_integer_zero = { 0, 0 };
+
+struct wide_integer wide_integer_from_signed(long long value)
+{
+    struct wide_integer r;
+    r.lo = (unsigned long long)value;
+    r.hi = value < 0 ? ULLONG_MAX : 0;
+    return r;
+}
+
+struct wide_integer wide_integer_from_unsigned(unsigned long long value)
+{
+    struct wide_integer r;
+    r.lo = value;
+    r.hi = 0;
+    return r;
+}
+
+struct wide_integer wide_integer_from_long_double(long double value)
+{
+    if (value < 0)
+    {
+        return wide_integer_neg(wide_integer_from_long_double(-value));
+    }
+
+    /* value / 2^WIDE_INTEGER_HALF_BITS, exact because it is a power of 2 */
+    struct wide_integer r;
+    r.hi = (unsigned long long)(value * wide_integer_hi_scale());
+    r.lo = (unsigned long long)(value - (long double)r.hi * WIDE_INTEGER_HI_WEIGHT);
+    return r;
+}
+
+long double wide_integer_to_long_double_u(struct wide_integer a)
+{
+    return (long double)a.hi * WIDE_INTEGER_HI_WEIGHT + (long double)a.lo;
+}
+
+long double wide_integer_to_long_double_s(struct wide_integer a)
+{
+    if (wide_integer_is_negative(a))
+    {
+        return -wide_integer_to_long_double_u(wide_integer_neg(a));
+    }
+    return wide_integer_to_long_double_u(a);
+}
+
+bool wide_integer_is_zero(struct wide_integer a)
+{
+    return a.lo == 0 && a.hi == 0;
+}
+
+bool wide_integer_is_negative(struct wide_integer a)
+{
+    return (a.hi >> (WIDE_INTEGER_HALF_BITS - 1)) != 0;
+}
+
+bool wide_integer_equal(struct wide_integer a, struct wide_integer b)
+{
+    return a.lo == b.lo && a.hi == b.hi;
+}
+
+int wide_integer_compare_u(struct wide_integer a, struct wide_integer b)
+{
+    if (a.hi != b.hi)
+        return a.hi < b.hi ? -1 : 1;
+    if (a.lo != b.lo)
+        return a.lo < b.lo ? -1 : 1;
+    return 0;
+}
+
+int wide_integer_compare_s(struct wide_integer a, struct wide_integer b)
+{
+    const bool a_negative = wide_integer_is_negative(a);
+    const bool b_negative = wide_integer_is_negative(b);
+
+    if (a_negative != b_negative)
+        return a_negative ? -1 : 1;
+
+    /* same sign: two's complement keeps the unsigned order */
+    return wide_integer_compare_u(a, b);
+}
+
+struct wide_integer wide_integer_add(struct wide_integer a, struct wide_integer b)
+{
+    struct wide_integer r;
+    r.lo = a.lo + b.lo;
+    r.hi = a.hi + b.hi + (r.lo < a.lo ? 1 : 0);
+    return r;
+}
+
+struct wide_integer wide_integer_sub(struct wide_integer a, struct wide_integer b)
+{
+    struct wide_integer r;
+    r.lo = a.lo - b.lo;
+    r.hi = a.hi - b.hi - (a.lo < b.lo ? 1 : 0);
+    return r;
+}
+
+struct wide_integer wide_integer_neg(struct wide_integer a)
+{
+    return wide_integer_sub(wide_integer_zero, a);
+}
+
+/* the full product of two unsigned long long, from their halves */
+static struct wide_integer wide_integer_mul_half(unsigned long long a, unsigned long long b)
+{
+    const int quarter = WIDE_INTEGER_HALF_BITS / 2;
+    const unsigned long long mask = ULLONG_MAX >> quarter;
+
+    const unsigned long long a_lo = a & mask;
+    const unsigned long long a_hi = a >> quarter;
+    const unsigned long long b_lo = b & mask;
+    const unsigned long long b_hi = b >> quarter;
+
+    const unsigned long long p0 = a_lo * b_lo;
+    const unsigned long long p1 = a_lo * b_hi;
+    const unsigned long long p2 = a_hi * b_lo;
+    const unsigned long long p3 = a_hi * b_hi;
+
+    /* the middle column, at most 3 * mask, cannot overflow */
+    const unsigned long long middle = (p0 >> quarter) + (p1 & mask) + (p2 & mask);
+
+    struct wide_integer r;
+    r.lo = (p0 & mask) | (middle << quarter);
+    r.hi = p3 + (p1 >> quarter) + (p2 >> quarter) + (middle >> quarter);
+    return r;
+}
+
+struct wide_integer wide_integer_mul(struct wide_integer a, struct wide_integer b)
+{
+    /* modulo 2^WIDE_INTEGER_BITS, the hi * hi part is shifted out */
+    struct wide_integer r = wide_integer_mul_half(a.lo, b.lo);
+    r.hi += a.lo * b.hi + a.hi * b.lo;
+    return r;
+}
+
+struct wide_integer wide_integer_not(struct wide_integer a)
+{
+    struct wide_integer r;
+    r.lo = ~a.lo;
+    r.hi = ~a.hi;
+    return r;
+}
+
+struct wide_integer wide_integer_and(struct wide_integer a, struct wide_integer b)
+{
+    struct wide_integer r;
+    r.lo = a.lo & b.lo;
+    r.hi = a.hi & b.hi;
+    return r;
+}
+
+struct wide_integer wide_integer_or(struct wide_integer a, struct wide_integer b)
+{
+    struct wide_integer r;
+    r.lo = a.lo | b.lo;
+    r.hi = a.hi | b.hi;
+    return r;
+}
+
+struct wide_integer wide_integer_xor(struct wide_integer a, struct wide_integer b)
+{
+    struct wide_integer r;
+    r.lo = a.lo ^ b.lo;
+    r.hi = a.hi ^ b.hi;
+    return r;
+}
+
+struct wide_integer wide_integer_shl(struct wide_integer a, int count)
+{
+    assert(count >= 0 && count < WIDE_INTEGER_BITS);
+
+    struct wide_integer r;
+    if (count == 0)
+    {
+        r = a;
+    }
+    else if (count >= WIDE_INTEGER_HALF_BITS)
+    {
+        r.hi = a.lo << (count - WIDE_INTEGER_HALF_BITS);
+        r.lo = 0;
+    }
+    else
+    {
+        r.hi = (a.hi << count) | (a.lo >> (WIDE_INTEGER_HALF_BITS - count));
+        r.lo = a.lo << count;
+    }
+    return r;
+}
+
+struct wide_integer wide_integer_shr_u(struct wide_integer a, int count)
+{
+    assert(count >= 0 && count < WIDE_INTEGER_BITS);
+
+    struct wide_integer r;
+    if (count == 0)
+    {
+        r = a;
+    }
+    else if (count >= WIDE_INTEGER_HALF_BITS)
+    {
+        r.lo = a.hi >> (count - WIDE_INTEGER_HALF_BITS);
+        r.hi = 0;
+    }
+    else
+    {
+        r.lo = (a.lo >> count) | (a.hi << (WIDE_INTEGER_HALF_BITS - count));
+        r.hi = a.hi >> count;
+    }
+    return r;
+}
+
+struct wide_integer wide_integer_shr_s(struct wide_integer a, int count)
+{
+    assert(count >= 0 && count < WIDE_INTEGER_BITS);
+
+    if (!wide_integer_is_negative(a))
+    {
+        return wide_integer_shr_u(a, count);
+    }
+
+    /* ~(~a >> n) shifts in ones, without relying on the host >> of a negative */
+    return wide_integer_not(wide_integer_shr_u(wide_integer_not(a), count));
+}
+
+bool wide_integer_divmod_u(struct wide_integer a, struct wide_integer b, _Out struct wide_integer* quotient, _Out struct wide_integer* remainder)
+{
+    *quotient = wide_integer_zero;
+    *remainder = wide_integer_zero;
+
+    if (wide_integer_is_zero(b))
+    {
+        return false;
+    }
+
+    /* restoring division, one bit of the dividend at a time */
+    struct wide_integer q = wide_integer_zero;
+    struct wide_integer r = wide_integer_zero;
+    for (int i = WIDE_INTEGER_BITS - 1; i >= 0; i--)
+    {
+        r = wide_integer_shl(r, 1);
+        r.lo |= wide_integer_shr_u(a, i).lo & 1;
+        if (wide_integer_compare_u(r, b) >= 0)
+        {
+            r = wide_integer_sub(r, b);
+            if (i >= WIDE_INTEGER_HALF_BITS)
+                q.hi |= 1ULL << (i - WIDE_INTEGER_HALF_BITS);
+            else
+                q.lo |= 1ULL << i;
+        }
+    }
+
+    *quotient = q;
+    *remainder = r;
+    return true;
+}
+
+bool wide_integer_divmod_s(struct wide_integer a, struct wide_integer b, _Out struct wide_integer* quotient, _Out struct wide_integer* remainder)
+{
+    const bool a_negative = wide_integer_is_negative(a);
+    const bool b_negative = wide_integer_is_negative(b);
+
+    /* MIN negates to itself, and as unsigned it is still 2^(WIDE_INTEGER_BITS - 1), so this works for it too */
+    if (!wide_integer_divmod_u(a_negative ? wide_integer_neg(a) : a,
+                        b_negative ? wide_integer_neg(b) : b,
+                        quotient,
+                        remainder))
+    {
+        return false;
+    }
+
+    if (a_negative != b_negative)
+        *quotient = wide_integer_neg(*quotient);
+
+    if (a_negative)
+        *remainder = wide_integer_neg(*remainder);
+
+    return true;
+}
+
+struct wide_integer wide_integer_wrap_u(struct wide_integer a, int width)
+{
+    assert(width >= 1 && width <= WIDE_INTEGER_BITS);
+
+    struct wide_integer r = a;
+    if (width < WIDE_INTEGER_HALF_BITS)
+    {
+        r.lo &= (1ULL << width) - 1;
+        r.hi = 0;
+    }
+    else if (width == WIDE_INTEGER_HALF_BITS)
+    {
+        r.hi = 0;
+    }
+    else if (width < WIDE_INTEGER_BITS)
+    {
+        r.hi &= (1ULL << (width - WIDE_INTEGER_HALF_BITS)) - 1;
+    }
+    return r;
+}
+
+struct wide_integer wide_integer_wrap_s(struct wide_integer a, int width)
+{
+    assert(width >= 1 && width <= WIDE_INTEGER_BITS);
+
+    if (width == WIDE_INTEGER_BITS)
+        return a;
+
+    struct wide_integer r = wide_integer_wrap_u(a, width);
+
+    /* bit width - 1 is the sign, copy it into the bits above */
+    const bool negative = wide_integer_shr_u(r, width - 1).lo & 1;
+    if (negative)
+    {
+        r = wide_integer_or(r, wide_integer_not(wide_integer_wrap_u(wide_integer_not(wide_integer_zero), width)));
+    }
+    return r;
+}
+
+/* the digits of a; buffer has room for them */
+static int wide_integer_write_digits(struct wide_integer a, char* buffer)
+{
+    /* digits come out from the last one */
+    char digits[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+    int count = 0;
+    const struct wide_integer ten = { 10, 0 };
+    do
+    {
+        struct wide_integer q = { 0 };
+        struct wide_integer r = { 0 };
+        wide_integer_divmod_u(a, ten, &q, &r);
+        digits[count++] = (char)('0' + r.lo);
+        a = q;
+    }
+    while (!wide_integer_is_zero(a));
+
+    for (int i = 0; i < count; i++)
+        buffer[i] = digits[count - 1 - i];
+    buffer[count] = '\0';
+    return count;
+}
+
+int wide_integer_to_string_u(struct wide_integer a, char* buffer, int size)
+{
+    if (size < WIDE_INTEGER_TO_STRING_MIN_SIZE)
+    {
+        if (size > 0)
+            buffer[0] = '\0';
+        return 0;
+    }
+    return wide_integer_write_digits(a, buffer);
+}
+
+int wide_integer_to_string_s(struct wide_integer a, char* buffer, int size)
+{
+    if (size < WIDE_INTEGER_TO_STRING_MIN_SIZE)
+    {
+        if (size > 0)
+            buffer[0] = '\0';
+        return 0;
+    }
+
+    if (wide_integer_is_negative(a))
+    {
+        /* MIN negates to itself, and as unsigned it prints right */
+        buffer[0] = '-';
+        return 1 + wide_integer_write_digits(wide_integer_neg(a), buffer + 1);
+    }
+    return wide_integer_write_digits(a, buffer);
+}
+
+static int wide_integer_digit_value(char c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
+}
+
+struct wide_integer wide_integer_from_digits(const char* text, int base, _Out bool* overflow)
+{
+    assert(base == 2 || base == 8 || base == 10 || base == 16);
+
+    *overflow = false;
+
+    const struct wide_integer wide_base = wide_integer_from_unsigned((unsigned long long)base);
+    struct wide_integer r = wide_integer_zero;
+
+    for (const char* p = text; *p; p++)
+    {
+        const int digit = wide_integer_digit_value(*p);
+        if (digit < 0 || digit >= base)
+            break;
+
+        /* r * base + digit did not fit when going back does not give r */
+        const struct wide_integer next =
+            wide_integer_add(wide_integer_mul(r, wide_base), wide_integer_from_unsigned((unsigned long long)digit));
+
+        struct wide_integer quotient = { 0 };
+        struct wide_integer remainder = { 0 };
+        wide_integer_divmod_u(next, wide_base, &quotient, &remainder);
+        if (!wide_integer_equal(quotient, r) || remainder.lo != (unsigned long long)digit)
+            *overflow = true;
+
+        r = next;
+    }
+    return r;
+}
+
+#ifdef TEST
+#include <stdio.h>
+
+
+static struct wide_integer wide_integer_make(unsigned long long hi, unsigned long long lo)
+{
+    struct wide_integer r;
+    r.hi = hi;
+    r.lo = lo;
+    return r;
+}
+
+/* the most negative value, only the sign bit */
+static struct wide_integer wide_integer_min(void)
+{
+    return wide_integer_make(1ULL << (WIDE_INTEGER_HALF_BITS - 1), 0);
+}
+
+void wide_integer_arithmetic_test(void)
+{
+    const struct wide_integer one = wide_integer_from_unsigned(1);
+    const struct wide_integer minus_one = wide_integer_from_signed(-1);
+    const struct wide_integer max_half = wide_integer_from_unsigned(ULLONG_MAX);
+
+    assert(wide_integer_equal(minus_one, wide_integer_make(ULLONG_MAX, ULLONG_MAX)));
+    assert(wide_integer_equal(wide_integer_add(max_half, one), wide_integer_make(1, 0)));
+    assert(wide_integer_equal(wide_integer_sub(wide_integer_make(1, 0), one), max_half));
+    assert(wide_integer_equal(wide_integer_add(minus_one, one), wide_integer_from_unsigned(0)));
+    assert(wide_integer_equal(wide_integer_neg(one), minus_one));
+
+    /* (2^h - 1)^2 = (2^h - 2) * 2^h + 1 */
+    assert(wide_integer_equal(wide_integer_mul(max_half, max_half), wide_integer_make(ULLONG_MAX - 1, 1)));
+    assert(wide_integer_equal(wide_integer_mul(wide_integer_from_signed(-3), wide_integer_from_signed(7)), wide_integer_from_signed(-21)));
+    assert(wide_integer_equal(wide_integer_mul(wide_integer_make(1, 0), wide_integer_make(1, 0)), wide_integer_from_unsigned(0))); /* 2^WIDE_INTEGER_BITS wraps */
+}
+
+void wide_integer_shift_test(void)
+{
+    const struct wide_integer one = wide_integer_from_unsigned(1);
+    const int n = WIDE_INTEGER_HALF_BITS + WIDE_INTEGER_HALF_BITS / 2;
+
+    assert(wide_integer_equal(wide_integer_shl(one, n), wide_integer_make(1ULL << (n - WIDE_INTEGER_HALF_BITS), 0)));
+    assert(wide_integer_equal(wide_integer_shl(one, WIDE_INTEGER_HALF_BITS), wide_integer_make(1, 0)));
+    assert(wide_integer_equal(wide_integer_shl(one, 0), one));
+    assert(wide_integer_equal(wide_integer_shr_u(wide_integer_make(1ULL << (n - WIDE_INTEGER_HALF_BITS), 0), n), one));
+    assert(wide_integer_equal(wide_integer_shr_u(wide_integer_from_signed(-1), WIDE_INTEGER_BITS - 1), one));
+    assert(wide_integer_equal(wide_integer_shr_s(wide_integer_from_signed(-1), WIDE_INTEGER_BITS - 1), wide_integer_from_signed(-1)));
+    assert(wide_integer_equal(wide_integer_shr_s(wide_integer_from_signed(-8), 1), wide_integer_from_signed(-4)));
+    assert(wide_integer_equal(wide_integer_shr_s(wide_integer_from_signed(-7), 1), wide_integer_from_signed(-4)));
+}
+
+void wide_integer_compare_test(void)
+{
+    assert(wide_integer_compare_s(wide_integer_from_signed(-1), wide_integer_from_signed(0)) < 0);
+    assert(wide_integer_compare_u(wide_integer_from_signed(-1), wide_integer_from_signed(0)) > 0);
+    assert(wide_integer_compare_s(wide_integer_min(), wide_integer_from_signed(-1)) < 0);
+    assert(wide_integer_compare_u(wide_integer_make(1, 0), wide_integer_make(0, ULLONG_MAX)) > 0);
+    assert(wide_integer_compare_s(wide_integer_from_signed(5), wide_integer_from_signed(5)) == 0);
+}
+
+void wide_integer_divmod_test(void)
+{
+    struct wide_integer q = { 0 };
+    struct wide_integer r = { 0 };
+
+    /* 2^n = 3 * q + r */
+    const struct wide_integer n = wide_integer_shl(wide_integer_from_unsigned(1), WIDE_INTEGER_BITS - 28);
+    assert(wide_integer_divmod_u(n, wide_integer_from_unsigned(3), &q, &r));
+    assert(wide_integer_compare_u(r, wide_integer_from_unsigned(3)) < 0);
+    assert(wide_integer_equal(wide_integer_add(wide_integer_mul(q, wide_integer_from_unsigned(3)), r), n));
+
+    assert(wide_integer_divmod_s(wide_integer_from_signed(-7), wide_integer_from_signed(2), &q, &r));
+    assert(wide_integer_equal(q, wide_integer_from_signed(-3)));
+    assert(wide_integer_equal(r, wide_integer_from_signed(-1)));
+
+    assert(wide_integer_divmod_s(wide_integer_from_signed(7), wide_integer_from_signed(-2), &q, &r));
+    assert(wide_integer_equal(q, wide_integer_from_signed(-3)));
+    assert(wide_integer_equal(r, wide_integer_from_signed(1)));
+
+    /* MIN / -1 wraps to MIN */
+    assert(wide_integer_divmod_s(wide_integer_min(), wide_integer_from_signed(-1), &q, &r));
+    assert(wide_integer_equal(q, wide_integer_min()));
+    assert(wide_integer_is_zero(r));
+
+    assert(!wide_integer_divmod_u(n, wide_integer_from_unsigned(0), &q, &r));
+    assert(wide_integer_is_zero(q) && wide_integer_is_zero(r));
+}
+
+void wide_integer_wrap_test(void)
+{
+    const int w = WIDE_INTEGER_HALF_BITS + 36;
+
+    assert(wide_integer_equal(wide_integer_wrap_s(wide_integer_from_unsigned(0xFF), 8), wide_integer_from_signed(-1)));
+    assert(wide_integer_equal(wide_integer_wrap_u(wide_integer_from_signed(-1), 8), wide_integer_from_unsigned(0xFF)));
+    assert(wide_integer_equal(wide_integer_wrap_u(wide_integer_from_signed(-1), w), wide_integer_make((1ULL << 36) - 1, ULLONG_MAX)));
+    assert(wide_integer_equal(wide_integer_wrap_s(wide_integer_make(1ULL << 35, 0), w), wide_integer_make(ULLONG_MAX << 35, 0)));
+    assert(wide_integer_equal(wide_integer_wrap_u(wide_integer_from_signed(-1), WIDE_INTEGER_HALF_BITS), wide_integer_from_unsigned(ULLONG_MAX)));
+    assert(wide_integer_equal(wide_integer_wrap_s(wide_integer_from_unsigned(ULLONG_MAX), WIDE_INTEGER_HALF_BITS), wide_integer_from_signed(-1)));
+    assert(wide_integer_equal(wide_integer_wrap_s(wide_integer_from_signed(-1), WIDE_INTEGER_BITS), wide_integer_from_signed(-1)));
+}
+
+void wide_integer_conversion_test(void)
+{
+    assert(wide_integer_equal(wide_integer_from_long_double(-3.9L), wide_integer_from_signed(-3)));
+    assert(wide_integer_equal(wide_integer_from_long_double(WIDE_INTEGER_HI_WEIGHT), wide_integer_make(1, 0)));
+    assert(wide_integer_to_long_double_u(wide_integer_make(1, 0)) == WIDE_INTEGER_HI_WEIGHT);
+    assert(wide_integer_to_long_double_s(wide_integer_from_signed(-5)) == -5.0L);
+
+    char buffer[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+
+    wide_integer_to_string_s(wide_integer_from_unsigned(0), buffer, sizeof buffer);
+    assert(strcmp(buffer, "0") == 0);
+
+    wide_integer_to_string_s(wide_integer_from_signed(-42), buffer, sizeof buffer);
+    assert(strcmp(buffer, "-42") == 0);
+
+    wide_integer_to_string_u(wide_integer_from_unsigned(1234567890), buffer, sizeof buffer);
+    assert(strcmp(buffer, "1234567890") == 0);
+
+#if ULLONG_MAX == 0xFFFFFFFFFFFFFFFF
+    wide_integer_to_string_u(wide_integer_from_signed(-1), buffer, sizeof buffer);
+    assert(strcmp(buffer, "340282366920938463463374607431768211455") == 0);
+
+    wide_integer_to_string_s(wide_integer_min(), buffer, sizeof buffer);
+    assert(strcmp(buffer, "-170141183460469231731687303715884105728") == 0);
+#endif
+
+    char small[8] = { 0 };
+    assert(wide_integer_to_string_u(wide_integer_from_unsigned(1), small, sizeof small) == 0);
+    assert(small[0] == '\0');
+}
+
+void wide_integer_from_digits_test(void)
+{
+    bool overflow = true;
+
+    assert(wide_integer_equal(wide_integer_from_digits("12345", 10, &overflow), wide_integer_from_unsigned(12345)));
+    assert(!overflow);
+
+    assert(wide_integer_equal(wide_integer_from_digits("ff", 16, &overflow), wide_integer_from_unsigned(255)));
+    assert(wide_integer_equal(wide_integer_from_digits("777", 8, &overflow), wide_integer_from_unsigned(511)));
+    assert(wide_integer_equal(wide_integer_from_digits("101", 2, &overflow), wide_integer_from_unsigned(5)));
+
+    /* stops at the first character that is not a digit of the base */
+    assert(wide_integer_equal(wide_integer_from_digits("12uwb", 10, &overflow), wide_integer_from_unsigned(12)));
+    assert(wide_integer_equal(wide_integer_from_digits("129", 8, &overflow), wide_integer_from_unsigned(10)));
+
+    /* 2^HALF_BITS, one past an unsigned long long */
+    char text[WIDE_INTEGER_BITS + 2] = { 0 };
+    text[0] = '1';
+    for (int i = 1; i <= WIDE_INTEGER_HALF_BITS; i++)
+        text[i] = '0';
+    assert(wide_integer_equal(wide_integer_from_digits(text, 2, &overflow), wide_integer_make(1, 0)));
+    assert(!overflow);
+
+    /* WIDE_INTEGER_BITS ones fit, one more does not */
+    for (int i = 0; i < WIDE_INTEGER_BITS; i++)
+        text[i] = '1';
+    text[WIDE_INTEGER_BITS] = '\0';
+    assert(wide_integer_equal(wide_integer_from_digits(text, 2, &overflow), wide_integer_from_signed(-1)));
+    assert(!overflow);
+
+    text[WIDE_INTEGER_BITS] = '1';
+    text[WIDE_INTEGER_BITS + 1] = '\0';
+    wide_integer_from_digits(text, 2, &overflow);
+    assert(overflow);
+
+#if ULLONG_MAX == 0xFFFFFFFFFFFFFFFF
+    assert(wide_integer_equal(wide_integer_from_digits("340282366920938463463374607431768211455", 10, &overflow), wide_integer_from_signed(-1)));
+    assert(!overflow);
+    wide_integer_from_digits("340282366920938463463374607431768211456", 10, &overflow);
+    assert(overflow);
+#endif
+}
+
+#endif
+
+
 #line 1 "object.c"
 /*
  *  This file is part of cake compiler
@@ -23727,6 +24477,9 @@ enum type_specifier_flags
 
     /* C23 _BitInt(N). The width N lives in type::bitint_width */
     TYPE_SPECIFIER_BITINT = 1 << 18,
+
+    /* long long long, the rank above long long (cake extension, __int128 is an alias) */
+    TYPE_SPECIFIER_LONG_LONG_LONG = 1 << 19,
 
 
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,
@@ -24132,6 +24885,7 @@ void type_remove_names(struct type* p_type);
 void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_flags  msvc_declspec_flags);
 
 #line 23 "object.h"
+
 #include <inttypes.h>
 struct parser_ctx;
 
@@ -24176,9 +24930,8 @@ struct object
 
     union
     {
-        signed long long  host_long_long;
-        unsigned long long  host_u_long_long;
-        long double host_long_double;
+        struct wide_integer host_wide_integer; /* 2x long long */        
+        long double host_long_double; /* */
     } value;
 
     /* the enclosing array or struct; set where the object is built in place (make_object), NULL in object_dup copies. flow follows it from an element pointer to the whole array */
@@ -24273,12 +25026,7 @@ int object_is_not_equal(const struct platform* target, const struct object* a, c
 
 
 //Overflow checks
-bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
 bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b);
-bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b);
-bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b);
 
 void object_default_initialization(struct object* p_object, bool is_constant);
 
@@ -25387,11 +26135,16 @@ struct declaration
         attribute-specifier-sequence declaration-specifiers init-declarator-list ;
         static_assert-declaration
         attribute-declaration
+
+        declaration-specifiers init-declarator-list _Opt pragma-declaration ; (cake)
+        attribute-specifier-sequence declaration-specifiers init-declarator-list pragma-declaration ; (cake)
+        pragma-declaration (cake)
     */
     struct attribute_specifier_sequence* _Owner _Opt p_attribute_specifier_sequence;
 
     struct static_assertion* _Owner _Opt static_assertion;
-    struct pragma_declaration* _Owner _Opt pragma_declaration;
+
+    struct pragma_declaration* _Owner _Opt pragma_declaration; /* can be alone or not */
 
 
     struct declaration_specifiers* _Owner _Opt  declaration_specifiers;
@@ -26681,7 +27434,7 @@ struct balanced_token_sequence
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx);
 void balanced_token_sequence_delete(_Dtor struct balanced_token_sequence* _Owner _Opt  p);
 
-bool first_of_type_name(const struct parser_ctx* ctx);
+bool first_of_type_name(struct parser_ctx* ctx);
 bool first_of_type_name_ahead(const struct parser_ctx* ctx);
 bool first_of_type_name_token(const struct parser_ctx* ctx /*only to typedef*/, struct token* p_token);
 
@@ -26762,6 +27515,7 @@ const struct direct_declarator* _Opt get_innermost_direct_declarator(const struc
 #include <math.h>
 
 
+
 bool object_type_is_unsigned_bitfield(enum object_type t)
 {
     return t >= TYPE_UNSIGNED_BITFIELD_1 && t <= TYPE_UNSIGNED_BITFIELD_128;
@@ -26817,31 +27571,31 @@ int object_type_bitint_width(enum object_type t)
 }
 
 /*
-  "bitsized" = bitfield or bit-precise integer. Both keep an N-bit value in
-  the host long long, so every value-level operation treats them alike; only
-  promotion and rank tell them apart.
+  "bitsized" = bitfield, bit-precise integer or long long long. All keep an
+  N-bit value in the host long long, so every value-level operation treats
+  them alike; only promotion and rank tell them apart. The width of
+  long long long comes from the target (target_get_num_of_bits).
 */
 static bool object_type_is_signed_bitsized(enum object_type t)
 {
-    return object_type_is_signed_bitfield(t) || object_type_is_signed_bitint(t);
+    return object_type_is_signed_bitfield(t) ||
+        object_type_is_signed_bitint(t) ||
+        t == TYPE_SIGNED_LONG_LONG_LONG;
 }
 
 static bool object_type_is_unsigned_bitsized(enum object_type t)
 {
-    return object_type_is_unsigned_bitfield(t) || object_type_is_unsigned_bitint(t);
-}
-
-static int object_type_bitsized_width(enum object_type t)
-{
-    if (object_type_is_bitint(t))
-    {
-        return object_type_bitint_width(t);
-    }
-    return object_type_bitfield_width(t);
+    return object_type_is_unsigned_bitfield(t) ||
+        object_type_is_unsigned_bitint(t) ||
+        t == TYPE_UNSIGNED_LONG_LONG_LONG;
 }
 
 static enum object_type bitfield_to_unsigned(enum object_type t)
 {
+    if (t == TYPE_SIGNED_LONG_LONG_LONG)
+    {
+        return TYPE_UNSIGNED_LONG_LONG_LONG;
+    }
     if (object_type_is_signed_bitfield(t))
     {
         int width = object_type_bitfield_width(t);
@@ -26855,53 +27609,6 @@ static enum object_type bitfield_to_unsigned(enum object_type t)
     return t; /* already unsigned */
 }
 
-/*
-  The arithmetic switches below list the standard integer types. A bit-precise
-  integer computes exactly like a long long that is wrapped to its own width
-  (target_get_num_of_bits already knows that width), so it is routed to the
-  long long case.
-*/
-static enum object_type object_type_switch_class(enum object_type t)
-{
-    if (object_type_is_signed_bitint(t))
-    {
-        return TYPE_SIGNED_LONG_LONG;
-    }
-    if (object_type_is_unsigned_bitint(t))
-    {
-        return TYPE_UNSIGNED_LONG_LONG;
-    }
-    return t;
-}
-
-static unsigned long long wrap_unsigned_integer(unsigned long long value, int bits)
-{
-    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
-
-    if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
-        return value;
-
-    const unsigned long long mask = (1ULL << bits) - 1;
-    return value & mask;
-}
-
-static long long wrap_signed_integer(long long value, int bits)
-{
-    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
-
-    if (bits == 0 || bits >= sizeof(unsigned long long) * CHAR_BIT)
-        return value;
-
-    // Mask to keep lower n bits
-    const unsigned long long mask = (1ULL << bits) - 1;
-    unsigned long long wrapped = (unsigned long long)value & mask;
-
-    // If the sign bit (bit n-1) is set, interpret as negative
-    if (wrapped & (1ULL << (bits - 1)))
-        return (long long)(wrapped | ~mask); // sign-extend
-
-    return (long long)wrapped;
-}
 
 static long double resize_floating_point(long double value, int bits)
 {
@@ -26932,6 +27639,7 @@ static enum object_type to_unsigned(enum object_type t)
     case TYPE_SIGNED_INT: return TYPE_UNSIGNED_INT;
     case TYPE_SIGNED_LONG:return TYPE_UNSIGNED_LONG;
     case TYPE_SIGNED_LONG_LONG: return TYPE_UNSIGNED_LONG_LONG;
+    case TYPE_SIGNED_LONG_LONG_LONG: return TYPE_UNSIGNED_LONG_LONG_LONG;
 
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
@@ -27007,16 +27715,68 @@ bool object_type_is_unsigned_integer(enum object_type type)
     return false;
 }
 
-NODISCARD
-bool unsigned_long_long_sub(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
+/*
+  Every integer keeps its value in value.host_wide_integer, wrapped to the width of
+  its type (target_get_num_of_bits): sign extended when the type is signed,
+  zero extended when it is unsigned. So one wide_integer computation followed by a
+  wrap gives the result of any integer type, up to long long long.
+*/
+static bool object_type_is_integer(enum object_type t)
 {
-    *result = 0;
+    return object_type_is_signed_integer(t) || object_type_is_unsigned_integer(t);
+}
 
-    if (a < b)
-        return false;
+/* wraps v to the width of the integer type of r and stores it */
+/*
+  v as an integer of 'width' bits. A width of 0 (a zeroed platform, as some
+  self tests use) keeps the value as it is.
+*/
+static struct wide_integer object_wrap_s(struct wide_integer v, int width)
+{
+    return width >= 1 && width <= WIDE_INTEGER_BITS ? wide_integer_wrap_s(v, width) : v;
+}
 
-    *result = a - b;
-    return true;
+static struct wide_integer object_wrap_u(struct wide_integer v, int width)
+{
+    return width >= 1 && width <= WIDE_INTEGER_BITS ? wide_integer_wrap_u(v, width) : v;
+}
+
+static void object_set_wide_integer(const struct platform* target, struct object* r, struct wide_integer v)
+{
+    const int width = (int)target_get_num_of_bits(target, r->value_type);
+    r->value.host_wide_integer = object_type_is_signed_integer(r->value_type) ? object_wrap_s(v, width) : object_wrap_u(v, width);
+}
+
+/* the value of a, any arithmetic type, as a wide_integer; a floating value is truncated */
+static struct wide_integer object_get_wide_integer(const struct object* a)
+{
+    if (object_type_is_integer(a->value_type))
+        return a->value.host_wide_integer;
+
+    return wide_integer_from_long_double(a->value.host_long_double);
+}
+
+/* the value of a, any arithmetic type, as a long double */
+static long double object_get_long_double(const struct object* a)
+{
+    if (object_type_is_signed_integer(a->value_type))
+        return wide_integer_to_long_double_s(a->value.host_wide_integer);
+
+    if (object_type_is_unsigned_integer(a->value_type))
+        return wide_integer_to_long_double_u(a->value.host_wide_integer);
+
+    return a->value.host_long_double;
+}
+
+/* the integer of the given width that has value */
+static struct wide_integer wide_integer_signed_of_width(long long value, int width)
+{
+    return object_wrap_s(wide_integer_from_signed(value), width);
+}
+
+static struct wide_integer wide_integer_unsigned_of_width(unsigned long long value, int width)
+{
+    return object_wrap_u(wide_integer_from_unsigned(value), width);
 }
 
 NODISCARD
@@ -27036,159 +27796,6 @@ bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long 
 
     if (a > ULLONG_MAX / b)
         return false;
-
-    *result = a * b;
-    return true;
-}
-
-NODISCARD
-bool unsigned_long_long_add(_Out unsigned long long* result, unsigned long long a, unsigned long long b)
-{
-    *result = 0;
-
-    if (a > ULLONG_MAX - b)
-    {
-        //a=2
-        //b=254
-        return false;
-    }
-    *result = a + b;
-    return true;
-}
-
-NODISCARD
-bool signed_long_long_sub(_Out signed long long* result, signed long long a, signed long long b)
-{
-    *result = 0;
-
-    if (a >= 0 && b >= 0)
-    {
-    }
-    else if (a < 0 && b < 0)
-    {
-    }
-    else
-    {
-        if (a < 0)
-        {
-            if (a < LLONG_MIN + b)
-            {
-                // (-128) - (-1)
-                return false;
-            }
-        }
-        else
-        {
-            if (b == LLONG_MIN)
-            {
-                // 0 - (-128)                
-                return false;
-            }
-
-            if (a > LLONG_MAX - (-b))
-            {
-                /*
-                *  1 - (-127)
-                *  2 - (-126)
-                */
-                return false;
-            }
-        }
-    }
-
-    *result = a - b;
-    return true;
-}
-
-NODISCARD
-bool signed_long_long_add(_Out signed long long* result, signed long long a, signed long long b)
-{
-    *result = 0;
-
-    if (a >= 0 && b >= 0)
-    {
-        /*both positive*/
-        if (a > LLONG_MAX - b)
-        {
-            //2+126
-            return false;
-        }
-    }
-    else if (a < 0 && b < 0)
-    {
-
-        if (a == LLONG_MIN || b == LLONG_MIN)
-        {
-            //(-128) + (-128)
-            return false;
-        }
-
-        if (a < LLONG_MIN - b)
-        {
-            // (-127) + (-127)
-            return false;
-        }
-    }
-    else
-    {
-        /*one positive another negative*/
-
-    }
-
-    *result = a + b;
-    return true;
-}
-
-NODISCARD
-bool signed_long_long_mul(_Out signed long long* result, signed long long a, signed long long b)
-{
-    *result = 0;
-
-    if (a > 0 && b > 0)
-    {
-        if (a > LLONG_MAX / b)
-        {
-            //2*64
-            return false;
-        }
-    }
-    else if (a < 0 && b < 0)
-    {
-
-        if (a == LLONG_MIN || b == LLONG_MIN)
-        {
-            //(-128)*(-128)
-            return false;
-        }
-
-        if (-a > LLONG_MAX / -b)
-        {
-            //-127 * -127
-            return false;
-        }
-    }
-    else
-    {
-        if (a == 0 || b == 0)
-        {
-            *result = 0;
-            return true;
-        }
-        if (b > 0)
-        {
-            if (a < LLONG_MIN / b)
-                //(-127) * (2)
-                return false;
-        }
-        else
-        {
-            if (b < LLONG_MIN / a)
-            {
-                //2*(-128)
-                return false;
-            }
-        }
-    }
 
     *result = a * b;
     return true;
@@ -27286,7 +27893,7 @@ struct object object_make_size_t(const struct platform* target, unsigned long lo
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = target->size_t_type;
     const int bits = target_get_num_of_bits(target, r.value_type);
-    r.value.host_u_long_long = wrap_unsigned_integer(value, bits);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, bits);
     return r;
 }
 
@@ -27296,7 +27903,7 @@ struct object object_make_nullptr(const struct platform* target)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = target->size_t_type;
     const int bits = target_get_num_of_bits(target, r.value_type);
-    r.value.host_u_long_long = wrap_unsigned_integer(0, bits);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(0, bits);
     return r;
 }
 
@@ -27308,11 +27915,11 @@ struct object object_make_char(const struct platform* target, int value)
 
     if (object_type_is_signed_integer(r.value_type))
     {
-        r.value.host_long_long = wrap_signed_integer(value, target->char_n_bits);
+        r.value.host_wide_integer = wide_integer_signed_of_width(value, target->char_n_bits);
     }
     else
     {
-        r.value.host_u_long_long = wrap_unsigned_integer(value, target->char_n_bits);
+        r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->char_n_bits);
     }
 
     return r;
@@ -27324,7 +27931,7 @@ struct object object_make_wchar_t(const struct platform* target, int value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = target->wchar_t_type;
     const int bits = target_get_num_of_bits(target, r.value_type);
-    r.value.host_u_long_long = wrap_unsigned_integer(value, bits);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, bits);
     return r;
 }
 
@@ -27335,11 +27942,11 @@ struct object object_make_bool(const struct platform* target, bool value)
     r.value_type = target->bool_type;
     if (object_type_is_signed_integer(r.value_type))
     {
-        r.value.host_long_long = wrap_signed_integer(value, target->bool_n_bits);
+        r.value.host_wide_integer = wide_integer_signed_of_width(value, target->bool_n_bits);
     }
     else
     {
-        r.value.host_u_long_long = wrap_unsigned_integer(value, target->bool_n_bits);
+        r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->bool_n_bits);
     }
     return r;
 }
@@ -27350,47 +27957,37 @@ int object_to_str(const struct object* a, int n, char str[ /*n*/])
 
     a = object_get_referenced(a);
 
-    if (object_type_is_signed_bitsized(a->value_type))
+    if (object_type_is_integer(a->value_type))
     {
-        snprintf(str, n, "%lld", a->value.host_long_long);
-        return 0;
-    }
-    if (object_type_is_unsigned_bitsized(a->value_type))
-    {
-        snprintf(str, n, "%llu", a->value.host_u_long_long);
+        char digits[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+        if (object_type_is_signed_integer(a->value_type))
+            wide_integer_to_string_s(a->value.host_wide_integer, digits, sizeof digits);
+        else
+            wide_integer_to_string_u(a->value.host_wide_integer, digits, sizeof digits);
+
+        /* the suffix of the standard types; long long long is written like long long */
+        const char* suffix = "";
+        switch (a->value_type)
+        {
+        case TYPE_SIGNED_LONG: suffix = "L"; break;
+        case TYPE_SIGNED_LONG_LONG: suffix = "LL"; break;
+        case TYPE_SIGNED_LONG_LONG_LONG: suffix = "LL"; break;
+        case TYPE_UNSIGNED_CHAR: suffix = "U"; break;
+        case TYPE_UNSIGNED_SHORT: suffix = "U"; break;
+        case TYPE_UNSIGNED_INT: suffix = "U"; break;
+        case TYPE_UNSIGNED_LONG: suffix = "UL"; break;
+        case TYPE_UNSIGNED_LONG_LONG: suffix = "ULL"; break;
+        case TYPE_UNSIGNED_LONG_LONG_LONG: suffix = "ULL"; break;
+        default:
+            break;
+        }
+
+        snprintf(str, n, "%s%s", digits, suffix);
         return 0;
     }
 
     switch (a->value_type)
     {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-        snprintf(str, n, "%lld", a->value.host_long_long);
-        break;
-
-    case TYPE_SIGNED_LONG:
-        snprintf(str, n, "%lldL", a->value.host_long_long);
-        break;
-
-    case TYPE_SIGNED_LONG_LONG:
-        snprintf(str, n, "%lldLL", a->value.host_long_long);
-        break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-        snprintf(str, n, "%lluU", a->value.host_u_long_long);
-        break;
-
-    case TYPE_UNSIGNED_LONG:
-        snprintf(str, n, "%lluUL", a->value.host_u_long_long);
-        break;
-
-    case TYPE_UNSIGNED_LONG_LONG:
-        snprintf(str, n, "%lluULL", a->value.host_u_long_long);
-        break;
-
     case TYPE_FLOAT:
         snprintf(str, n, "%Lff", a->value.host_long_double);
         break;
@@ -27413,37 +28010,10 @@ bool object_is_true(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    if (object_type_is_signed_bitsized(a->value_type))
-        return a->value.host_long_long != 0;
-    if (object_type_is_unsigned_bitsized(a->value_type))
-        return a->value.host_u_long_long != 0;
+    if (object_type_is_integer(a->value_type))
+        return !wide_integer_is_zero(a->value.host_wide_integer);
 
-    switch (a->value_type)
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-        return a->value.host_long_long;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-        return a->value.host_u_long_long;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        return a->value.host_long_double;
-
-    default:
-        break;
-    }
-    assert(0);
-    return 0;
+    return a->value.host_long_double != 0;
 }
 
 struct object object_make_signed_char(signed char value)
@@ -27451,60 +28021,25 @@ struct object object_make_signed_char(signed char value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_CHAR;
-    r.value.host_long_long = wrap_signed_integer(value, 8);
+    r.value.host_wide_integer = wide_integer_signed_of_width(value, 8);
     return r;
 }
 
 bool object_increment_value(const struct platform* target, struct object* a)
 {
-    if (object_type_is_signed_bitsized(a->value_type))
+    if (object_type_is_integer(a->value_type))
     {
-        int w = object_type_bitsized_width(a->value_type);
-        long long prev = a->value.host_long_long;
-        a->value.host_long_long = wrap_signed_integer(a->value.host_long_long + 1, w);
-        return prev > a->value.host_long_long;
-    }
-    if (object_type_is_unsigned_bitsized(a->value_type))
-    {
-        int w = object_type_bitsized_width(a->value_type);
-        unsigned long long prev = a->value.host_u_long_long;
-        a->value.host_u_long_long = wrap_unsigned_integer(a->value.host_u_long_long + 1, w);
-        return prev > a->value.host_u_long_long;
+        const struct wide_integer prev = a->value.host_wide_integer;
+        object_set_wide_integer(target, a, wide_integer_add(prev, wide_integer_from_unsigned(1)));
+
+        /* true when it wrapped around */
+        return object_type_is_signed_integer(a->value_type) ?
+            wide_integer_compare_s(prev, a->value.host_wide_integer) > 0 :
+            wide_integer_compare_u(prev, a->value.host_wide_integer) > 0;
     }
 
-    switch (a->value_type)
-    {
-
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-        ;
-        long long llprev = a->value.host_long_long;
-        a->value.host_long_long = wrap_signed_integer(a->value.host_long_long + 1, target_get_num_of_bits(target, a->value_type));
-        return llprev > a->value.host_long_long;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-        ;
-        unsigned long long ullprev = a->value.host_u_long_long;
-        a->value.host_u_long_long = wrap_unsigned_integer(a->value.host_u_long_long + 1, target_get_num_of_bits(target, a->value_type));
-        return ullprev > a->value.host_u_long_long;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        a->value.host_long_double++;
-        a->value.host_long_double = resize_floating_point(a->value.host_long_double, target_get_num_of_bits(target, a->value_type));
-        return false;
-
-    default:
-        break;
-    }
+    a->value.host_long_double++;
+    a->value.host_long_double = resize_floating_point(a->value.host_long_double, target_get_num_of_bits(target, a->value_type));
     return false;
 }
 
@@ -27513,7 +28048,7 @@ struct object object_make_unsigned_char(const struct platform* target, unsigned 
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_CHAR;
-    r.value.host_u_long_long = wrap_unsigned_integer(value, target->char_n_bits);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->char_n_bits);
 
     return r;
 }
@@ -27523,7 +28058,7 @@ struct object object_make_signed_short(signed short value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_SHORT;
-    r.value.host_long_long = wrap_signed_integer(value, 16);
+    r.value.host_wide_integer = wide_integer_signed_of_width(value, 16);
 
     return r;
 }
@@ -27533,7 +28068,7 @@ struct object object_make_uint8(const struct platform* target, uint8_t value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = to_unsigned(target->int8_type);
-    r.value.host_u_long_long = wrap_unsigned_integer(value, 8);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, 8);
     return r;
 }
 struct object object_make_uint16(const struct platform* target, uint16_t value)
@@ -27541,7 +28076,7 @@ struct object object_make_uint16(const struct platform* target, uint16_t value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = to_unsigned(target->int16_type);
-    r.value.host_u_long_long = wrap_unsigned_integer(value, 16);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, 16);
     return r;
 }
 struct object object_make_uint32(const struct platform* target, uint32_t value)
@@ -27549,7 +28084,7 @@ struct object object_make_uint32(const struct platform* target, uint32_t value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = to_unsigned(target->int32_type);
-    r.value.host_u_long_long = wrap_unsigned_integer(value, 32);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, 32);
     return r;
 }
 
@@ -27558,7 +28093,7 @@ struct object object_make_signed_int(const struct platform* target, long long va
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_INT;
-    r.value.host_long_long = wrap_signed_integer(value, target->int_n_bits);
+    r.value.host_wide_integer = wide_integer_signed_of_width(value, target->int_n_bits);
     return r;
 }
 
@@ -27567,7 +28102,7 @@ struct object object_make_unsigned_int(const struct platform* target, unsigned l
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_INT;
-    r.value.host_u_long_long = wrap_unsigned_integer(value, target->int_n_bits);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->int_n_bits);
     return r;
 }
 
@@ -27576,7 +28111,7 @@ struct object object_make_signed_long(const struct platform* target, signed long
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG;
-    r.value.host_long_long = wrap_signed_integer(value, target->long_n_bits);
+    r.value.host_wide_integer = wide_integer_signed_of_width(value, target->long_n_bits);
     return r;
 }
 
@@ -27585,7 +28120,7 @@ struct object object_make_unsigned_long(const struct platform* target, unsigned 
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG;
-    r.value.host_u_long_long = wrap_unsigned_integer(value, target->long_n_bits);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->long_n_bits);
     return r;
 }
 
@@ -27595,7 +28130,7 @@ struct object object_make_signed_long_long(const struct platform* target, signed
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG_LONG;
 
-    r.value.host_long_long = wrap_signed_integer(value, target->long_long_n_bits);
+    r.value.host_wide_integer = wide_integer_signed_of_width(value, target->long_long_n_bits);
     return r;
 }
 
@@ -27603,44 +28138,18 @@ signed long long object_to_signed_long_long(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    if (object_type_is_signed_bitsized(a->value_type))
-        return a->value.host_long_long;
-    if (object_type_is_unsigned_bitsized(a->value_type))
-        return (signed long long)a->value.host_u_long_long;
+    /* the low half; a value wider than a long long is truncated */
+    if (object_type_is_integer(a->value_type))
+        return (signed long long)a->value.host_wide_integer.lo;
 
-    switch (a->value_type)
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-        return a->value.host_long_long;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-        return a->value.host_u_long_long;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        return (long long)a->value.host_long_double;
-
-    default:
-        break;
-    }
-    assert(0);
-    return 0;
+    return (long long)a->value.host_long_double;
 }
 struct object object_make_unsigned_long_long( unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
-    r.value.host_u_long_long = value;
+    r.value.host_wide_integer = wide_integer_from_unsigned(value);
     return r;
 }
 
@@ -27648,37 +28157,11 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    if (object_type_is_signed_bitsized(a->value_type))
-        return (unsigned long long)a->value.host_long_long;
-    if (object_type_is_unsigned_bitsized(a->value_type))
-        return a->value.host_u_long_long;
+    /* the low half; a value wider than a long long is truncated */
+    if (object_type_is_integer(a->value_type))
+        return a->value.host_wide_integer.lo;
 
-    switch (a->value_type)
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-        return a->value.host_long_long;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-        return a->value.host_u_long_long;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        return (unsigned long long) a->value.host_long_double;
-
-    default:
-        break;
-    }
-    assert(0);
-    return 0;
+    return (unsigned long long) a->value.host_long_double;
 }
 
 struct object object_make_float(const struct platform* target, long double value)
@@ -27714,7 +28197,7 @@ struct object object_make_signed_bitfield(int width, long long value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_SIGNED_BITFIELD_1 + width - 1);
-    r.value.host_long_long = wrap_signed_integer(value, width);
+    r.value.host_wide_integer = wide_integer_signed_of_width(value, width);
     return r;
 }
 
@@ -27724,27 +28207,27 @@ struct object object_make_unsigned_bitfield(int width, unsigned long long value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_UNSIGNED_BITFIELD_1 + width - 1);
-    r.value.host_u_long_long = wrap_unsigned_integer(value, width);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, width);
     return r;
 }
 
 struct object object_make_signed_bitint(int width, long long value)
 {
-    assert(width >= 2 && width <= 64);
+    assert(width >= 2 && width <= WIDE_INTEGER_BITS);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_SIGNED_BITINT_1 + width - 1);
-    r.value.host_long_long = wrap_signed_integer(value, width);
+    r.value.host_wide_integer = wide_integer_signed_of_width(value, width);
     return r;
 }
 
 struct object object_make_unsigned_bitint(int width, unsigned long long value)
 {
-    assert(width >= 1 && width <= 64);
+    assert(width >= 1 && width <= WIDE_INTEGER_BITS);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_UNSIGNED_BITINT_1 + width - 1);
-    r.value.host_u_long_long = wrap_unsigned_integer(value, width);
+    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, width);
     return r;
 }
 
@@ -27755,7 +28238,7 @@ struct object object_make_pointer(struct object* object)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_EQUAL;
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
-    r.value.host_u_long_long = (uint64_t)object;
+    r.value.host_wide_integer = wide_integer_from_unsigned((uint64_t)object);
 
     return r;
 }
@@ -27767,7 +28250,7 @@ struct object object_make_reference(struct object* object)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_EQUAL;
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
-    r.value.host_u_long_long = (uint64_t)object;
+    r.value.host_wide_integer = wide_integer_from_unsigned((uint64_t)object);
     r.p_ref = object;
     return r;
 }
@@ -27780,101 +28263,19 @@ struct object object_cast(const struct platform* target, enum object_type dest_t
     if (v->value_type == dest_type)
         return object_dup(v);
 
-    const enum object_type source_type = v->value_type;
-
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = dest_type; /*dest type*/
 
-    const int dest_n_bits = target_get_num_of_bits(target, dest_type);
-
-    if (object_type_is_signed_integer(source_type))
+    if (object_type_is_integer(dest_type))
     {
-        if (object_type_is_signed_integer(dest_type))
-        {
-            r.value.host_long_long = wrap_signed_integer(v->value.host_long_long, dest_n_bits);
-        }
-        else if (object_type_is_unsigned_integer(dest_type))
-        {
-            r.value.host_u_long_long = wrap_unsigned_integer(v->value.host_long_long, dest_n_bits);
-        }
-        else
-        {
-            r.value.host_long_double = resize_floating_point((long double)v->value.host_long_long, dest_n_bits);
-        }
-        return r;
+        /* the value wrapped to the destination; a floating one is truncated first */
+        object_set_wide_integer(target, &r, object_get_wide_integer(v));
     }
-
-    if (object_type_is_unsigned_integer(source_type))
+    else
     {
-        if (object_type_is_signed_integer(dest_type))
-        {
-            r.value.host_long_long = wrap_signed_integer(v->value.host_u_long_long, dest_n_bits);
-        }
-        else if (object_type_is_unsigned_integer(dest_type))
-        {
-            r.value.host_u_long_long = wrap_unsigned_integer(v->value.host_u_long_long, dest_n_bits);
-        }
-        else
-        {
-            r.value.host_long_double = resize_floating_point((long double)v->value.host_u_long_long, dest_n_bits);
-        }
-        return r;
+        r.value.host_long_double = resize_floating_point(object_get_long_double(v), target_get_num_of_bits(target, dest_type));
     }
-
-    if (source_type == TYPE_FLOAT)
-    {
-        if (object_type_is_signed_integer(dest_type))
-        {
-            r.value.host_long_long = wrap_signed_integer((long long)v->value.host_long_double, dest_n_bits);
-        }
-        else if (object_type_is_unsigned_integer(dest_type))
-        {
-            r.value.host_u_long_long = wrap_unsigned_integer((unsigned long long) v->value.host_long_double, dest_n_bits);
-        }
-        else
-        {
-            r.value.host_long_double = resize_floating_point(v->value.host_long_double, dest_n_bits);
-        }
-        return r;
-    }
-
-    if (source_type == TYPE_DOUBLE)
-    {
-        if (object_type_is_signed_integer(dest_type))
-        {
-            r.value.host_long_long = wrap_signed_integer((long long)v->value.host_long_double, dest_n_bits);
-        }
-        else if (object_type_is_unsigned_integer(dest_type))
-        {
-            r.value.host_u_long_long = wrap_unsigned_integer((unsigned long long)v->value.host_long_double, dest_n_bits);
-        }
-        else
-        {
-            r.value.host_long_double = resize_floating_point(v->value.host_long_double, dest_n_bits);
-        }
-        return r;
-    }
-
-    if (source_type == TYPE_LONG_DOUBLE)
-    {
-        if (object_type_is_signed_integer(dest_type))
-        {
-            r.value.host_long_long = wrap_signed_integer((long long)v->value.host_long_double, dest_n_bits);
-        }
-        else if (object_type_is_unsigned_integer(dest_type))
-        {
-            r.value.host_u_long_long = wrap_unsigned_integer((unsigned long long)v->value.host_long_double, dest_n_bits);
-        }
-        else
-        {
-            r.value.host_long_double = v->value.host_long_double;
-            r.value.host_long_double = resize_floating_point(v->value.host_long_double, dest_n_bits);
-        }
-        return r;
-    }
-
-    assert(false);
     return r;
 }
 
@@ -27886,7 +28287,8 @@ void object_default_initialization(struct object* p_object, bool is_constant)
             p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
         else
             p_object->state = CONSTANT_VALUE_EQUAL;
-        p_object->value.host_u_long_long = 0;
+        p_object->value.host_wide_integer.lo = 0;
+        p_object->value.host_wide_integer.hi = 0;
     }
 
     if (type_is_union(&p_object->type))
@@ -27949,6 +28351,10 @@ static int get_rank(enum object_type t)
     if (object_type_is_bitint(t))
     {
         const int width = object_type_bitint_width(t);
+        if (width > 64)
+        {
+            return 90 - 10 + width / 16; /* between long long and long long long */
+        }
         if (width > 32)
         {
             return 80 - 10 + width / 16; /* between long and long long */
@@ -27964,7 +28370,12 @@ static int get_rank(enum object_type t)
         return 20 - 10 + width / 16; /* below char */
     }
 
-    if (t == TYPE_SIGNED_LONG_LONG ||
+    if (t == TYPE_SIGNED_LONG_LONG_LONG ||
+        t == TYPE_UNSIGNED_LONG_LONG_LONG)
+    {
+        return 90;
+    }
+    else if (t == TYPE_SIGNED_LONG_LONG ||
         t == TYPE_UNSIGNED_LONG_LONG)
     {
         return 80;
@@ -28061,37 +28472,10 @@ bool object_is_zero(const struct object* p_object)
     if (!object_has_constant_value(p_object))
         return false;
 
-    if (object_type_is_signed_bitsized(p_object->value_type))
-        return p_object->value.host_long_long == 0;
-    if (object_type_is_unsigned_bitsized(p_object->value_type))
-        return p_object->value.host_u_long_long == 0;
+    if (object_type_is_integer(p_object->value_type))
+        return wide_integer_is_zero(p_object->value.host_wide_integer);
 
-    switch (p_object->value_type)
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-        return p_object->value.host_long_long == 0;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-        return p_object->value.host_u_long_long == 0;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        return p_object->value.host_long_double == 0.0;
-
-    default:
-        break;
-    }
-    assert(0);
-    return 0;
+    return p_object->value.host_long_double == 0.0;
 }
 
 bool object_is_one(const struct object* p_object)
@@ -28101,37 +28485,10 @@ bool object_is_one(const struct object* p_object)
     if (!object_has_constant_value(p_object))
         return false;
 
-    if (object_type_is_signed_bitsized(p_object->value_type))
-        return p_object->value.host_long_long == 1;
-    if (object_type_is_unsigned_bitsized(p_object->value_type))
-        return p_object->value.host_u_long_long == 1;
+    if (object_type_is_integer(p_object->value_type))
+        return wide_integer_equal(p_object->value.host_wide_integer, wide_integer_from_unsigned(1));
 
-    switch (p_object->value_type)
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-        return p_object->value.host_long_long == 1;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-        return p_object->value.host_u_long_long == 1;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        return p_object->value.host_long_double == 1.0;
-
-    default:
-        break;
-    }
-    assert(0);
-    return 0;
+    return p_object->value.host_long_double == 1.0;
 }
 
 bool object_is_derived(const struct object* p_object)
@@ -28237,31 +28594,21 @@ int object_set(
                 */
                 const int dest_n_bits = target_get_num_of_bits(&ctx->options.platform, to->value_type);
                 const bool dest_is_signed = object_type_is_signed_integer(to->value_type);
+                const struct wide_integer v = from->value.host_wide_integer;
 
-                const long long dest_min =
-                    !dest_is_signed ? 0 :
-                    dest_n_bits >= 64 ? LLONG_MIN : -(1LL << (dest_n_bits - 1));
+                /* the top bit of an unsigned value of the full wide_integer width is not a sign */
+                const bool v_is_negative = object_type_is_signed_integer(from->value_type) && wide_integer_is_negative(v);
+                const bool v_uses_top_bit = !object_type_is_signed_integer(from->value_type) && wide_integer_is_negative(v);
 
-                const unsigned long long dest_max =
-                    type_is_bool(&to->type) ? 1 :
-                    dest_n_bits >= 64 ?
-                        (dest_is_signed ? (unsigned long long)LLONG_MAX : ~0ULL) :
-                        (dest_is_signed ? (1ULL << (dest_n_bits - 1)) - 1 : (1ULL << dest_n_bits) - 1);
-
-                if (object_type_is_signed_integer(from->value_type))
-                {
-                    const signed long long v = object_to_signed_long_long(from);
-
-                    if (v < dest_min || (v > 0 && (unsigned long long)v > dest_max))
-                        representable = false;
-                }
+                if (type_is_bool(&to->type))
+                    representable = !v_is_negative && wide_integer_compare_u(v, wide_integer_from_unsigned(1)) <= 0;
+                else if (v_is_negative)
+                    representable = dest_is_signed && wide_integer_equal(object_wrap_s(v, dest_n_bits), v);
+                else if (v_uses_top_bit)
+                    representable = !dest_is_signed && dest_n_bits == WIDE_INTEGER_BITS;
                 else
-                {
-                    const unsigned long long v = object_to_unsigned_long_long(from);
-
-                    if (v > dest_max)
-                        representable = false;
-                }
+                    /* v is in the range when wrapping it to the destination keeps it */
+                    representable = wide_integer_equal(dest_is_signed ? object_wrap_s(v, dest_n_bits) : object_wrap_u(v, dest_n_bits), v);
 
                 if (!representable && p_init_expression)
                 {
@@ -28348,20 +28695,22 @@ int object_set(
                 const int dest_n_bits = target_get_num_of_bits(&ctx->options.platform, to->value_type);
                 const bool dest_is_signed = object_type_is_signed_integer(to->value_type);
 
-                const long double dest_min =
-                    !dest_is_signed ? 0.0L :
-                    dest_n_bits >= 64 ? (long double)LLONG_MIN : -(long double)(1ULL << (dest_n_bits - 1));
+                /* 2^(n - 1) or 2^n, the first value out of the range */
+                long double limit = 1.0L;
+                for (int i = 0; i < (dest_is_signed ? dest_n_bits - 1 : dest_n_bits); i++)
+                    limit *= 2.0L;
 
-                const long double dest_max =
-                    type_is_bool(&to->type) ? 1.0L :
-                    dest_n_bits >= 64 ?
-                        (dest_is_signed ? (long double)LLONG_MAX : (long double)ULLONG_MAX) :
-                        (long double)((dest_is_signed ? (1ULL << (dest_n_bits - 1)) : (1ULL << dest_n_bits)) - 1);
+                const bool in_range =
+                    type_is_bool(&to->type) ? (v >= 0.0L && v <= 1.0L) :
+                    dest_is_signed ? (v >= -limit && v < limit) :
+                    (v >= 0.0L && v < limit);
 
-                /* range is checked before the cast, so the cast is defined;
-                   the cast truncates toward zero (avoids truncl/libm, not C89) */
-                if (isnan(v) || v < dest_min || v > dest_max ||
-                    (dest_is_signed ? (long double)(long long)v : (long double)(unsigned long long)v) != v)
+                /* range is checked before the conversion, so it is defined;
+                   it truncates toward zero (avoids truncl/libm, not C89) */
+                if (isnan(v) || !in_range ||
+                    (dest_is_signed ?
+                        wide_integer_to_long_double_s(wide_integer_from_long_double(v)) :
+                        wide_integer_to_long_double_u(wide_integer_from_long_double(v))) != v)
                 {
                     char value_buf[64] = { 0 };
                     snprintf(value_buf, sizeof value_buf, "%.17g", (double)v);
@@ -28586,22 +28935,22 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
             {
             case MAKE_STATE_ZERO_CONSTANT:
                 p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
-                p_object->value.host_long_long = 0;
+                p_object->value.host_wide_integer = wide_integer_from_signed(0);
                 break;
 
             case MAKE_STATE_ZERO:
                 p_object->state = CONSTANT_VALUE_EQUAL;
-                p_object->value.host_long_long = 0;
+                p_object->value.host_wide_integer = wide_integer_from_signed(0);
                 break;
 
             case MAKE_STATE_UNITIALIZED:
                 p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
-                p_object->value.host_long_long = -1;
+                p_object->value.host_wide_integer = wide_integer_from_signed(-1);
                 break;
             case MAKE_STATE_ANY:
             case MAKE_STATE_ANY_LAZY_ARRAYS:
                 p_object->state = CONSTANT_VALUE_STATE_ANY;
-                p_object->value.host_long_long = -1;
+                p_object->value.host_wide_integer = wide_integer_from_signed(-1);
                 break;
             }
 
@@ -28832,6 +29181,9 @@ enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
     case TYPE_SIGNED_LONG_LONG: return TYPE_SPECIFIER_LONG_LONG;
     case TYPE_UNSIGNED_LONG_LONG: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
 
+    case TYPE_SIGNED_LONG_LONG_LONG: return TYPE_SPECIFIER_LONG_LONG_LONG;
+    case TYPE_UNSIGNED_LONG_LONG_LONG: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG;
+
     case TYPE_FLOAT: return TYPE_SPECIFIER_FLOAT;
     case TYPE_DOUBLE: return TYPE_SPECIFIER_DOUBLE;
     case TYPE_LONG_DOUBLE: return TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
@@ -28875,6 +29227,8 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
             return TYPE_UNSIGNED_SHORT;
 
+        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+            return TYPE_UNSIGNED_LONG_LONG_LONG;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
             return TYPE_UNSIGNED_LONG_LONG;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
@@ -28895,6 +29249,8 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
             return TYPE_SIGNED_SHORT;
 
+        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+            return TYPE_SIGNED_LONG_LONG_LONG;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
             return TYPE_SIGNED_LONG_LONG;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
@@ -28941,7 +29297,7 @@ enum object_type type_to_object_type(const struct type* type, const struct platf
     {
         int width = type->bitint_width;
         if (width < 1) width = 1;
-        if (width > 64) width = 64;
+        if (width > WIDE_INTEGER_BITS) width = WIDE_INTEGER_BITS;
 
         if (type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
             return (enum object_type)(TYPE_UNSIGNED_BITINT_1 + (width - 1));
@@ -28956,71 +29312,57 @@ void object_print_value_debug(const struct object* a)
 {
     a = object_get_referenced(a);
 
-    if (object_type_is_signed_bitint(a->value_type))
+    if (object_type_is_integer(a->value_type))
     {
-        printf("%lld (_BitInt(%d))", a->value.host_long_long,
-            object_type_bitint_width(a->value_type));
-        return;
-    }
-    if (object_type_is_unsigned_bitint(a->value_type))
-    {
-        printf("%llu (unsigned _BitInt(%d))", a->value.host_u_long_long,
-            object_type_bitint_width(a->value_type));
-        return;
-    }
-    if (object_type_is_signed_bitfield(a->value_type))
-    {
-        printf("%lld (signed bitfield %d)", a->value.host_long_long,
-            object_type_bitfield_width(a->value_type));
-        return;
-    }
-    if (object_type_is_unsigned_bitfield(a->value_type))
-    {
-        printf("%llu (unsigned bitfield %d)", a->value.host_u_long_long,
-            object_type_bitfield_width(a->value_type));
+        char digits[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+        if (object_type_is_signed_integer(a->value_type))
+            wide_integer_to_string_s(a->value.host_wide_integer, digits, sizeof digits);
+        else
+            wide_integer_to_string_u(a->value.host_wide_integer, digits, sizeof digits);
+
+        if (object_type_is_signed_bitint(a->value_type))
+        {
+            printf("%s (_BitInt(%d))", digits, object_type_bitint_width(a->value_type));
+        }
+        else if (object_type_is_unsigned_bitint(a->value_type))
+        {
+            printf("%s (unsigned _BitInt(%d))", digits, object_type_bitint_width(a->value_type));
+        }
+        else if (object_type_is_signed_bitfield(a->value_type))
+        {
+            printf("%s (signed bitfield %d)", digits, object_type_bitfield_width(a->value_type));
+        }
+        else if (object_type_is_unsigned_bitfield(a->value_type))
+        {
+            printf("%s (unsigned bitfield %d)", digits, object_type_bitfield_width(a->value_type));
+        }
+        else
+        {
+            const char* name = "";
+            switch (a->value_type)
+            {
+            case TYPE_SIGNED_CHAR: name = "signed char"; break;
+            case TYPE_UNSIGNED_CHAR: name = "unsigned char"; break;
+            case TYPE_SIGNED_SHORT: name = "short"; break;
+            case TYPE_UNSIGNED_SHORT: name = "unsigned short"; break;
+            case TYPE_SIGNED_INT: name = "int"; break;
+            case TYPE_UNSIGNED_INT: name = "unsigned int"; break;
+            case TYPE_SIGNED_LONG: name = "long"; break;
+            case TYPE_UNSIGNED_LONG: name = "unsigned long"; break;
+            case TYPE_SIGNED_LONG_LONG: name = "long long"; break;
+            case TYPE_UNSIGNED_LONG_LONG: name = "unsigned long long"; break;
+            case TYPE_SIGNED_LONG_LONG_LONG: name = "long long long"; break;
+            case TYPE_UNSIGNED_LONG_LONG_LONG: name = "unsigned long long long"; break;
+            default:
+                break;
+            }
+            printf("%s (%s)", digits, name);
+        }
         return;
     }
 
     switch (a->value_type)
     {
-    case TYPE_SIGNED_CHAR:
-        printf("%lld (signed char)", a->value.host_long_long);
-        break;
-
-    case TYPE_UNSIGNED_CHAR:
-        printf("%llu (unsigned char)", a->value.host_u_long_long);
-        break;
-
-    case TYPE_SIGNED_SHORT:
-        printf("%lld (short)", a->value.host_long_long);
-        break;
-
-    case TYPE_UNSIGNED_SHORT:
-        printf("%llu (unsigned short)", a->value.host_u_long_long);
-        break;
-
-    case TYPE_SIGNED_INT:
-        printf("%lld (int)", a->value.host_long_long);
-        break;
-
-    case TYPE_UNSIGNED_INT:
-        printf("%llu (unsigned int)", a->value.host_u_long_long);
-        break;
-
-    case TYPE_SIGNED_LONG:
-        printf("%lld (long)", a->value.host_long_long);
-        break;
-
-    case TYPE_UNSIGNED_LONG:
-        printf("%llu (unsigned long)", a->value.host_u_long_long);
-        break;
-
-    case TYPE_SIGNED_LONG_LONG:
-        printf("%lld (long long)", a->value.host_long_long);
-        break;
-    case TYPE_UNSIGNED_LONG_LONG:
-        printf("%llu (unsigned long long)", a->value.host_u_long_long);
-        break;
     case TYPE_FLOAT:
         printf("%Lf (float)", a->value.host_long_double);
         break;
@@ -29290,46 +29632,77 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
 {
     a = object_get_referenced(a);
 
-    if (object_type_is_signed_bitsized(a->value_type))
+    /* long long long holds its value like long long, so it is written like one */
+    enum object_type value_type = a->value_type;
+    if (value_type == TYPE_SIGNED_LONG_LONG_LONG)
+        value_type = TYPE_SIGNED_LONG_LONG;
+    else if (value_type == TYPE_UNSIGNED_LONG_LONG_LONG)
+        value_type = TYPE_UNSIGNED_LONG_LONG;
+
+    if (object_type_is_integer(a->value_type))
     {
-        ss_fprintf(ss, "%lld", a->value.host_long_long);
+        /*
+          A value that does not fit in a long long has no literal. It is built
+          from its halves, as the 128-bit type of the targets that have one.
+        */
+        const struct wide_integer v = a->value.host_wide_integer;
+        const bool fits = object_type_is_signed_integer(a->value_type) ?
+            wide_integer_equal(v, wide_integer_from_signed((long long)v.lo)) :
+            v.hi == 0;
+        if (!fits)
+        {
+            if (object_type_is_signed_integer(a->value_type))
+                ss_fprintf(ss, "((__int128)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", v.hi, WIDE_INTEGER_HALF_BITS, v.lo);
+            else
+                ss_fprintf(ss, "((unsigned __int128)0x%llxULL << %d | 0x%llxULL)", v.hi, WIDE_INTEGER_HALF_BITS, v.lo);
+            return;
+        }
+    }
+
+    /* the value fits in a long long */
+    const long long sv = (long long)a->value.host_wide_integer.lo;
+    const unsigned long long uv = a->value.host_wide_integer.lo;
+
+    if (object_type_is_signed_bitsized(value_type))
+    {
+        ss_fprintf(ss, "%lld", sv);
         return;
     }
     if (object_type_is_unsigned_bitint(a->value_type))
     {
         /* an unsigned _BitInt(64) value may not fit any signed type, so keep it unsigned */
-        if (a->value.host_u_long_long > target_unsigned_max(target, TYPE_UNSIGNED_INT))
+        if (uv > target_unsigned_max(target, TYPE_UNSIGNED_INT))
         {
-            ss_fprintf(ss, "%lluULL", a->value.host_u_long_long);
+            ss_fprintf(ss, "%lluULL", uv);
         }
         else
         {
-            ss_fprintf(ss, "%lluU", a->value.host_u_long_long);
+            ss_fprintf(ss, "%lluU", uv);
         }
         return;
     }
     if (object_type_is_unsigned_bitfield(a->value_type))
     {
-        ss_fprintf(ss, "%llu", a->value.host_u_long_long);
+        ss_fprintf(ss, "%llu", uv);
         return;
     }
 
-    switch (a->value_type)
+    switch (value_type)
     {
     case TYPE_SIGNED_CHAR:
-        ss_fprintf(ss, "%lld", a->value.host_long_long);
+        ss_fprintf(ss, "%lld", sv);
         break;
 
     case TYPE_UNSIGNED_CHAR:
-        ss_fprintf(ss, "%llu", a->value.host_u_long_long);
+        ss_fprintf(ss, "%llu", uv);
         break;
 
     case TYPE_SIGNED_SHORT:
-        ss_fprintf(ss, "%lld", a->value.host_long_long);
+        ss_fprintf(ss, "%lld", sv);
         break;
 
     case TYPE_UNSIGNED_SHORT:
-        ss_fprintf(ss, "%llu", a->value.host_u_long_long);
+        ss_fprintf(ss, "%llu", uv);
         break;
 
     /*
@@ -29338,48 +29711,48 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
       <limits.h> does, (-MAX - 1), so the literal keeps the intended type.
     */
     case TYPE_SIGNED_INT:
-        if (a->value.host_long_long == target_signed_min(target, TYPE_SIGNED_INT))
+        if (sv == target_signed_min(target, TYPE_SIGNED_INT))
         {
             ss_fprintf(ss, "(-%lld - 1)", target_signed_max(target, TYPE_SIGNED_INT));
         }
         else
         {
-            ss_fprintf(ss, "%lld", a->value.host_long_long);
+            ss_fprintf(ss, "%lld", sv);
         }
         break;
 
     case TYPE_SIGNED_LONG:
-        if (a->value.host_long_long == target_signed_min(target, TYPE_SIGNED_LONG))
+        if (sv == target_signed_min(target, TYPE_SIGNED_LONG))
         {
             ss_fprintf(ss, "(-%lldL - 1)", target_signed_max(target, TYPE_SIGNED_LONG));
         }
         else
         {
-            ss_fprintf(ss, "%lldL", a->value.host_long_long);
+            ss_fprintf(ss, "%lldL", sv);
         }
         break;
 
     case TYPE_UNSIGNED_LONG:
-        ss_fprintf(ss, "%lluUL", a->value.host_u_long_long);
+        ss_fprintf(ss, "%lluUL", uv);
         break;
 
     case TYPE_UNSIGNED_INT:
-        ss_fprintf(ss, "%lluU", a->value.host_u_long_long);
+        ss_fprintf(ss, "%lluU", uv);
         break;
 
     case TYPE_SIGNED_LONG_LONG:
-        if (a->value.host_long_long == target_signed_min(target, TYPE_SIGNED_LONG_LONG))
+        if (sv == target_signed_min(target, TYPE_SIGNED_LONG_LONG))
         {
             ss_fprintf(ss, "(-%lldLL - 1)", target_signed_max(target, TYPE_SIGNED_LONG_LONG));
         }
         else
         {
-            ss_fprintf(ss, "%lldLL", a->value.host_long_long);
+            ss_fprintf(ss, "%lldLL", sv);
         }
         break;
 
     case TYPE_UNSIGNED_LONG_LONG:
-        ss_fprintf(ss, "%lluULL", a->value.host_u_long_long);
+        ss_fprintf(ss, "%lluULL", uv);
         break;
 
     case TYPE_FLOAT:
@@ -29487,7 +29860,260 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
 
 }
 
-struct object object_equal(const struct platform* target,
+enum object_operator
+{
+    OBJECT_OPERATOR_EQUAL,
+    OBJECT_OPERATOR_NOT_EQUAL,
+    OBJECT_OPERATOR_GREATER_THAN_OR_EQUAL,
+    OBJECT_OPERATOR_GREATER_THAN,
+    OBJECT_OPERATOR_SMALLER_THAN_OR_EQUAL,
+    OBJECT_OPERATOR_SMALLER_THAN,
+    OBJECT_OPERATOR_ADD,
+    OBJECT_OPERATOR_SUB,
+    OBJECT_OPERATOR_MUL,
+    OBJECT_OPERATOR_DIV,
+    OBJECT_OPERATOR_MOD,
+    OBJECT_OPERATOR_BITWISE_AND,
+    OBJECT_OPERATOR_BITWISE_OR,
+    OBJECT_OPERATOR_BITWISE_XOR,
+    OBJECT_OPERATOR_SHIFT_LEFT,
+    OBJECT_OPERATOR_SHIFT_RIGHT,
+};
+
+static bool object_operator_is_comparison(enum object_operator op)
+{
+    return op <= OBJECT_OPERATOR_SMALLER_THAN;
+}
+
+static bool object_operator_is_shift(enum object_operator op)
+{
+    return op == OBJECT_OPERATOR_SHIFT_LEFT || op == OBJECT_OPERATOR_SHIFT_RIGHT;
+}
+
+static bool object_comparison_result(enum object_operator op, int compare)
+{
+    switch (op)
+    {
+    case OBJECT_OPERATOR_EQUAL: return compare == 0;
+    case OBJECT_OPERATOR_NOT_EQUAL: return compare != 0;
+    case OBJECT_OPERATOR_GREATER_THAN_OR_EQUAL: return compare >= 0;
+    case OBJECT_OPERATOR_GREATER_THAN: return compare > 0;
+    case OBJECT_OPERATOR_SMALLER_THAN_OR_EQUAL: return compare <= 0;
+    case OBJECT_OPERATOR_SMALLER_THAN: return compare < 0;
+    default:
+        break;
+    }
+    assert(false);
+    return false;
+}
+
+/*
+  x op y in the integer type 'type'; both already have it, except the shift
+  count y, that keeps its own value. The result is wrapped to the width of
+  the type, and warning_message says when that changed the exact result.
+*/
+static void object_binary_integer(const struct platform* target,
+    enum object_operator op,
+    struct wide_integer x,
+    struct wide_integer y,
+    enum object_type type,
+    struct object* r,
+    char warning_message[200])
+{
+    const bool is_signed = object_type_is_signed_integer(type);
+    const int width = (int)target_get_num_of_bits(target, type);
+
+    if (object_operator_is_comparison(op))
+    {
+        const int compare = is_signed ? wide_integer_compare_s(x, y) : wide_integer_compare_u(x, y);
+        object_set_wide_integer(target, r, wide_integer_from_signed(object_comparison_result(op, compare)));
+        return;
+    }
+
+    struct wide_integer v = { 0 };
+
+    switch (op)
+    {
+    case OBJECT_OPERATOR_ADD:
+        v = wide_integer_add(x, y);
+        break;
+    case OBJECT_OPERATOR_SUB:
+        v = wide_integer_sub(x, y);
+        break;
+    case OBJECT_OPERATOR_MUL:
+        v = wide_integer_mul(x, y);
+        break;
+
+    case OBJECT_OPERATOR_DIV:
+    case OBJECT_OPERATOR_MOD:
+    {
+        struct wide_integer quotient = { 0 };
+        struct wide_integer remainder = { 0 };
+        const bool divided = is_signed ?
+            wide_integer_divmod_s(x, y, &quotient, &remainder) :
+            wide_integer_divmod_u(x, y, &quotient, &remainder);
+        if (!divided)
+        {
+            snprintf(warning_message, 200, "division by zero");
+            return;
+        }
+        v = op == OBJECT_OPERATOR_DIV ? quotient : remainder;
+    }
+    break;
+
+    case OBJECT_OPERATOR_BITWISE_AND:
+        v = wide_integer_and(x, y);
+        break;
+    case OBJECT_OPERATOR_BITWISE_OR:
+        v = wide_integer_or(x, y);
+        break;
+    case OBJECT_OPERATOR_BITWISE_XOR:
+        v = wide_integer_xor(x, y);
+        break;
+
+    case OBJECT_OPERATOR_SHIFT_LEFT:
+    case OBJECT_OPERATOR_SHIFT_RIGHT:
+    {
+        /* a count out of the width of the type is undefined, 0 is used */
+        const long long count = (long long)y.lo;
+        if (wide_integer_compare_s(y, wide_integer_from_signed(0)) >= 0 && wide_integer_compare_s(y, wide_integer_from_signed(width)) < 0)
+        {
+            if (op == OBJECT_OPERATOR_SHIFT_LEFT)
+                v = wide_integer_shl(x, (int)count);
+            else
+                v = is_signed ? wide_integer_shr_s(x, (int)count) : wide_integer_shr_u(x, (int)count);
+        }
+    }
+    break;
+
+    default:
+        assert(false);
+        break;
+    }
+
+    /* x and y are in the range of width, so the exact v of + - fits in a wide_integer */
+    const struct wide_integer wrapped = is_signed ? object_wrap_s(v, width) : object_wrap_u(v, width);
+
+    bool overflow = false;
+    if (op == OBJECT_OPERATOR_ADD)
+    {
+        overflow = is_signed ?
+            (wide_integer_is_negative(x) == wide_integer_is_negative(y) && wide_integer_is_negative(wrapped) != wide_integer_is_negative(x)) :
+            wide_integer_compare_u(wrapped, x) < 0;
+    }
+    else if (op == OBJECT_OPERATOR_SUB)
+    {
+        overflow = is_signed ?
+            (wide_integer_is_negative(x) != wide_integer_is_negative(y) && wide_integer_is_negative(wrapped) != wide_integer_is_negative(x)) :
+            wide_integer_compare_u(x, y) < 0;
+    }
+    else if (op == OBJECT_OPERATOR_MUL && !wide_integer_is_zero(x))
+    {
+        /* the product wrapped when dividing it back does not give y */
+        struct wide_integer quotient = { 0 };
+        struct wide_integer remainder = { 0 };
+        if (is_signed)
+        {
+            wide_integer_divmod_s(wrapped, x, &quotient, &remainder);
+            overflow = !wide_integer_equal(quotient, y) ||
+                /* -1 * MIN gives MIN back, and MIN / -1 gives MIN again */
+                (wide_integer_equal(x, wide_integer_from_signed(-1)) && wide_integer_is_negative(y) && wide_integer_equal(wrapped, y));
+        }
+        else
+        {
+            wide_integer_divmod_u(wrapped, x, &quotient, &remainder);
+            overflow = !wide_integer_equal(quotient, y);
+        }
+    }
+    else if (op == OBJECT_OPERATOR_DIV && is_signed)
+    {
+        /* MIN / -1 */
+        overflow = wide_integer_equal(y, wide_integer_from_signed(-1)) && wide_integer_is_negative(x) && wide_integer_equal(wrapped, x);
+    }
+
+    if (overflow)
+    {
+        /*
+          v is the exact result while it fits in a wide_integer: always for
+          + - and /, and for * up to the half of its width (two long long).
+        */
+        const bool exact_is_known =
+            op == OBJECT_OPERATOR_MUL ? 2 * width <= WIDE_INTEGER_BITS : width < WIDE_INTEGER_BITS;
+
+        char text[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+        char exact[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+
+        if (is_signed)
+            wide_integer_to_string_s(wrapped, text, sizeof text);
+        else
+            wide_integer_to_string_u(wrapped, text, sizeof text);
+
+        /* the exact result of an unsigned subtraction is negative */
+        if (is_signed || op == OBJECT_OPERATOR_SUB)
+            wide_integer_to_string_s(v, exact, sizeof exact);
+        else
+            wide_integer_to_string_u(v, exact, sizeof exact);
+
+        if (exact_is_known)
+            snprintf(warning_message, 200, "integer %s results in '%s'; the exact result is '%s'",
+                is_signed ? "overflow" : "wrap-around", text, exact);
+        else
+            snprintf(warning_message, 200, "integer %s results in '%s'",
+                is_signed ? "overflow" : "wrap-around", text);
+    }
+
+    object_set_wide_integer(target, r, wrapped);
+}
+
+/* x op y in the floating type 'type' */
+static void object_binary_floating(const struct platform* target,
+    enum object_operator op,
+    long double x,
+    long double y,
+    enum object_type type,
+    struct object* r,
+    char warning_message[200])
+{
+    if (object_operator_is_comparison(op))
+    {
+        const int compare = x < y ? -1 : x > y ? 1 : 0;
+        /* a NaN compares unequal and unordered */
+        const bool unordered = isnan(x) || isnan(y);
+        const bool result = unordered ? op == OBJECT_OPERATOR_NOT_EQUAL : object_comparison_result(op, compare);
+        object_set_wide_integer(target, r, wide_integer_from_signed(result));
+        return;
+    }
+
+    long double v = 0;
+    switch (op)
+    {
+    case OBJECT_OPERATOR_ADD:
+        v = x + y;
+        break;
+    case OBJECT_OPERATOR_SUB:
+        v = x - y;
+        break;
+    case OBJECT_OPERATOR_MUL:
+        v = x * y;
+        break;
+    case OBJECT_OPERATOR_DIV:
+        v = x / y; //lint 36 div by zero, we want it here
+        break;
+    default:
+        assert(false);
+        snprintf(warning_message, 200, " invalid operands");
+        return;
+    }
+    r->value.host_long_double = resize_floating_point(v, target_get_num_of_bits(target, type));
+}
+
+/*
+  a op b after the usual arithmetic conversions (6.3.1.8). A shift has the
+  type of the promoted left operand and keeps the value of the count.
+  A comparison is an int.
+*/
+static struct object object_binary(const struct platform* target,
+    enum object_operator op,
     const struct object* a,
     const struct object* b,
     char warning_message[200])
@@ -29496,50 +30122,38 @@ struct object object_equal(const struct platform* target,
     a = object_get_referenced(a);
     b = object_get_referenced(b);
 
-    enum object_type common_type = object_common(target, a, b);
+    const enum object_type common_type =
+        object_operator_is_shift(op) ?
+        (object_is_promoted(a) ? TYPE_SIGNED_INT : a->value_type) :
+        object_common(target, a, b);
+
     struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
+    struct object b0 = object_cast(target, object_operator_is_shift(op) ? TYPE_SIGNED_LONG_LONG : common_type, b);
+
     struct object r = { 0 };
-    r.value_type = TYPE_SIGNED_INT;
+    r.value_type = object_operator_is_comparison(op) ? TYPE_SIGNED_INT : common_type;
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
-    switch (object_type_switch_class(common_type))
+    if (object_type_is_integer(common_type))
     {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long == b0.value.host_long_long, target_get_num_of_bits(target, common_type));
+        object_binary_integer(target, op, a0.value.host_wide_integer, b0.value.host_wide_integer, common_type, &r, warning_message);
     }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long == b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_long_double == b0.value.host_long_double);
-        break;
-
-    default:
-        break;
+    else
+    {
+        object_binary_floating(target, op, a0.value.host_long_double, b0.value.host_long_double, common_type, &r, warning_message);
     }
 
     object_destroy(&a0);
     object_destroy(&b0);
     return r;
+}
+
+struct object object_equal(const struct platform* target,
+    const struct object* a,
+    const struct object* b,
+    char warning_message[200])
+{
+    return object_binary(target, OBJECT_OPERATOR_EQUAL, a, b, warning_message);
 }
 
 struct object object_not_equal(const struct platform* target,
@@ -29547,55 +30161,7 @@ struct object object_not_equal(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long != b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long != b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_long_double != b0.value.host_long_double);
-        break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    object_destroy(&b0);
-
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_NOT_EQUAL, a, b, warning_message);
 }
 
 struct object object_greater_than_or_equal(const struct platform* target,
@@ -29603,53 +30169,7 @@ struct object object_greater_than_or_equal(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long >= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long >= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_long_double >= b0.value.host_long_double);
-        break;
-
-    default:
-        break;
-    }
-    object_destroy(&a0);
-    object_destroy(&b0);
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_GREATER_THAN_OR_EQUAL, a, b, warning_message);
 }
 
 struct object object_greater_than(const struct platform* target,
@@ -29657,53 +30177,7 @@ struct object object_greater_than(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long > b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long > b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_long_double > b0.value.host_long_double);
-        break;
-
-    default:
-        break;
-    }
-    object_destroy(&a0);
-    object_destroy(&b0);
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_GREATER_THAN, a, b, warning_message);
 }
 
 struct object object_smaller_than_or_equal(const struct platform* target,
@@ -29711,53 +30185,7 @@ struct object object_smaller_than_or_equal(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long <= b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long <= b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_long_double <= b0.value.host_long_double);
-        break;
-
-    default:
-        break;
-    }
-    object_destroy(&a0);
-    object_destroy(&b0);
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_SMALLER_THAN_OR_EQUAL, a, b, warning_message);
 }
 
 struct object object_smaller_than(const struct platform* target,
@@ -29765,53 +30193,7 @@ struct object object_smaller_than(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long < b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long < b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_u_long_long = (a0.value.host_long_double < b0.value.host_long_double);
-        break;
-
-    default:
-        break;
-    }
-    object_destroy(&a0);
-    object_destroy(&b0);
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_SMALLER_THAN, a, b, warning_message);
 }
 
 struct object object_add(const struct platform* target,
@@ -29819,88 +30201,7 @@ struct object object_add(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long + b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-
-        signed long long exact_result;
-        if (signed_long_long_add(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
-        {
-            if (r.value.host_long_long != exact_result)
-            {
-                snprintf(warning_message,
-                    200,
-                    "integer overflow results in '%lld'; the exact result is '%lld'", r.value.host_long_long, exact_result);
-            }
-        }
-        else
-        {
-            snprintf(warning_message,
-                200,
-                "integer overflow");
-        }
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long + b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        unsigned long long exact_result;
-        if (unsigned_long_long_add(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
-        {
-            if (r.value.host_u_long_long != exact_result)
-            {
-                snprintf(warning_message,
-                    200,
-                    "integer wrap-around results in '%llu'; the exact result is '%llu'", r.value.host_u_long_long, exact_result);
-            }
-        }
-        else
-        {
-            snprintf(warning_message,
-                200,
-                "integer wrap-around results in '%llu'. ", r.value.host_u_long_long);
-        }
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_long_double = a0.value.host_long_double + b0.value.host_long_double;
-        r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
-       break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    object_destroy(&b0);
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_ADD, a, b, warning_message);
 }
 
 struct object object_sub(const struct platform* target,
@@ -29908,89 +30209,7 @@ struct object object_sub(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long - b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-
-        signed long long exact_result;
-        if (signed_long_long_sub(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
-        {
-            if (r.value.host_long_long != exact_result)
-            {
-                snprintf(warning_message,
-                    200,
-                    "integer overflow results in '%lld'; the exact result is '%lld'", r.value.host_long_long, exact_result);
-            }
-        }
-        else
-        {
-            snprintf(warning_message,
-                200,
-                "integer overflow");
-        }
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long - b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        unsigned long long exact_result;
-        if (unsigned_long_long_sub(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
-        {
-            if (r.value.host_u_long_long != exact_result)
-            {
-                snprintf(warning_message,
-                    200,
-                    "integer wrap-around results in '%llu'; the exact result is '%llu'", r.value.host_u_long_long, exact_result);
-            }
-        }
-        else
-        {
-            snprintf(warning_message,
-                200,
-                "integer wrap-around results in '%llu'. ", r.value.host_u_long_long);
-        }
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_long_double = a0.value.host_long_double - b0.value.host_long_double;
-        r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
-       break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    object_destroy(&b0);
-
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_SUB, a, b, warning_message);
 }
 
 struct object object_mul(const struct platform* target,
@@ -29998,89 +30217,7 @@ struct object object_mul(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long * b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-
-        signed long long exact_result;
-        if (signed_long_long_mul(&exact_result, a0.value.host_long_long, b0.value.host_long_long))
-        {
-            if (r.value.host_long_long != exact_result)
-            {
-                snprintf(warning_message,
-                    200,
-                    "integer overflow results in '%lld'; the exact result is '%lld'", r.value.host_long_long, exact_result);
-            }
-        }
-        else
-        {
-            snprintf(warning_message,
-                200,
-                "integer overflow");
-        }
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long * b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        unsigned long long exact_result;
-        if (unsigned_long_long_mul(&exact_result, a0.value.host_u_long_long, b0.value.host_u_long_long))
-        {
-            if (r.value.host_u_long_long != exact_result)
-            {
-                snprintf(warning_message,
-                    200,
-                    "integer wrap-around results in '%llu'; the exact result is '%llu'", r.value.host_u_long_long, exact_result);
-            }
-        }
-        else
-        {
-            snprintf(warning_message,
-                200,
-                "integer wrap-around results in '%llu'. ", r.value.host_u_long_long);
-        }
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_long_double = a0.value.host_long_double * b0.value.host_long_double;
-        r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
-       break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    object_destroy(&b0);
-
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_MUL, a, b, warning_message);
 }
 
 struct object object_div(const struct platform* target,
@@ -30088,81 +30225,7 @@ struct object object_div(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        if (b0.value.host_long_long == 0)
-        {
-            snprintf(warning_message, 200, "division by zero");
-            object_destroy(&a0);
-            object_destroy(&b0);
-            return r;
-        }
-
-        const long long m = target_signed_min(target, common_type);
-        if (a0.value.host_long_long == m && b0.value.host_long_long == -1)
-        {
-            snprintf(warning_message, 200, "integer overflow");
-            r.value.host_long_long = m; /* wrapped result stays m */
-            break;
-        }
-
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long / b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        if (b0.value.host_u_long_long == 0)
-        {
-            snprintf(warning_message, 200, "division by zero");
-            object_destroy(&a0);
-            object_destroy(&b0);
-
-            return r;
-        }
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long / b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_long_double = a0.value.host_long_double / b0.value.host_long_double; //lint 36 div by zero, we want it here
-        r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
-       break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    object_destroy(&b0);
-
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_DIV, a, b, warning_message);
 }
 
 struct object object_mod(const struct platform* target,
@@ -30170,79 +30233,14 @@ struct object object_mod(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        if (b0.value.host_long_long == 0)
-        {
-            snprintf(warning_message, 200, "division by zero");
-            object_destroy(&a0);
-            object_destroy(&b0);
-            return r;
-        }
-
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long % b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        if (b0.value.host_u_long_long == 0)
-        {
-            snprintf(warning_message, 200, "division by zero");
-            object_destroy(&a0);
-            object_destroy(&b0);
-            return r;
-        }
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long % b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        assert(false);
-        snprintf(warning_message, 200, " invalid operands for");
-        break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    object_destroy(&b0);
-
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_MOD, a, b, warning_message);
 }
 
 int object_is_equal(const struct platform* target, const struct object* a, const struct object* b)
 {
     char message[200] = { 0 };
     struct object r = object_equal(target, a, b, message);
-    int i = r.value.host_long_long != 0;
+    int i = !wide_integer_is_zero(r.value.host_wide_integer);
     object_destroy(&r);
     return i;
 }
@@ -30251,7 +30249,7 @@ int object_is_not_equal(const struct platform* target, const struct object* a, c
 {
     char message[200] = { 0 };
     struct object r = object_not_equal(target, a, b, message);
-    int i = r.value.host_long_long != 0;
+    int i = !wide_integer_is_zero(r.value.host_wide_integer);
     object_destroy(&r);
 
     return i;
@@ -30261,7 +30259,7 @@ int object_is_greater_than_or_equal(const struct platform* target, const struct 
 {
     char message[200] = { 0 };
     struct object r = object_greater_than_or_equal(target, a, b, message);
-    int i = r.value.host_long_long != 0;
+    int i = !wide_integer_is_zero(r.value.host_wide_integer);
     object_destroy(&r);
     return i;
 }
@@ -30270,7 +30268,7 @@ int object_is_smaller_than_or_equal(const struct platform* target, const struct 
 {
     char message[200] = { 0 };
     struct object r = object_smaller_than_or_equal(target, a, b, message);
-    int i = r.value.host_long_long != 0;
+    int i = !wide_integer_is_zero(r.value.host_wide_integer);
     object_destroy(&r);
     return i;
 }
@@ -30283,204 +30281,92 @@ struct object object_logical_not(const struct platform* target, const struct obj
     struct object r = { 0 };
     r.value_type = TYPE_SIGNED_INT;
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    enum object_type common_type = a->value_type;
 
-    switch (object_type_switch_class(common_type))
+    const bool is_zero = object_type_is_integer(a->value_type) ?
+        wide_integer_is_zero(a->value.host_wide_integer) :
+        a->value.host_long_double == 0;
+
+    object_set_wide_integer(target, &r, wide_integer_from_signed(is_zero));
+    return r;
+}
+
+enum object_unary_operator
+{
+    OBJECT_UNARY_OPERATOR_MINUS,
+    OBJECT_UNARY_OPERATOR_PLUS,
+    OBJECT_UNARY_OPERATOR_BITWISE_NOT,
+};
+
+/* op a, after the integer promotions (bool, char and short become int, _BitInt is not promoted) */
+static struct object object_unary(const struct platform* target,
+    enum object_unary_operator op,
+    const struct object* a,
+    char warning_message[200])
+{
+    warning_message[0] = '\0';
+    a = object_get_referenced(a);
+
+    const enum object_type common_type = object_is_promoted(a) ? TYPE_SIGNED_INT : a->value_type;
+    struct object a0 = object_cast(target, common_type, a);
+
+    struct object r = { 0 };
+    r.state = CONSTANT_VALUE_STATE_CONSTANT;
+    r.value_type = common_type;
+
+    if (object_type_is_integer(common_type))
     {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
+        const struct wide_integer x = a0.value.host_wide_integer;
+        switch (op)
+        {
+        case OBJECT_UNARY_OPERATOR_MINUS:
+            object_set_wide_integer(target, &r, wide_integer_neg(x));
+            break;
+        case OBJECT_UNARY_OPERATOR_PLUS:
+            object_set_wide_integer(target, &r, x);
+            break;
+        case OBJECT_UNARY_OPERATOR_BITWISE_NOT:
+            object_set_wide_integer(target, &r, wide_integer_not(x));
+            break;
+        }
+    }
+    else
     {
-        r.value.host_long_long =
-            wrap_signed_integer(!a->value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(!a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_long_long = (!a->value.host_long_double);
-        break;
-
-    default:
-        break;
+        const long double x = a0.value.host_long_double;
+        switch (op)
+        {
+        case OBJECT_UNARY_OPERATOR_MINUS:
+            r.value.host_long_double = resize_floating_point(-x, target_get_num_of_bits(target, common_type));
+            break;
+        case OBJECT_UNARY_OPERATOR_PLUS:
+            r.value.host_long_double = resize_floating_point(+x, target_get_num_of_bits(target, common_type));
+            break;
+        case OBJECT_UNARY_OPERATOR_BITWISE_NOT:
+            snprintf(warning_message, 200, "invalid operand");
+            break;
+        }
     }
 
+    object_destroy(&a0);
     return r;
 }
 
 struct object object_bitwise_not(const struct platform* target, const struct object* a, char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-
-    struct object r = { 0 };
-
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    /* integer promotions (bool, char and short become int, _BitInt is not promoted) */
-    enum object_type common_type = object_is_promoted(a) ? TYPE_SIGNED_INT : a->value_type;
-    struct object a0 = object_cast(target, common_type, a);
-    a = &a0;
-    r.value_type = common_type;
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(~a->value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(~a->value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        snprintf(warning_message, 200, "invalid operand");
-        break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    return r;
+    return object_unary(target, OBJECT_UNARY_OPERATOR_BITWISE_NOT, a, warning_message);
 }
 
 struct object object_unary_minus(const struct platform* target, const struct object* a, char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-
-    struct object r = { 0 };
-
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    /* integer promotions (bool, char and short become int, _BitInt is not promoted) */
-    enum object_type common_type = object_is_promoted(a) ? TYPE_SIGNED_INT : a->value_type;
-    struct object a0 = object_cast(target, common_type, a);
-    a = &a0;
-    r.value_type = common_type;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(-(a->value.host_long_long), target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(0ULL - (a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_long_double = -(a->value.host_long_double);
-        r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
-        break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    return r;
+    return object_unary(target, OBJECT_UNARY_OPERATOR_MINUS, a, warning_message);
 }
 
 struct object object_unary_plus(const struct platform* target, const struct object* a, char warning_message[200])
 {
-    warning_message[0] = '\0';
     /*
        char  c = -5;
        int   i = +c; //it just perform integer promotion
      */
-    a = object_get_referenced(a);
-
-    struct object r = { 0 };
-
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-    /* integer promotions (bool, char and short become int, _BitInt is not promoted) */
-    enum object_type common_type = object_is_promoted(a) ? TYPE_SIGNED_INT : a->value_type;
-    struct object a0 = object_cast(target, common_type, a);
-    a = &a0;
-    r.value_type = common_type;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(+(a->value.host_long_long), target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(+(a->value.host_u_long_long), target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        r.value.host_long_double = +(a->value.host_long_double);
-        r.value.host_long_double = resize_floating_point(r.value.host_long_double, target_get_num_of_bits(target, common_type));
-        break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    return r;
+    return object_unary(target, OBJECT_UNARY_OPERATOR_PLUS, a, warning_message);
 }
 
 struct object object_bitwise_xor(const struct platform* target,
@@ -30488,56 +30374,7 @@ struct object object_bitwise_xor(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long ^ b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long ^ b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        assert(false);
-        snprintf(warning_message, 200, " invalid operands");
-        break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    object_destroy(&b0);
-
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_BITWISE_XOR, a, b, warning_message);
 }
 
 struct object object_bitwise_or(const struct platform* target,
@@ -30545,56 +30382,7 @@ struct object object_bitwise_or(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long | b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long | b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        assert(false);
-        snprintf(warning_message, 200, " invalid operands");
-        break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    object_destroy(&b0);
-
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_BITWISE_OR, a, b, warning_message);
 }
 
 struct object object_bitwise_and(const struct platform* target,
@@ -30602,56 +30390,7 @@ struct object object_bitwise_and(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    enum object_type common_type = object_common(target, a, b);
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, common_type, b);
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long & b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long & b0.value.host_u_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        assert(false);
-        snprintf(warning_message, 200, " invalid operands");
-        break;
-
-    default:
-        break;
-    }
-
-    object_destroy(&a0);
-    object_destroy(&b0);
-
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_BITWISE_AND, a, b, warning_message);
 }
 
 struct object object_shift_left(const struct platform* target,
@@ -30659,55 +30398,7 @@ struct object object_shift_left(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    /* the result has the type of the promoted left operand, not the common type */
-    enum object_type common_type = object_is_promoted(a) ? TYPE_SIGNED_INT : a->value_type;
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, TYPE_SIGNED_LONG_LONG, b); /* shift count keeps its value */
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long << b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long << (unsigned long long)b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        assert(false);
-        snprintf(warning_message, 200, " invalid operands");
-        break;
-
-    default:
-        break;
-    }
-    object_destroy(&a0);
-    object_destroy(&b0);
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_SHIFT_LEFT, a, b, warning_message);
 }
 
 struct object object_shift_right(const struct platform* target,
@@ -30715,55 +30406,7 @@ struct object object_shift_right(const struct platform* target,
     const struct object* b,
     char warning_message[200])
 {
-    warning_message[0] = '\0';
-    a = object_get_referenced(a);
-    b = object_get_referenced(b);
-
-    /* the result has the type of the promoted left operand, not the common type */
-    enum object_type common_type = object_is_promoted(a) ? TYPE_SIGNED_INT : a->value_type;
-    struct object a0 = object_cast(target, common_type, a);
-    struct object b0 = object_cast(target, TYPE_SIGNED_LONG_LONG, b); /* shift count keeps its value */
-    struct object r = { 0 };
-    r.value_type = common_type;
-    r.state = CONSTANT_VALUE_STATE_CONSTANT;
-
-    switch (object_type_switch_class(common_type))
-    {
-    case TYPE_SIGNED_CHAR:
-    case TYPE_SIGNED_SHORT:
-    case TYPE_SIGNED_INT:
-    case TYPE_SIGNED_LONG:
-    case TYPE_SIGNED_LONG_LONG:
-    {
-        r.value.host_long_long =
-            wrap_signed_integer(a0.value.host_long_long >> b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-    }
-    break;
-
-    case TYPE_UNSIGNED_CHAR:
-    case TYPE_UNSIGNED_SHORT:
-    case TYPE_UNSIGNED_INT:
-    case TYPE_UNSIGNED_LONG:
-    case TYPE_UNSIGNED_LONG_LONG:
-
-        r.value.host_u_long_long =
-            wrap_unsigned_integer(a0.value.host_u_long_long >> (unsigned long long)b0.value.host_long_long, target_get_num_of_bits(target, common_type));
-
-        break;
-
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-        assert(false);
-        snprintf(warning_message, 200, " invalid operands");
-        break;
-
-    default:
-        break;
-    }
-    object_destroy(&a0);
-    object_destroy(&b0);
-    return r;
+    return object_binary(target, OBJECT_OPERATOR_SHIFT_RIGHT, a, b, warning_message);
 }
 
 
@@ -31442,7 +31085,7 @@ static struct osstream build_printf_format_text(const struct expression* p_fmt_e
     const struct object* _Opt it = p_fmt_expression->object.members.head;
     while (it != NULL)
     {
-        const unsigned char c = (unsigned char)it->value.host_long_long;
+        const unsigned char c = (unsigned char)((long long)it->value.host_wide_integer.lo);
         if (c == '\0')
             break; // the appended terminator, not part of the format text
 
@@ -31755,6 +31398,8 @@ static const char* object_type_to_name(enum object_type t)
         case TYPE_UNSIGNED_LONG: return "unsigned long";
         case TYPE_SIGNED_LONG_LONG: return "long long";
         case TYPE_UNSIGNED_LONG_LONG: return "unsigned long long";
+        case TYPE_SIGNED_LONG_LONG_LONG: return "long long long";
+        case TYPE_UNSIGNED_LONG_LONG_LONG: return "unsigned long long long";
         case TYPE_FLOAT: return "float";
         case TYPE_DOUBLE: return "double";
         case TYPE_LONG_DOUBLE: return "long double";
@@ -33619,7 +33264,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 else
                 {
                     struct object obj = object_make_char(&ctx->options.platform, (int)c);
-                    value = obj.value.host_long_long;
+                    value = ((long long)obj.value.host_wide_integer.lo);
                     object_destroy(&obj);
                 }
 
@@ -33754,7 +33399,10 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 break;
             }
 
-            if (value == unsigned_long_long_max_value && errno == ERANGE)
+            /* a _BitInt literal (wb, uwb) can be wider than an unsigned long long, it is checked below */
+            const bool suffix_is_bitint = suffix[0] == 'W' || (suffix[0] == 'U' && suffix[1] == 'W');
+
+            if (value == unsigned_long_long_max_value && errno == ERANGE && !suffix_is_bitint)
             {
                 diagnostic(
                 C_ERROR_LITERAL_OVERFLOW,
@@ -33795,13 +33443,39 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                   smallest width that holds the value; the signed one keeps
                   one extra bit for the sign.
                 */
+                /* read again, the value can be wider than an unsigned long long */
+                const char* digits = buffer;
+                int base = 10;
+                switch (token->type)
+                {
+                    case TK_COMPILER_OCTAL_CONSTANT:
+                        digits = (buffer[1] == 'o' || buffer[1] == 'O') ? buffer + 2 : buffer + 1;
+                        base = 8;
+                        break;
+                    case TK_COMPILER_HEXADECIMAL_CONSTANT:
+                        digits = buffer + 2;
+                        base = 16;
+                        break;
+                    case TK_COMPILER_BINARY_CONSTANT:
+                        digits = buffer + 2;
+                        base = 2;
+                        break;
+                    default:
+                        break;
+                }
+
+                bool too_wide = false;
+                const struct wide_integer wide_value = wide_integer_from_digits(digits, base, &too_wide);
+
                 int width = 0;
-                unsigned long long v = value;
-                while (v != 0)
+                struct wide_integer v = wide_value;
+                while (!wide_integer_is_zero(v))
                 {
                     width++;
-                    v >>= 1;
+                    v = wide_integer_shr_u(v, 1);
                 }
+
+                const int maxwidth = target_bitint_maxwidth(&ctx->options.platform);
 
                 if (suffix_uwb)
                 {
@@ -33809,7 +33483,17 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     {
                         width = 1;
                     }
-                    p_expression_node->object = object_make_unsigned_bitint(width, value);
+
+                    if (too_wide || width > maxwidth)
+                    {
+                        diagnostic(C_ERROR_LITERAL_OVERFLOW,
+                                   ctx,
+                                   token,
+                                   NULL,
+                                   "integer literal is too large to be represented in an unsigned _BitInt of the supported width");
+                        width = maxwidth;
+                    }
+                    p_expression_node->object = object_make_unsigned_bitint(width, 0);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_BITINT;
                 }
                 else
@@ -33820,18 +33504,23 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                         width = 2;
                     }
 
-                    if (width > 64)
+                    if (too_wide || width > maxwidth)
                     {
                         diagnostic(C_ERROR_LITERAL_OVERFLOW,
                                    ctx,
                                    token,
                                    NULL,
                                    "integer literal is too large to be represented in a signed _BitInt of the supported width");
-                        width = 64;
+                        width = maxwidth;
                     }
-                    p_expression_node->object = object_make_signed_bitint(width, (long long)value);
+                    p_expression_node->object = object_make_signed_bitint(width, 0);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_BITINT;
                 }
+
+                /* the value fits in width bits (the sign bit is 0 for wb), unless it was reported above */
+                p_expression_node->object.value.host_wide_integer = suffix_uwb ?
+                    wide_integer_wrap_u(wide_value, width) :
+                    wide_integer_wrap_s(wide_value, width);
                 p_expression_node->object.type.bitint_width = width;
             }
             else if (suffix_none)
@@ -42407,7 +42096,8 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx, struct p
                 }
                 else
                 {
-                    ectx->value = (left_value / ectx->value);
+                    /* LLONG_MIN / -1 overflows, and the host division traps (x64); the wrapped value is used */
+                    ectx->value = (ectx->value == -1) ? (long long)(0ULL - (unsigned long long)left_value) : (left_value / ectx->value);
                 }
             }
             else if (op == '%')
@@ -42419,7 +42109,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx, struct p
                 }
                 else
                 {
-                    ectx->value = (left_value % ectx->value);
+                    ectx->value = (ectx->value == -1) ? 0 : (left_value % ectx->value); /* LLONG_MIN % -1 traps too */
                 }
             }
         }
@@ -43438,7 +43128,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.15.32"
+#define CAKE_VERSION "0.16.00"
 
 
  
@@ -45390,7 +45080,7 @@ bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
     return false;
 }
 
-bool first_of_type_specifier(const struct parser_ctx* ctx);
+bool first_of_type_specifier(struct parser_ctx* ctx);
 bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* token);
 
 bool first_of_type_name_ahead(const struct parser_ctx* ctx)
@@ -45415,7 +45105,7 @@ bool first_of_type_name_token(const struct parser_ctx* ctx, struct token* p_toke
     return first_of_type_specifier_token(ctx, p_token) || first_of_type_qualifier_token(p_token);
 }
 
-bool first_of_type_name(const struct parser_ctx* ctx)
+bool first_of_type_name(struct parser_ctx* ctx)
 {
     return first_of_type_specifier(ctx) || first_of_type_qualifier(ctx);
 }
@@ -45446,6 +45136,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         p_token->type == TK_KEYWORD_MSVC__INT16 ||
         p_token->type == TK_KEYWORD_MSVC__INT32 ||
         p_token->type == TK_KEYWORD_MSVC__INT64 ||
+        p_token->type == TK_KEYWORD_GCC__INT128 ||
 
         first_of_atomic_type_specifier(ctx) ||
         first_of_struct_or_union_token(p_token) ||
@@ -45453,7 +45144,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         first_of_typedef_name(ctx, p_token);
 }
 
-bool first_of_type_specifier(const struct parser_ctx* ctx)
+bool first_of_type_specifier(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -45995,6 +45686,14 @@ enum token_type is_keyword(const char* text, const struct platform* target)
 
             if (strcmp("_Thread_local", text) == 0)
                 return TK_KEYWORD__THREAD_LOCAL;
+
+            /*
+              __int128 is an alias of long long long, like __int64 is of int64_type.
+              It has the size of long long long, 128 bits only where the target has it
+              (__SIZEOF_INT128__ tells), like long double has the size of double on msvc.
+            */
+            if (strcmp("__int128", text) == 0)
+                return TK_KEYWORD_GCC__INT128;
 
             if (strcmp("_BitInt", text) == 0)
                 return TK_KEYWORD__BITINT; /* C23 */
@@ -46647,7 +46346,8 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
         (flags & TYPE_SPECIFIER_LONG) ||
         (flags & TYPE_SPECIFIER_INT) ||
         (flags & TYPE_SPECIFIER_BITINT) ||
-        (flags & TYPE_SPECIFIER_LONG_LONG))
+        (flags & TYPE_SPECIFIER_LONG_LONG) ||
+        (flags & TYPE_SPECIFIER_LONG_LONG_LONG))
     {
         return true;
     }
@@ -46675,17 +46375,23 @@ int add_specifier(const struct parser_ctx* ctx,
     enum type_specifier_flags new_flag)
 {
     const enum type_specifier_flags old_flags = *flags;
-    /* 
+    /*
     * transform the sequence of two longs
     * in
     * TYPE_SPECIFIER_LONG_LONG
+    * and three longs in TYPE_SPECIFIER_LONG_LONG_LONG (cake extension)
     */
     if (new_flag & TYPE_SPECIFIER_LONG) /* adding a long */
     {
-        if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
+        if ((*flags) & TYPE_SPECIFIER_LONG_LONG_LONG) /* already had long long long */
         {
-            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long' declaration specifier");
+            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long long' declaration specifier");
             return 1;
+        }
+        else if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
+        {
+            (*flags) = (*flags) & ~TYPE_SPECIFIER_LONG_LONG;
+            (*flags) |= TYPE_SPECIFIER_LONG_LONG_LONG;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) /* already had one long */
         {
@@ -46735,6 +46441,12 @@ int add_specifier(const struct parser_ctx* ctx,
         case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // signed long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG: // unsigned long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // unsigned long long int
+        case TYPE_SPECIFIER_LONG_LONG_LONG: // long long long
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG_LONG: // signed long long long
+        case TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // long long long int
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // signed long long long int
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG: // unsigned long long long
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // unsigned long long long int
         case TYPE_SPECIFIER_BITINT: // _BitInt(N)
         case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_BITINT: // signed _BitInt(N)
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_BITINT: // unsigned _BitInt(N)
@@ -47091,10 +46803,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
     bool without_semicolon)
 {
     /* 
-    * declaration-specifiers init-declarator-list_opt ;
-    * attribute-specifier-sequence declaration-specifiers init-declarator-list ;
-    * static_assert-declaration
-    * attribute-declaration
+     declaration-specifiers init-declarator-list_opt ;
+     attribute-specifier-sequence declaration-specifiers init-declarator-list ;
+     static_assert-declaration
+     attribute-declaration
     */
 
     struct declaration* _Owner _Opt p_declaration = NULL;
@@ -47132,10 +46844,10 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
             p_declaration->static_assertion = static_assertion(ctx);
 
             /* 
-            * parser_match_tk_lint, not parser_match_tk: the plain version
-            * drops a trailing `//lint N`, so a suppression written on a
-            * compile_assert line was attached to nothing -- never checked,
-            * never reported as unrecognized, silently ineffective.
+              parser_match_tk_lint, not parser_match_tk: the plain version
+              drops a trailing `//lint N`, so a suppression written on a
+              compile_assert line was attached to nothing -- never checked,
+              never reported as unrecognized, silently ineffective.
             */
             if (p_declaration->static_assertion != NULL)
             {
@@ -47171,6 +46883,22 @@ struct declaration* _Owner _Opt declaration_core(struct parser_ctx* ctx,
                 {
                     unexpected_end_of_file(ctx);
                     throw;
+                }
+
+                if (first_of_pragma_declaration(ctx))
+                {
+                    /* clang header is doing this ... */
+                    /*                       
+                       struct X { int i; } 
+                       #pragma anything
+                       ;
+                    */
+                    if (p_declaration->pragma_declaration != NULL)
+                    {
+                        assert(0);
+                    }
+                    pragma_declaration_delete(p_declaration->pragma_declaration);
+                    p_declaration->pragma_declaration = pragma_declaration(ctx);
                 }
 
                 if (ctx->current->type != ';')
@@ -49990,6 +49718,12 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
                 parser_match(ctx);
                 return p_type_specifier;
 
+            case TK_KEYWORD_GCC__INT128:
+                p_type_specifier->token = ctx->current;
+                p_type_specifier->flags = TYPE_SPECIFIER_LONG_LONG_LONG;
+                parser_match(ctx);
+                return p_type_specifier;
+
             case TK_KEYWORD_LONG:
                 p_type_specifier->token = ctx->current;
                 p_type_specifier->flags = TYPE_SPECIFIER_LONG;
@@ -50128,9 +49862,9 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
                 {
                     diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_type_specifier->token, NULL, "_BitInt width must be greater than zero");
                 }
-                else if (width > 64)
+                else if (width > target_bitint_maxwidth(&ctx->options.platform))
                 {
-                    diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_type_specifier->token, NULL, "_BitInt width %lld exceeds the maximum supported width 64", width);
+                    diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_type_specifier->token, NULL, "_BitInt width %lld exceeds the maximum supported width %d", width, target_bitint_maxwidth(&ctx->options.platform));
                 }
                 else
                 {
@@ -52115,18 +51849,18 @@ void enumerator_list_destroy(_Dtor struct enumerator_list* p)
 static void update_enumerator_list_range(const struct enumerator* p_enumerator, long long* min_value, unsigned long long* max_value)
 {
     bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-    bool is_negative = is_signed && p_enumerator->value.value.host_long_long < 0;
+    bool is_negative = is_signed && ((long long)p_enumerator->value.value.host_wide_integer.lo) < 0;
 
-    if (is_signed && p_enumerator->value.value.host_long_long < *min_value)
+    if (is_signed && ((long long)p_enumerator->value.value.host_wide_integer.lo) < *min_value)
     {
-        *min_value = p_enumerator->value.value.host_long_long;
+        *min_value = ((long long)p_enumerator->value.value.host_wide_integer.lo);
     }
     if (
-        (is_signed && !is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > *max_value) ||
-        (!is_signed && p_enumerator->value.value.host_u_long_long > *max_value)
+        (is_signed && !is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > *max_value) ||
+        (!is_signed && p_enumerator->value.value.host_wide_integer.lo > *max_value)
         )
     {
-        *max_value = p_enumerator->value.value.host_u_long_long;
+        *max_value = p_enumerator->value.value.host_wide_integer.lo;
     }
 }
 
@@ -52384,13 +52118,13 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
                 object_destroy(&newvalue);
 
                 bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-                is_negative = is_signed && (p_enumerator->value.value.host_long_long < 0);
+                is_negative = is_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < 0);
 
                 if (p_enum_specifier->has_underlying)
                 {
                     bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
-                    bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
-                    bool over_range = (underlying_signed && (!is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+                    bool under_range = underlying_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < lo_limit);
+                    bool over_range = (underlying_signed && (!is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_wide_integer.lo > hi_limit));
 
                     if (under_range || over_range)
                     {
@@ -52415,13 +52149,13 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             object_swap(&p_enumerator->value, &newvalue);
             object_destroy(&newvalue);
 
-            is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (p_enumerator->value.value.host_long_long < 0);
+            is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (((long long)p_enumerator->value.value.host_wide_integer.lo) < 0);
 
             if (p_enum_specifier->has_underlying)
             {
                 bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
-                bool under_range = underlying_signed && (p_enumerator->value.value.host_long_long < lo_limit);
-                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)p_enumerator->value.value.host_long_long > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_u_long_long > hi_limit));
+                bool under_range = underlying_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < lo_limit);
+                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_wide_integer.lo > hi_limit));
 
                 if (under_range || over_range)
                 {
@@ -60949,7 +60683,7 @@ static int collect_system_include_dirs(struct json_value* dirs)
     ide.c) - is read back and written out unchanged, so re-running auto-config
     never costs the user their compiler options.
 */
-int generate_config_file(const char* configpath)
+int generate_config_file(const char* configpath, bool color_disabled)
 {
     struct json_value* _Opt _Owner root = NULL;
 
@@ -60972,6 +60706,15 @@ int generate_config_file(const char* configpath)
     {
         printf("Out of memory generating '%s'.\n", configpath);
         return ENOMEM;
+    }
+
+    /*
+        "diagnostics-color" is written once so the key is always visible and
+        the user only has to change the value. An existing value is preserved.
+    */
+    if (json_find_member(root, "diagnostics-color") == NULL)
+    {
+        json_set_bool(root, "diagnostics-color", color_disabled ? 0 : 1);
     }
 
     /*
@@ -61066,6 +60809,14 @@ int compile_one_file(const char* file_name,
     {
         /* optional */
     }
+
+    /*
+        cake.json may set "diagnostics-color". preprocessor_load_config()
+        works on a copy of the options. Only publish a config *disable* so an
+        explicit -fdiagnostics-color=never on the command line always wins.
+    */
+    if (prectx.options.color_disabled)
+        options->color_disabled = true;
 
     struct ast ast = { 0 };
 
@@ -62019,7 +61770,7 @@ int compile(int argc, const char** argv, struct report* report)
     if (options.auto_config) // -autoconfig
     {
         report->ignore_this_report = true;
-        return generate_config_file(cakeconfig_path);
+        return generate_config_file(cakeconfig_path, options.color_disabled);
     }
 
     report->test_mode = options.test_mode;
@@ -62376,6 +62127,8 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         {
             // cake.json is optional
         }
+        if (prectx.options.color_disabled)
+            options.color_disabled = true;
 
         ast.token_list = preprocessor(&prectx, &list, 0);
         report->warnings_count += prectx.n_warnings;
@@ -62420,6 +62173,7 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
 
     return s;
 }
+
 
 #line 1 "defer.c"
 /*
@@ -63471,11 +63225,11 @@ static void defer_visit_block_item(struct defer_visit_ctx* ctx, struct block_ite
     }
 }
 
-static void defer_visit_direct_declarator(struct defer_visit_ctx* ctx, const struct direct_declarator* p_direct_declarator)
+static void defer_visit_direct_declarator(struct defer_visit_ctx* ctx, struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
     {
-        const struct parameter_declaration* _Opt parameter = NULL;
+        struct parameter_declaration* _Opt parameter = NULL;
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt &&
             p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
@@ -63995,14 +63749,14 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
                                         struct osstream* oss,
                                         struct declarator* function_definition);
 
-static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first);
+static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, struct object* object, bool* first);
 static void codegen_visit_secondary_block(struct codegen_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
 static void codegen_visit_init_declarator(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
 static void codegen_visit_init_declarator_list(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
 static void codegen_visit_compound_statement(struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement, struct osstream* _Opt parameters_vars, struct osstream* _Opt parameters_init);
 static void codegen_visit_statement(struct codegen_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
-static void assign_each_member_from_initialization(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object,
+static void assign_each_member_from_initialization(struct codegen_ctx* ctx, struct osstream* ss, struct object* object,
                                                    const char* declarator_name,
                                                    bool all,
                                                    bool initialize_objects_that_does_not_have_initializer);
@@ -64011,15 +63765,15 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
                                                            const char* dest_prefix, const struct object* dest, const struct object* source, bool* first);
 static bool codegen_expr_takes_postfix_suffix(const struct expression* p_expression);
 
-static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, const struct type* p_type0, const char* _Opt name_opt, bool name_unnamed_parameters);
+static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, struct type* p_type0, const char* _Opt name_opt, bool name_unnamed_parameters);
 static void d_print_type(struct codegen_ctx* ctx,
                          struct osstream* ss,
-                         const struct type* p_type,
+                         struct type* p_type,
                          const char* _Opt name_opt,
                          bool print_storage_qualifier,
                          bool name_unnamed_parameters);
 
-static void print_cast_array_to_vm(struct codegen_ctx* ctx, struct osstream* oss, const struct type* p_type)
+static void print_cast_array_to_vm(struct codegen_ctx* ctx, struct osstream* oss, struct type* p_type)
 {
     assert(type_is_vm(p_type));
 
@@ -64326,6 +64080,30 @@ static const char* _Opt codegen_unsigned_type_of_size(const struct codegen_ctx* 
     return NULL;
 }
 
+/*
+  long long long is a cake extension. It is emitted as the target type that
+  has its size: long long when both have the same width, otherwise __int128.
+*/
+static void codegen_print_type_specifier_flags(const struct codegen_ctx* ctx,
+                                               struct osstream* ss,
+                                               bool* first,
+                                               enum type_specifier_flags flags)
+{
+    if (flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+    {
+        const struct platform* p = &ctx->options.platform;
+        flags &= ~(TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT);
+        if (p->long_long_long_n_bits != p->long_long_n_bits)
+        {
+            print_type_specifier_flags(ss, first, flags, 0);
+            print_item(ss, first, "__int128");
+            return;
+        }
+        flags |= TYPE_SPECIFIER_LONG_LONG;
+    }
+    print_type_specifier_flags(ss, first, flags, 0);
+}
+
 static size_t codegen_bitfield_tile_size(const struct codegen_ctx* ctx, size_t pos, size_t end, size_t cap)
 {
     size_t size = cap;
@@ -64480,11 +64258,16 @@ static size_t codegen_print_bitfield_tiles(const struct codegen_ctx* ctx, struct
 /* the type of the value of bitfield p_member after the integer promotions */
 static void codegen_print_bitfield_promoted_type(struct codegen_ctx* ctx,
                                                  struct osstream* oss,
-                                                 const struct member_declarator* p_member)
+                                                 struct member_declarator* p_member)
 {
-    assert(p_member->declarator != NULL && p_member->constant_expression != NULL);
-    const struct type* p_type = &p_member->declarator->object.type; //lint 33 assert line 820
-    const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object); //lint 33 assert line 820
+    if (p_member->declarator == NULL || p_member->constant_expression == NULL)
+    {
+       assert(0);
+       return;
+    }
+    
+    struct type* p_type = &p_member->declarator->object.type;
+    const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object);
     const int int_bits = ctx->options.platform.int_n_bits;
     const bool is_unsigned = type_is_bool(p_type) || (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED);
 
@@ -64504,7 +64287,7 @@ static void codegen_emit_bitfield_read(struct codegen_ctx* ctx,
                                        struct osstream* oss,
                                        const char* base,
                                        struct struct_or_union_specifier* p_owner,
-                                       const struct member_declarator* p_member)
+                                       struct member_declarator* p_member)
 {
     size_t start = 0, end = 0, cap = 0;
     if (p_member->constant_expression == NULL ||
@@ -64623,7 +64406,7 @@ static void codegen_emit_bitfield_store(struct codegen_ctx* ctx,
                                         struct osstream* oss,
                                         const char* base,
                                         struct struct_or_union_specifier* p_owner,
-                                        const struct member_declarator* p_member,
+                                        struct member_declarator* p_member,
                                         const char* value,
                                         bool value_is_floating,
                                         const struct object* _Opt p_constant,
@@ -65750,24 +65533,41 @@ static void codegen_emit_wrap_text(const struct codegen_ctx* ctx,
                                    bool source_is_floating,
                                    bool text_is_unsigned)
 {
-    const unsigned long long mask = (width >= 64) ? ~0ULL : ((1ULL << width) - 1);
-    const unsigned long long sign = 1ULL << (width - 1);
-
     /* when N is below the target int width the whole computation fits in int */
     const bool use_int = width < ctx->options.platform.int_n_bits;
-    const char* const u_type = use_int ? "unsigned" : "unsigned long long";
-    const char* const s_type = use_int ? "int" : "long long";
-    const char* const u_suffix = use_int ? "U" : "ULL";
-    const char* const s_suffix = use_int ? "" : "LL";
+
+    /* above a long long it is done in the 128-bit type, that has no literals */
+    const bool use_wide = width > ctx->options.platform.long_long_n_bits;
+
+    const char* const u_type = use_int ? "unsigned" : use_wide ? "unsigned __int128" : "unsigned long long";
+    const char* const s_type = use_int ? "int" : use_wide ? "__int128" : "long long";
+
+    char mask_text[100] = { 0 };
+    char sign_text[100] = { 0 };
+    if (use_wide)
+    {
+        const struct wide_integer mask = wide_integer_wrap_u(wide_integer_from_signed(-1), width);
+        const struct wide_integer sign = wide_integer_shl(wide_integer_from_unsigned(1), width - 1);
+        snprintf(mask_text, sizeof mask_text, "((unsigned __int128)0x%llxULL << %d | 0x%llxULL)", mask.hi, WIDE_INTEGER_HALF_BITS, mask.lo);
+        /* 2^(N - 1) with N below 128 is a positive __int128 */
+        snprintf(sign_text, sizeof sign_text, "((__int128)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", sign.hi, WIDE_INTEGER_HALF_BITS, sign.lo);
+    }
+    else
+    {
+        const unsigned long long mask = (width >= 64) ? ~0ULL : ((1ULL << width) - 1);
+        const unsigned long long sign = 1ULL << (width - 1);
+        snprintf(mask_text, sizeof mask_text, "0x%llx%s", mask, use_int ? "U" : "ULL");
+        snprintf(sign_text, sizeof sign_text, "0x%llx%s", sign, use_int ? "" : "LL");
+    }
 
     /* text & MASK; a text that is already an unsigned value needs no cast */
     struct osstream masked = { 0 };
     if (source_is_floating)
-        ss_fprintf(&masked, "(%s)(long long)(%s) & 0x%llx%s", u_type, text, mask, u_suffix);
+        ss_fprintf(&masked, "(%s)(long long)(%s) & %s", u_type, text, mask_text);
     else if (text_is_unsigned)
-        ss_fprintf(&masked, "%s & 0x%llx%s", text, mask, u_suffix);
+        ss_fprintf(&masked, "%s & %s", text, mask_text);
     else
-        ss_fprintf(&masked, "(%s)(%s) & 0x%llx%s", u_type, text, mask, u_suffix);
+        ss_fprintf(&masked, "(%s)(%s) & %s", u_type, text, mask_text);
 
     if (masked.c_str == NULL)
         return;
@@ -65775,15 +65575,15 @@ static void codegen_emit_wrap_text(const struct codegen_ctx* ctx,
     if (is_unsigned)
         ss_fprintf(oss, "((%s)(%s))", lowered, masked.c_str);
     else
-        ss_fprintf(oss, "((%s)(((%s)(%s) ^ 0x%llx%s) - 0x%llx%s))",
-                   lowered, s_type, masked.c_str, sign, s_suffix, sign, s_suffix);
+        ss_fprintf(oss, "((%s)(((%s)(%s) ^ %s) - %s))",
+                   lowered, s_type, masked.c_str, sign_text, sign_text);
 
     ss_close(&masked);
 }
 
 static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
                                           struct osstream* oss,
-                                          const struct type* p_type,
+                                          struct type* p_type,
                                           const char* text,
                                           bool source_is_floating)
 {
@@ -65805,7 +65605,7 @@ static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
 */
 static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
                                               struct osstream* oss,
-                                              const struct type* p_type,
+                                              struct type* p_type,
                                               const struct object* p_source)
 {
     if (!object_has_constant_value(p_source) || !type_is_integer(&p_source->type))
@@ -65814,6 +65614,32 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
     }
 
     const int width = p_type->bitint_width;
+
+    if (width > ctx->options.platform.long_long_n_bits)
+    {
+        /* the 128-bit value, wrapped by the cast; written from its halves when it has no literal */
+        struct object wrapped = object_cast(&ctx->options.platform, type_to_object_type(p_type, &ctx->options.platform), p_source);
+        const struct wide_integer v = wrapped.value.host_wide_integer;
+        object_destroy(&wrapped);
+
+        struct osstream lowered = { 0 };
+        d_print_type(ctx, &lowered, p_type, NULL, false, false);
+
+        const bool is_unsigned = (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED) != 0;
+        const bool fits = is_unsigned ?
+            v.hi == 0 :
+            wide_integer_equal(v, wide_integer_from_signed((long long)v.lo)) && (long long)v.lo != LLONG_MIN;
+
+        if (fits && is_unsigned)
+            ss_fprintf(oss, "((%s)%lluULL)", lowered.c_str, v.lo);
+        else if (fits)
+            ss_fprintf(oss, "((%s)%lldLL)", lowered.c_str, (long long)v.lo);
+        else
+            ss_fprintf(oss, "((%s)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", lowered.c_str, v.hi, WIDE_INTEGER_HALF_BITS, v.lo);
+
+        ss_close(&lowered);
+        return true;
+    }
 
     const unsigned long long bits = type_is_signed_integer(&p_source->type) ?
         (unsigned long long)object_to_signed_long_long(p_source) :
@@ -65825,13 +65651,13 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
         struct object wrapped = object_make_unsigned_bitint(width, bits);
-        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, wrapped.value.host_u_long_long);
+        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, wrapped.value.host_wide_integer.lo);
         object_destroy(&wrapped);
     }
     else
     {
         struct object wrapped = object_make_signed_bitint(width, (long long)bits);
-        const long long value = wrapped.value.host_long_long;
+        const long long value = ((long long)wrapped.value.host_wide_integer.lo);
         object_destroy(&wrapped);
         if (value == LLONG_MIN)
             ss_fprintf(oss, "((%s)(-%lld - 1))", lowered.c_str, LLONG_MAX);
@@ -65851,7 +65677,7 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
 */
 static void codegen_emit_converted_text(struct codegen_ctx* ctx,
                                         struct osstream* oss,
-                                        const struct type* p_target_type,
+                                        struct type* p_target_type,
                                         const char* text,
                                         bool source_is_floating)
 {
@@ -65875,7 +65701,7 @@ static void codegen_emit_converted_text(struct codegen_ctx* ctx,
 */
 static void codegen_emit_converted_expression(struct codegen_ctx* ctx,
                                               struct osstream* oss,
-                                              const struct type* p_target_type,
+                                              struct type* p_target_type,
                                               struct expression* p_expression)
 {
     if (type_is_bool(p_target_type))
@@ -68981,7 +68807,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
 
             print_identation(ctx, &ss);
 
-            const struct type* controlling_type =
+            struct type* controlling_type =
                 p_selection_statement->condition->p_init_declarator ?
                 &p_selection_statement->condition->p_init_declarator->p_declarator->object.type :
                 &p_selection_statement->condition->expression->object.type; //lint 33 33 33 assert line 5165
@@ -69610,12 +69436,12 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
 }
 
 static void register_struct_types_and_functions(struct codegen_ctx* ctx,
-                                                const struct type* p_type0,
+                                                struct type* p_type0,
                                                 struct struct_entry* _Opt p_struct_entry0)
 {
     try
     {
-        const struct type* _Opt p_type = p_type0;
+        struct type* _Opt p_type = p_type0;
 
         while (p_type)
         {
@@ -69625,8 +69451,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
             {
                 if (p_type->struct_or_union_specifier)
                 {
-                    const struct struct_or_union_specifier* _Opt p_complete =
-                        get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
+                    struct struct_or_union_specifier* _Opt p_complete = get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
 
                     if (p_complete == NULL)
                     {
@@ -69797,12 +69622,12 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                             struct type t2 = get_array_item_type(&t);
                                             if (type_is_struct_or_union(&t2))
                                             {
-                                                assert(t.struct_or_union_specifier);
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
-                                                    get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                    get_complete_struct_or_union_specifier(t.struct_or_union_specifier); //lint 35: 't.struct_or_union_specifier' may be null (type_is_struct_or_union)
 
                                                 if (p_complete_member == NULL)
                                                 {
+                                                    type_destroy(&t);
                                                     type_destroy(&t2);
                                                     throw;
                                                 }
@@ -69853,7 +69678,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
 
             case TYPE_CATEGORY_FUNCTION:
             {
-                const struct param* _Opt pa = p_type->params.head;
+                struct param* _Opt pa = p_type->params.head;
                 while (pa)
                 {
                     register_struct_types_and_functions(ctx, &pa->type, p_struct_entry0);
@@ -69895,11 +69720,11 @@ static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum 
 */
 static void d_print_type_core(struct codegen_ctx* ctx,
                               struct osstream* ss,
-                              const struct type* p_type0,
+                              struct type* p_type0,
                               const char* _Opt name_opt,
                               bool name_unnamed_parameters)
 {
-    const struct type* _Opt p_type = p_type0;
+    struct type* _Opt p_type = p_type0;
 
     while (p_type)
     {
@@ -69943,7 +69768,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                 enum type_specifier_flags enum_type_specifier_flags =
                     get_enum_type_specifier_flags(p_type->enum_specifier);
 
-                print_type_specifier_flags(&local, &first, enum_type_specifier_flags, 0);
+                codegen_print_type_specifier_flags(ctx, &local, &first, enum_type_specifier_flags);
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
@@ -69969,14 +69794,14 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                       type_get_sizeof/type_get_alignof report.
                     */
                     const bool is_unsigned = p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED;
-                    print_type_specifier_flags(&local,
-                                               &first,
-                                               bitint_lowered_type_specifier_flags(p_type->bitint_width, is_unsigned, &ctx->options.platform),
-                                               0);
+                    codegen_print_type_specifier_flags(ctx,
+                                                       &local,
+                                                       &first,
+                                                       bitint_lowered_type_specifier_flags(p_type->bitint_width, is_unsigned, &ctx->options.platform));
                 }
                 else
                 {
-                    print_type_specifier_flags(&local, &first, p_type->type_specifier_flags, 0);
+                    codegen_print_type_specifier_flags(ctx, &local, &first, p_type->type_specifier_flags);
                 }
             }
 
@@ -70006,7 +69831,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                 names[][300]) is not VM: it prints [] and the inner
                 dimensions are kept.
             */
-            const struct type* _Opt it = p_type;
+            struct type* _Opt it = p_type;
             bool vm = false;
             while (it && it->category == TYPE_CATEGORY_ARRAY)
             {
@@ -70083,7 +69908,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
             }
             ss_fprintf(ss, "(");
 
-            const struct param* _Opt pa = p_type->params.head;
+            struct param* _Opt pa = p_type->params.head;
 
             while (pa)
             {
@@ -70188,7 +70013,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
 
 static void d_print_type(struct codegen_ctx* ctx,
                          struct osstream* ss,
-                         const struct type* p_type,
+                         struct type* p_type,
                          const char* _Opt name_opt,
                          bool print_storage_qualifiers,
                          bool name_unnamed_parameters)
@@ -70481,11 +70306,11 @@ static void emmit_clear_declarator(struct codegen_ctx* ctx, struct osstream* ss,
     }
 }
 
-static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, const struct object* object, bool* first)
+static void object_print_initialization_list(struct codegen_ctx* ctx, struct osstream* ss, struct object* object, bool* first)
 {
     if (object_is_reference(object))
     {
-        object = object_get_referenced(object);
+        object = object_get_referenced(object); //lint 15
     }
 
     if (object->p_init_expression &&
@@ -70506,7 +70331,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
             /* in C89, only the first member can be initialized */
             //we could make the first member be array of unsigned int
             //then initialize it
-            const struct object* _Opt member = object->members.head;
+            struct object* _Opt member = object->members.head;
             struct struct_or_union_specifier* _Opt p_owner = NULL;
             struct member_declarator* _Opt p_member = NULL;
             if (member && codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
@@ -70522,7 +70347,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
         else
         {
             /* under -no-bitfields a run of bitfields is initialized as its tiles */
-            const struct object* _Opt member = object->members.head;
+            struct object* _Opt member = object->members.head;
             int index = 0;
             while (member)
             {
@@ -70531,7 +70356,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
                 if (codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
                 {
                     int count = 0;
-                    const struct object* _Opt p = member;
+                    struct object* _Opt p = member;
                     while (p && codegen_object_is_lowered_bitfield(ctx, p, &p_owner, &p_member))
                     {
                         count++;
@@ -70600,7 +70425,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
 
 static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                                                    struct osstream* ss,
-                                                   const struct object* object,
+                                                   struct object* object,
                                                    const char* declarator_name,
                                                    bool all,
                                                    bool initialize_objects_that_does_not_have_initializer)
@@ -70609,7 +70434,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
     {
         if (object_is_reference(object))
         {
-            object = object_get_referenced(object);
+            object = object_get_referenced(object); //lint 15
         }
 
         if (object->members.head != NULL)
@@ -70617,7 +70442,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
             if (type_is_union(&object->type))
             {
                 /* in C89, only the first member can be initialized */
-                const struct object* _Opt member = object->members.head;
+                struct object* _Opt member = object->members.head;
 
                 if (member->p_init_expression &&
                     object_has_constant_value(&member->p_init_expression->object) &&
@@ -70760,7 +70585,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                         ss_close(&local);
                         ctx->memcpy_used = true;
                     }
-                    const struct object* _Opt member = object->members.head;
+                    struct object* _Opt member = object->members.head;
                     while (member)
                     {
                         assign_each_member_from_initialization(ctx, ss, member, declarator_name, all, false);
@@ -70769,7 +70594,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 }
                 else
                 {
-                    const struct object* _Opt member = object->members.head;
+                    struct object* _Opt member = object->members.head;
                     while (member)
                     {
                         assign_each_member_from_initialization(ctx, ss, member, declarator_name, all,
@@ -71238,7 +71063,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
             p_init_declarator->p_declarator->name_opt ?
             p_init_declarator->p_declarator->name_opt->lexeme : "";
 
-        const struct type* decl_type = &p_init_declarator->p_declarator->object.type;
+        struct type* decl_type = &p_init_declarator->p_declarator->object.type;
 
         if (!is_typedef &&
             type_is_constexpr(decl_type) &&
@@ -74884,7 +74709,7 @@ struct flow_true_false_branches
 static void flow_check_dianostic_suppression(struct flow_ctx* ctx, const struct token* p_token);
 
 
-static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression);
+static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, struct expression* _Opt p_expression);
 static void object_static_debug(struct flow_ctx* ctx, const struct object* p_object, const struct token* first_token, const struct token* last_token);
 
 static void flow_check_object_at_exit(struct flow_ctx* ctx, const struct type* p_type, const struct object* p_obj, const struct marker* marker, const struct token* p_exit_token, bool in_view, const char* _Opt p_root_name_opt, bool root_is_pointer);
@@ -75356,7 +75181,7 @@ static struct flow_true_false_branches flow_ensure_branch_pair(struct flow_ctx* 
 
 
 static void flow_visit_unlabeled_statement(struct flow_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
-static void flow_visit_static_assertion(struct flow_ctx* ctx, const struct static_assertion* p_static_assertion);
+static void flow_visit_static_assertion(struct flow_ctx* ctx, struct static_assertion* p_static_assertion);
 static void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration);
 static void flow_visit_secondary_block(struct flow_ctx* ctx, struct secondary_block* _Opt p_secondary_block);
 static void flow_visit_struct_or_union_specifier(struct flow_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
@@ -75364,17 +75189,17 @@ static void flow_visit_statement(struct flow_ctx* ctx, struct statement* p_state
 static void flow_visit_enum_specifier(struct flow_ctx* ctx, struct enum_specifier* p_enum_specifier);
 static void flow_visit_type_specifier(struct flow_ctx* ctx, struct type_specifier* p_type_specifier);
 static void flow_visit_bracket_initializer_list(struct flow_ctx* ctx, struct braced_initializer* p_bracket_initializer_list);
-static void flow_visit_expression_statement(struct flow_ctx* ctx, const struct expression_statement* p_expression_statement);
+static void flow_visit_expression_statement(struct flow_ctx* ctx, struct expression_statement* p_expression_statement);
 static void flow_visit_block_item(struct flow_ctx* ctx, struct block_item* p_block_item);
 static void flow_visit_initializer(struct flow_ctx* ctx, struct initializer* p_initializer);
-static void flow_visit_declarator(struct flow_ctx* ctx, const struct declarator* p_declarator);
+static void flow_visit_declarator(struct flow_ctx* ctx, struct declarator* p_declarator);
 static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label);
 
-static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression);
-static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, const struct expression* p_expression);
+static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, struct expression* p_expression);
+static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, struct expression* p_expression);
 
 
-static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct defer_list_item* p_item, const struct token* position_token)
+static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, struct defer_list_item* p_item, const struct token* position_token)
 {
     if (p_item->defer_statement)
     {
@@ -75444,7 +75269,7 @@ static void flow_exit_block_visit_defer_item(struct flow_ctx* ctx, const struct 
 }
 
 static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
-                                             const struct defer_list* p_defer_list,
+                                             struct defer_list* p_defer_list,
                                              const struct token* position_token)
 {
     if (ctx->stopped)
@@ -75457,7 +75282,7 @@ static void flow_exit_block_visit_defer_list(struct flow_ctx* ctx,
     if (ctx->p_current_flow_branch != NULL && ctx->p_current_flow_branch->is_unreachable)
         return;
 
-    const struct defer_list_item* _Opt p_item = p_defer_list->head;
+    struct defer_list_item* _Opt p_item = p_defer_list->head;
     while (p_item)
     {
         flow_exit_block_visit_defer_item(ctx, p_item, position_token);
@@ -75572,17 +75397,17 @@ static void flow_object_init(struct flow_ctx* ctx, struct object* p_object, cons
     if (type_is_pointer(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_PTR;
-        value.value.p = (void*)(uintptr_t)p_object->value.host_u_long_long;
+        value.value.p = (void*)(uintptr_t)p_object->value.host_wide_integer.lo;
     }
     else if (type_is_signed(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_SIGNED;
-        value.value.i = p_object->value.host_long_long;
+        value.value.i = ((long long)p_object->value.host_wide_integer.lo);
     }
     else
     {
         value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-        value.value.u = p_object->value.host_u_long_long;
+        value.value.u = p_object->value.host_wide_integer.lo;
     }
 
     switch (p_object->state)
@@ -75676,12 +75501,12 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
         else if (type_is_signed(&p_object->type))
         {
             value.value_kind = FLOW_VALUE_KIND_SIGNED;
-            value.value.i = p_object->value.host_long_long;
+            value.value.i = ((long long)p_object->value.host_wide_integer.lo);
         }
         else
         {
             value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-            value.value.u = p_object->value.host_u_long_long;
+            value.value.u = p_object->value.host_wide_integer.lo;
         }
 
         switch (p_object->state)
@@ -76035,7 +75860,7 @@ static void flow_visit_init_declarator(struct flow_ctx* ctx, struct init_declara
     {
         if (p_init_declarator->initializer->assignment_expression)
         {
-            const struct expression* p_init_expr = p_init_declarator->initializer->assignment_expression;
+            struct expression* p_init_expr = p_init_declarator->initializer->assignment_expression;
             const struct expression* _Opt p_saved_owner_sink = ctx->p_owner_sink;
             ctx->p_owner_sink = flow_owner_sink_of(&p_init_declarator->p_declarator->object.type, p_init_expr);
             flow_visit_full_expression(ctx, p_init_expr);
@@ -76847,7 +76672,7 @@ static void flow_visit_initializer_list(struct flow_ctx* ctx, struct initializer
     }
 }
 
-static void flow_visit_generic_selection(struct flow_ctx* ctx, const struct generic_selection* p_generic_selection)
+static void flow_visit_generic_selection(struct flow_ctx* ctx, struct generic_selection* p_generic_selection)
 {
     if (p_generic_selection->expression)
     {
@@ -79106,7 +78931,7 @@ static const struct flow_key_alternatives* _Opt flow_pointer_pointee_on_demand(s
 
 static void flow_visit_function_arguments(struct flow_ctx* ctx,
                                           const struct type* p_type,
-                                          const struct argument_expression_list* p_argument_expression_list)
+                                          struct argument_expression_list* p_argument_expression_list)
 {
     try
     {
@@ -79120,7 +78945,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
         }
 
         const struct param* _Opt p_current_parameter_type = p_param_list->head;
-        const struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
+        struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
         /*
             Collect pointee write-effects and apply them after all arguments:
@@ -79133,7 +78958,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
 
         while (p_current_argument)
         {
-            const struct expression* p_arg_expr = p_current_argument->expression;
+            struct expression* p_arg_expr = p_current_argument->expression;
             /* a variadic argument is only read: its own type, as a view */
             struct type variadic_type = { 0 };
             const struct type* p_param_type = &variadic_type;
@@ -79456,7 +79281,7 @@ static void flow_expression_static_debug(struct flow_ctx* ctx, const struct expr
     object_static_debug(ctx, &p_expression->object, first_token, last_token);
 }
 
-static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, const struct expression* p_expression)
+static struct flow_true_false_branches flow_visit_full_expression(struct flow_ctx* ctx, struct expression* p_expression)
 {
     return flow_visit_expression(ctx, p_expression);
 }
@@ -79465,7 +79290,7 @@ static struct flow_true_false_branches flow_visit_full_expression(struct flow_ct
     Visits an expression whose value is tested (if, loops, ?:, !, &&, ||):
     flow_narrow_map_into then checks it for warning 30.
 */
-static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, const struct expression* p_expression)
+static struct flow_true_false_branches flow_visit_condition(struct flow_ctx* ctx, struct expression* p_expression)
 {
     const struct expression* _Opt p_previous = ctx->p_condition;
     ctx->p_condition = skip_parenthesis(p_expression);
@@ -81065,7 +80890,8 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                                     }
                                     else
                                     {
-                                        result_val = l / r;
+                                        /* LLONG_MIN / -1 overflows, and the host division traps (x64); the wrapped value is used */
+                                        result_val = (r == -1) ? (long long)(0ULL - (unsigned long long)l) : l / r;
                                         result_rel = FLOW_RELATION_EQUAL;
                                     }
                                 break;
@@ -81080,7 +80906,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                                     }
                                     else
                                     {
-                                        result_val = l % r;
+                                        result_val = (r == -1) ? 0 : l % r; /* LLONG_MIN % -1 traps too */
                                         result_rel = FLOW_RELATION_EQUAL;
                                     }
                                 break;
@@ -81539,7 +81365,7 @@ static void flow_check_dereferenced_value(struct flow_ctx* ctx,
     }
 }
 
-static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, const struct expression* _Opt p_expression)
+static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ctx, struct expression* _Opt p_expression)
 {
     /*
         left/right are _Owner _Opt in the AST, and callers hand them straight
@@ -81623,17 +81449,17 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     if (type_is_pointer(&p_obj->type))
                     {
                         value.value_kind = FLOW_VALUE_KIND_PTR;
-                        value.value.p = (void*)(uintptr_t)p_obj->value.host_u_long_long;
+                        value.value.p = (void*)(uintptr_t)p_obj->value.host_wide_integer.lo;
                     }
                     else if (type_is_signed(&p_obj->type))
                     {
                         value.value_kind = FLOW_VALUE_KIND_SIGNED;
-                        value.value.i = p_obj->value.host_long_long;
+                        value.value.i = ((long long)p_obj->value.host_wide_integer.lo);
                     }
                     else
                     {
                         value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-                        value.value.u = p_obj->value.host_u_long_long;
+                        value.value.u = p_obj->value.host_wide_integer.lo;
                     }
 
                     struct flow_key_alternatives* _Opt e1 = flow_branch_find_add(ctx->p_current_flow_branch, p_obj);
@@ -81683,7 +81509,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_PRIMARY_PARENTHESIS:
             {
                 assert(p_expression->right != NULL);
-                const struct expression* p_inner = skip_parenthesis(p_expression->right); //lint 35 assert line 6813
+                struct expression* p_inner = skip_parenthesis(p_expression->right); //lint 15
                 struct flow_true_false_branches paren_pair = flow_visit_expression(ctx, p_inner);
 
                 /*
@@ -82811,7 +82637,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_POSTFIX_INCREMENT:
             case EXPR_POSTFIX_DECREMENT:
             {
-                const struct expression* _Opt p_operand = NULL;
+                struct expression* _Opt p_operand = NULL;
 
                 if (p_expression->expression_type == EXPR_UNARY_INCREMENT ||
                 p_expression->expression_type == EXPR_UNARY_DECREMENT)
@@ -83435,10 +83261,11 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                     result = lv * rv;
                                 break;
                                 case EXPR_ASSIGNMENT_DIV_ASSIGN:
-                                    result = rv != 0 ? lv / rv : lv;
+                                    /* LLONG_MIN / -1 overflows, and the host division traps (x64); the wrapped value is used */
+                                    result = rv == 0 ? lv : rv == -1 ? (signed long long)(0ULL - (unsigned long long)lv) : lv / rv;
                                 break;
                                 case EXPR_ASSIGNMENT_MOD_ASSIGN:
-                                    result = rv != 0 ? lv % rv : lv;
+                                    result = rv == 0 ? lv : rv == -1 ? 0 : lv % rv; /* LLONG_MIN % -1 traps too */
                                 break;
                                 case EXPR_ASSIGNMENT_SHIFT_LEFT_ASSIGN:
                                     result = lv << rv;
@@ -84374,7 +84201,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 /* true branch */
                 ctx->p_current_flow_branch = cond_pair.p_true;
                 /* Elvis: left==NULL means use condition_expr value on true branch */
-                const struct expression* p_true_expr = p_expression->left
+                struct expression* p_true_expr = p_expression->left
                     ? p_expression->left
                     : p_expression->condition_expr; //lint 35 assert
                 /* a nested ?: arm is the sink too: `q = a ? (b ? p : r) : 0` */
@@ -84523,7 +84350,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
     return identity_pair;
 }
 
-static void flow_visit_expression_statement(struct flow_ctx* ctx, const struct expression_statement* p_expression_statement)
+static void flow_visit_expression_statement(struct flow_ctx* ctx, struct expression_statement* p_expression_statement)
 {
     /*
         Only meant to bridge a report from THIS statement's own expression
@@ -85029,8 +84856,8 @@ static struct flow_branch* _Opt flow_loop_body_end(struct flow_ctx* ctx,
 */
 static void flow_visit_loop(struct flow_ctx* ctx,
                             struct iteration_statement* p_iteration_statement,
-                            const struct expression* _Opt p_condition,
-                            const struct expression* _Opt p_next,
+                            struct expression* _Opt p_condition,
+                            struct expression* _Opt p_next,
                             bool join_zero_iterations,
                             bool condition_first)
 {
@@ -85951,7 +85778,7 @@ static void flow_check_exiting_objects(struct flow_ctx* ctx,
     }
 }
 
-static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_statement* p_jump_statement)
+static void flow_check_function_exit(struct flow_ctx* ctx, struct jump_statement* p_jump_statement)
 {
     if (ctx->stopped)
         return;
@@ -85978,7 +85805,7 @@ static void flow_check_function_exit(struct flow_ctx* ctx, const struct jump_sta
     flow_check_exiting_objects(ctx, p_jump_statement->expression_opt, &marker);
 }
 
-static void flow_visit_jump_statement(struct flow_ctx* ctx, const struct jump_statement* p_jump_statement)
+static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statement* p_jump_statement)
 {
     
     try
@@ -86605,7 +86432,7 @@ static void flow_visit_compile_assert(struct flow_ctx* ctx, const struct static_
                       p_static_assertion->first_token);
 }
 
-static void flow_visit_static_assertion(struct flow_ctx* ctx, const struct static_assertion* p_static_assertion)
+static void flow_visit_static_assertion(struct flow_ctx* ctx, struct static_assertion* p_static_assertion)
 {
     if (p_static_assertion->first_token->type == TK_KEYWORD_RUNTIME_ASSERT)
     {
@@ -86690,7 +86517,7 @@ static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_dec
     }
 }
 
-static void flow_visit_declarator(struct flow_ctx* ctx, const struct declarator* p_declarator)
+static void flow_visit_declarator(struct flow_ctx* ctx, struct declarator* p_declarator)
 {
     if (p_declarator->object.type.category != TYPE_CATEGORY_FUNCTION)
     {
@@ -86720,7 +86547,7 @@ static void flow_visit_init_declarator_list(struct flow_ctx* ctx, struct init_de
     }
 }
 
-static void flow_visit_member_declarator(struct flow_ctx* ctx, const struct member_declarator* p_member_declarator)
+static void flow_visit_member_declarator(struct flow_ctx* ctx, struct member_declarator* p_member_declarator)
 {
     if (p_member_declarator->declarator)
     {
@@ -86761,7 +86588,7 @@ static void flow_visit_struct_or_union_specifier(struct flow_ctx* ctx, struct st
     flow_visit_member_declaration_list(ctx, &p_struct_or_union_specifier->member_declaration_list);
 }
 
-static void flow_visit_enumerator(struct flow_ctx* ctx, const struct enumerator* p_enumerator)
+static void flow_visit_enumerator(struct flow_ctx* ctx, struct enumerator* p_enumerator)
 {
     if (p_enumerator->constant_expression_opt)
     {
@@ -88102,373 +87929,377 @@ static char gcc_builtins[] =
 ,97,115,101,100,32,116,111,32,102,108,111,97,116,46,32,42,47,10,32,32,32,32,116,121,112
 ,101,100,101,102,32,102,108,111,97,116,32,95,70,108,111,97,116,49,54,59,10,35,101,110,100
 ,105,102,32,47,42,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65
-,67,79,83,32,42,47,10,10,47,42,32,49,50,56,45,98,105,116,32,105,110,116,115,32,111
-,110,108,121,32,97,112,112,101,97,114,32,97,115,32,115,116,114,117,99,116,32,102,105,101,108
-,100,115,32,105,110,32,115,121,115,116,101,109,32,104,101,97,100,101,114,115,32,40,97,114,109
-,54,52,32,78,69,79,78,32,115,116,97,116,101,44,32,103,108,105,98,99,32,108,105,110,107
-,46,104,41,44,32,109,111,100,101,108,101,100,32,97,115,32,97,32,49,54,45,98,121,116,101
-,32,97,103,103,114,101,103,97,116,101,46,32,42,47,10,116,121,112,101,100,101,102,32,115,116
-,114,117,99,116,32,123,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103
-,32,95,95,97,44,32,95,95,98,59,32,125,32,95,95,117,105,110,116,49,50,56,95,116,59
-,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,123,32,117,110,115,105,103,110,101
-,100,32,108,111,110,103,32,108,111,110,103,32,95,95,97,44,32,95,95,98,59,32,125,32,95
-,95,105,110,116,49,50,56,95,116,59,10,10,108,111,110,103,32,95,95,98,117,105,108,116,105
-,110,95,101,120,112,101,99,116,40,108,111,110,103,32,101,120,112,44,32,108,111,110,103,32,99
-,41,59,10,35,105,102,100,101,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79
-,83,95,77,65,67,79,83,10,32,32,32,32,105,110,116,32,95,95,98,117,105,108,116,105,110
-,95,99,111,110,115,116,97,110,116,95,112,40,47,42,97,110,121,32,101,120,112,114,101,115,115
-,105,111,110,42,47,46,46,46,41,59,10,35,101,110,100,105,102,32,47,42,32,95,95,67,65
-,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,32,42,47,10,10,47,42
-,10,32,32,104,116,116,112,115,58,47,47,103,99,99,46,103,110,117,46,111,114,103,47,111,110
-,108,105,110,101,100,111,99,115,47,103,99,99,47,73,110,116,101,103,101,114,45,79,118,101,114
-,102,108,111,119,45,66,117,105,108,116,105,110,115,46,104,116,109,108,10,42,47,10,98,111,111
-,108,32,95,95,98,117,105,108,116,105,110,95,97,100,100,95,111,118,101,114,102,108,111,119,40
-,47,42,116,121,112,101,49,32,97,44,32,116,121,112,101,50,32,98,44,32,116,121,112,101,51
-,32,42,114,101,115,42,47,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110,95
-,115,97,100,100,95,111,118,101,114,102,108,111,119,40,105,110,116,32,97,44,32,105,110,116,32
-,98,44,32,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32,95,95,98,117,105,108
-,116,105,110,95,115,97,100,100,108,95,111,118,101,114,102,108,111,119,40,108,111,110,103,32,105
-,110,116,32,97,44,32,108,111,110,103,32,105,110,116,32,98,44,32,108,111,110,103,32,105,110
-,116,42,32,114,101,115,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110,95,115
-,97,100,100,108,108,95,111,118,101,114,102,108,111,119,40,108,111,110,103,32,108,111,110,103,32
-,105,110,116,32,97,44,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,98,44,32,108
-,111,110,103,32,108,111,110,103,32,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32
-,95,95,98,117,105,108,116,105,110,95,117,97,100,100,95,111,118,101,114,102,108,111,119,40,117
-,110,115,105,103,110,101,100,32,105,110,116,32,97,44,32,117,110,115,105,103,110,101,100,32,105
-,110,116,32,98,44,32,117,110,115,105,103,110,101,100,32,105,110,116,42,32,114,101,115,41,59
-,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110,95,117,97,100,100,108,95,111,118,101
-,114,102,108,111,119,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,97
-,44,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,98,44,32,117,110
-,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,42,32,114,101,115,41,59,10,98,111
-,111,108,32,95,95,98,117,105,108,116,105,110,95,117,97,100,100,108,108,95,111,118,101,114,102
-,108,111,119,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110
-,116,32,97,44,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105
-,110,116,32,98,44,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32
-,105,110,116,42,32,114,101,115,41,59,10,10,10,100,111,117,98,108,101,32,95,95,98,117,105
-,108,116,105,110,95,104,117,103,101,95,118,97,108,40,118,111,105,100,41,59,10,102,108,111,97
-,116,32,95,95,98,117,105,108,116,105,110,95,104,117,103,101,95,118,97,108,102,40,118,111,105
-,100,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110
-,95,104,117,103,101,95,118,97,108,108,40,118,111,105,100,41,59,10,10,10,105,110,116,32,95
-,95,98,117,105,108,116,105,110,95,102,112,99,108,97,115,115,105,102,121,40,105,110,116,44,32
-,105,110,116,44,32,105,110,116,44,32,105,110,116,44,32,105,110,116,44,32,46,46,46,41,59
-,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,105,110,102,40,118,111,105
-,100,41,59,10,10,95,68,101,99,105,109,97,108,51,50,32,95,95,98,117,105,108,116,105,110
-,95,105,110,102,100,51,50,40,118,111,105,100,41,59,10,95,68,101,99,105,109,97,108,54,52
-,32,95,95,98,117,105,108,116,105,110,95,105,110,102,100,54,52,40,118,111,105,100,41,59,10
-,95,68,101,99,105,109,97,108,49,50,56,32,95,95,98,117,105,108,116,105,110,95,105,110,102
-,100,49,50,56,40,118,111,105,100,41,59,10,10,102,108,111,97,116,32,95,95,98,117,105,108
-,116,105,110,95,105,110,102,102,40,118,111,105,100,41,59,10,108,111,110,103,32,100,111,117,98
-,108,101,32,95,95,98,117,105,108,116,105,110,95,105,110,102,108,40,118,111,105,100,41,59,10
-,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,105,115,105,110,102,95,115,105,103,110
-,40,46,46,46,41,59,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110
-,97,110,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,10,10,95,68
-,101,99,105,109,97,108,54,52,32,95,95,98,117,105,108,116,105,110,95,110,97,110,100,54,52
-,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109
-,97,108,49,50,56,32,95,95,98,117,105,108,116,105,110,95,110,97,110,100,49,50,56,40,99
-,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,102,108,111,97,116,32,95,95
-,98,117,105,108,116,105,110,95,110,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32
-,115,116,114,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116
-,105,110,95,110,97,110,108,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59
-,10,10,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115
-,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109
-,97,108,51,50,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115,100,51,50,40,99,111
-,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,54
-,52,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115,100,54,52,40,99,111,110,115,116
-,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,49,50,56,32
-,95,95,98,117,105,108,116,105,110,95,110,97,110,115,100,49,50,56,40,99,111,110,115,116,32
-,99,104,97,114,42,32,115,116,114,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116
-,105,110,95,110,97,110,115,102,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41
-,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110
-,97,110,115,108,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,10,105
-,110,116,32,95,95,98,117,105,108,116,105,110,95,105,115,115,105,103,110,97,108,105,110,103,40
-,46,46,46,41,59,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112,111
-,119,105,40,100,111,117,98,108,101,44,32,105,110,116,41,59,10,102,108,111,97,116,32,95,95
-,98,117,105,108,116,105,110,95,112,111,119,105,102,40,102,108,111,97,116,44,32,105,110,116,41
-,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112
-,111,119,105,108,40,108,111,110,103,32,100,111,117,98,108,101,44,32,105,110,116,41,59,10,10
-,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,97,98,115,40,105,110,116,32,120,41
-,59,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,102,97,98,115,40,100
-,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110
-,95,102,97,98,115,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117
-,98,108,101,32,95,95,98,117,105,108,116,105,110,95,102,97,98,115,108,40,108,111,110,103,32
-,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108
-,116,105,110,95,115,105,110,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32
-,95,95,98,117,105,108,116,105,110,95,115,105,110,102,40,102,108,111,97,116,32,120,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,105,110
-,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101
-,32,95,95,98,117,105,108,116,105,110,95,99,111,115,40,100,111,117,98,108,101,32,120,41,59
-,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,99,111,115,102,40,102,108,111
-,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108
-,116,105,110,95,99,111,115,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10
-,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,116,97,110,40,100,111,117
-,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,116
-,97,110,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
-,32,95,95,98,117,105,108,116,105,110,95,116,97,110,108,40,108,111,110,103,32,100,111,117,98
-,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95
-,115,113,114,116,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98
-,117,105,108,116,105,110,95,115,113,114,116,102,40,102,108,111,97,116,32,120,41,59,10,108,111
-,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,113,114,116,108
-,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32
-,95,95,98,117,105,108,116,105,110,95,112,111,119,40,100,111,117,98,108,101,32,120,44,32,100
-,111,117,98,108,101,32,121,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110
-,95,112,111,119,102,40,102,108,111,97,116,32,120,44,32,102,108,111,97,116,32,121,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112,111,119
-,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,44,32,108,111,110,103,32,100,111,117
-,98,108,101,32,121,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110
-,95,101,120,112,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98
-,117,105,108,116,105,110,95,101,120,112,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110
-,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,101,120,112,108,40,108
-,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95
-,98,117,105,108,116,105,110,95,108,111,103,40,100,111,117,98,108,101,32,120,41,59,10,102,108
-,111,97,116,32,95,95,98,117,105,108,116,105,110,95,108,111,103,102,40,102,108,111,97,116,32
-,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110
-,95,108,111,103,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111
-,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,108,111,103,49,48,40,100,111,117,98
-,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,108,111
-,103,49,48,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108
-,101,32,95,95,98,117,105,108,116,105,110,95,108,111,103,49,48,108,40,108,111,110,103,32,100
-,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116
-,105,110,95,102,108,111,111,114,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116
-,32,95,95,98,117,105,108,116,105,110,95,102,108,111,111,114,102,40,102,108,111,97,116,32,120
+,67,79,83,32,42,47,10,10,35,105,102,32,95,95,67,65,75,69,95,83,73,90,69,79,70
+,95,76,79,78,71,95,76,79,78,71,95,76,79,78,71,95,95,32,61,61,32,49,54,10,116
+,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,95,95,105,110,116,49,50,56,32
+,95,95,117,105,110,116,49,50,56,95,116,59,10,116,121,112,101,100,101,102,32,95,95,105,110
+,116,49,50,56,32,95,95,105,110,116,49,50,56,95,116,59,10,35,101,108,115,101,10,47,42
+,32,49,50,56,45,98,105,116,32,105,110,116,115,32,111,110,108,121,32,97,112,112,101,97,114
+,32,97,115,32,115,116,114,117,99,116,32,102,105,101,108,100,115,32,105,110,32,115,121,115,116
+,101,109,32,104,101,97,100,101,114,115,32,40,97,114,109,54,52,32,78,69,79,78,32,115,116
+,97,116,101,44,32,103,108,105,98,99,32,108,105,110,107,46,104,41,44,32,109,111,100,101,108
+,101,100,32,97,115,32,97,32,49,54,45,98,121,116,101,32,97,103,103,114,101,103,97,116,101
+,46,32,42,47,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,123,32,117,110,115
+,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,95,95,97,44,32,95,95,98,59
+,32,125,32,95,95,117,105,110,116,49,50,56,95,116,59,10,116,121,112,101,100,101,102,32,115
+,116,114,117,99,116,32,123,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110
+,103,32,95,95,97,44,32,95,95,98,59,32,125,32,95,95,105,110,116,49,50,56,95,116,59
+,10,35,101,110,100,105,102,10,10,108,111,110,103,32,95,95,98,117,105,108,116,105,110,95,101
+,120,112,101,99,116,40,108,111,110,103,32,101,120,112,44,32,108,111,110,103,32,99,41,59,10
+,35,105,102,100,101,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77
+,65,67,79,83,10,32,32,32,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,111
+,110,115,116,97,110,116,95,112,40,47,42,97,110,121,32,101,120,112,114,101,115,115,105,111,110
+,42,47,46,46,46,41,59,10,35,101,110,100,105,102,32,47,42,32,95,95,67,65,75,69,95
+,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,32,42,47,10,10,47,42,10,32,32
+,104,116,116,112,115,58,47,47,103,99,99,46,103,110,117,46,111,114,103,47,111,110,108,105,110
+,101,100,111,99,115,47,103,99,99,47,73,110,116,101,103,101,114,45,79,118,101,114,102,108,111
+,119,45,66,117,105,108,116,105,110,115,46,104,116,109,108,10,42,47,10,98,111,111,108,32,95
+,95,98,117,105,108,116,105,110,95,97,100,100,95,111,118,101,114,102,108,111,119,40,47,42,116
+,121,112,101,49,32,97,44,32,116,121,112,101,50,32,98,44,32,116,121,112,101,51,32,42,114
+,101,115,42,47,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110,95,115,97,100
+,100,95,111,118,101,114,102,108,111,119,40,105,110,116,32,97,44,32,105,110,116,32,98,44,32
+,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110
+,95,115,97,100,100,108,95,111,118,101,114,102,108,111,119,40,108,111,110,103,32,105,110,116,32
+,97,44,32,108,111,110,103,32,105,110,116,32,98,44,32,108,111,110,103,32,105,110,116,42,32
+,114,101,115,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110,95,115,97,100,100
+,108,108,95,111,118,101,114,102,108,111,119,40,108,111,110,103,32,108,111,110,103,32,105,110,116
+,32,97,44,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,98,44,32,108,111,110,103
+,32,108,111,110,103,32,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32,95,95,98
+,117,105,108,116,105,110,95,117,97,100,100,95,111,118,101,114,102,108,111,119,40,117,110,115,105
+,103,110,101,100,32,105,110,116,32,97,44,32,117,110,115,105,103,110,101,100,32,105,110,116,32
+,98,44,32,117,110,115,105,103,110,101,100,32,105,110,116,42,32,114,101,115,41,59,10,98,111
+,111,108,32,95,95,98,117,105,108,116,105,110,95,117,97,100,100,108,95,111,118,101,114,102,108
+,111,119,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,97,44,32,117
+,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,98,44,32,117,110,115,105,103
+,110,101,100,32,108,111,110,103,32,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32
+,95,95,98,117,105,108,116,105,110,95,117,97,100,100,108,108,95,111,118,101,114,102,108,111,119
+,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,97
+,44,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32
+,98,44,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116
+,42,32,114,101,115,41,59,10,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105
+,110,95,104,117,103,101,95,118,97,108,40,118,111,105,100,41,59,10,102,108,111,97,116,32,95
+,95,98,117,105,108,116,105,110,95,104,117,103,101,95,118,97,108,102,40,118,111,105,100,41,59
+,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,104,117
+,103,101,95,118,97,108,108,40,118,111,105,100,41,59,10,10,10,105,110,116,32,95,95,98,117
+,105,108,116,105,110,95,102,112,99,108,97,115,115,105,102,121,40,105,110,116,44,32,105,110,116
+,44,32,105,110,116,44,32,105,110,116,44,32,105,110,116,44,32,46,46,46,41,59,10,100,111
+,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,105,110,102,40,118,111,105,100,41,59
+,10,10,95,68,101,99,105,109,97,108,51,50,32,95,95,98,117,105,108,116,105,110,95,105,110
+,102,100,51,50,40,118,111,105,100,41,59,10,95,68,101,99,105,109,97,108,54,52,32,95,95
+,98,117,105,108,116,105,110,95,105,110,102,100,54,52,40,118,111,105,100,41,59,10,95,68,101
+,99,105,109,97,108,49,50,56,32,95,95,98,117,105,108,116,105,110,95,105,110,102,100,49,50
+,56,40,118,111,105,100,41,59,10,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110
+,95,105,110,102,102,40,118,111,105,100,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32
+,95,95,98,117,105,108,116,105,110,95,105,110,102,108,40,118,111,105,100,41,59,10,10,105,110
+,116,32,95,95,98,117,105,108,116,105,110,95,105,115,105,110,102,95,115,105,103,110,40,46,46
+,46,41,59,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,40
+,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,10,10,95,68,101,99,105
+,109,97,108,54,52,32,95,95,98,117,105,108,116,105,110,95,110,97,110,100,54,52,40,99,111
+,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,49
+,50,56,32,95,95,98,117,105,108,116,105,110,95,110,97,110,100,49,50,56,40,99,111,110,115
+,116,32,99,104,97,114,42,32,115,116,114,41,59,10,102,108,111,97,116,32,95,95,98,117,105
+,108,116,105,110,95,110,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114
 ,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95
-,102,108,111,111,114,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100
-,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,99,101,105,108,40,100,111,117,98
-,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,99,101
-,105,108,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
-,32,95,95,98,117,105,108,116,105,110,95,99,101,105,108,108,40,108,111,110,103,32,100,111,117
-,98,108,101,32,120,41,59,10,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102
-,115,40,105,110,116,32,105,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102
-,102,115,108,40,108,111,110,103,32,105,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105
-,110,95,102,102,115,108,108,40,108,111,110,103,32,108,111,110,103,32,105,41,59,10,10,118,111
-,105,100,42,32,95,95,98,117,105,108,116,105,110,95,109,101,109,99,112,121,40,118,111,105,100
-,42,32,100,101,115,116,44,32,99,111,110,115,116,32,118,111,105,100,42,32,115,114,99,44,32
-,115,105,122,101,95,116,32,110,41,59,10,118,111,105,100,42,32,95,95,98,117,105,108,116,105
-,110,95,109,101,109,115,101,116,40,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44,32
-,115,105,122,101,95,116,32,110,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95
-,109,101,109,99,109,112,40,99,111,110,115,116,32,118,111,105,100,42,32,115,49,44,32,99,111
-,110,115,116,32,118,111,105,100,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10
-,10,99,104,97,114,42,32,95,95,98,117,105,108,116,105,110,95,115,116,114,99,112,121,40,99
-,104,97,114,42,32,100,101,115,116,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,114
-,99,41,59,10,99,104,97,114,42,32,95,95,98,117,105,108,116,105,110,95,115,116,114,110,99
-,112,121,40,99,104,97,114,42,32,100,101,115,116,44,32,99,111,110,115,116,32,99,104,97,114
-,42,32,115,114,99,44,32,115,105,122,101,95,116,32,110,41,59,10,105,110,116,32,95,95,98
-,117,105,108,116,105,110,95,115,116,114,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42
-,32,115,49,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,115,105,122
-,101,95,116,32,95,95,98,117,105,108,116,105,110,95,115,116,114,108,101,110,40,99,111,110,115
-,116,32,99,104,97,114,42,32,115,41,59,10,10,95,78,111,114,101,116,117,114,110,32,118,111
-,105,100,32,95,95,98,117,105,108,116,105,110,95,97,98,111,114,116,40,118,111,105,100,41,59
-,10,95,78,111,114,101,116,117,114,110,32,118,111,105,100,32,95,95,98,117,105,108,116,105,110
-,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10,118,111,105,100,32,95
-,95,98,117,105,108,116,105,110,95,102,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59
-,10,118,111,105,100,42,32,95,95,98,117,105,108,116,105,110,95,109,97,108,108,111,99,40,115
-,105,122,101,95,116,32,115,105,122,101,41,59,10,118,111,105,100,42,32,95,95,98,117,105,108
-,116,105,110,95,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44,32,115,105
-,122,101,95,116,32,115,105,122,101,41,59,10,10,10,105,110,116,32,95,95,98,117,105,108,116
-,105,110,95,115,105,103,110,98,105,116,40,100,111,117,98,108,101,32,120,41,59,10,105,110,116
-,32,95,95,98,117,105,108,116,105,110,95,115,105,103,110,98,105,116,102,40,102,108,111,97,116
-,32,120,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,105,103,110,98,105
-,116,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,35,105,102,100,101
-,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,10
-,32,32,32,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,108,116,95,114,111,117
-,110,100,115,40,118,111,105,100,41,59,10,10,35,101,110,100,105,102,32,47,42,32,95,95,67
-,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,32,42,47,10,10,10
-,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,40,105,110,116,32,120,41
-,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,122,40,117,110,115,105,103
+,110,97,110,108,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,10,10
+,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115,40,99,111
+,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,51
+,50,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115,100,51,50,40,99,111,110,115,116
+,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,54,52,32,95
+,95,98,117,105,108,116,105,110,95,110,97,110,115,100,54,52,40,99,111,110,115,116,32,99,104
+,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,49,50,56,32,95,95,98
+,117,105,108,116,105,110,95,110,97,110,115,100,49,50,56,40,99,111,110,115,116,32,99,104,97
+,114,42,32,115,116,114,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95
+,110,97,110,115,102,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115
+,108,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,10,105,110,116,32
+,95,95,98,117,105,108,116,105,110,95,105,115,115,105,103,110,97,108,105,110,103,40,46,46,46
+,41,59,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112,111,119,105,40
+,100,111,117,98,108,101,44,32,105,110,116,41,59,10,102,108,111,97,116,32,95,95,98,117,105
+,108,116,105,110,95,112,111,119,105,102,40,102,108,111,97,116,44,32,105,110,116,41,59,10,108
+,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112,111,119,105
+,108,40,108,111,110,103,32,100,111,117,98,108,101,44,32,105,110,116,41,59,10,10,10,105,110
+,116,32,95,95,98,117,105,108,116,105,110,95,97,98,115,40,105,110,116,32,120,41,59,10,100
+,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,102,97,98,115,40,100,111,117,98
+,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,102,97
+,98,115,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,98,117,105,108,116,105,110,95,102,97,98,115,108,40,108,111,110,103,32,100,111,117
+,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110
+,95,115,105,110,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98
+,117,105,108,116,105,110,95,115,105,110,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110
+,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,105,110,108,40,108
+,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95
+,98,117,105,108,116,105,110,95,99,111,115,40,100,111,117,98,108,101,32,120,41,59,10,102,108
+,111,97,116,32,95,95,98,117,105,108,116,105,110,95,99,111,115,102,40,102,108,111,97,116,32
+,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110
+,95,99,111,115,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111
+,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,116,97,110,40,100,111,117,98,108,101
+,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,116,97,110,102
+,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,98,117,105,108,116,105,110,95,116,97,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32
+,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,113,114
+,116,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108
+,116,105,110,95,115,113,114,116,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32
+,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,113,114,116,108,40,108,111
+,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98
+,117,105,108,116,105,110,95,112,111,119,40,100,111,117,98,108,101,32,120,44,32,100,111,117,98
+,108,101,32,121,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,112,111
+,119,102,40,102,108,111,97,116,32,120,44,32,102,108,111,97,116,32,121,41,59,10,108,111,110
+,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112,111,119,108,40,108
+,111,110,103,32,100,111,117,98,108,101,32,120,44,32,108,111,110,103,32,100,111,117,98,108,101
+,32,121,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,101,120
+,112,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108
+,116,105,110,95,101,120,112,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100
+,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,101,120,112,108,40,108,111,110,103
+,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105
+,108,116,105,110,95,108,111,103,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116
+,32,95,95,98,117,105,108,116,105,110,95,108,111,103,102,40,102,108,111,97,116,32,120,41,59
+,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,108,111
+,103,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108
+,101,32,95,95,98,117,105,108,116,105,110,95,108,111,103,49,48,40,100,111,117,98,108,101,32
+,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,108,111,103,49,48
+,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95
+,95,98,117,105,108,116,105,110,95,108,111,103,49,48,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95
+,102,108,111,111,114,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95
+,98,117,105,108,116,105,110,95,102,108,111,111,114,102,40,102,108,111,97,116,32,120,41,59,10
+,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,102,108,111
+,111,114,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98
+,108,101,32,95,95,98,117,105,108,116,105,110,95,99,101,105,108,40,100,111,117,98,108,101,32
+,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,99,101,105,108,102
+,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,98,117,105,108,116,105,110,95,99,101,105,108,108,40,108,111,110,103,32,100,111,117,98,108,101
+,32,120,41,59,10,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,40,105
+,110,116,32,105,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,108
+,40,108,111,110,103,32,105,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102
+,102,115,108,108,40,108,111,110,103,32,108,111,110,103,32,105,41,59,10,10,118,111,105,100,42
+,32,95,95,98,117,105,108,116,105,110,95,109,101,109,99,112,121,40,118,111,105,100,42,32,100
+,101,115,116,44,32,99,111,110,115,116,32,118,111,105,100,42,32,115,114,99,44,32,115,105,122
+,101,95,116,32,110,41,59,10,118,111,105,100,42,32,95,95,98,117,105,108,116,105,110,95,109
+,101,109,115,101,116,40,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44,32,115,105,122
+,101,95,116,32,110,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,109,101,109
+,99,109,112,40,99,111,110,115,116,32,118,111,105,100,42,32,115,49,44,32,99,111,110,115,116
+,32,118,111,105,100,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,10,99,104
+,97,114,42,32,95,95,98,117,105,108,116,105,110,95,115,116,114,99,112,121,40,99,104,97,114
+,42,32,100,101,115,116,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,114,99,41,59
+,10,99,104,97,114,42,32,95,95,98,117,105,108,116,105,110,95,115,116,114,110,99,112,121,40
+,99,104,97,114,42,32,100,101,115,116,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115
+,114,99,44,32,115,105,122,101,95,116,32,110,41,59,10,105,110,116,32,95,95,98,117,105,108
+,116,105,110,95,115,116,114,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49
+,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,115,105,122,101,95,116
+,32,95,95,98,117,105,108,116,105,110,95,115,116,114,108,101,110,40,99,111,110,115,116,32,99
+,104,97,114,42,32,115,41,59,10,10,95,78,111,114,101,116,117,114,110,32,118,111,105,100,32
+,95,95,98,117,105,108,116,105,110,95,97,98,111,114,116,40,118,111,105,100,41,59,10,95,78
+,111,114,101,116,117,114,110,32,118,111,105,100,32,95,95,98,117,105,108,116,105,110,95,101,120
+,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10,118,111,105,100,32,95,95,98,117
+,105,108,116,105,110,95,102,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,10,118,111
+,105,100,42,32,95,95,98,117,105,108,116,105,110,95,109,97,108,108,111,99,40,115,105,122,101
+,95,116,32,115,105,122,101,41,59,10,118,111,105,100,42,32,95,95,98,117,105,108,116,105,110
+,95,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44,32,115,105,122,101,95
+,116,32,115,105,122,101,41,59,10,10,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95
+,115,105,103,110,98,105,116,40,100,111,117,98,108,101,32,120,41,59,10,105,110,116,32,95,95
+,98,117,105,108,116,105,110,95,115,105,103,110,98,105,116,102,40,102,108,111,97,116,32,120,41
+,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,105,103,110,98,105,116,108,40
+,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,35,105,102,100,101,102,32,95
+,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,10,32,32,32
+,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,108,116,95,114,111,117,110,100,115
+,40,118,111,105,100,41,59,10,10,35,101,110,100,105,102,32,47,42,32,95,95,67,65,75,69
+,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,32,42,47,10,10,10,10,105,110
+,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,40,105,110,116,32,120,41,59,10,105
+,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,122,40,117,110,115,105,103,110,101,100
+,32,105,110,116,32,120,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,116
+,122,40,117,110,115,105,103,110,101,100,32,105,110,116,32,120,41,59,10,105,110,116,32,95,95
+,98,117,105,108,116,105,110,95,99,108,114,115,98,40,105,110,116,32,120,41,59,10,105,110,116
+,32,95,95,98,117,105,108,116,105,110,95,112,111,112,99,111,117,110,116,40,117,110,115,105,103
 ,110,101,100,32,105,110,116,32,120,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110
-,95,99,116,122,40,117,110,115,105,103,110,101,100,32,105,110,116,32,120,41,59,10,105,110,116
-,32,95,95,98,117,105,108,116,105,110,95,99,108,114,115,98,40,105,110,116,32,120,41,59,10
-,105,110,116,32,95,95,98,117,105,108,116,105,110,95,112,111,112,99,111,117,110,116,40,117,110
-,115,105,103,110,101,100,32,105,110,116,32,120,41,59,10,105,110,116,32,95,95,98,117,105,108
-,116,105,110,95,112,97,114,105,116,121,40,117,110,115,105,103,110,101,100,32,105,110,116,32,120
-,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,108,40,108,111,110
-,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,122,108,40,117,110
+,95,112,97,114,105,116,121,40,117,110,115,105,103,110,101,100,32,105,110,116,32,120,41,59,10
+,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,108,40,108,111,110,103,41,59
+,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,122,108,40,117,110,115,105,103
+,110,101,100,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95
+,99,116,122,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,41,59,10,105,110,116,32
+,95,95,98,117,105,108,116,105,110,95,99,108,114,115,98,108,40,108,111,110,103,41,59,10,105
+,110,116,32,95,95,98,117,105,108,116,105,110,95,112,111,112,99,111,117,110,116,108,40,117,110
 ,115,105,103,110,101,100,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116
-,105,110,95,99,116,122,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,41,59,10,105
-,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,114,115,98,108,40,108,111,110,103,41
-,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,112,111,112,99,111,117,110,116,108
-,40,117,110,115,105,103,110,101,100,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117
-,105,108,116,105,110,95,112,97,114,105,116,121,108,40,117,110,115,105,103,110,101,100,32,108,111
-,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,108,108,40
-,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110
-,95,99,108,122,108,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103
-,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,116,122,108,108,40,117,110
-,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95
-,98,117,105,108,116,105,110,95,99,108,114,115,98,108,108,40,108,111,110,103,32,108,111,110,103
-,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,112,111,112,99,111,117,110,116
-,108,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105
-,110,116,32,95,95,98,117,105,108,116,105,110,95,112,97,114,105,116,121,108,108,40,117,110,115
-,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98
-,117,105,108,116,105,110,95,102,102,115,103,40,46,46,46,41,59,10,10,105,110,116,32,95,95
-,98,117,105,108,116,105,110,95,99,108,114,115,98,103,40,46,46,46,41,59,10,105,110,116,32
-,95,95,98,117,105,108,116,105,110,95,112,97,114,105,116,121,103,40,46,46,46,41,59,10,10
-,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116
-,100,99,95,98,105,116,95,119,105,100,116,104,40,47,42,116,121,112,101,32,97,114,103,42,47
-,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110
-,95,115,116,100,99,95,99,111,117,110,116,95,111,110,101,115,40,47,42,116,121,112,101,32,97
-,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105
-,108,116,105,110,95,115,116,100,99,95,99,111,117,110,116,95,122,101,114,111,115,40,47,42,116
-,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32
-,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,102,105,114,115,116,95,108,101,97,100
-,105,110,103,95,111,110,101,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110
-,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99
-,95,102,105,114,115,116,95,108,101,97,100,105,110,103,95,122,101,114,111,40,47,42,116,121,112
-,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95
-,98,117,105,108,116,105,110,95,115,116,100,99,95,102,105,114,115,116,95,116,114,97,105,108,105
-,110,103,95,111,110,101,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115
+,105,110,95,112,97,114,105,116,121,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,41
+,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,108,108,40,108,111,110
+,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108
+,122,108,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10
+,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,116,122,108,108,40,117,110,115,105,103
+,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105
+,108,116,105,110,95,99,108,114,115,98,108,108,40,108,111,110,103,32,108,111,110,103,41,59,10
+,105,110,116,32,95,95,98,117,105,108,116,105,110,95,112,111,112,99,111,117,110,116,108,108,40
+,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32
+,95,95,98,117,105,108,116,105,110,95,112,97,114,105,116,121,108,108,40,117,110,115,105,103,110
+,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108
+,116,105,110,95,102,102,115,103,40,46,46,46,41,59,10,10,105,110,116,32,95,95,98,117,105
+,108,116,105,110,95,99,108,114,115,98,103,40,46,46,46,41,59,10,105,110,116,32,95,95,98
+,117,105,108,116,105,110,95,112,97,114,105,116,121,103,40,46,46,46,41,59,10,10,117,110,115
 ,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95
-,102,105,114,115,116,95,116,114,97,105,108,105,110,103,95,122,101,114,111,40,47,42,116,121,112
+,98,105,116,95,119,105,100,116,104,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10
+,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116
+,100,99,95,99,111,117,110,116,95,111,110,101,115,40,47,42,116,121,112,101,32,97,114,103,42
+,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105
+,110,95,115,116,100,99,95,99,111,117,110,116,95,122,101,114,111,115,40,47,42,116,121,112,101
+,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98
+,117,105,108,116,105,110,95,115,116,100,99,95,102,105,114,115,116,95,108,101,97,100,105,110,103
+,95,111,110,101,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103
+,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,102,105
+,114,115,116,95,108,101,97,100,105,110,103,95,122,101,114,111,40,47,42,116,121,112,101,32,97
+,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105
+,108,116,105,110,95,115,116,100,99,95,102,105,114,115,116,95,116,114,97,105,108,105,110,103,95
+,111,110,101,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110
+,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,102,105,114
+,115,116,95,116,114,97,105,108,105,110,103,95,122,101,114,111,40,47,42,116,121,112,101,32,97
+,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105
+,108,116,105,110,95,115,116,100,99,95,104,97,115,95,115,105,110,103,108,101,95,98,105,116,40
+,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105
+,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,108,101,97,100,105,110,103
+,95,111,110,101,115,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105
+,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,108
+,101,97,100,105,110,103,95,122,101,114,111,115,40,47,42,116,121,112,101,32,97,114,103,42,47
+,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110
+,95,115,116,100,99,95,116,114,97,105,108,105,110,103,95,111,110,101,115,40,47,42,116,121,112
 ,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95
-,98,117,105,108,116,105,110,95,115,116,100,99,95,104,97,115,95,115,105,110,103,108,101,95,98
-,105,116,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101
-,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,108,101,97,100
-,105,110,103,95,111,110,101,115,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117
-,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100
-,99,95,108,101,97,100,105,110,103,95,122,101,114,111,115,40,47,42,116,121,112,101,32,97,114
-,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108
-,116,105,110,95,115,116,100,99,95,116,114,97,105,108,105,110,103,95,111,110,101,115,40,47,42
-,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116
-,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,116,114,97,105,108,105,110,103,95
-,122,101,114,111,115,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,10,35,105,102
-,100,101,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79
-,83,10,10,32,32,32,32,47,42,10,32,32,32,32,99,108,97,110,103,32,97,116,111,109,105
-,99,32,98,117,105,108,116,105,110,115,32,117,115,101,100,32,98,121,32,60,115,116,100,97,116
-,111,109,105,99,46,104,62,46,10,32,32,32,32,84,121,112,101,45,103,101,110,101,114,105,99
-,58,32,97,114,103,117,109,101,110,116,115,32,97,114,101,32,110,111,116,32,99,104,101,99,107
-,101,100,32,97,110,100,32,108,111,97,100,44,32,101,120,99,104,97,110,103,101,32,97,110,100
-,32,102,101,116,99,104,95,42,10,32,32,32,32,114,101,116,117,114,110,32,116,104,101,32,116
-,121,112,101,32,112,111,105,110,116,101,100,32,98,121,32,116,104,101,32,102,105,114,115,116,32
-,97,114,103,117,109,101,110,116,32,40,115,101,101,32,101,120,112,114,101,115,115,105,111,110,115
-,46,99,41,46,10,32,32,32,32,42,47,10,32,32,32,32,118,111,105,100,32,95,95,99,49
-,49,95,97,116,111,109,105,99,95,105,110,105,116,40,47,42,95,65,116,111,109,105,99,40,84
-,41,42,32,111,98,106,44,32,84,32,118,97,108,117,101,42,47,41,59,10,32,32,32,32,118
-,111,105,100,32,95,95,99,49,49,95,97,116,111,109,105,99,95,116,104,114,101,97,100,95,102
-,101,110,99,101,40,105,110,116,32,111,114,100,101,114,41,59,10,32,32,32,32,118,111,105,100
-,32,95,95,99,49,49,95,97,116,111,109,105,99,95,115,105,103,110,97,108,95,102,101,110,99
-,101,40,105,110,116,32,111,114,100,101,114,41,59,10,32,32,32,32,95,66,111,111,108,32,95
-,95,99,49,49,95,97,116,111,109,105,99,95,105,115,95,108,111,99,107,95,102,114,101,101,40
-,116,121,112,101,111,102,40,115,105,122,101,111,102,40,49,41,41,32,115,105,122,101,41,59,10
-,32,32,32,32,118,111,105,100,32,95,95,99,49,49,95,97,116,111,109,105,99,95,115,116,111
-,114,101,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32,84,32,118
-,97,108,117,101,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105
-,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,108,111,97,100,40,47,42,95,65
-,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32,105,110,116,32,111,114,100,101,114,42
-,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95
-,101,120,99,104,97,110,103,101,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98
-,106,44,32,84,32,118,97,108,117,101,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
-,10,32,32,32,32,95,66,111,111,108,32,95,95,99,49,49,95,97,116,111,109,105,99,95,99
-,111,109,112,97,114,101,95,101,120,99,104,97,110,103,101,95,115,116,114,111,110,103,40,47,42
-,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32,84,42,32,101,120,112,101,99
-,116,101,100,44,32,84,32,100,101,115,105,114,101,100,44,32,105,110,116,32,115,117,99,99,101
-,115,115,44,32,105,110,116,32,102,97,105,108,117,114,101,42,47,41,59,10,32,32,32,32,95
-,66,111,111,108,32,95,95,99,49,49,95,97,116,111,109,105,99,95,99,111,109,112,97,114,101
-,95,101,120,99,104,97,110,103,101,95,119,101,97,107,40,47,42,95,65,116,111,109,105,99,40
-,84,41,42,32,111,98,106,44,32,84,42,32,101,120,112,101,99,116,101,100,44,32,84,32,100
-,101,115,105,114,101,100,44,32,105,110,116,32,115,117,99,99,101,115,115,44,32,105,110,116,32
-,102,97,105,108,117,114,101,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49
-,95,97,116,111,109,105,99,95,102,101,116,99,104,95,97,100,100,40,47,42,95,65,116,111,109
-,105,99,40,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110
-,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49
-,95,97,116,111,109,105,99,95,102,101,116,99,104,95,115,117,98,40,47,42,95,65,116,111,109
-,105,99,40,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110
-,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49
-,95,97,116,111,109,105,99,95,102,101,116,99,104,95,97,110,100,40,47,42,95,65,116,111,109
-,105,99,40,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110
-,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49
-,95,97,116,111,109,105,99,95,102,101,116,99,104,95,111,114,40,47,42,95,65,116,111,109,105
-,99,40,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116
-,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95
-,97,116,111,109,105,99,95,102,101,116,99,104,95,120,111,114,40,47,42,95,65,116,111,109,105
-,99,40,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116
-,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95
-,97,116,111,109,105,99,95,102,101,116,99,104,95,110,97,110,100,40,47,42,95,65,116,111,109
-,105,99,40,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110
-,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49
-,95,97,116,111,109,105,99,95,102,101,116,99,104,95,109,97,120,40,47,42,95,65,116,111,109
-,105,99,40,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110
-,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49
-,95,97,116,111,109,105,99,95,102,101,116,99,104,95,109,105,110,40,47,42,95,65,116,111,109
-,105,99,40,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110
-,116,32,111,114,100,101,114,42,47,41,59,10,35,101,110,100,105,102,32,47,42,32,95,95,67
-,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,32,42,47,10,10,47
-,42,10,32,32,104,116,116,112,115,58,47,47,103,99,99,46,103,110,117,46,111,114,103,47,111
-,110,108,105,110,101,100,111,99,115,47,103,99,99,47,95,48,48,53,102,95,48,48,53,102,97
-,116,111,109,105,99,45,66,117,105,108,116,105,110,115,46,104,116,109,108,10,32,32,84,121,112
-,101,45,103,101,110,101,114,105,99,58,32,97,114,103,117,109,101,110,116,115,32,97,114,101,32
-,110,111,116,32,99,104,101,99,107,101,100,32,97,110,100,32,116,104,101,32,95,110,44,32,102
-,101,116,99,104,32,97,110,100,32,111,112,95,102,101,116,99,104,10,32,32,102,111,114,109,115
-,32,114,101,116,117,114,110,32,116,104,101,32,116,121,112,101,32,112,111,105,110,116,101,100,32
-,98,121,32,116,104,101,32,102,105,114,115,116,32,97,114,103,117,109,101,110,116,32,40,115,101
-,101,32,101,120,112,114,101,115,115,105,111,110,115,46,99,41,46,10,42,47,10,105,110,116,32
-,95,95,97,116,111,109,105,99,95,108,111,97,100,95,110,40,47,42,84,42,32,112,116,114,44
-,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,118,111,105,100,32,95,95,97,116,111
-,109,105,99,95,108,111,97,100,40,47,42,84,42,32,112,116,114,44,32,84,42,32,114,101,116
+,98,117,105,108,116,105,110,95,115,116,100,99,95,116,114,97,105,108,105,110,103,95,122,101,114
+,111,115,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,10,35,105,102,100,101,102
+,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,10,10
+,32,32,32,32,47,42,10,32,32,32,32,99,108,97,110,103,32,97,116,111,109,105,99,32,98
+,117,105,108,116,105,110,115,32,117,115,101,100,32,98,121,32,60,115,116,100,97,116,111,109,105
+,99,46,104,62,46,10,32,32,32,32,84,121,112,101,45,103,101,110,101,114,105,99,58,32,97
+,114,103,117,109,101,110,116,115,32,97,114,101,32,110,111,116,32,99,104,101,99,107,101,100,32
+,97,110,100,32,108,111,97,100,44,32,101,120,99,104,97,110,103,101,32,97,110,100,32,102,101
+,116,99,104,95,42,10,32,32,32,32,114,101,116,117,114,110,32,116,104,101,32,116,121,112,101
+,32,112,111,105,110,116,101,100,32,98,121,32,116,104,101,32,102,105,114,115,116,32,97,114,103
+,117,109,101,110,116,32,40,115,101,101,32,101,120,112,114,101,115,115,105,111,110,115,46,99,41
+,46,10,32,32,32,32,42,47,10,32,32,32,32,118,111,105,100,32,95,95,99,49,49,95,97
+,116,111,109,105,99,95,105,110,105,116,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32
+,111,98,106,44,32,84,32,118,97,108,117,101,42,47,41,59,10,32,32,32,32,118,111,105,100
+,32,95,95,99,49,49,95,97,116,111,109,105,99,95,116,104,114,101,97,100,95,102,101,110,99
+,101,40,105,110,116,32,111,114,100,101,114,41,59,10,32,32,32,32,118,111,105,100,32,95,95
+,99,49,49,95,97,116,111,109,105,99,95,115,105,103,110,97,108,95,102,101,110,99,101,40,105
+,110,116,32,111,114,100,101,114,41,59,10,32,32,32,32,95,66,111,111,108,32,95,95,99,49
+,49,95,97,116,111,109,105,99,95,105,115,95,108,111,99,107,95,102,114,101,101,40,116,121,112
+,101,111,102,40,115,105,122,101,111,102,40,49,41,41,32,115,105,122,101,41,59,10,32,32,32
+,32,118,111,105,100,32,95,95,99,49,49,95,97,116,111,109,105,99,95,115,116,111,114,101,40
+,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32,84,32,118,97,108,117
+,101,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32
+,95,95,99,49,49,95,97,116,111,109,105,99,95,108,111,97,100,40,47,42,95,65,116,111,109
+,105,99,40,84,41,42,32,111,98,106,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
+,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,101,120,99
+,104,97,110,103,101,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32
+,84,32,118,97,108,117,101,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,32,32
+,32,32,95,66,111,111,108,32,95,95,99,49,49,95,97,116,111,109,105,99,95,99,111,109,112
+,97,114,101,95,101,120,99,104,97,110,103,101,95,115,116,114,111,110,103,40,47,42,95,65,116
+,111,109,105,99,40,84,41,42,32,111,98,106,44,32,84,42,32,101,120,112,101,99,116,101,100
+,44,32,84,32,100,101,115,105,114,101,100,44,32,105,110,116,32,115,117,99,99,101,115,115,44
+,32,105,110,116,32,102,97,105,108,117,114,101,42,47,41,59,10,32,32,32,32,95,66,111,111
+,108,32,95,95,99,49,49,95,97,116,111,109,105,99,95,99,111,109,112,97,114,101,95,101,120
+,99,104,97,110,103,101,95,119,101,97,107,40,47,42,95,65,116,111,109,105,99,40,84,41,42
+,32,111,98,106,44,32,84,42,32,101,120,112,101,99,116,101,100,44,32,84,32,100,101,115,105
+,114,101,100,44,32,105,110,116,32,115,117,99,99,101,115,115,44,32,105,110,116,32,102,97,105
+,108,117,114,101,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
+,111,109,105,99,95,102,101,116,99,104,95,97,100,100,40,47,42,95,65,116,111,109,105,99,40
+,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
+,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
+,111,109,105,99,95,102,101,116,99,104,95,115,117,98,40,47,42,95,65,116,111,109,105,99,40
+,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
+,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
+,111,109,105,99,95,102,101,116,99,104,95,97,110,100,40,47,42,95,65,116,111,109,105,99,40
+,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
+,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
+,111,109,105,99,95,102,101,116,99,104,95,111,114,40,47,42,95,65,116,111,109,105,99,40,84
+,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114
+,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111
+,109,105,99,95,102,101,116,99,104,95,120,111,114,40,47,42,95,65,116,111,109,105,99,40,84
+,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114
+,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111
+,109,105,99,95,102,101,116,99,104,95,110,97,110,100,40,47,42,95,65,116,111,109,105,99,40
+,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
+,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
+,111,109,105,99,95,102,101,116,99,104,95,109,97,120,40,47,42,95,65,116,111,109,105,99,40
+,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
+,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
+,111,109,105,99,95,102,101,116,99,104,95,109,105,110,40,47,42,95,65,116,111,109,105,99,40
+,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
+,114,100,101,114,42,47,41,59,10,35,101,110,100,105,102,32,47,42,32,95,95,67,65,75,69
+,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,32,42,47,10,10,47,42,10,32
+,32,104,116,116,112,115,58,47,47,103,99,99,46,103,110,117,46,111,114,103,47,111,110,108,105
+,110,101,100,111,99,115,47,103,99,99,47,95,48,48,53,102,95,48,48,53,102,97,116,111,109
+,105,99,45,66,117,105,108,116,105,110,115,46,104,116,109,108,10,32,32,84,121,112,101,45,103
+,101,110,101,114,105,99,58,32,97,114,103,117,109,101,110,116,115,32,97,114,101,32,110,111,116
+,32,99,104,101,99,107,101,100,32,97,110,100,32,116,104,101,32,95,110,44,32,102,101,116,99
+,104,32,97,110,100,32,111,112,95,102,101,116,99,104,10,32,32,102,111,114,109,115,32,114,101
+,116,117,114,110,32,116,104,101,32,116,121,112,101,32,112,111,105,110,116,101,100,32,98,121,32
+,116,104,101,32,102,105,114,115,116,32,97,114,103,117,109,101,110,116,32,40,115,101,101,32,101
+,120,112,114,101,115,115,105,111,110,115,46,99,41,46,10,42,47,10,105,110,116,32,95,95,97
+,116,111,109,105,99,95,108,111,97,100,95,110,40,47,42,84,42,32,112,116,114,44,32,105,110
+,116,32,111,114,100,101,114,42,47,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99
+,95,108,111,97,100,40,47,42,84,42,32,112,116,114,44,32,84,42,32,114,101,116,44,32,105
+,110,116,32,111,114,100,101,114,42,47,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105
+,99,95,115,116,111,114,101,95,110,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108
 ,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,118,111,105,100,32,95,95,97,116
-,111,109,105,99,95,115,116,111,114,101,95,110,40,47,42,84,42,32,112,116,114,44,32,84,32
-,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,118,111,105,100,32,95
-,95,97,116,111,109,105,99,95,115,116,111,114,101,40,47,42,84,42,32,112,116,114,44,32,84
-,42,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32
-,95,95,97,116,111,109,105,99,95,101,120,99,104,97,110,103,101,95,110,40,47,42,84,42,32
-,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
-,10,118,111,105,100,32,95,95,97,116,111,109,105,99,95,101,120,99,104,97,110,103,101,40,47
-,42,84,42,32,112,116,114,44,32,84,42,32,118,97,108,44,32,84,42,32,114,101,116,44,32
-,105,110,116,32,111,114,100,101,114,42,47,41,59,10,95,66,111,111,108,32,95,95,97,116,111
-,109,105,99,95,99,111,109,112,97,114,101,95,101,120,99,104,97,110,103,101,95,110,40,47,42
-,84,42,32,112,116,114,44,32,84,42,32,101,120,112,101,99,116,101,100,44,32,84,32,100,101
-,115,105,114,101,100,44,32,98,111,111,108,32,119,101,97,107,44,32,105,110,116,32,115,117,99
-,99,101,115,115,44,32,105,110,116,32,102,97,105,108,117,114,101,42,47,41,59,10,95,66,111
-,111,108,32,95,95,97,116,111,109,105,99,95,99,111,109,112,97,114,101,95,101,120,99,104,97
-,110,103,101,40,47,42,84,42,32,112,116,114,44,32,84,42,32,101,120,112,101,99,116,101,100
-,44,32,84,42,32,100,101,115,105,114,101,100,44,32,98,111,111,108,32,119,101,97,107,44,32
-,105,110,116,32,115,117,99,99,101,115,115,44,32,105,110,116,32,102,97,105,108,117,114,101,42
-,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,97,100,100,95,102,101,116,99
-,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114
-,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,115,117,98,95
-,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110
-,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95
-,97,110,100,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108
-,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111
-,109,105,99,95,120,111,114,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84
-,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95
-,95,97,116,111,109,105,99,95,111,114,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114
-,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110
-,116,32,95,95,97,116,111,109,105,99,95,110,97,110,100,95,102,101,116,99,104,40,47,42,84
-,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47
-,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,109,97,120,95,102,101,116,99,104
-,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100
-,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,109,105,110,95,102
-,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116
-,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102
-,101,116,99,104,95,97,100,100,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44
-,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109
-,105,99,95,102,101,116,99,104,95,115,117,98,40,47,42,84,42,32,112,116,114,44,32,84,32
-,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95
-,97,116,111,109,105,99,95,102,101,116,99,104,95,97,110,100,40,47,42,84,42,32,112,116,114
-,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110
-,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,120,111,114,40,47,42,84,42
-,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41
-,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,111,114,40,47
+,111,109,105,99,95,115,116,111,114,101,40,47,42,84,42,32,112,116,114,44,32,84,42,32,118
+,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97
+,116,111,109,105,99,95,101,120,99,104,97,110,103,101,95,110,40,47,42,84,42,32,112,116,114
+,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,118,111
+,105,100,32,95,95,97,116,111,109,105,99,95,101,120,99,104,97,110,103,101,40,47,42,84,42
+,32,112,116,114,44,32,84,42,32,118,97,108,44,32,84,42,32,114,101,116,44,32,105,110,116
+,32,111,114,100,101,114,42,47,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109,105,99
+,95,99,111,109,112,97,114,101,95,101,120,99,104,97,110,103,101,95,110,40,47,42,84,42,32
+,112,116,114,44,32,84,42,32,101,120,112,101,99,116,101,100,44,32,84,32,100,101,115,105,114
+,101,100,44,32,98,111,111,108,32,119,101,97,107,44,32,105,110,116,32,115,117,99,99,101,115
+,115,44,32,105,110,116,32,102,97,105,108,117,114,101,42,47,41,59,10,95,66,111,111,108,32
+,95,95,97,116,111,109,105,99,95,99,111,109,112,97,114,101,95,101,120,99,104,97,110,103,101
+,40,47,42,84,42,32,112,116,114,44,32,84,42,32,101,120,112,101,99,116,101,100,44,32,84
+,42,32,100,101,115,105,114,101,100,44,32,98,111,111,108,32,119,101,97,107,44,32,105,110,116
+,32,115,117,99,99,101,115,115,44,32,105,110,116,32,102,97,105,108,117,114,101,42,47,41,59
+,10,105,110,116,32,95,95,97,116,111,109,105,99,95,97,100,100,95,102,101,116,99,104,40,47
 ,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114
-,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,110
-,97,110,100,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32
-,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101
-,116,99,104,95,109,97,120,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32
-,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105
-,99,95,102,101,116,99,104,95,109,105,110,40,47,42,84,42,32,112,116,114,44,32,84,32,118
-,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,95,66,111,111,108,32,95
-,95,97,116,111,109,105,99,95,116,101,115,116,95,97,110,100,95,115,101,116,40,118,111,105,100
-,42,32,112,116,114,44,32,105,110,116,32,111,114,100,101,114,41,59,10,118,111,105,100,32,95
-,95,97,116,111,109,105,99,95,99,108,101,97,114,40,95,66,111,111,108,42,32,112,116,114,44
-,32,105,110,116,32,111,114,100,101,114,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105
-,99,95,116,104,114,101,97,100,95,102,101,110,99,101,40,105,110,116,32,111,114,100,101,114,41
-,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99,95,115,105,103,110,97,108,95,102,101
-,110,99,101,40,105,110,116,32,111,114,100,101,114,41,59,10,95,66,111,111,108,32,95,95,97
-,116,111,109,105,99,95,97,108,119,97,121,115,95,108,111,99,107,95,102,114,101,101,40,116,121
-,112,101,111,102,40,115,105,122,101,111,102,40,49,41,41,32,115,105,122,101,44,32,118,111,105
-,100,42,32,112,116,114,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109,105,99,95,105
-,115,95,108,111,99,107,95,102,114,101,101,40,116,121,112,101,111,102,40,115,105,122,101,111,102
-,40,49,41,41,32,115,105,122,101,44,32,118,111,105,100,42,32,112,116,114,41,59,10,10,35
-,112,114,97,103,109,97,32,99,97,107,101,32,100,105,97,103,110,111,115,116,105,99,32,112,111
-,112,10
+,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,115,117,98,95,102,101,116
+,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111
+,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,97,110,100
+,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105
+,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99
+,95,120,111,114,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97
+,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116
+,111,109,105,99,95,111,114,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84
+,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95
+,95,97,116,111,109,105,99,95,110,97,110,100,95,102,101,116,99,104,40,47,42,84,42,32,112
+,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10
+,105,110,116,32,95,95,97,116,111,109,105,99,95,109,97,120,95,102,101,116,99,104,40,47,42
+,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42
+,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,109,105,110,95,102,101,116,99
+,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114
+,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99
+,104,95,97,100,100,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110
+,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95
+,102,101,116,99,104,95,115,117,98,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108
+,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111
+,109,105,99,95,102,101,116,99,104,95,97,110,100,40,47,42,84,42,32,112,116,114,44,32,84
+,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95
+,95,97,116,111,109,105,99,95,102,101,116,99,104,95,120,111,114,40,47,42,84,42,32,112,116
+,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105
+,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,111,114,40,47,42,84,42
+,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41
+,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,110,97,110,100
+,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100
+,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104
+,95,109,97,120,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116
+,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102
+,101,116,99,104,95,109,105,110,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44
+,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,95,66,111,111,108,32,95,95,97,116
+,111,109,105,99,95,116,101,115,116,95,97,110,100,95,115,101,116,40,118,111,105,100,42,32,112
+,116,114,44,32,105,110,116,32,111,114,100,101,114,41,59,10,118,111,105,100,32,95,95,97,116
+,111,109,105,99,95,99,108,101,97,114,40,95,66,111,111,108,42,32,112,116,114,44,32,105,110
+,116,32,111,114,100,101,114,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99,95,116
+,104,114,101,97,100,95,102,101,110,99,101,40,105,110,116,32,111,114,100,101,114,41,59,10,118
+,111,105,100,32,95,95,97,116,111,109,105,99,95,115,105,103,110,97,108,95,102,101,110,99,101
+,40,105,110,116,32,111,114,100,101,114,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109
+,105,99,95,97,108,119,97,121,115,95,108,111,99,107,95,102,114,101,101,40,116,121,112,101,111
+,102,40,115,105,122,101,111,102,40,49,41,41,32,115,105,122,101,44,32,118,111,105,100,42,32
+,112,116,114,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109,105,99,95,105,115,95,108
+,111,99,107,95,102,114,101,101,40,116,121,112,101,111,102,40,115,105,122,101,111,102,40,49,41
+,41,32,115,105,122,101,44,32,118,111,105,100,42,32,112,116,114,41,59,10,10,35,112,114,97
+,103,109,97,32,99,97,107,101,32,100,105,97,103,110,111,115,116,105,99,32,112,111,112,10
 #line 18 "target.c"
  , 0
 };
@@ -88917,55 +88748,533 @@ static char gcc_macros[] =
 #line 1 "include/builtins/gcc_macros.h.include"
 
 10,35,100,101,102,105,110,101,32,95,67,79,78,83,79,76,69,10,35,100,101,102,105,110,101
-,32,95,95,83,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,32,32,95,95,83
-,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,10,35,100,101,102,105,110,101,32
-,95,95,83,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,32,32,32,95,95,83
-,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,10,35,100,101,102,105,110,101,32
-,95,95,83,84,68,67,95,78,79,95,86,76,65,95,95,32,32,32,32,95,95,83,84,68,67
-,95,78,79,95,86,76,65,95,95,10,35,100,101,102,105,110,101,32,95,95,108,105,110,117,120
-,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95
-,95,101,120,116,101,110,115,105,111,110,95,95,32,32,32,32,32,32,32,32,10,35,100,101,102
-,105,110,101,32,95,95,71,78,85,67,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32
-,52,10,35,100,101,102,105,110,101,32,95,95,71,78,85,67,95,77,73,78,79,82,95,95,32
-,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,83,84,68,67,95,72,79
-,83,84,69,68,95,95,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,83
-,84,68,67,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,105,102,100,101
-,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,65,82,67,72,95,88,54,52,10
-,35,100,101,102,105,110,101,32,95,95,120,56,54,95,54,52,95,95,32,32,32,32,32,32,32
-,32,32,32,32,49,10,35,101,110,100,105,102,10,35,105,102,100,101,102,32,95,95,67,65,75
-,69,95,84,65,82,71,69,84,95,65,82,67,72,95,65,82,77,54,52,10,35,100,101,102,105
-,110,101,32,95,95,97,97,114,99,104,54,52,95,95,32,32,32,32,32,32,32,32,32,32,49
-,10,35,100,101,102,105,110,101,32,95,95,65,65,82,67,72,54,52,69,76,95,95,32,32,32
-,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,65,82,77,95,65,82,67,72
-,32,32,32,32,32,32,32,32,32,32,32,56,10,35,100,101,102,105,110,101,32,95,95,65,82
-,77,95,54,52,66,73,84,95,83,84,65,84,69,32,32,32,32,49,10,35,100,101,102,105,110
-,101,32,95,95,76,80,54,52,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,49,10
-,35,100,101,102,105,110,101,32,95,76,80,54,52,32,32,32,32,32,32,32,32,32,32,32,32
-,32,32,32,32,49,10,35,101,110,100,105,102,10,35,105,102,100,101,102,32,95,95,67,65,75
+,32,95,70,79,82,84,73,70,89,95,83,79,85,82,67,69,32,48,10,35,100,101,102,105,110
+,101,32,95,95,83,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,32,32,95,95
+,83,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,10,35,100,101,102,105,110,101
+,32,95,95,83,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,32,32,32,95,95
+,83,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,10,35,100,101,102,105,110,101
+,32,95,95,83,84,68,67,95,78,79,95,86,76,65,95,95,32,32,32,32,95,95,83,84,68
+,67,95,78,79,95,86,76,65,95,95,10,35,100,101,102,105,110,101,32,95,95,108,105,110,117
+,120,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32
+,95,95,101,120,116,101,110,115,105,111,110,95,95,32,32,32,32,32,32,32,32,10,35,100,101
+,102,105,110,101,32,95,95,71,78,85,67,95,95,32,32,32,32,32,32,32,32,32,32,32,32
+,32,52,10,35,100,101,102,105,110,101,32,95,95,71,78,85,67,95,77,73,78,79,82,95,95
+,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,83,84,68,67,95,72
+,79,83,84,69,68,95,95,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95
+,83,84,68,67,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,105,102,100
+,101,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,65,82,67,72,95,88,54,52
+,10,35,100,101,102,105,110,101,32,95,95,120,56,54,95,54,52,95,95,32,32,32,32,32,32
+,32,32,32,32,32,49,10,35,101,110,100,105,102,10,35,105,102,100,101,102,32,95,95,67,65
+,75,69,95,84,65,82,71,69,84,95,65,82,67,72,95,65,82,77,54,52,10,35,100,101,102
+,105,110,101,32,95,95,97,97,114,99,104,54,52,95,95,32,32,32,32,32,32,32,32,32,32
+,49,10,35,100,101,102,105,110,101,32,95,95,65,65,82,67,72,54,52,69,76,95,95,32,32
+,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,65,82,77,95,65,82,67
+,72,32,32,32,32,32,32,32,32,32,32,32,56,10,35,100,101,102,105,110,101,32,95,95,65
+,82,77,95,54,52,66,73,84,95,83,84,65,84,69,32,32,32,32,49,10,35,100,101,102,105
+,110,101,32,95,95,76,80,54,52,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,49
+,10,35,100,101,102,105,110,101,32,95,76,80,54,52,32,32,32,32,32,32,32,32,32,32,32
+,32,32,32,32,32,49,10,35,101,110,100,105,102,10,35,105,102,100,101,102,32,95,95,67,65
+,75,69,95,84,65,82,71,69,84,95,65,82,67,72,95,65,82,77,51,50,10,35,100,101,102
+,105,110,101,32,95,95,97,114,109,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,32
+,49,10,35,100,101,102,105,110,101,32,95,95,65,82,77,69,76,95,95,32,32,32,32,32,32
+,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,65,82,77,95,69,65,66
+,73,95,95,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,65
+,82,77,95,80,67,83,95,86,70,80,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105
+,110,101,32,95,95,65,82,77,95,65,82,67,72,32,32,32,32,32,32,32,32,32,32,32,95
+,95,67,65,75,69,95,65,82,77,51,50,95,65,82,67,72,10,35,101,110,100,105,102,10,35
+,105,102,100,101,102,32,95,95,67,65,75,69,95,67,72,65,82,95,85,78,83,73,71,78,69
+,68,95,95,10,35,100,101,102,105,110,101,32,95,95,67,72,65,82,95,85,78,83,73,71,78
+,69,68,95,95,32,32,32,32,49,10,35,101,110,100,105,102,10,35,100,101,102,105,110,101,32
+,95,95,67,72,65,82,95,66,73,84,95,95,32,32,32,32,32,32,32,32,32,56,10,35,100
+,101,102,105,110,101,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32,32,32,32,32,32
+,32,32,95,95,67,65,75,69,95,83,73,90,69,95,84,89,80,69,95,95,10,35,100,101,102
+,105,110,101,32,95,95,80,84,82,68,73,70,70,95,84,89,80,69,95,95,32,32,32,32,32
+,95,95,67,65,75,69,95,80,84,82,68,73,70,70,95,84,89,80,69,95,95,10,35,100,101
+,102,105,110,101,32,95,95,87,67,72,65,82,95,84,89,80,69,95,95,32,32,32,32,32,32
+,32,95,95,67,65,75,69,95,87,67,72,65,82,95,84,89,80,69,95,95,10,35,100,101,102
+,105,110,101,32,95,95,87,73,78,84,95,84,89,80,69,95,95,32,32,32,32,32,32,32,32
+,117,110,115,105,103,110,101,100,32,105,110,116,10,35,105,102,100,101,102,32,95,95,67,65,75
 ,69,95,84,65,82,71,69,84,95,65,82,67,72,95,65,82,77,51,50,10,35,100,101,102,105
-,110,101,32,95,95,97,114,109,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,32,49
-,10,35,100,101,102,105,110,101,32,95,95,65,82,77,69,76,95,95,32,32,32,32,32,32,32
-,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,65,82,77,95,69,65,66,73
-,95,95,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,65,82
-,77,95,80,67,83,95,86,70,80,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110
-,101,32,95,95,65,82,77,95,65,82,67,72,32,32,32,32,32,32,32,32,32,32,32,95,95
-,67,65,75,69,95,65,82,77,51,50,95,65,82,67,72,10,35,101,110,100,105,102,10,35,105
-,102,100,101,102,32,95,95,67,65,75,69,95,67,72,65,82,95,85,78,83,73,71,78,69,68
-,95,95,10,35,100,101,102,105,110,101,32,95,95,67,72,65,82,95,85,78,83,73,71,78,69
-,68,95,95,32,32,32,32,49,10,35,101,110,100,105,102,10,35,100,101,102,105,110,101,32,95
-,95,67,72,65,82,95,66,73,84,95,95,32,32,32,32,32,32,32,32,32,56,10,35,100,101
-,102,105,110,101,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32,32,32,32,32,32,32
-,32,95,95,67,65,75,69,95,83,73,90,69,95,84,89,80,69,95,95,10,35,100,101,102,105
-,110,101,32,95,95,80,84,82,68,73,70,70,95,84,89,80,69,95,95,32,32,32,32,32,95
-,95,67,65,75,69,95,80,84,82,68,73,70,70,95,84,89,80,69,95,95,10,35,100,101,102
-,105,110,101,32,95,95,87,67,72,65,82,95,84,89,80,69,95,95,32,32,32,32,32,32,32
-,95,95,67,65,75,69,95,87,67,72,65,82,95,84,89,80,69,95,95,10,35,100,101,102,105
-,110,101,32,95,95,87,73,78,84,95,84,89,80,69,95,95,32,32,32,32,32,32,32,32,117
-,110,115,105,103,110,101,100,32,105,110,116,10,35,105,102,100,101,102,32,95,95,67,65,75,69
-,95,84,65,82,71,69,84,95,65,82,67,72,95,65,82,77,51,50,10,35,100,101,102,105,110
-,101,32,95,95,73,78,84,77,65,88,95,84,89,80,69,95,95,32,32,32,32,32,32,108,111
-,110,103,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78
-,84,77,65,88,95,84,89,80,69,95,95,32,32,32,32,32,108,111,110,103,32,108,111,110,103
+,110,101,32,95,95,73,78,84,77,65,88,95,84,89,80,69,95,95,32,32,32,32,32,32,108
+,111,110,103,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73
+,78,84,77,65,88,95,84,89,80,69,95,95,32,32,32,32,32,108,111,110,103,32,108,111,110
+,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95
+,83,73,71,95,65,84,79,77,73,67,95,84,89,80,69,95,95,32,32,105,110,116,10,35,100
+,101,102,105,110,101,32,95,95,73,78,84,56,95,84,89,80,69,95,95,32,32,32,32,32,32
+,32,32,95,95,67,65,75,69,95,73,78,84,56,95,84,89,80,69,95,95,10,35,100,101,102
+,105,110,101,32,95,95,73,78,84,49,54,95,84,89,80,69,95,95,32,32,32,32,32,32,32
+,95,95,67,65,75,69,95,73,78,84,49,54,95,84,89,80,69,95,95,10,35,100,101,102,105
+,110,101,32,95,95,73,78,84,51,50,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95
+,95,67,65,75,69,95,73,78,84,51,50,95,84,89,80,69,95,95,10,35,100,101,102,105,110
+,101,32,95,95,73,78,84,54,52,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95
+,67,65,75,69,95,73,78,84,54,52,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101
+,32,95,95,85,73,78,84,56,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95,67
+,65,75,69,95,85,73,78,84,56,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32
+,95,95,85,73,78,84,49,54,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67,65
+,75,69,95,85,73,78,84,49,54,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32
+,95,95,85,73,78,84,51,50,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67,65
+,75,69,95,85,73,78,84,51,50,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32
+,95,95,85,73,78,84,54,52,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67,65
+,75,69,95,85,73,78,84,54,52,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32
+,95,95,73,78,84,95,76,69,65,83,84,56,95,84,89,80,69,95,95,32,32,115,105,103,110
+,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65
+,83,84,49,54,95,84,89,80,69,95,95,32,115,104,111,114,116,32,105,110,116,10,35,100,101
+,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,51,50,95,84,89,80,69,95,95
+,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54
+,52,95,84,89,80,69,95,95,32,108,111,110,103,32,108,111,110,103,32,105,110,116,10,35,100
+,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,56,95,84,89,80,69,95
+,95,32,117,110,115,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95
+,95,85,73,78,84,95,76,69,65,83,84,49,54,95,84,89,80,69,95,95,32,115,104,111,114
+,116,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95
+,85,73,78,84,95,76,69,65,83,84,51,50,95,84,89,80,69,95,95,32,117,110,115,105,103
+,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69
+,65,83,84,54,52,95,84,89,80,69,95,95,32,108,111,110,103,32,108,111,110,103,32,117,110
+,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95
+,70,65,83,84,56,95,84,89,80,69,95,95,32,32,32,32,115,105,103,110,101,100,32,99,104
+,97,114,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95,84
+,89,80,69,95,95,32,32,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84
+,95,70,65,83,84,51,50,95,84,89,80,69,95,95,32,32,32,105,110,116,10,35,100,101,102
+,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,84,89,80,69,95,95,32,32
+,32,108,111,110,103,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95
+,85,73,78,84,95,70,65,83,84,56,95,84,89,80,69,95,95,32,32,32,117,110,115,105,103
+,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70
+,65,83,84,49,54,95,84,89,80,69,95,95,32,32,117,110,115,105,103,110,101,100,32,105,110
+,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,51,50,95,84
+,89,80,69,95,95,32,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105
+,110,101,32,95,95,85,73,78,84,95,70,65,83,84,54,52,95,84,89,80,69,95,95,32,32
+,108,111,110,103,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100
+,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95,84,89,80,69,95,95,32,32,32,32
+,32,32,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,80,84,82,95
+,84,89,80,69,95,95,32,32,32,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,10
+,35,101,108,115,101,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,84,89
+,80,69,95,95,32,32,32,32,32,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110
+,101,32,95,95,85,73,78,84,77,65,88,95,84,89,80,69,95,95,32,32,32,32,32,108,111
+,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95
+,95,83,73,71,95,65,84,79,77,73,67,95,84,89,80,69,95,95,32,32,105,110,116,10,35
+,100,101,102,105,110,101,32,95,95,73,78,84,56,95,84,89,80,69,95,95,32,32,32,32,32
+,32,32,32,95,95,67,65,75,69,95,73,78,84,56,95,84,89,80,69,95,95,10,35,100,101
+,102,105,110,101,32,95,95,73,78,84,49,54,95,84,89,80,69,95,95,32,32,32,32,32,32
+,32,95,95,67,65,75,69,95,73,78,84,49,54,95,84,89,80,69,95,95,10,35,100,101,102
+,105,110,101,32,95,95,73,78,84,51,50,95,84,89,80,69,95,95,32,32,32,32,32,32,32
+,95,95,67,65,75,69,95,73,78,84,51,50,95,84,89,80,69,95,95,10,35,100,101,102,105
+,110,101,32,95,95,73,78,84,54,52,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95
+,95,67,65,75,69,95,73,78,84,54,52,95,84,89,80,69,95,95,10,35,100,101,102,105,110
+,101,32,95,95,85,73,78,84,56,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95
+,67,65,75,69,95,85,73,78,84,56,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101
+,32,95,95,85,73,78,84,49,54,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67
+,65,75,69,95,85,73,78,84,49,54,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101
+,32,95,95,85,73,78,84,51,50,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67
+,65,75,69,95,85,73,78,84,51,50,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101
+,32,95,95,85,73,78,84,54,52,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67
+,65,75,69,95,85,73,78,84,54,52,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101
+,32,95,95,73,78,84,95,76,69,65,83,84,56,95,84,89,80,69,95,95,32,32,115,105,103
+,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69
+,65,83,84,49,54,95,84,89,80,69,95,95,32,115,104,111,114,116,32,105,110,116,10,35,100
+,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,51,50,95,84,89,80,69,95
+,95,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84
+,54,52,95,84,89,80,69,95,95,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110
+,101,32,95,95,85,73,78,84,95,76,69,65,83,84,56,95,84,89,80,69,95,95,32,117,110
+,115,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,85,73,78
+,84,95,76,69,65,83,84,49,54,95,84,89,80,69,95,95,32,115,104,111,114,116,32,117,110
+,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84
+,95,76,69,65,83,84,51,50,95,84,89,80,69,95,95,32,117,110,115,105,103,110,101,100,32
+,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,54
+,52,95,84,89,80,69,95,95,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110
+,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,56,95,84,89,80
+,69,95,95,32,32,32,32,115,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110
+,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95,84,89,80,69,95,95,32,32,32,108
+,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83
+,84,51,50,95,84,89,80,69,95,95,32,32,32,108,111,110,103,32,105,110,116,10,35,100,101
+,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,84,89,80,69,95,95,32
+,32,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84
+,95,70,65,83,84,56,95,84,89,80,69,95,95,32,32,32,117,110,115,105,103,110,101,100,32
+,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,49
+,54,95,84,89,80,69,95,95,32,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105
+,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,51,50,95
+,84,89,80,69,95,95,32,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116
+,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,54,52,95,84,89
+,80,69,95,95,32,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35
+,100,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95,84,89,80,69,95,95,32,32,32
+,32,32,32,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73
+,78,84,80,84,82,95,84,89,80,69,95,95,32,32,32,32,32,32,108,111,110,103,32,117,110
+,115,105,103,110,101,100,32,105,110,116,10,35,101,110,100,105,102,10,35,100,101,102,105,110,101
+,32,95,95,68,66,76,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,32,40,40
+,100,111,117,98,108,101,41,49,46,55,57,55,54,57,51,49,51,52,56,54,50,51,49,53,55
+,48,56,49,52,53,50,55,52,50,51,55,51,49,55,48,52,51,53,55,101,43,51,48,56,76
+,41,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,73,78,95,95,32,32,32,32
+,32,32,32,32,32,32,32,40,40,100,111,117,98,108,101,41,50,46,50,50,53,48,55,51,56
+,53,56,53,48,55,50,48,49,51,56,51,48,57,48,50,51,50,55,49,55,51,51,50,52,48
+,52,48,54,101,45,51,48,56,76,41,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95
+,82,65,68,73,88,95,95,32,32,32,32,32,32,32,32,32,50,10,35,100,101,102,105,110,101
+,32,95,95,70,76,84,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,32,49,46
+,49,57,50,48,57,50,56,57,53,53,48,55,56,49,50,53,48,48,48,48,48,48,48,48,48
+,48,48,48,48,48,48,48,48,48,48,101,45,55,70,10,35,100,101,102,105,110,101,32,95,95
+,68,66,76,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,32,40,40,100,111,117
+,98,108,101,41,50,46,50,50,48,52,52,54,48,52,57,50,53,48,51,49,51,48,56,48,56
+,52,55,50,54,51,51,51,54,49,56,49,54,52,48,54,50,101,45,49,54,76,41,10,35,105
+,102,100,101,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,65,82,67,72,95,65
+,82,77,54,52,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,69,80,83,73,76
+,79,78,95,95,32,32,32,32,32,32,49,46,57,50,53,57,50,57,57,52,52,51,56,55,50
+,51,53,56,53,51,48,53,53,57,55,55,57,52,50,53,56,52,57,50,55,51,50,101,45,51
+,52,76,10,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95,95,67,65,75,69,95,84
+,65,82,71,69,84,95,65,82,67,72,95,65,82,77,51,50,10,35,100,101,102,105,110,101,32
+,95,95,76,68,66,76,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,50,46,50
+,50,48,52,52,54,48,52,57,50,53,48,51,49,51,48,56,48,56,52,55,50,54,51,51,51
+,54,49,56,49,54,52,48,54,50,101,45,49,54,76,10,35,101,108,115,101,10,35,100,101,102
+,105,110,101,32,95,95,76,68,66,76,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32
+,32,49,46,48,56,52,50,48,50,49,55,50,52,56,53,53,48,52,52,51,52,48,48,55,52
+,53,50,56,48,48,56,54,57,57,52,49,55,49,101,45,49,57,76,10,35,101,110,100,105,102
+,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,68,69,67,73,77,65,76,95,68,73
+,71,95,95,32,32,32,49,55,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,69,86
+,65,76,95,77,69,84,72,79,68,95,95,32,32,32,48,10,35,100,101,102,105,110,101,32,95
+,95,70,76,84,95,82,65,68,73,88,95,95,32,32,32,32,32,32,32,32,32,50,10,35,100
+,101,102,105,110,101,32,95,95,68,66,76,95,77,65,88,95,69,88,80,95,95,32,32,32,32
+,32,32,32,49,48,50,52,10,35,105,102,100,101,102,32,95,95,67,65,75,69,95,84,65,82
+,71,69,84,95,65,82,67,72,95,65,82,77,54,52,10,35,100,101,102,105,110,101,32,95,95
+,68,69,67,73,77,65,76,95,68,73,71,95,95,32,32,32,32,32,32,32,51,54,10,35,101
+,108,105,102,32,100,101,102,105,110,101,100,32,95,95,67,65,75,69,95,84,65,82,71,69,84
+,95,65,82,67,72,95,65,82,77,51,50,10,35,100,101,102,105,110,101,32,95,95,68,69,67
+,73,77,65,76,95,68,73,71,95,95,32,32,32,32,32,32,32,49,55,10,35,101,108,115,101
+,10,35,100,101,102,105,110,101,32,95,95,68,69,67,73,77,65,76,95,68,73,71,95,95,32
+,32,32,32,32,32,32,50,49,10,35,101,110,100,105,102,10,35,100,101,102,105,110,101,32,95
+,95,70,76,84,95,68,69,67,73,77,65,76,95,68,73,71,95,95,32,32,32,57,10,35,100
+,101,102,105,110,101,32,95,95,70,76,84,95,77,73,78,95,49,48,95,69,88,80,95,95,32
+,32,32,32,40,45,51,55,41,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,73
+,78,95,95,32,32,32,32,32,32,32,32,32,32,32,49,46,49,55,53,52,57,52,51,53,48
+,56,50,50,50,56,55,53,48,55,57,54,56,55,51,54,53,51,55,50,50,50,50,52,53,54
+,56,101,45,51,56,70,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65,88,95
+,95,32,32,32,32,32,32,32,32,32,32,32,51,46,52,48,50,56,50,51,52,54,54,51,56
+,53,50,56,56,53,57,56,49,49,55,48,52,49,56,51,52,56,52,53,49,54,57,50,53,101
+,43,51,56,70,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,69,80,83,73,76,79
+,78,95,95,32,32,32,32,32,32,32,49,46,49,57,50,48,57,50,56,57,53,53,48,55,56
+,49,50,53,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,101,45,55
+,70,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,68,73,71,95,95,32,32,32,32
+,32,32,32,32,32,32,32,54,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65
+,78,84,95,68,73,71,95,95,32,32,32,32,32,32,50,52,10,35,100,101,102,105,110,101,32
+,95,95,70,76,84,95,77,73,78,95,69,88,80,95,95,32,32,32,32,32,32,32,40,45,49
+,50,53,41,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65,88,95,49,48,95
+,69,88,80,95,95,32,32,32,32,51,56,10,35,100,101,102,105,110,101,32,95,95,70,76,84
+,95,69,86,65,76,95,77,69,84,72,79,68,95,95,32,32,32,48,10,35,100,101,102,105,110
+,101,32,95,95,70,76,84,95,77,65,88,95,69,88,80,95,95,32,32,32,32,32,32,32,49
+,50,56,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,72,65,83,95,68,69,78,79
+,82,77,95,95,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,83,67,72,65,82
+,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,10,35,105,102,100,101
+,102,32,95,95,67,65,75,69,95,87,67,72,65,82,95,85,78,83,73,71,78,69,68,95,95
+,10,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,65,88,95,95,32,32,32
+,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,101,108,115,101,10,35
+,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,65,88,95,95,32,32,32,32,32
+,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,101,110,100,105,102,10,35,100,101
+,102,105,110,101,32,95,95,83,72,82,84,95,77,65,88,95,95,32,32,32,32,32,32,32,32
+,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,77,65
+,88,95,95,32,32,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10
+,35,105,102,100,101,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,65,82,67,72
+,95,65,82,77,51,50,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,77,65,88
+,95,95,32,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,76,10,35
+,100,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71,95,77,65,88,95,95,32
+,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76,10
+,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,77,65,88,95,95,32,32,32,32,32
+,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32
+,95,95,83,73,90,69,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120,102
+,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95,95,80,84,82,68,73,70
+,70,95,77,65,88,95,95,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10
+,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32
+,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76
+,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,77,65,88,95,77,65,88,95,95,32
+,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85
+,76,76,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77
+,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110
+,101,32,95,95,73,78,84,56,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48
+,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,49,54,95,77,65,88,95,95
+,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95
+,95,73,78,84,51,50,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102
+,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,54,52,95,77,65
+,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102
+,102,102,102,102,102,76,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,77
+,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101
+,32,95,95,85,73,78,84,49,54,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120
+,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,51,50,95,77,65,88
+,95,95,32,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101
+,102,105,110,101,32,95,95,85,73,78,84,54,52,95,77,65,88,95,95,32,32,32,32,32,32
+,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,76,10,35
+,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,56,95,77,65,88,95,95
+,32,32,32,32,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69
+,65,83,84,49,54,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,10,35,100,101,102
+,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,51,50,95,77,65,88,95,95,32,32
+,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84
+,95,76,69,65,83,84,54,52,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,102,102
+,102,102,102,102,102,102,102,102,102,102,76,76,10,35,100,101,102,105,110,101,32,95,95,85,73
+,78,84,95,76,69,65,83,84,56,95,77,65,88,95,95,32,32,32,48,120,102,102,10,35,100
+,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,49,54,95,77,65,88,95
+,95,32,32,48,120,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95
+,76,69,65,83,84,51,50,95,77,65,88,95,95,32,32,48,120,102,102,102,102,102,102,102,102
+,85,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,54,52,95
+,77,65,88,95,95,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,85,76,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,56,95,77
+,65,88,95,95,32,32,32,32,32,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73
+,78,84,95,70,65,83,84,49,54,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102
+,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,51,50
+,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102
+,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,77,65,88,95,95,32,32,32
+,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76,10,35,100,101
+,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,56,95,77,65,88,95,95,32,32
+,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83
+,84,49,54,95,77,65,88,95,95,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35
+,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,51,50,95,77,65,88,95
+,95,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95
+,95,85,73,78,84,95,70,65,83,84,54,52,95,77,65,88,95,95,32,32,32,48,120,102,102
+,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,76,10,35,100,101,102,105,110,101
+,32,95,95,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120
+,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,80,84
+,82,95,77,65,88,95,95,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85
+,10,35,105,102,100,101,102,32,95,95,67,65,75,69,95,87,67,72,65,82,95,85,78,83,73
+,71,78,69,68,95,95,10,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,73
+,78,95,95,32,32,32,32,32,32,32,32,48,85,10,35,101,108,115,101,10,35,100,101,102,105
+,110,101,32,95,95,87,67,72,65,82,95,77,73,78,95,95,32,32,32,32,32,32,32,32,40
+,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10,35,101,110,100,105,102,10,35
+,100,101,102,105,110,101,32,95,95,87,73,78,84,95,77,73,78,95,95,32,32,32,32,32,32
+,32,32,32,48,85,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73
+,67,95,77,73,78,95,95,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41
+,10,35,100,101,102,105,110,101,32,95,95,73,78,84,56,95,67,32,40,45,48,120,55,102,102
+,102,102,102,102,102,32,45,32,49,41,10,35,100,101,102,105,110,101,32,95,95,83,67,72,65
+,82,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95,83,72,82
+,84,95,87,73,68,84,72,95,95,32,49,54,10,35,100,101,102,105,110,101,32,95,95,73,78
+,84,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,76,79
+,78,71,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,76
+,79,78,71,95,76,79,78,71,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105
+,110,101,32,95,95,80,84,82,68,73,70,70,95,87,73,68,84,72,95,95,32,51,50,10,35
+,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,87,73,68,84,72
+,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,95,87,73,68,84
+,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,87,73
+,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,87
+,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76
+,69,65,83,84,56,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95
+,95,73,78,84,95,76,69,65,83,84,49,54,95,87,73,68,84,72,95,95,32,49,54,10,35
+,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,51,50,95,87,73,68,84
+,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83
+,84,54,52,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95
+,73,78,84,95,70,65,83,84,56,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105
+,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95,87,73,68,84,72,95,95,32,51
+,50,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,51,50,95,87,73
+,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65
+,83,84,54,52,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95
+,95,73,78,84,80,84,82,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110
+,101,32,95,95,73,78,84,77,65,88,95,87,73,68,84,72,95,95,32,54,52,10,35,101,108
+,115,101,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,77,65,88,95,95,32,32
+,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,102,76,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71,95,77,65
+,88,95,95,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,102,76,76,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,77,65,88,95,95,32
+,32,32,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102
+,105,110,101,32,95,95,83,73,90,69,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32
+,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101
+,102,105,110,101,32,95,95,80,84,82,68,73,70,70,95,77,65,88,95,95,32,32,32,32,32
+,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101
+,102,105,110,101,32,95,95,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32,32,32,32
+,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101
+,102,105,110,101,32,95,95,85,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32,32,32
+,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100
+,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77,65,88,95,95,32
+,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73
+,78,84,56,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120,55,102,10,35
+,100,101,102,105,110,101,32,95,95,73,78,84,49,54,95,77,65,88,95,95,32,32,32,32,32
+,32,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,51
+,50,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102
+,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,54,52,95,77,65,88,95,95,32,32
+,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,77,65,88,95,95,32,32
+,32,32,32,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78
+,84,49,54,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,102,102,102,102,10,35
+,100,101,102,105,110,101,32,95,95,85,73,78,84,51,50,95,77,65,88,95,95,32,32,32,32
+,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95
+,95,85,73,78,84,54,52,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,102,102
+,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32
+,95,95,73,78,84,95,76,69,65,83,84,56,95,77,65,88,95,95,32,32,32,32,48,120,55
+,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,49,54,95,77
+,65,88,95,95,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73
+,78,84,95,76,69,65,83,84,51,50,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102
+,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54
+,52,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102
+,102,102,102,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84
+,56,95,77,65,88,95,95,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95
+,85,73,78,84,95,76,69,65,83,84,49,54,95,77,65,88,95,95,32,32,48,120,102,102,102
+,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,51,50,95
+,77,65,88,95,95,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110
+,101,32,95,95,85,73,78,84,95,76,69,65,83,84,54,52,95,77,65,88,95,95,32,32,48
+,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105
+,110,101,32,95,95,73,78,84,95,70,65,83,84,56,95,77,65,88,95,95,32,32,32,32,32
+,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54
+,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102
+,102,102,102,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,51,50
+,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102
+,102,102,102,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52
+,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102
+,102,102,102,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,56
+,95,77,65,88,95,95,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95
+,85,73,78,84,95,70,65,83,84,49,54,95,77,65,88,95,95,32,32,32,48,120,102,102,102
+,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32,95
+,95,85,73,78,84,95,70,65,83,84,51,50,95,77,65,88,95,95,32,32,32,48,120,102,102
+,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32
+,95,95,85,73,78,84,95,70,65,83,84,54,52,95,77,65,88,95,95,32,32,32,48,120,102
+,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101
+,32,95,95,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120
+,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102,105,110,101
+,32,95,95,85,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32,32,32,32,48,120
+,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,105,102,100,101,102
+,32,95,95,67,65,75,69,95,87,67,72,65,82,95,85,78,83,73,71,78,69,68,95,95,10
+,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,73,78,95,95,32,32,32,32
+,32,32,32,32,48,85,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,95,95,87,67
+,72,65,82,95,77,73,78,95,95,32,32,32,32,32,32,32,32,40,45,48,120,55,102,102,102
+,102,102,102,102,32,45,32,49,41,10,35,101,110,100,105,102,10,35,100,101,102,105,110,101,32
+,95,95,87,73,78,84,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32,48,85,10,35
+,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77,73,78,95,95
+,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10,35,100,101,102,105,110
+,101,32,95,95,73,78,84,56,95,67,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45
+,32,49,41,10,35,100,101,102,105,110,101,32,95,95,83,67,72,65,82,95,87,73,68,84,72
+,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95,83,72,82,84,95,87,73,68,84,72
+,95,95,32,49,54,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,87,73,68,84,72
+,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,87,73,68,84
+,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78
+,71,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,80,84
+,82,68,73,70,70,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32
+,95,95,83,73,71,95,65,84,79,77,73,67,95,87,73,68,84,72,95,95,32,51,50,10,35
+,100,101,102,105,110,101,32,95,95,83,73,90,69,95,87,73,68,84,72,95,95,32,54,52,10
+,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,87,73,68,84,72,95,95,32,51
+,50,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,87,73,68,84,72,95,95,32
+,51,50,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,56,95,87
+,73,68,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69
+,65,83,84,49,54,95,87,73,68,84,72,95,95,32,49,54,10,35,100,101,102,105,110,101,32
+,95,95,73,78,84,95,76,69,65,83,84,51,50,95,87,73,68,84,72,95,95,32,51,50,10
+,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54,52,95,87,73,68
+,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83
+,84,56,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95,73,78
+,84,95,70,65,83,84,49,54,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105
+,110,101,32,95,95,73,78,84,95,70,65,83,84,51,50,95,87,73,68,84,72,95,95,32,54
+,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,87,73
+,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,80,84,82
+,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84
+,77,65,88,95,87,73,68,84,72,95,95,32,54,52,10,35,101,110,100,105,102,10,35,100,101
+,102,105,110,101,32,95,95,83,73,90,69,79,70,95,73,78,84,95,95,32,95,95,67,65,75
+,69,95,83,73,90,69,79,70,95,73,78,84,95,95,10,35,100,101,102,105,110,101,32,95,95
+,83,73,90,69,79,70,95,76,79,78,71,95,95,32,95,95,67,65,75,69,95,83,73,90,69
+,79,70,95,76,79,78,71,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79
+,70,95,76,79,78,71,95,76,79,78,71,95,95,32,95,95,67,65,75,69,95,83,73,90,69
+,79,70,95,76,79,78,71,95,76,79,78,71,95,95,10,35,100,101,102,105,110,101,32,95,95
+,83,73,90,69,79,70,95,83,72,79,82,84,95,95,32,95,95,67,65,75,69,95,83,73,90
+,69,79,70,95,83,72,79,82,84,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90
+,69,79,70,95,80,79,73,78,84,69,82,95,95,32,95,95,67,65,75,69,95,83,73,90,69
+,79,70,95,80,79,73,78,84,69,82,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73
+,90,69,79,70,95,70,76,79,65,84,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79
+,70,95,70,76,79,65,84,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79
+,70,95,68,79,85,66,76,69,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95
+,68,79,85,66,76,69,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70
+,95,76,79,78,71,95,68,79,85,66,76,69,95,95,32,95,95,67,65,75,69,95,83,73,90
+,69,79,70,95,76,79,78,71,95,68,79,85,66,76,69,95,95,10,35,100,101,102,105,110,101
+,32,95,95,83,73,90,69,79,70,95,83,73,90,69,95,84,95,95,32,95,95,67,65,75,69
+,95,83,73,90,69,79,70,95,83,73,90,69,95,84,95,95,10,35,100,101,102,105,110,101,32
+,95,95,83,73,90,69,79,70,95,87,67,72,65,82,95,84,95,95,32,95,95,67,65,75,69
+,95,83,73,90,69,79,70,95,87,67,72,65,82,95,84,95,95,10,35,100,101,102,105,110,101
+,32,95,95,83,73,90,69,79,70,95,87,73,78,84,95,84,95,95,32,52,10,35,100,101,102
+,105,110,101,32,95,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95,32
+,95,95,67,65,75,69,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95
+,10,35,105,102,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,76,79,78,71,95,76
+,79,78,71,95,76,79,78,71,95,95,32,61,61,32,49,54,10,35,100,101,102,105,110,101,32
+,95,95,83,73,90,69,79,70,95,73,78,84,49,50,56,95,95,32,49,54,10,35,101,110,100
+,105,102,10,10,10,47,42,32,109,101,109,111,114,121,32,111,114,100,101,114,115,32,117,115,101
+,100,32,98,121,32,60,115,116,100,97,116,111,109,105,99,46,104,62,32,97,110,100,32,116,104
+,101,32,95,95,97,116,111,109,105,99,47,95,95,99,49,49,95,97,116,111,109,105,99,32,98
+,117,105,108,116,105,110,115,32,42,47,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77
+,73,67,95,82,69,76,65,88,69,68,32,48,10,35,100,101,102,105,110,101,32,95,95,65,84
+,79,77,73,67,95,67,79,78,83,85,77,69,32,49,10,35,100,101,102,105,110,101,32,95,95
+,65,84,79,77,73,67,95,65,67,81,85,73,82,69,32,50,10,35,100,101,102,105,110,101,32
+,95,95,65,84,79,77,73,67,95,82,69,76,69,65,83,69,32,51,10,35,100,101,102,105,110
+,101,32,95,95,65,84,79,77,73,67,95,65,67,81,95,82,69,76,32,52,10,35,100,101,102
+,105,110,101,32,95,95,65,84,79,77,73,67,95,83,69,81,95,67,83,84,32,53,10,10,35
+,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,66,79,79,76,95
+,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67
+,95,65,84,79,77,73,67,95,67,72,65,82,95,76,79,67,75,95,70,82,69,69,32,50,10
+,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72,65,82
+,49,54,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32
+,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72,65,82,51,50,95,84,95,76,79,67
+,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84
+,79,77,73,67,95,87,67,72,65,82,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10
+,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,83,72,79,82
+,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71
+,67,67,95,65,84,79,77,73,67,95,73,78,84,95,76,79,67,75,95,70,82,69,69,32,50
+,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,76,79,78
+,71,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71
+,67,67,95,65,84,79,77,73,67,95,76,76,79,78,71,95,76,79,67,75,95,70,82,69,69
+,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,80
+,79,73,78,84,69,82,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110
+,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,84,69,83,84,95,65,78,68,95,83
+,69,84,95,84,82,85,69,86,65,76,32,49,10
+#line 36 "target.c"
+ , 0
+};
+
+static char clang_macros[] =
+{
+
+#line 1 "include/builtins/clang_macros.h.include"
+
+10,35,100,101,102,105,110,101,32,95,67,79,78,83,79,76,69,10,35,100,101,102,105,110,101
+,32,95,70,79,82,84,73,70,89,95,83,79,85,82,67,69,32,48,10,35,100,101,102,105,110
+,101,32,95,95,83,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,32,32,95,95
+,83,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,10,35,100,101,102,105,110,101
+,32,95,95,83,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,32,32,32,95,95
+,83,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,10,35,100,101,102,105,110,101
+,32,95,95,83,84,68,67,95,78,79,95,86,76,65,95,95,32,32,32,32,95,95,83,84,68
+,67,95,78,79,95,86,76,65,95,95,10,35,100,101,102,105,110,101,32,95,95,65,80,80,76
+,69,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32
+,95,95,77,65,67,72,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100
+,101,102,105,110,101,32,95,95,101,120,116,101,110,115,105,111,110,95,95,10,35,100,101,102,105
+,110,101,32,95,95,71,78,85,67,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,52
+,10,35,100,101,102,105,110,101,32,95,95,71,78,85,67,95,77,73,78,79,82,95,95,32,32
+,32,32,32,32,32,49,10,47,42,32,99,97,107,101,32,101,109,117,108,97,116,101,115,32,99
+,108,97,110,103,32,111,110,32,109,97,99,79,83,59,32,83,68,75,32,104,101,97,100,101,114
+,115,32,40,101,46,103,46,32,84,97,114,103,101,116,67,111,110,100,105,116,105,111,110,97,108
+,115,46,104,41,10,32,32,32,114,101,113,117,105,114,101,32,97,32,114,101,99,111,103,110,105
+,122,101,100,32,99,111,109,112,105,108,101,114,46,32,42,47,10,35,100,101,102,105,110,101,32
+,95,95,99,108,97,110,103,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100
+,101,102,105,110,101,32,95,95,99,108,97,110,103,95,109,97,106,111,114,95,95,32,32,32,32
+,32,32,50,49,10,35,100,101,102,105,110,101,32,95,95,99,108,97,110,103,95,109,105,110,111
+,114,95,95,32,32,32,32,32,32,48,10,35,100,101,102,105,110,101,32,95,95,99,108,97,110
+,103,95,112,97,116,99,104,108,101,118,101,108,95,95,32,48,10,47,42,32,65,112,112,108,101
+,32,99,111,109,112,105,108,101,114,32,109,97,114,107,101,114,46,32,60,84,97,114,103,101,116
+,67,111,110,100,105,116,105,111,110,97,108,115,46,104,62,32,114,101,113,117,105,114,101,115,32
+,95,95,71,78,85,67,95,95,32,116,111,103,101,116,104,101,114,10,32,32,32,119,105,116,104
+,32,95,95,65,80,80,76,69,95,67,67,95,95,32,40,111,114,32,95,95,65,80,80,76,69
+,95,67,80,80,95,95,41,32,116,111,32,105,100,101,110,116,105,102,121,32,116,104,101,32,99
+,111,109,112,105,108,101,114,59,32,119,105,116,104,111,117,116,32,105,116,10,32,32,32,105,116
+,32,102,97,108,108,115,32,116,104,114,111,117,103,104,32,116,111,32,39,35,101,114,114,111,114
+,32,117,110,107,110,111,119,110,32,99,111,109,112,105,108,101,114,39,46,32,42,47,10,35,100
+,101,102,105,110,101,32,95,95,65,80,80,76,69,95,67,67,95,95,32,32,32,32,32,32,32
+,32,32,54,48,48,48,10,35,100,101,102,105,110,101,32,95,95,65,80,80,76,69,95,67,80
+,80,95,95,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,83,73
+,90,69,79,70,95,73,78,84,49,50,56,95,95,32,32,32,32,49,54,10,35,100,101,102,105
+,110,101,32,95,95,83,84,68,67,95,72,79,83,84,69,68,95,95,32,32,32,32,32,32,49
+,10,35,100,101,102,105,110,101,32,95,95,83,84,68,67,95,95,32,32,32,32,32,32,32,32
+,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,97,97,114,99,104,54,52,95
+,95,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,97,114
+,109,54,52,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110
+,101,32,95,95,76,73,84,84,76,69,95,69,78,68,73,65,78,95,95,32,32,32,32,49,10
+,35,100,101,102,105,110,101,32,95,95,79,82,68,69,82,95,76,73,84,84,76,69,95,69,78
+,68,73,65,78,95,95,32,49,50,51,52,10,35,100,101,102,105,110,101,32,95,95,79,82,68
+,69,82,95,66,73,71,95,69,78,68,73,65,78,95,95,32,52,51,50,49,10,35,100,101,102
+,105,110,101,32,95,95,79,82,68,69,82,95,80,68,80,95,69,78,68,73,65,78,95,95,32
+,51,52,49,50,10,35,100,101,102,105,110,101,32,95,95,66,89,84,69,95,79,82,68,69,82
+,95,95,32,32,32,32,32,32,32,95,95,79,82,68,69,82,95,76,73,84,84,76,69,95,69
+,78,68,73,65,78,95,95,10,35,100,101,102,105,110,101,32,95,95,67,72,65,82,95,66,73
+,84,95,95,32,32,32,32,32,32,32,32,32,56,10,35,100,101,102,105,110,101,32,95,95,83
+,73,90,69,95,84,89,80,69,95,95,32,32,32,32,32,32,32,32,95,95,67,65,75,69,95
+,83,73,90,69,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95,80,84,82
+,68,73,70,70,95,84,89,80,69,95,95,32,32,32,32,32,95,95,67,65,75,69,95,80,84
+,82,68,73,70,70,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95,87,67
+,72,65,82,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95,67,65,75,69,95,87
+,67,72,65,82,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95,87,73,78
+,84,95,84,89,80,69,95,95,32,32,32,32,32,32,32,32,117,110,115,105,103,110,101,100,32
+,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,84,89,80,69
+,95,95,32,32,32,32,32,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32
+,95,95,85,73,78,84,77,65,88,95,84,89,80,69,95,95,32,32,32,32,32,108,111,110,103
 ,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,83
 ,73,71,95,65,84,79,77,73,67,95,84,89,80,69,95,95,32,32,105,110,116,10,35,100,101
 ,102,105,110,101,32,95,95,73,78,84,56,95,84,89,80,69,95,95,32,32,32,32,32,32,32
@@ -89000,759 +89309,669 @@ static char gcc_macros[] =
 ,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70
 ,65,83,84,56,95,84,89,80,69,95,95,32,32,32,32,115,105,103,110,101,100,32,99,104,97
 ,114,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95,84,89
-,80,69,95,95,32,32,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95
-,70,65,83,84,51,50,95,84,89,80,69,95,95,32,32,32,105,110,116,10,35,100,101,102,105
-,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,84,89,80,69,95,95,32,32,32
-,108,111,110,103,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85
-,73,78,84,95,70,65,83,84,56,95,84,89,80,69,95,95,32,32,32,117,110,115,105,103,110
-,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65
-,83,84,49,54,95,84,89,80,69,95,95,32,32,117,110,115,105,103,110,101,100,32,105,110,116
-,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,51,50,95,84,89
-,80,69,95,95,32,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110
-,101,32,95,95,85,73,78,84,95,70,65,83,84,54,52,95,84,89,80,69,95,95,32,32,108
-,111,110,103,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101
-,102,105,110,101,32,95,95,73,78,84,80,84,82,95,84,89,80,69,95,95,32,32,32,32,32
-,32,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,80,84,82,95,84
-,89,80,69,95,95,32,32,32,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35
-,101,108,115,101,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,84,89,80
-,69,95,95,32,32,32,32,32,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101
-,32,95,95,85,73,78,84,77,65,88,95,84,89,80,69,95,95,32,32,32,32,32,108,111,110
-,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95
-,83,73,71,95,65,84,79,77,73,67,95,84,89,80,69,95,95,32,32,105,110,116,10,35,100
-,101,102,105,110,101,32,95,95,73,78,84,56,95,84,89,80,69,95,95,32,32,32,32,32,32
-,32,32,95,95,67,65,75,69,95,73,78,84,56,95,84,89,80,69,95,95,10,35,100,101,102
-,105,110,101,32,95,95,73,78,84,49,54,95,84,89,80,69,95,95,32,32,32,32,32,32,32
-,95,95,67,65,75,69,95,73,78,84,49,54,95,84,89,80,69,95,95,10,35,100,101,102,105
-,110,101,32,95,95,73,78,84,51,50,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95
-,95,67,65,75,69,95,73,78,84,51,50,95,84,89,80,69,95,95,10,35,100,101,102,105,110
-,101,32,95,95,73,78,84,54,52,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95
-,67,65,75,69,95,73,78,84,54,52,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101
-,32,95,95,85,73,78,84,56,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95,67
-,65,75,69,95,85,73,78,84,56,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32
-,95,95,85,73,78,84,49,54,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67,65
-,75,69,95,85,73,78,84,49,54,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32
-,95,95,85,73,78,84,51,50,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67,65
-,75,69,95,85,73,78,84,51,50,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32
-,95,95,85,73,78,84,54,52,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67,65
-,75,69,95,85,73,78,84,54,52,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32
-,95,95,73,78,84,95,76,69,65,83,84,56,95,84,89,80,69,95,95,32,32,115,105,103,110
-,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65
-,83,84,49,54,95,84,89,80,69,95,95,32,115,104,111,114,116,32,105,110,116,10,35,100,101
-,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,51,50,95,84,89,80,69,95,95
-,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54
-,52,95,84,89,80,69,95,95,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101
-,32,95,95,85,73,78,84,95,76,69,65,83,84,56,95,84,89,80,69,95,95,32,117,110,115
-,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84
-,95,76,69,65,83,84,49,54,95,84,89,80,69,95,95,32,115,104,111,114,116,32,117,110,115
-,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95
-,76,69,65,83,84,51,50,95,84,89,80,69,95,95,32,117,110,115,105,103,110,101,100,32,105
-,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,54,52
-,95,84,89,80,69,95,95,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116
-,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,56,95,84,89,80,69
-,95,95,32,32,32,32,115,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101
-,32,95,95,73,78,84,95,70,65,83,84,49,54,95,84,89,80,69,95,95,32,32,32,108,111
-,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84
-,51,50,95,84,89,80,69,95,95,32,32,32,108,111,110,103,32,105,110,116,10,35,100,101,102
-,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,84,89,80,69,95,95,32,32
-,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95
-,70,65,83,84,56,95,84,89,80,69,95,95,32,32,32,117,110,115,105,103,110,101,100,32,99
-,104,97,114,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,49,54
-,95,84,89,80,69,95,95,32,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110
-,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,51,50,95,84
-,89,80,69,95,95,32,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10
-,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,54,52,95,84,89,80
-,69,95,95,32,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100
-,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95,84,89,80,69,95,95,32,32,32,32
-,32,32,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78
-,84,80,84,82,95,84,89,80,69,95,95,32,32,32,32,32,32,108,111,110,103,32,117,110,115
-,105,103,110,101,100,32,105,110,116,10,35,101,110,100,105,102,10,35,100,101,102,105,110,101,32
-,95,95,68,66,76,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,32,40,40,100
-,111,117,98,108,101,41,49,46,55,57,55,54,57,51,49,51,52,56,54,50,51,49,53,55,48
-,56,49,52,53,50,55,52,50,51,55,51,49,55,48,52,51,53,55,101,43,51,48,56,76,41
-,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,73,78,95,95,32,32,32,32,32
-,32,32,32,32,32,32,40,40,100,111,117,98,108,101,41,50,46,50,50,53,48,55,51,56,53
-,56,53,48,55,50,48,49,51,56,51,48,57,48,50,51,50,55,49,55,51,51,50,52,48,52
-,48,54,101,45,51,48,56,76,41,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,82
-,65,68,73,88,95,95,32,32,32,32,32,32,32,32,32,50,10,35,100,101,102,105,110,101,32
-,95,95,70,76,84,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,32,49,46,49
-,57,50,48,57,50,56,57,53,53,48,55,56,49,50,53,48,48,48,48,48,48,48,48,48,48
-,48,48,48,48,48,48,48,48,48,101,45,55,70,10,35,100,101,102,105,110,101,32,95,95,68
-,66,76,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,32,40,40,100,111,117,98
-,108,101,41,50,46,50,50,48,52,52,54,48,52,57,50,53,48,51,49,51,48,56,48,56,52
-,55,50,54,51,51,51,54,49,56,49,54,52,48,54,50,101,45,49,54,76,41,10,35,105,102
-,100,101,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,65,82,67,72,95,65,82
-,77,54,52,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,69,80,83,73,76,79
-,78,95,95,32,32,32,32,32,32,49,46,57,50,53,57,50,57,57,52,52,51,56,55,50,51
-,53,56,53,51,48,53,53,57,55,55,57,52,50,53,56,52,57,50,55,51,50,101,45,51,52
-,76,10,35,101,108,105,102,32,100,101,102,105,110,101,100,32,95,95,67,65,75,69,95,84,65
-,82,71,69,84,95,65,82,67,72,95,65,82,77,51,50,10,35,100,101,102,105,110,101,32,95
+,80,69,95,95,32,32,32,115,104,111,114,116,32,105,110,116,10,35,100,101,102,105,110,101,32
+,95,95,73,78,84,95,70,65,83,84,51,50,95,84,89,80,69,95,95,32,32,32,105,110,116
+,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,84,89,80
+,69,95,95,32,32,32,108,111,110,103,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105
+,110,101,32,95,95,85,73,78,84,95,70,65,83,84,56,95,84,89,80,69,95,95,32,32,32
+,117,110,115,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,85
+,73,78,84,95,70,65,83,84,49,54,95,84,89,80,69,95,95,32,32,115,104,111,114,116,32
+,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73
+,78,84,95,70,65,83,84,51,50,95,84,89,80,69,95,95,32,32,117,110,115,105,103,110,101
+,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84
+,54,52,95,84,89,80,69,95,95,32,32,108,111,110,103,32,108,111,110,103,32,117,110,115,105
+,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,80,84,82
+,95,84,89,80,69,95,95,32,32,32,32,32,32,32,108,111,110,103,32,105,110,116,10,35,100
+,101,102,105,110,101,32,95,95,85,73,78,84,80,84,82,95,84,89,80,69,95,95,32,32,32
+,32,32,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102
+,105,110,101,32,95,95,68,66,76,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32
+,32,40,40,100,111,117,98,108,101,41,49,46,55,57,55,54,57,51,49,51,52,56,54,50,51
+,49,53,55,48,56,49,52,53,50,55,52,50,51,55,51,49,55,48,52,51,53,55,101,43,51
+,48,56,76,41,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,73,78,95,95,32
+,32,32,32,32,32,32,32,32,32,32,40,40,100,111,117,98,108,101,41,50,46,50,50,53,48
+,55,51,56,53,56,53,48,55,50,48,49,51,56,51,48,57,48,50,51,50,55,49,55,51,51
+,50,52,48,52,48,54,101,45,51,48,56,76,41,10,35,100,101,102,105,110,101,32,95,95,70
+,76,84,95,82,65,68,73,88,95,95,32,32,32,32,32,32,32,32,32,50,10,35,100,101,102
+,105,110,101,32,95,95,70,76,84,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32
+,32,49,46,49,57,50,48,57,50,56,57,53,53,48,55,56,49,50,53,48,48,48,48,48,48
+,48,48,48,48,48,48,48,48,48,48,48,48,48,101,45,55,70,10,35,100,101,102,105,110,101
+,32,95,95,68,66,76,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,32,40,40
+,100,111,117,98,108,101,41,50,46,50,50,48,52,52,54,48,52,57,50,53,48,51,49,51,48
+,56,48,56,52,55,50,54,51,51,51,54,49,56,49,54,52,48,54,50,101,45,49,54,76,41
+,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,68,69,67,73,77,65,76,95,68,73
+,71,95,95,32,32,32,49,55,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,69,86
+,65,76,95,77,69,84,72,79,68,95,95,32,32,32,48,10,35,100,101,102,105,110,101,32,95
+,95,70,76,84,95,82,65,68,73,88,95,95,32,32,32,32,32,32,32,32,32,50,10,35,100
+,101,102,105,110,101,32,95,95,68,66,76,95,77,65,88,95,69,88,80,95,95,32,32,32,32
+,32,32,32,49,48,50,52,10,35,100,101,102,105,110,101,32,95,95,68,69,67,73,77,65,76
+,95,68,73,71,95,95,32,32,32,32,32,32,32,49,55,10,10,47,42,32,100,111,117,98,108
+,101,32,40,73,69,69,69,45,55,53,52,32,98,105,110,97,114,121,54,52,41,32,42,47,10
+,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,65,78,84,95,68,73,71,95,95,32
+,32,32,32,32,32,53,51,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,68,73,71
+,95,95,32,32,32,32,32,32,32,32,32,32,32,49,53,10,35,100,101,102,105,110,101,32,95
+,95,68,66,76,95,77,73,78,95,69,88,80,95,95,32,32,32,32,32,32,32,40,45,49,48
+,50,49,41,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,73,78,95,49,48,95
+,69,88,80,95,95,32,32,32,32,40,45,51,48,55,41,10,35,100,101,102,105,110,101,32,95
+,95,68,66,76,95,77,65,88,95,49,48,95,69,88,80,95,95,32,32,32,32,51,48,56,10
+,35,100,101,102,105,110,101,32,95,95,68,66,76,95,72,65,83,95,68,69,78,79,82,77,95
+,95,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,68,69,78,79
+,82,77,95,77,73,78,95,95,32,32,32,32,40,40,100,111,117,98,108,101,41,52,46,57,52
+,48,54,53,54,52,53,56,52,49,50,52,54,53,52,52,49,55,54,53,54,56,55,57,50,56
+,54,56,50,50,49,51,55,50,101,45,51,50,52,76,41,10,10,47,42,32,79,110,32,65,112
+,112,108,101,32,97,114,109,54,52,32,39,108,111,110,103,32,100,111,117,98,108,101,39,32,61
+,61,32,39,100,111,117,98,108,101,39,32,40,54,52,45,98,105,116,32,98,105,110,97,114,121
+,54,52,41,46,32,42,47,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,77,65
+,78,84,95,68,73,71,95,95,32,32,32,32,32,53,51,10,35,100,101,102,105,110,101,32,95
+,95,76,68,66,76,95,68,73,71,95,95,32,32,32,32,32,32,32,32,32,32,49,53,10,35
+,100,101,102,105,110,101,32,95,95,76,68,66,76,95,77,73,78,95,69,88,80,95,95,32,32
+,32,32,32,32,40,45,49,48,50,49,41,10,35,100,101,102,105,110,101,32,95,95,76,68,66
+,76,95,77,73,78,95,49,48,95,69,88,80,95,95,32,32,32,40,45,51,48,55,41,10,35
+,100,101,102,105,110,101,32,95,95,76,68,66,76,95,77,65,88,95,69,88,80,95,95,32,32
+,32,32,32,32,49,48,50,52,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,77
+,65,88,95,49,48,95,69,88,80,95,95,32,32,32,51,48,56,10,35,100,101,102,105,110,101
+,32,95,95,76,68,66,76,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,49,46
+,55,57,55,54,57,51,49,51,52,56,54,50,51,49,53,55,48,56,49,52,53,50,55,52,50
+,51,55,51,49,55,48,52,51,53,55,101,43,51,48,56,76,10,35,100,101,102,105,110,101,32
+,95,95,76,68,66,76,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32,32,50,46,50
+,50,53,48,55,51,56,53,56,53,48,55,50,48,49,51,56,51,48,57,48,50,51,50,55,49
+,55,51,51,50,52,48,52,48,54,101,45,51,48,56,76,10,35,100,101,102,105,110,101,32,95
 ,95,76,68,66,76,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,50,46,50,50
 ,48,52,52,54,48,52,57,50,53,48,51,49,51,48,56,48,56,52,55,50,54,51,51,51,54
-,49,56,49,54,52,48,54,50,101,45,49,54,76,10,35,101,108,115,101,10,35,100,101,102,105
-,110,101,32,95,95,76,68,66,76,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32
-,49,46,48,56,52,50,48,50,49,55,50,52,56,53,53,48,52,52,51,52,48,48,55,52,53
-,50,56,48,48,56,54,57,57,52,49,55,49,101,45,49,57,76,10,35,101,110,100,105,102,10
-,35,100,101,102,105,110,101,32,95,95,68,66,76,95,68,69,67,73,77,65,76,95,68,73,71
-,95,95,32,32,32,49,55,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,69,86,65
-,76,95,77,69,84,72,79,68,95,95,32,32,32,48,10,35,100,101,102,105,110,101,32,95,95
-,70,76,84,95,82,65,68,73,88,95,95,32,32,32,32,32,32,32,32,32,50,10,35,100,101
-,102,105,110,101,32,95,95,68,66,76,95,77,65,88,95,69,88,80,95,95,32,32,32,32,32
-,32,32,49,48,50,52,10,35,105,102,100,101,102,32,95,95,67,65,75,69,95,84,65,82,71
-,69,84,95,65,82,67,72,95,65,82,77,54,52,10,35,100,101,102,105,110,101,32,95,95,68
-,69,67,73,77,65,76,95,68,73,71,95,95,32,32,32,32,32,32,32,51,54,10,35,101,108
-,105,102,32,100,101,102,105,110,101,100,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95
-,65,82,67,72,95,65,82,77,51,50,10,35,100,101,102,105,110,101,32,95,95,68,69,67,73
-,77,65,76,95,68,73,71,95,95,32,32,32,32,32,32,32,49,55,10,35,101,108,115,101,10
-,35,100,101,102,105,110,101,32,95,95,68,69,67,73,77,65,76,95,68,73,71,95,95,32,32
-,32,32,32,32,32,50,49,10,35,101,110,100,105,102,10,35,100,101,102,105,110,101,32,95,95
-,70,76,84,95,68,69,67,73,77,65,76,95,68,73,71,95,95,32,32,32,57,10,35,100,101
-,102,105,110,101,32,95,95,70,76,84,95,77,73,78,95,49,48,95,69,88,80,95,95,32,32
-,32,32,40,45,51,55,41,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,73,78
-,95,95,32,32,32,32,32,32,32,32,32,32,32,49,46,49,55,53,52,57,52,51,53,48,56
-,50,50,50,56,55,53,48,55,57,54,56,55,51,54,53,51,55,50,50,50,50,52,53,54,56
-,101,45,51,56,70,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65,88,95,95
-,32,32,32,32,32,32,32,32,32,32,32,51,46,52,48,50,56,50,51,52,54,54,51,56,53
-,50,56,56,53,57,56,49,49,55,48,52,49,56,51,52,56,52,53,49,54,57,50,53,101,43
-,51,56,70,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,69,80,83,73,76,79,78
-,95,95,32,32,32,32,32,32,32,49,46,49,57,50,48,57,50,56,57,53,53,48,55,56,49
-,50,53,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,101,45,55,70
-,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,68,73,71,95,95,32,32,32,32,32
-,32,32,32,32,32,32,54,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65,78
-,84,95,68,73,71,95,95,32,32,32,32,32,32,50,52,10,35,100,101,102,105,110,101,32,95
-,95,70,76,84,95,77,73,78,95,69,88,80,95,95,32,32,32,32,32,32,32,40,45,49,50
-,53,41,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65,88,95,49,48,95,69
-,88,80,95,95,32,32,32,32,51,56,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95
-,69,86,65,76,95,77,69,84,72,79,68,95,95,32,32,32,48,10,35,100,101,102,105,110,101
-,32,95,95,70,76,84,95,77,65,88,95,69,88,80,95,95,32,32,32,32,32,32,32,49,50
-,56,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,72,65,83,95,68,69,78,79,82
-,77,95,95,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,83,67,72,65,82,95
-,77,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,10,35,105,102,100,101,102
-,32,95,95,67,65,75,69,95,87,67,72,65,82,95,85,78,83,73,71,78,69,68,95,95,10
-,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,65,88,95,95,32,32,32,32
-,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,101,108,115,101,10,35,100
-,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,65,88,95,95,32,32,32,32,32,32
-,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,101,110,100,105,102,10,35,100,101,102
-,105,110,101,32,95,95,83,72,82,84,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32
-,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,77,65,88
-,95,95,32,32,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35
-,105,102,100,101,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,65,82,67,72,95
-,65,82,77,51,50,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,77,65,88,95
-,95,32,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,76,10,35,100
-,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71,95,77,65,88,95,95,32,32
-,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76,10,35
-,100,101,102,105,110,101,32,95,95,87,73,78,84,95,77,65,88,95,95,32,32,32,32,32,32
-,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95
-,95,83,73,90,69,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120,102,102
-,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95,95,80,84,82,68,73,70,70
-,95,77,65,88,95,95,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35
-,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32,32
-,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76,10
-,35,100,101,102,105,110,101,32,95,95,85,73,78,84,77,65,88,95,77,65,88,95,95,32,32
-,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76
-,76,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77,65
-,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101
-,32,95,95,73,78,84,56,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120
-,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,49,54,95,77,65,88,95,95,32
-,32,32,32,32,32,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95
-,73,78,84,51,50,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102
-,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,54,52,95,77,65,88
-,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102
-,102,102,102,102,76,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,77,65
+,49,56,49,54,52,48,54,50,101,45,49,54,76,10,35,100,101,102,105,110,101,32,95,95,76
+,68,66,76,95,68,69,78,79,82,77,95,77,73,78,95,95,32,32,32,52,46,57,52,48,54
+,53,54,52,53,56,52,49,50,52,54,53,52,52,49,55,54,53,54,56,55,57,50,56,54,56
+,50,50,49,51,55,50,101,45,51,50,52,76,10,35,100,101,102,105,110,101,32,95,95,76,68
+,66,76,95,72,65,83,95,68,69,78,79,82,77,95,95,32,32,32,49,10,35,100,101,102,105
+,110,101,32,95,95,76,68,66,76,95,68,69,67,73,77,65,76,95,68,73,71,95,95,32,32
+,49,55,10,10,47,42,32,69,120,112,111,115,101,32,116,104,101,32,66,83,68,32,116,121,112
+,101,115,32,40,117,95,99,104,97,114,47,117,95,115,104,111,114,116,47,117,95,105,110,116,47
+,117,95,108,111,110,103,41,32,111,110,32,109,97,99,79,83,46,32,42,47,10,35,100,101,102
+,105,110,101,32,95,68,65,82,87,73,78,95,67,95,83,79,85,82,67,69,32,32,32,32,32
+,32,49,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,68,69,67,73,77,65,76,95
+,68,73,71,95,95,32,32,32,57,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77
+,73,78,95,49,48,95,69,88,80,95,95,32,32,32,32,40,45,51,55,41,10,35,100,101,102
+,105,110,101,32,95,95,70,76,84,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32,32
+,32,49,46,49,55,53,52,57,52,51,53,48,56,50,50,50,56,55,53,48,55,57,54,56,55
+,51,54,53,51,55,50,50,50,50,52,53,54,56,101,45,51,56,70,10,35,100,101,102,105,110
+,101,32,95,95,70,76,84,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,32,51
+,46,52,48,50,56,50,51,52,54,54,51,56,53,50,56,56,53,57,56,49,49,55,48,52,49
+,56,51,52,56,52,53,49,54,57,50,53,101,43,51,56,70,10,35,100,101,102,105,110,101,32
+,95,95,70,76,84,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,32,49,46,49
+,57,50,48,57,50,56,57,53,53,48,55,56,49,50,53,48,48,48,48,48,48,48,48,48,48
+,48,48,48,48,48,48,48,48,48,101,45,55,70,10,35,100,101,102,105,110,101,32,95,95,70
+,76,84,95,68,73,71,95,95,32,32,32,32,32,32,32,32,32,32,32,54,10,35,100,101,102
+,105,110,101,32,95,95,70,76,84,95,77,65,78,84,95,68,73,71,95,95,32,32,32,32,32
+,32,50,52,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,73,78,95,69,88,80
+,95,95,32,32,32,32,32,32,32,40,45,49,50,53,41,10,35,100,101,102,105,110,101,32,95
+,95,70,76,84,95,77,65,88,95,49,48,95,69,88,80,95,95,32,32,32,32,51,56,10,35
+,100,101,102,105,110,101,32,95,95,70,76,84,95,69,86,65,76,95,77,69,84,72,79,68,95
+,95,32,32,32,48,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65,88,95,69
+,88,80,95,95,32,32,32,32,32,32,32,49,50,56,10,35,100,101,102,105,110,101,32,95,95
+,70,76,84,95,72,65,83,95,68,69,78,79,82,77,95,95,32,32,32,32,49,10,35,100,101
+,102,105,110,101,32,95,95,83,67,72,65,82,95,77,65,88,95,95,32,32,32,32,32,32,32
+,32,32,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,65
+,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,100
+,101,102,105,110,101,32,95,95,83,72,82,84,95,77,65,88,95,95,32,32,32,32,32,32,32
+,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,77
+,65,88,95,95,32,32,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102
+,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,77,65,88,95,95,32,32,32,32
+,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76
+,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71,95,77,65,88,95
+,95,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76
+,76,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,77,65,88,95,95,32,32,32
+,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110
+,101,32,95,95,83,73,90,69,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48
+,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105
+,110,101,32,95,95,80,84,82,68,73,70,70,95,77,65,88,95,95,32,32,32,32,32,32,32
+,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102,105
+,110,101,32,95,95,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32,32,32,32,32,32
+,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102,105
+,110,101,32,95,95,85,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32,32,32,32,32
+,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102
+,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77,65,88,95,95,32,32,32
+,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84
+,56,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120,55,102,10,35,100,101
+,102,105,110,101,32,95,95,73,78,84,49,54,95,77,65,88,95,95,32,32,32,32,32,32,32
+,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,51,50,95
+,77,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10
+,35,100,101,102,105,110,101,32,95,95,73,78,84,54,52,95,77,65,88,95,95,32,32,32,32
+,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10
+,35,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,77,65,88,95,95,32,32,32,32
+,32,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,49
+,54,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,102,102,102,102,10,35,100,101
+,102,105,110,101,32,95,95,85,73,78,84,51,50,95,77,65,88,95,95,32,32,32,32,32,32
+,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95,95,85
+,73,78,84,54,52,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,102,102,102,102
+,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32,95,95
+,73,78,84,95,76,69,65,83,84,56,95,77,65,88,95,95,32,32,32,32,48,120,55,102,10
+,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,49,54,95,77,65,88
+,95,95,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84
+,95,76,69,65,83,84,51,50,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,102,102
+,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54,52,95
+,77,65,88,95,95,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,102,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,56,95
+,77,65,88,95,95,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73
+,78,84,95,76,69,65,83,84,49,54,95,77,65,88,95,95,32,32,48,120,102,102,102,102,10
+,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,51,50,95,77,65
+,88,95,95,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32
+,95,95,85,73,78,84,95,76,69,65,83,84,54,52,95,77,65,88,95,95,32,32,48,120,102
+,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101
+,32,95,95,73,78,84,95,70,65,83,84,56,95,77,65,88,95,95,32,32,32,32,32,48,120
+,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95,77
+,65,88,95,95,32,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95
+,73,78,84,95,70,65,83,84,51,50,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102
+,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54
+,52,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102
+,102,102,102,102,76,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83
+,84,56,95,77,65,88,95,95,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32
+,95,95,85,73,78,84,95,70,65,83,84,49,54,95,77,65,88,95,95,32,32,32,48,120,102
+,102,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,51,50
+,95,77,65,88,95,95,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102
+,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,54,52,95,77,65,88,95,95,32,32
+,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,76,10,35,100
+,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32,32
+,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100
+,101,102,105,110,101,32,95,95,85,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32
+,32,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35
+,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,73,78,95,95,32,32,32,32,32
+,32,32,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10,35,100,101,102
+,105,110,101,32,95,95,87,73,78,84,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32
+,48,85,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77
+,73,78,95,95,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10,47,42
+,32,105,110,116,101,103,101,114,45,99,111,110,115,116,97,110,116,32,98,117,105,108,100,101,114
+,32,109,97,99,114,111,115,32,40,99,108,97,110,103,32,112,114,111,118,105,100,101,115,32,116
+,104,101,115,101,59,32,116,104,101,32,83,68,75,39,115,10,32,32,32,115,116,100,105,110,116
+,46,104,32,117,115,101,115,32,116,104,101,109,44,32,101,46,103,46,32,85,73,78,84,49,54
+,95,77,65,88,32,61,61,32,95,95,85,73,78,84,49,54,95,67,40,54,53,53,51,53,41
+,41,46,32,42,47,10,35,100,101,102,105,110,101,32,95,95,73,78,84,56,95,67,40,99,41
+,32,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,67,40
+,99,41,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,73,78,84,49,54,95,67
+,40,99,41,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,49,54
+,95,67,40,99,41,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,73,78,84,51,50
+,95,67,40,99,41,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84
+,51,50,95,67,40,99,41,32,32,32,99,32,35,35,32,85,10,35,100,101,102,105,110,101,32
+,95,95,73,78,84,54,52,95,67,40,99,41,32,32,32,32,99,32,35,35,32,76,76,10,35
+,100,101,102,105,110,101,32,95,95,85,73,78,84,54,52,95,67,40,99,41,32,32,32,99,32
+,35,35,32,85,76,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,67
+,40,99,41,32,32,32,99,32,35,35,32,76,10,35,100,101,102,105,110,101,32,95,95,85,73
+,78,84,77,65,88,95,67,40,99,41,32,32,99,32,35,35,32,85,76,10,35,100,101,102,105
+,110,101,32,95,95,83,67,72,65,82,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102
+,105,110,101,32,95,95,83,72,82,84,95,87,73,68,84,72,95,95,32,49,54,10,35,100,101
+,102,105,110,101,32,95,95,73,78,84,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101
+,102,105,110,101,32,95,95,76,79,78,71,95,87,73,68,84,72,95,95,32,54,52,10,35,100
+,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71,95,87,73,68,84,72,95,95
+,32,54,52,10,35,100,101,102,105,110,101,32,95,95,80,84,82,68,73,70,70,95,87,73,68
+,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79
+,77,73,67,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95
+,83,73,90,69,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95
+,95,87,67,72,65,82,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101
+,32,95,95,87,73,78,84,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110
+,101,32,95,95,73,78,84,95,76,69,65,83,84,56,95,87,73,68,84,72,95,95,32,56,10
+,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,49,54,95,87,73,68
+,84,72,95,95,32,49,54,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65
+,83,84,51,50,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95
+,95,73,78,84,95,76,69,65,83,84,54,52,95,87,73,68,84,72,95,95,32,54,52,10,35
+,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,56,95,87,73,68,84,72,95
+,95,32,56,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95
+,87,73,68,84,72,95,95,32,49,54,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95
+,70,65,83,84,51,50,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101
+,32,95,95,73,78,84,95,70,65,83,84,54,52,95,87,73,68,84,72,95,95,32,54,52,10
+,35,100,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95,87,73,68,84,72,95,95,32
+,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,87,73,68,84,72
+,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,73,78
+,84,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,73,78,84,95,95,10,35
+,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,76,79,78,71,95,95,32,95,95
+,67,65,75,69,95,83,73,90,69,79,70,95,76,79,78,71,95,95,10,35,100,101,102,105,110
+,101,32,95,95,83,73,90,69,79,70,95,76,79,78,71,95,76,79,78,71,95,95,32,95,95
+,67,65,75,69,95,83,73,90,69,79,70,95,76,79,78,71,95,76,79,78,71,95,95,10,35
+,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,83,72,79,82,84,95,95,32,95
+,95,67,65,75,69,95,83,73,90,69,79,70,95,83,72,79,82,84,95,95,10,35,100,101,102
+,105,110,101,32,95,95,83,73,90,69,79,70,95,80,79,73,78,84,69,82,95,95,32,95,95
+,67,65,75,69,95,83,73,90,69,79,70,95,80,79,73,78,84,69,82,95,95,10,35,100,101
+,102,105,110,101,32,95,95,80,79,73,78,84,69,82,95,87,73,68,84,72,95,95,32,54,52
+,10,35,100,101,102,105,110,101,32,95,95,76,80,54,52,95,95,32,49,10,35,100,101,102,105
+,110,101,32,95,76,80,54,52,32,49,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69
+,79,70,95,70,76,79,65,84,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95
+,70,76,79,65,84,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95
+,68,79,85,66,76,69,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,68,79
+,85,66,76,69,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,76
+,79,78,71,95,68,79,85,66,76,69,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79
+,70,95,76,79,78,71,95,68,79,85,66,76,69,95,95,10,35,100,101,102,105,110,101,32,95
+,95,83,73,90,69,79,70,95,83,73,90,69,95,84,95,95,32,95,95,67,65,75,69,95,83
+,73,90,69,79,70,95,83,73,90,69,95,84,95,95,10,35,100,101,102,105,110,101,32,95,95
+,83,73,90,69,79,70,95,87,67,72,65,82,95,84,95,95,32,95,95,67,65,75,69,95,83
+,73,90,69,79,70,95,87,67,72,65,82,95,84,95,95,10,35,100,101,102,105,110,101,32,95
+,95,83,73,90,69,79,70,95,87,73,78,84,95,84,95,95,32,52,10,35,100,101,102,105,110
+,101,32,95,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95,32,95,95
+,67,65,75,69,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95,10,10
+,10,47,42,32,109,101,109,111,114,121,32,111,114,100,101,114,115,32,117,115,101,100,32,98,121
+,32,60,115,116,100,97,116,111,109,105,99,46,104,62,32,97,110,100,32,116,104,101,32,95,95
+,97,116,111,109,105,99,47,95,95,99,49,49,95,97,116,111,109,105,99,32,98,117,105,108,116
+,105,110,115,32,42,47,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67,95,82
+,69,76,65,88,69,68,32,48,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67
+,95,67,79,78,83,85,77,69,32,49,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77
+,73,67,95,65,67,81,85,73,82,69,32,50,10,35,100,101,102,105,110,101,32,95,95,65,84
+,79,77,73,67,95,82,69,76,69,65,83,69,32,51,10,35,100,101,102,105,110,101,32,95,95
+,65,84,79,77,73,67,95,65,67,81,95,82,69,76,32,52,10,35,100,101,102,105,110,101,32
+,95,95,65,84,79,77,73,67,95,83,69,81,95,67,83,84,32,53,10,10,35,100,101,102,105
+,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,66,79,79,76,95,76,79
+,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71
+,95,65,84,79,77,73,67,95,67,72,65,82,95,76,79,67,75,95,70,82,69,69,32,50,10
+,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,67,72
+,65,82,49,54,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110
+,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,67,72,65,82,51,50,95,84
+,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76
+,65,78,71,95,65,84,79,77,73,67,95,87,67,72,65,82,95,84,95,76,79,67,75,95,70
+,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79
+,77,73,67,95,83,72,79,82,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101
+,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,73,78,84,95,76
+,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78
+,71,95,65,84,79,77,73,67,95,76,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50
+,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,76
+,76,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32
+,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,80,79,73,78,84,69,82,95,76,79
+,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65
+,84,79,77,73,67,95,66,79,79,76,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100
+,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72,65,82,95,76
+,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95
+,65,84,79,77,73,67,95,67,72,65,82,49,54,95,84,95,76,79,67,75,95,70,82,69,69
+,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,67
+,72,65,82,51,50,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105
+,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,87,67,72,65,82,95,84,95,76
+,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95
+,65,84,79,77,73,67,95,83,72,79,82,84,95,76,79,67,75,95,70,82,69,69,32,50,10
+,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,73,78,84,95
+,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67
+,95,65,84,79,77,73,67,95,76,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50,10
+,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,76,76,79,78
+,71,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71
+,67,67,95,65,84,79,77,73,67,95,80,79,73,78,84,69,82,95,76,79,67,75,95,70,82
+,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67
+,95,84,69,83,84,95,65,78,68,95,83,69,84,95,84,82,85,69,86,65,76,32,49,10
+#line 42 "target.c"
+ , 0
+};
+
+static char clang_macros_x64[] =
+{
+
+#line 1 "include/builtins/clang_macros_x64.h.include"
+
+10,35,100,101,102,105,110,101,32,95,67,79,78,83,79,76,69,10,35,100,101,102,105,110,101
+,32,95,70,79,82,84,73,70,89,95,83,79,85,82,67,69,32,48,10,35,100,101,102,105,110
+,101,32,95,95,83,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,32,32,95,95
+,83,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,10,35,100,101,102,105,110,101
+,32,95,95,83,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,32,32,32,95,95
+,83,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,10,35,100,101,102,105,110,101
+,32,95,95,83,84,68,67,95,78,79,95,86,76,65,95,95,32,32,32,32,95,95,83,84,68
+,67,95,78,79,95,86,76,65,95,95,10,35,100,101,102,105,110,101,32,95,95,65,80,80,76
+,69,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32
+,95,95,77,65,67,72,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100
+,101,102,105,110,101,32,95,95,101,120,116,101,110,115,105,111,110,95,95,10,35,100,101,102,105
+,110,101,32,95,95,71,78,85,67,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,52
+,10,35,100,101,102,105,110,101,32,95,95,71,78,85,67,95,77,73,78,79,82,95,95,32,32
+,32,32,32,32,32,49,10,47,42,32,99,97,107,101,32,101,109,117,108,97,116,101,115,32,99
+,108,97,110,103,32,111,110,32,109,97,99,79,83,59,32,83,68,75,32,104,101,97,100,101,114
+,115,32,40,101,46,103,46,32,84,97,114,103,101,116,67,111,110,100,105,116,105,111,110,97,108
+,115,46,104,41,10,32,32,32,114,101,113,117,105,114,101,32,97,32,114,101,99,111,103,110,105
+,122,101,100,32,99,111,109,112,105,108,101,114,46,32,42,47,10,35,100,101,102,105,110,101,32
+,95,95,99,108,97,110,103,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100
+,101,102,105,110,101,32,95,95,99,108,97,110,103,95,109,97,106,111,114,95,95,32,32,32,32
+,32,32,50,49,10,35,100,101,102,105,110,101,32,95,95,99,108,97,110,103,95,109,105,110,111
+,114,95,95,32,32,32,32,32,32,48,10,35,100,101,102,105,110,101,32,95,95,99,108,97,110
+,103,95,112,97,116,99,104,108,101,118,101,108,95,95,32,48,10,47,42,32,65,112,112,108,101
+,32,99,111,109,112,105,108,101,114,32,109,97,114,107,101,114,46,32,60,84,97,114,103,101,116
+,67,111,110,100,105,116,105,111,110,97,108,115,46,104,62,32,114,101,113,117,105,114,101,115,32
+,95,95,71,78,85,67,95,95,32,116,111,103,101,116,104,101,114,10,32,32,32,119,105,116,104
+,32,95,95,65,80,80,76,69,95,67,67,95,95,32,40,111,114,32,95,95,65,80,80,76,69
+,95,67,80,80,95,95,41,32,116,111,32,105,100,101,110,116,105,102,121,32,116,104,101,32,99
+,111,109,112,105,108,101,114,59,32,119,105,116,104,111,117,116,32,105,116,10,32,32,32,105,116
+,32,102,97,108,108,115,32,116,104,114,111,117,103,104,32,116,111,32,39,35,101,114,114,111,114
+,32,117,110,107,110,111,119,110,32,99,111,109,112,105,108,101,114,39,46,32,42,47,10,35,100
+,101,102,105,110,101,32,95,95,65,80,80,76,69,95,67,67,95,95,32,32,32,32,32,32,32
+,32,32,54,48,48,48,10,35,100,101,102,105,110,101,32,95,95,65,80,80,76,69,95,67,80
+,80,95,95,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,83,73
+,90,69,79,70,95,73,78,84,49,50,56,95,95,32,32,32,32,49,54,10,35,100,101,102,105
+,110,101,32,95,95,83,84,68,67,95,72,79,83,84,69,68,95,95,32,32,32,32,32,32,49
+,10,35,100,101,102,105,110,101,32,95,95,83,84,68,67,95,95,32,32,32,32,32,32,32,32
+,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,120,56,54,95,54,52,95,95
+,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,120,56
+,54,95,54,52,32,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110
+,101,32,95,95,97,109,100,54,52,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10
+,35,100,101,102,105,110,101,32,95,95,97,109,100,54,52,32,32,32,32,32,32,32,32,32,32
+,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,76,73,84,84,76,69,95,69,78
+,68,73,65,78,95,95,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,79,82,68
+,69,82,95,76,73,84,84,76,69,95,69,78,68,73,65,78,95,95,32,49,50,51,52,10,35
+,100,101,102,105,110,101,32,95,95,79,82,68,69,82,95,66,73,71,95,69,78,68,73,65,78
+,95,95,32,52,51,50,49,10,35,100,101,102,105,110,101,32,95,95,79,82,68,69,82,95,80
+,68,80,95,69,78,68,73,65,78,95,95,32,51,52,49,50,10,35,100,101,102,105,110,101,32
+,95,95,66,89,84,69,95,79,82,68,69,82,95,95,32,32,32,32,32,32,32,95,95,79,82
+,68,69,82,95,76,73,84,84,76,69,95,69,78,68,73,65,78,95,95,10,35,100,101,102,105
+,110,101,32,95,95,67,72,65,82,95,66,73,84,95,95,32,32,32,32,32,32,32,32,32,56
+,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,95,84,89,80,69,95,95,32,32,32
+,32,32,32,32,32,95,95,67,65,75,69,95,83,73,90,69,95,84,89,80,69,95,95,10,35
+,100,101,102,105,110,101,32,95,95,80,84,82,68,73,70,70,95,84,89,80,69,95,95,32,32
+,32,32,32,95,95,67,65,75,69,95,80,84,82,68,73,70,70,95,84,89,80,69,95,95,10
+,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,84,89,80,69,95,95,32,32,32
+,32,32,32,32,95,95,67,65,75,69,95,87,67,72,65,82,95,84,89,80,69,95,95,10,35
+,100,101,102,105,110,101,32,95,95,87,73,78,84,95,84,89,80,69,95,95,32,32,32,32,32
+,32,32,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95
+,95,73,78,84,77,65,88,95,84,89,80,69,95,95,32,32,32,32,32,32,108,111,110,103,32
+,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,77,65,88,95,84,89,80
+,69,95,95,32,32,32,32,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116
+,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,84,89,80
+,69,95,95,32,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,56,95,84
+,89,80,69,95,95,32,32,32,32,32,32,32,32,95,95,67,65,75,69,95,73,78,84,56,95
+,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95,73,78,84,49,54,95,84,89
+,80,69,95,95,32,32,32,32,32,32,32,95,95,67,65,75,69,95,73,78,84,49,54,95,84
+,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95,73,78,84,51,50,95,84,89,80
+,69,95,95,32,32,32,32,32,32,32,95,95,67,65,75,69,95,73,78,84,51,50,95,84,89
+,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95,73,78,84,54,52,95,84,89,80,69
+,95,95,32,32,32,32,32,32,32,95,95,67,65,75,69,95,73,78,84,54,52,95,84,89,80
+,69,95,95,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,84,89,80,69,95
+,95,32,32,32,32,32,32,32,95,95,67,65,75,69,95,85,73,78,84,56,95,84,89,80,69
+,95,95,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,49,54,95,84,89,80,69,95
+,95,32,32,32,32,32,32,95,95,67,65,75,69,95,85,73,78,84,49,54,95,84,89,80,69
+,95,95,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,51,50,95,84,89,80,69,95
+,95,32,32,32,32,32,32,95,95,67,65,75,69,95,85,73,78,84,51,50,95,84,89,80,69
+,95,95,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,54,52,95,84,89,80,69,95
+,95,32,32,32,32,32,32,95,95,67,65,75,69,95,85,73,78,84,54,52,95,84,89,80,69
+,95,95,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,56,95,84
+,89,80,69,95,95,32,32,115,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110
+,101,32,95,95,73,78,84,95,76,69,65,83,84,49,54,95,84,89,80,69,95,95,32,115,104
+,111,114,116,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65
+,83,84,51,50,95,84,89,80,69,95,95,32,105,110,116,10,35,100,101,102,105,110,101,32,95
+,95,73,78,84,95,76,69,65,83,84,54,52,95,84,89,80,69,95,95,32,108,111,110,103,32
+,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76
+,69,65,83,84,56,95,84,89,80,69,95,95,32,117,110,115,105,103,110,101,100,32,99,104,97
+,114,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,49,54,95
+,84,89,80,69,95,95,32,115,104,111,114,116,32,117,110,115,105,103,110,101,100,32,105,110,116
+,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,51,50,95,84
+,89,80,69,95,95,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110
+,101,32,95,95,85,73,78,84,95,76,69,65,83,84,54,52,95,84,89,80,69,95,95,32,108
+,111,110,103,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101
+,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,56,95,84,89,80,69,95,95,32,32
+,32,32,115,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,73
+,78,84,95,70,65,83,84,49,54,95,84,89,80,69,95,95,32,32,32,115,104,111,114,116,32
+,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,51,50,95
+,84,89,80,69,95,95,32,32,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78
+,84,95,70,65,83,84,54,52,95,84,89,80,69,95,95,32,32,32,108,111,110,103,32,108,111
+,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83
+,84,56,95,84,89,80,69,95,95,32,32,32,117,110,115,105,103,110,101,100,32,99,104,97,114
+,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,49,54,95,84,89
+,80,69,95,95,32,32,115,104,111,114,116,32,117,110,115,105,103,110,101,100,32,105,110,116,10
+,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,51,50,95,84,89,80
+,69,95,95,32,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101
+,32,95,95,85,73,78,84,95,70,65,83,84,54,52,95,84,89,80,69,95,95,32,32,108,111
+,110,103,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102
+,105,110,101,32,95,95,73,78,84,80,84,82,95,84,89,80,69,95,95,32,32,32,32,32,32
+,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,80
+,84,82,95,84,89,80,69,95,95,32,32,32,32,32,32,108,111,110,103,32,117,110,115,105,103
+,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,65,88
+,95,95,32,32,32,32,32,32,32,32,32,32,32,40,40,100,111,117,98,108,101,41,49,46,55
+,57,55,54,57,51,49,51,52,56,54,50,51,49,53,55,48,56,49,52,53,50,55,52,50,51
+,55,51,49,55,48,52,51,53,55,101,43,51,48,56,76,41,10,35,100,101,102,105,110,101,32
+,95,95,68,66,76,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32,32,32,40,40,100
+,111,117,98,108,101,41,50,46,50,50,53,48,55,51,56,53,56,53,48,55,50,48,49,51,56
+,51,48,57,48,50,51,50,55,49,55,51,51,50,52,48,52,48,54,101,45,51,48,56,76,41
+,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,82,65,68,73,88,95,95,32,32,32
+,32,32,32,32,32,32,50,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,69,80,83
+,73,76,79,78,95,95,32,32,32,32,32,32,32,49,46,49,57,50,48,57,50,56,57,53,53
+,48,55,56,49,50,53,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48
+,101,45,55,70,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,69,80,83,73,76,79
+,78,95,95,32,32,32,32,32,32,32,40,40,100,111,117,98,108,101,41,50,46,50,50,48,52
+,52,54,48,52,57,50,53,48,51,49,51,48,56,48,56,52,55,50,54,51,51,51,54,49,56
+,49,54,52,48,54,50,101,45,49,54,76,41,10,35,100,101,102,105,110,101,32,95,95,68,66
+,76,95,68,69,67,73,77,65,76,95,68,73,71,95,95,32,32,32,49,55,10,35,100,101,102
+,105,110,101,32,95,95,70,76,84,95,69,86,65,76,95,77,69,84,72,79,68,95,95,32,32
+,32,48,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,82,65,68,73,88,95,95,32
+,32,32,32,32,32,32,32,32,50,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77
+,65,88,95,69,88,80,95,95,32,32,32,32,32,32,32,49,48,50,52,10,35,100,101,102,105
+,110,101,32,95,95,68,69,67,73,77,65,76,95,68,73,71,95,95,32,32,32,32,32,32,32
+,50,49,10,10,47,42,32,100,111,117,98,108,101,32,40,73,69,69,69,45,55,53,52,32,98
+,105,110,97,114,121,54,52,41,32,42,47,10,35,100,101,102,105,110,101,32,95,95,68,66,76
+,95,77,65,78,84,95,68,73,71,95,95,32,32,32,32,32,32,53,51,10,35,100,101,102,105
+,110,101,32,95,95,68,66,76,95,68,73,71,95,95,32,32,32,32,32,32,32,32,32,32,32
+,49,53,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,73,78,95,69,88,80,95
+,95,32,32,32,32,32,32,32,40,45,49,48,50,49,41,10,35,100,101,102,105,110,101,32,95
+,95,68,66,76,95,77,73,78,95,49,48,95,69,88,80,95,95,32,32,32,32,40,45,51,48
+,55,41,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,65,88,95,49,48,95,69
+,88,80,95,95,32,32,32,32,51,48,56,10,35,100,101,102,105,110,101,32,95,95,68,66,76
+,95,72,65,83,95,68,69,78,79,82,77,95,95,32,32,32,32,49,10,35,100,101,102,105,110
+,101,32,95,95,68,66,76,95,68,69,78,79,82,77,95,77,73,78,95,95,32,32,32,32,40
+,40,100,111,117,98,108,101,41,52,46,57,52,48,54,53,54,52,53,56,52,49,50,52,54,53
+,52,52,49,55,54,53,54,56,55,57,50,56,54,56,50,50,49,51,55,50,101,45,51,50,52
+,76,41,10,10,47,42,32,79,110,32,65,112,112,108,101,32,120,56,54,95,54,52,32,39,108
+,111,110,103,32,100,111,117,98,108,101,39,32,105,115,32,116,104,101,32,56,48,45,98,105,116
+,32,101,120,116,101,110,100,101,100,32,116,121,112,101,10,32,32,32,40,115,116,111,114,101,100
+,32,105,110,32,49,54,32,98,121,116,101,115,41,46,32,42,47,10,35,100,101,102,105,110,101
+,32,95,95,76,68,66,76,95,77,65,78,84,95,68,73,71,95,95,32,32,32,32,32,54,52
+,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,68,73,71,95,95,32,32,32,32
+,32,32,32,32,32,32,49,56,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,77
+,73,78,95,69,88,80,95,95,32,32,32,32,32,32,40,45,49,54,51,56,49,41,10,35,100
+,101,102,105,110,101,32,95,95,76,68,66,76,95,77,73,78,95,49,48,95,69,88,80,95,95
+,32,32,32,40,45,52,57,51,49,41,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76
+,95,77,65,88,95,69,88,80,95,95,32,32,32,32,32,32,49,54,51,56,52,10,35,100,101
+,102,105,110,101,32,95,95,76,68,66,76,95,77,65,88,95,49,48,95,69,88,80,95,95,32
+,32,32,52,57,51,50,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,77,65,88
+,95,95,32,32,32,32,32,32,32,32,32,32,49,46,49,56,57,55,51,49,52,57,53,51,53
+,55,50,51,49,55,54,53,48,50,101,43,52,57,51,50,76,10,35,100,101,102,105,110,101,32
+,95,95,76,68,66,76,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32,32,51,46,51
+,54,50,49,48,51,49,52,51,49,49,50,48,57,51,53,48,54,50,54,101,45,52,57,51,50
+,76,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,69,80,83,73,76,79,78,95
+,95,32,32,32,32,32,32,49,46,48,56,52,50,48,50,49,55,50,52,56,53,53,48,52,52
+,51,52,48,49,101,45,49,57,76,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95
+,68,69,78,79,82,77,95,77,73,78,95,95,32,32,32,51,46,54,52,53,49,57,57,53,51
+,49,56,56,50,52,55,52,54,48,50,53,51,101,45,52,57,53,49,76,10,35,100,101,102,105
+,110,101,32,95,95,76,68,66,76,95,72,65,83,95,68,69,78,79,82,77,95,95,32,32,32
+,49,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,68,69,67,73,77,65,76,95
+,68,73,71,95,95,32,32,50,49,10,10,47,42,32,69,120,112,111,115,101,32,116,104,101,32
+,66,83,68,32,116,121,112,101,115,32,40,117,95,99,104,97,114,47,117,95,115,104,111,114,116
+,47,117,95,105,110,116,47,117,95,108,111,110,103,41,32,111,110,32,109,97,99,79,83,46,32
+,42,47,10,35,100,101,102,105,110,101,32,95,68,65,82,87,73,78,95,67,95,83,79,85,82
+,67,69,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,68
+,69,67,73,77,65,76,95,68,73,71,95,95,32,32,32,57,10,35,100,101,102,105,110,101,32
+,95,95,70,76,84,95,77,73,78,95,49,48,95,69,88,80,95,95,32,32,32,32,40,45,51
+,55,41,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,73,78,95,95,32,32,32
+,32,32,32,32,32,32,32,32,49,46,49,55,53,52,57,52,51,53,48,56,50,50,50,56,55
+,53,48,55,57,54,56,55,51,54,53,51,55,50,50,50,50,52,53,54,56,101,45,51,56,70
+,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65,88,95,95,32,32,32,32,32
+,32,32,32,32,32,32,51,46,52,48,50,56,50,51,52,54,54,51,56,53,50,56,56,53,57
+,56,49,49,55,48,52,49,56,51,52,56,52,53,49,54,57,50,53,101,43,51,56,70,10,35
+,100,101,102,105,110,101,32,95,95,70,76,84,95,69,80,83,73,76,79,78,95,95,32,32,32
+,32,32,32,32,49,46,49,57,50,48,57,50,56,57,53,53,48,55,56,49,50,53,48,48,48
+,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,101,45,55,70,10,35,100,101,102
+,105,110,101,32,95,95,70,76,84,95,68,73,71,95,95,32,32,32,32,32,32,32,32,32,32
+,32,54,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65,78,84,95,68,73,71
+,95,95,32,32,32,32,32,32,50,52,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95
+,77,73,78,95,69,88,80,95,95,32,32,32,32,32,32,32,40,45,49,50,53,41,10,35,100
+,101,102,105,110,101,32,95,95,70,76,84,95,77,65,88,95,49,48,95,69,88,80,95,95,32
+,32,32,32,51,56,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,69,86,65,76,95
+,77,69,84,72,79,68,95,95,32,32,32,48,10,35,100,101,102,105,110,101,32,95,95,70,76
+,84,95,77,65,88,95,69,88,80,95,95,32,32,32,32,32,32,32,49,50,56,10,35,100,101
+,102,105,110,101,32,95,95,70,76,84,95,72,65,83,95,68,69,78,79,82,77,95,95,32,32
+,32,32,49,10,35,100,101,102,105,110,101,32,95,95,83,67,72,65,82,95,77,65,88,95,95
+,32,32,32,32,32,32,32,32,32,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,87
+,67,72,65,82,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102
+,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,83,72,82,84,95,77,65,88,95,95
+,32,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32
+,95,95,73,78,84,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,32,48,120,55
+,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,77,65
+,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102
+,102,102,102,102,102,102,76,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79
+,78,71,95,77,65,88,95,95,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102
+,102,102,102,102,102,102,76,76,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,77
+,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85
+,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,95,77,65,88,95,95,32,32,32,32
+,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85
+,76,10,35,100,101,102,105,110,101,32,95,95,80,84,82,68,73,70,70,95,77,65,88,95,95
+,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,77,65,88,95,95,32
+,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,77,65,88,95,77,65,88,95,95
+,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,85,76,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77
+,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110
+,101,32,95,95,73,78,84,56,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48
+,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,49,54,95,77,65,88,95,95
+,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95
+,95,73,78,84,51,50,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102
+,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,54,52,95,77,65
+,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102
+,102,102,102,102,102,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,77,65
 ,88,95,95,32,32,32,32,32,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32
 ,95,95,85,73,78,84,49,54,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,102
 ,102,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,51,50,95,77,65,88,95
 ,95,32,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102
 ,105,110,101,32,95,95,85,73,78,84,54,52,95,77,65,88,95,95,32,32,32,32,32,32,32
-,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,76,10,35,100
-,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,56,95,77,65,88,95,95,32
-,32,32,32,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65
-,83,84,49,54,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105
-,110,101,32,95,95,73,78,84,95,76,69,65,83,84,51,50,95,77,65,88,95,95,32,32,32
-,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95
-,76,69,65,83,84,54,52,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,102,102,102
-,102,102,102,102,102,102,102,102,102,76,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78
-,84,95,76,69,65,83,84,56,95,77,65,88,95,95,32,32,32,48,120,102,102,10,35,100,101
-,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,49,54,95,77,65,88,95,95
-,32,32,48,120,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76
-,69,65,83,84,51,50,95,77,65,88,95,95,32,32,48,120,102,102,102,102,102,102,102,102,85
-,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,54,52,95,77
-,65,88,95,95,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85
-,76,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,56,95,77,65
-,88,95,95,32,32,32,32,32,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78
-,84,95,70,65,83,84,49,54,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102
-,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,51,50,95
-,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105
-,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,77,65,88,95,95,32,32,32,32
-,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76,10,35,100,101,102
-,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,56,95,77,65,88,95,95,32,32,32
-,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84
-,49,54,95,77,65,88,95,95,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100
-,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,51,50,95,77,65,88,95,95
-,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95,95
-,85,73,78,84,95,70,65,83,84,54,52,95,77,65,88,95,95,32,32,32,48,120,102,102,102
-,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,76,10,35,100,101,102,105,110,101,32
-,95,95,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,55
-,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,80,84,82
-,95,77,65,88,95,95,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10
-,35,105,102,100,101,102,32,95,95,67,65,75,69,95,87,67,72,65,82,95,85,78,83,73,71
-,78,69,68,95,95,10,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,73,78
-,95,95,32,32,32,32,32,32,32,32,48,85,10,35,101,108,115,101,10,35,100,101,102,105,110
-,101,32,95,95,87,67,72,65,82,95,77,73,78,95,95,32,32,32,32,32,32,32,32,40,45
-,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10,35,101,110,100,105,102,10,35,100
-,101,102,105,110,101,32,95,95,87,73,78,84,95,77,73,78,95,95,32,32,32,32,32,32,32
-,32,32,48,85,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67
-,95,77,73,78,95,95,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10
-,35,100,101,102,105,110,101,32,95,95,73,78,84,56,95,67,32,40,45,48,120,55,102,102,102
-,102,102,102,102,32,45,32,49,41,10,35,100,101,102,105,110,101,32,95,95,83,67,72,65,82
-,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95,83,72,82,84
-,95,87,73,68,84,72,95,95,32,49,54,10,35,100,101,102,105,110,101,32,95,95,73,78,84
-,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,76,79,78
-,71,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,76,79
-,78,71,95,76,79,78,71,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110
-,101,32,95,95,80,84,82,68,73,70,70,95,87,73,68,84,72,95,95,32,51,50,10,35,100
-,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,87,73,68,84,72,95
-,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,95,87,73,68,84,72
-,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,87,73,68
-,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,87,73
-,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69
-,65,83,84,56,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95
-,73,78,84,95,76,69,65,83,84,49,54,95,87,73,68,84,72,95,95,32,49,54,10,35,100
-,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,51,50,95,87,73,68,84,72
-,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84
-,54,52,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73
-,78,84,95,70,65,83,84,56,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105,110
-,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95,87,73,68,84,72,95,95,32,51,50
-,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,51,50,95,87,73,68
-,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83
-,84,54,52,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95
-,73,78,84,80,84,82,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101
-,32,95,95,73,78,84,77,65,88,95,87,73,68,84,72,95,95,32,54,52,10,35,101,108,115
-,101,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,77,65,88,95,95,32,32,32
-,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
-,76,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71,95,77,65,88
-,95,95,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
-,76,76,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,77,65,88,95,95,32,32
-,32,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105
-,110,101,32,95,95,83,73,90,69,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32
-,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102
-,105,110,101,32,95,95,80,84,82,68,73,70,70,95,77,65,88,95,95,32,32,32,32,32,32
-,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102
-,105,110,101,32,95,95,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32,32,32,32,32
-,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102
-,105,110,101,32,95,95,85,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32,32,32,32
 ,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101
-,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77,65,88,95,95,32,32
+,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,56,95,77,65,88,95,95,32,32
+,32,32,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83
+,84,49,54,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110
+,101,32,95,95,73,78,84,95,76,69,65,83,84,51,50,95,77,65,88,95,95,32,32,32,48
+,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76
+,69,65,83,84,54,52,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,102,102,102,102
+,102,102,102,102,102,102,102,102,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95
+,76,69,65,83,84,56,95,77,65,88,95,95,32,32,32,48,120,102,102,10,35,100,101,102,105
+,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,49,54,95,77,65,88,95,95,32,32
+,48,120,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65
+,83,84,51,50,95,77,65,88,95,95,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35
+,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,54,52,95,77,65,88
+,95,95,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10
+,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,56,95,77,65,88,95,95
+,32,32,32,32,32,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70
+,65,83,84,49,54,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,10,35,100,101
+,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,51,50,95,77,65,88,95,95,32,32
 ,32,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78
-,84,56,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120,55,102,10,35,100
-,101,102,105,110,101,32,95,95,73,78,84,49,54,95,77,65,88,95,95,32,32,32,32,32,32
-,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,51,50
-,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102
-,10,35,100,101,102,105,110,101,32,95,95,73,78,84,54,52,95,77,65,88,95,95,32,32,32
-,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76
-,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,77,65,88,95,95,32,32,32
-,32,32,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84
-,49,54,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,102,102,102,102,10,35,100
-,101,102,105,110,101,32,95,95,85,73,78,84,51,50,95,77,65,88,95,95,32,32,32,32,32
-,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95,95
-,85,73,78,84,54,52,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,102,102,102
-,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32,95
-,95,73,78,84,95,76,69,65,83,84,56,95,77,65,88,95,95,32,32,32,32,48,120,55,102
-,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,49,54,95,77,65
-,88,95,95,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78
-,84,95,76,69,65,83,84,51,50,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,102
-,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54,52
-,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102
-,102,102,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,56
-,95,77,65,88,95,95,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85
-,73,78,84,95,76,69,65,83,84,49,54,95,77,65,88,95,95,32,32,48,120,102,102,102,102
-,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,51,50,95,77
-,65,88,95,95,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101
-,32,95,95,85,73,78,84,95,76,69,65,83,84,54,52,95,77,65,88,95,95,32,32,48,120
-,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110
-,101,32,95,95,73,78,84,95,70,65,83,84,56,95,77,65,88,95,95,32,32,32,32,32,48
-,120,55,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95
-,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102
-,102,102,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,51,50,95
-,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102
-,102,102,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95
-,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102
-,102,102,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,56,95
-,77,65,88,95,95,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85
-,73,78,84,95,70,65,83,84,49,54,95,77,65,88,95,95,32,32,32,48,120,102,102,102,102
-,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32,95,95
-,85,73,78,84,95,70,65,83,84,51,50,95,77,65,88,95,95,32,32,32,48,120,102,102,102
-,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32,95
-,95,85,73,78,84,95,70,65,83,84,54,52,95,77,65,88,95,95,32,32,32,48,120,102,102
-,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32
-,95,95,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,55
-,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102,105,110,101,32
-,95,95,85,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32,32,32,32,48,120,102
-,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,105,102,100,101,102,32
-,95,95,67,65,75,69,95,87,67,72,65,82,95,85,78,83,73,71,78,69,68,95,95,10,35
-,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,73,78,95,95,32,32,32,32,32
-,32,32,32,48,85,10,35,101,108,115,101,10,35,100,101,102,105,110,101,32,95,95,87,67,72
-,65,82,95,77,73,78,95,95,32,32,32,32,32,32,32,32,40,45,48,120,55,102,102,102,102
-,102,102,102,32,45,32,49,41,10,35,101,110,100,105,102,10,35,100,101,102,105,110,101,32,95
-,95,87,73,78,84,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32,48,85,10,35,100
-,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77,73,78,95,95,32
-,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10,35,100,101,102,105,110,101
-,32,95,95,73,78,84,56,95,67,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32
-,49,41,10,35,100,101,102,105,110,101,32,95,95,83,67,72,65,82,95,87,73,68,84,72,95
-,95,32,56,10,35,100,101,102,105,110,101,32,95,95,83,72,82,84,95,87,73,68,84,72,95
-,95,32,49,54,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,87,73,68,84,72,95
-,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,87,73,68,84,72
-,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71
-,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,80,84,82
-,68,73,70,70,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95
-,95,83,73,71,95,65,84,79,77,73,67,95,87,73,68,84,72,95,95,32,51,50,10,35,100
-,101,102,105,110,101,32,95,95,83,73,90,69,95,87,73,68,84,72,95,95,32,54,52,10,35
-,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,87,73,68,84,72,95,95,32,51,50
-,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,87,73,68,84,72,95,95,32,51
-,50,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,56,95,87,73
-,68,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65
-,83,84,49,54,95,87,73,68,84,72,95,95,32,49,54,10,35,100,101,102,105,110,101,32,95
-,95,73,78,84,95,76,69,65,83,84,51,50,95,87,73,68,84,72,95,95,32,51,50,10,35
-,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54,52,95,87,73,68,84
-,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84
-,56,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95,73,78,84
-,95,70,65,83,84,49,54,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110
-,101,32,95,95,73,78,84,95,70,65,83,84,51,50,95,87,73,68,84,72,95,95,32,54,52
-,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,87,73,68
-,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95
-,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77
-,65,88,95,87,73,68,84,72,95,95,32,54,52,10,35,101,110,100,105,102,10,35,100,101,102
-,105,110,101,32,95,95,83,73,90,69,79,70,95,73,78,84,95,95,32,95,95,67,65,75,69
-,95,83,73,90,69,79,70,95,73,78,84,95,95,10,35,100,101,102,105,110,101,32,95,95,83
-,73,90,69,79,70,95,76,79,78,71,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79
-,70,95,76,79,78,71,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70
-,95,76,79,78,71,95,76,79,78,71,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79
-,70,95,76,79,78,71,95,76,79,78,71,95,95,10,35,100,101,102,105,110,101,32,95,95,83
-,73,90,69,79,70,95,83,72,79,82,84,95,95,32,95,95,67,65,75,69,95,83,73,90,69
-,79,70,95,83,72,79,82,84,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69
-,79,70,95,80,79,73,78,84,69,82,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79
-,70,95,80,79,73,78,84,69,82,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90
-,69,79,70,95,70,76,79,65,84,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70
-,95,70,76,79,65,84,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70
-,95,68,79,85,66,76,69,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,68
-,79,85,66,76,69,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95
-,76,79,78,71,95,68,79,85,66,76,69,95,95,32,95,95,67,65,75,69,95,83,73,90,69
-,79,70,95,76,79,78,71,95,68,79,85,66,76,69,95,95,10,35,100,101,102,105,110,101,32
-,95,95,83,73,90,69,79,70,95,83,73,90,69,95,84,95,95,32,95,95,67,65,75,69,95
-,83,73,90,69,79,70,95,83,73,90,69,95,84,95,95,10,35,100,101,102,105,110,101,32,95
-,95,83,73,90,69,79,70,95,87,67,72,65,82,95,84,95,95,32,95,95,67,65,75,69,95
-,83,73,90,69,79,70,95,87,67,72,65,82,95,84,95,95,10,35,100,101,102,105,110,101,32
-,95,95,83,73,90,69,79,70,95,87,73,78,84,95,84,95,95,32,52,10,35,100,101,102,105
-,110,101,32,95,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95,32,95
-,95,67,65,75,69,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95,10
-,10,10,47,42,32,109,101,109,111,114,121,32,111,114,100,101,114,115,32,117,115,101,100,32,98
-,121,32,60,115,116,100,97,116,111,109,105,99,46,104,62,32,97,110,100,32,116,104,101,32,95
-,95,97,116,111,109,105,99,47,95,95,99,49,49,95,97,116,111,109,105,99,32,98,117,105,108
-,116,105,110,115,32,42,47,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67,95
-,82,69,76,65,88,69,68,32,48,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73
-,67,95,67,79,78,83,85,77,69,32,49,10,35,100,101,102,105,110,101,32,95,95,65,84,79
-,77,73,67,95,65,67,81,85,73,82,69,32,50,10,35,100,101,102,105,110,101,32,95,95,65
-,84,79,77,73,67,95,82,69,76,69,65,83,69,32,51,10,35,100,101,102,105,110,101,32,95
-,95,65,84,79,77,73,67,95,65,67,81,95,82,69,76,32,52,10,35,100,101,102,105,110,101
-,32,95,95,65,84,79,77,73,67,95,83,69,81,95,67,83,84,32,53,10,10,35,100,101,102
-,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,66,79,79,76,95,76,79,67
-,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84
-,79,77,73,67,95,67,72,65,82,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101
-,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72,65,82,49,54,95
-,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71
-,67,67,95,65,84,79,77,73,67,95,67,72,65,82,51,50,95,84,95,76,79,67,75,95,70
-,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73
-,67,95,87,67,72,65,82,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101
-,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,83,72,79,82,84,95,76
-,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95
-,65,84,79,77,73,67,95,73,78,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100
-,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,76,79,78,71,95,76
-,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95
-,65,84,79,77,73,67,95,76,76,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50,10
-,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,80,79,73,78
-,84,69,82,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95
-,95,71,67,67,95,65,84,79,77,73,67,95,84,69,83,84,95,65,78,68,95,83,69,84,95
-,84,82,85,69,86,65,76,32,49,10
-#line 36 "target.c"
- , 0
-};
-
-static char clang_macros[] =
-{
-
-#line 1 "include/builtins/clang_macros.h.include"
-
-10,35,100,101,102,105,110,101,32,95,67,79,78,83,79,76,69,10,35,100,101,102,105,110,101
-,32,95,95,83,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,32,32,95,95,83
-,84,68,67,95,78,79,95,67,79,77,80,76,69,88,95,95,10,35,100,101,102,105,110,101,32
-,95,95,83,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,32,32,32,95,95,83
-,84,68,67,95,78,79,95,84,72,82,69,65,68,83,95,95,10,35,100,101,102,105,110,101,32
-,95,95,83,84,68,67,95,78,79,95,86,76,65,95,95,32,32,32,32,95,95,83,84,68,67
-,95,78,79,95,86,76,65,95,95,10,35,100,101,102,105,110,101,32,95,95,65,80,80,76,69
-,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95
-,95,77,65,67,72,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101
-,102,105,110,101,32,95,95,101,120,116,101,110,115,105,111,110,95,95,10,35,100,101,102,105,110
-,101,32,95,95,71,78,85,67,95,95,32,32,32,32,32,32,32,32,32,32,32,32,32,52,10
-,35,100,101,102,105,110,101,32,95,95,71,78,85,67,95,77,73,78,79,82,95,95,32,32,32
-,32,32,32,32,49,10,47,42,32,99,97,107,101,32,101,109,117,108,97,116,101,115,32,99,108
-,97,110,103,32,111,110,32,109,97,99,79,83,59,32,83,68,75,32,104,101,97,100,101,114,115
-,32,40,101,46,103,46,32,84,97,114,103,101,116,67,111,110,100,105,116,105,111,110,97,108,115
-,46,104,41,10,32,32,32,114,101,113,117,105,114,101,32,97,32,114,101,99,111,103,110,105,122
-,101,100,32,99,111,109,112,105,108,101,114,46,32,42,47,10,35,100,101,102,105,110,101,32,95
-,95,99,108,97,110,103,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101
-,102,105,110,101,32,95,95,99,108,97,110,103,95,109,97,106,111,114,95,95,32,32,32,32,32
-,32,50,49,10,35,100,101,102,105,110,101,32,95,95,99,108,97,110,103,95,109,105,110,111,114
-,95,95,32,32,32,32,32,32,48,10,35,100,101,102,105,110,101,32,95,95,99,108,97,110,103
-,95,112,97,116,99,104,108,101,118,101,108,95,95,32,48,10,47,42,32,65,112,112,108,101,32
-,99,111,109,112,105,108,101,114,32,109,97,114,107,101,114,46,32,60,84,97,114,103,101,116,67
-,111,110,100,105,116,105,111,110,97,108,115,46,104,62,32,114,101,113,117,105,114,101,115,32,95
-,95,71,78,85,67,95,95,32,116,111,103,101,116,104,101,114,10,32,32,32,119,105,116,104,32
-,95,95,65,80,80,76,69,95,67,67,95,95,32,40,111,114,32,95,95,65,80,80,76,69,95
-,67,80,80,95,95,41,32,116,111,32,105,100,101,110,116,105,102,121,32,116,104,101,32,99,111
-,109,112,105,108,101,114,59,32,119,105,116,104,111,117,116,32,105,116,10,32,32,32,105,116,32
-,102,97,108,108,115,32,116,104,114,111,117,103,104,32,116,111,32,39,35,101,114,114,111,114,32
-,117,110,107,110,111,119,110,32,99,111,109,112,105,108,101,114,39,46,32,42,47,10,35,100,101
-,102,105,110,101,32,95,95,65,80,80,76,69,95,67,67,95,95,32,32,32,32,32,32,32,32
-,32,54,48,48,48,10,35,100,101,102,105,110,101,32,95,95,65,80,80,76,69,95,67,80,80
-,95,95,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,83,73,90
-,69,79,70,95,73,78,84,49,50,56,95,95,32,32,32,32,49,54,10,35,100,101,102,105,110
-,101,32,95,95,83,84,68,67,95,72,79,83,84,69,68,95,95,32,32,32,32,32,32,49,10
-,35,100,101,102,105,110,101,32,95,95,83,84,68,67,95,95,32,32,32,32,32,32,32,32,32
-,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,97,97,114,99,104,54,52,95,95
-,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,97,114,109
-,54,52,95,95,32,32,32,32,32,32,32,32,32,32,32,32,49,10,35,100,101,102,105,110,101
-,32,95,95,76,73,84,84,76,69,95,69,78,68,73,65,78,95,95,32,32,32,32,49,10,35
-,100,101,102,105,110,101,32,95,95,79,82,68,69,82,95,76,73,84,84,76,69,95,69,78,68
-,73,65,78,95,95,32,49,50,51,52,10,35,100,101,102,105,110,101,32,95,95,79,82,68,69
-,82,95,66,73,71,95,69,78,68,73,65,78,95,95,32,52,51,50,49,10,35,100,101,102,105
-,110,101,32,95,95,79,82,68,69,82,95,80,68,80,95,69,78,68,73,65,78,95,95,32,51
-,52,49,50,10,35,100,101,102,105,110,101,32,95,95,66,89,84,69,95,79,82,68,69,82,95
-,95,32,32,32,32,32,32,32,95,95,79,82,68,69,82,95,76,73,84,84,76,69,95,69,78
-,68,73,65,78,95,95,10,35,100,101,102,105,110,101,32,95,95,67,72,65,82,95,66,73,84
-,95,95,32,32,32,32,32,32,32,32,32,56,10,35,100,101,102,105,110,101,32,95,95,83,73
-,90,69,95,84,89,80,69,95,95,32,32,32,32,32,32,32,32,95,95,67,65,75,69,95,83
-,73,90,69,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95,80,84,82,68
-,73,70,70,95,84,89,80,69,95,95,32,32,32,32,32,95,95,67,65,75,69,95,80,84,82
-,68,73,70,70,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95,87,67,72
-,65,82,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95,67,65,75,69,95,87,67
-,72,65,82,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84
-,95,84,89,80,69,95,95,32,32,32,32,32,32,32,32,117,110,115,105,103,110,101,100,32,105
-,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,84,89,80,69,95
-,95,32,32,32,32,32,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110,101,32,95
-,95,85,73,78,84,77,65,88,95,84,89,80,69,95,95,32,32,32,32,32,108,111,110,103,32
-,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,83,73
-,71,95,65,84,79,77,73,67,95,84,89,80,69,95,95,32,32,105,110,116,10,35,100,101,102
-,105,110,101,32,95,95,73,78,84,56,95,84,89,80,69,95,95,32,32,32,32,32,32,32,32
-,95,95,67,65,75,69,95,73,78,84,56,95,84,89,80,69,95,95,10,35,100,101,102,105,110
-,101,32,95,95,73,78,84,49,54,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95
-,67,65,75,69,95,73,78,84,49,54,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101
-,32,95,95,73,78,84,51,50,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95,67
-,65,75,69,95,73,78,84,51,50,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32
-,95,95,73,78,84,54,52,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95,67,65
-,75,69,95,73,78,84,54,52,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95
-,95,85,73,78,84,56,95,84,89,80,69,95,95,32,32,32,32,32,32,32,95,95,67,65,75
-,69,95,85,73,78,84,56,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95
-,85,73,78,84,49,54,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67,65,75,69
-,95,85,73,78,84,49,54,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95
-,85,73,78,84,51,50,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67,65,75,69
-,95,85,73,78,84,51,50,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95
-,85,73,78,84,54,52,95,84,89,80,69,95,95,32,32,32,32,32,32,95,95,67,65,75,69
-,95,85,73,78,84,54,52,95,84,89,80,69,95,95,10,35,100,101,102,105,110,101,32,95,95
-,73,78,84,95,76,69,65,83,84,56,95,84,89,80,69,95,95,32,32,115,105,103,110,101,100
-,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84
-,49,54,95,84,89,80,69,95,95,32,115,104,111,114,116,32,105,110,116,10,35,100,101,102,105
-,110,101,32,95,95,73,78,84,95,76,69,65,83,84,51,50,95,84,89,80,69,95,95,32,105
-,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54,52,95
-,84,89,80,69,95,95,32,108,111,110,103,32,108,111,110,103,32,105,110,116,10,35,100,101,102
-,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,56,95,84,89,80,69,95,95,32
-,117,110,115,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,85
-,73,78,84,95,76,69,65,83,84,49,54,95,84,89,80,69,95,95,32,115,104,111,114,116,32
-,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73
-,78,84,95,76,69,65,83,84,51,50,95,84,89,80,69,95,95,32,117,110,115,105,103,110,101
-,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83
-,84,54,52,95,84,89,80,69,95,95,32,108,111,110,103,32,108,111,110,103,32,117,110,115,105
-,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65
-,83,84,56,95,84,89,80,69,95,95,32,32,32,32,115,105,103,110,101,100,32,99,104,97,114
-,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95,84,89,80
-,69,95,95,32,32,32,115,104,111,114,116,32,105,110,116,10,35,100,101,102,105,110,101,32,95
-,95,73,78,84,95,70,65,83,84,51,50,95,84,89,80,69,95,95,32,32,32,105,110,116,10
-,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,84,89,80,69
-,95,95,32,32,32,108,111,110,103,32,108,111,110,103,32,105,110,116,10,35,100,101,102,105,110
-,101,32,95,95,85,73,78,84,95,70,65,83,84,56,95,84,89,80,69,95,95,32,32,32,117
-,110,115,105,103,110,101,100,32,99,104,97,114,10,35,100,101,102,105,110,101,32,95,95,85,73
-,78,84,95,70,65,83,84,49,54,95,84,89,80,69,95,95,32,32,115,104,111,114,116,32,117
-,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78
-,84,95,70,65,83,84,51,50,95,84,89,80,69,95,95,32,32,117,110,115,105,103,110,101,100
-,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,54
-,52,95,84,89,80,69,95,95,32,32,108,111,110,103,32,108,111,110,103,32,117,110,115,105,103
-,110,101,100,32,105,110,116,10,35,100,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95
-,84,89,80,69,95,95,32,32,32,32,32,32,32,108,111,110,103,32,105,110,116,10,35,100,101
-,102,105,110,101,32,95,95,85,73,78,84,80,84,82,95,84,89,80,69,95,95,32,32,32,32
-,32,32,108,111,110,103,32,117,110,115,105,103,110,101,100,32,105,110,116,10,35,100,101,102,105
-,110,101,32,95,95,68,66,76,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,32
-,40,40,100,111,117,98,108,101,41,49,46,55,57,55,54,57,51,49,51,52,56,54,50,51,49
-,53,55,48,56,49,52,53,50,55,52,50,51,55,51,49,55,48,52,51,53,55,101,43,51,48
-,56,76,41,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,73,78,95,95,32,32
-,32,32,32,32,32,32,32,32,32,40,40,100,111,117,98,108,101,41,50,46,50,50,53,48,55
-,51,56,53,56,53,48,55,50,48,49,51,56,51,48,57,48,50,51,50,55,49,55,51,51,50
-,52,48,52,48,54,101,45,51,48,56,76,41,10,35,100,101,102,105,110,101,32,95,95,70,76
-,84,95,82,65,68,73,88,95,95,32,32,32,32,32,32,32,32,32,50,10,35,100,101,102,105
-,110,101,32,95,95,70,76,84,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,32
-,49,46,49,57,50,48,57,50,56,57,53,53,48,55,56,49,50,53,48,48,48,48,48,48,48
-,48,48,48,48,48,48,48,48,48,48,48,48,101,45,55,70,10,35,100,101,102,105,110,101,32
-,95,95,68,66,76,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,32,40,40,100
-,111,117,98,108,101,41,50,46,50,50,48,52,52,54,48,52,57,50,53,48,51,49,51,48,56
-,48,56,52,55,50,54,51,51,51,54,49,56,49,54,52,48,54,50,101,45,49,54,76,41,10
-,35,100,101,102,105,110,101,32,95,95,68,66,76,95,68,69,67,73,77,65,76,95,68,73,71
-,95,95,32,32,32,49,55,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,69,86,65
-,76,95,77,69,84,72,79,68,95,95,32,32,32,48,10,35,100,101,102,105,110,101,32,95,95
-,70,76,84,95,82,65,68,73,88,95,95,32,32,32,32,32,32,32,32,32,50,10,35,100,101
-,102,105,110,101,32,95,95,68,66,76,95,77,65,88,95,69,88,80,95,95,32,32,32,32,32
-,32,32,49,48,50,52,10,35,100,101,102,105,110,101,32,95,95,68,69,67,73,77,65,76,95
-,68,73,71,95,95,32,32,32,32,32,32,32,49,55,10,10,47,42,32,100,111,117,98,108,101
-,32,40,73,69,69,69,45,55,53,52,32,98,105,110,97,114,121,54,52,41,32,42,47,10,35
-,100,101,102,105,110,101,32,95,95,68,66,76,95,77,65,78,84,95,68,73,71,95,95,32,32
-,32,32,32,32,53,51,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,68,73,71,95
-,95,32,32,32,32,32,32,32,32,32,32,32,49,53,10,35,100,101,102,105,110,101,32,95,95
-,68,66,76,95,77,73,78,95,69,88,80,95,95,32,32,32,32,32,32,32,40,45,49,48,50
-,49,41,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,77,73,78,95,49,48,95,69
-,88,80,95,95,32,32,32,32,40,45,51,48,55,41,10,35,100,101,102,105,110,101,32,95,95
-,68,66,76,95,77,65,88,95,49,48,95,69,88,80,95,95,32,32,32,32,51,48,56,10,35
-,100,101,102,105,110,101,32,95,95,68,66,76,95,72,65,83,95,68,69,78,79,82,77,95,95
-,32,32,32,32,49,10,35,100,101,102,105,110,101,32,95,95,68,66,76,95,68,69,78,79,82
-,77,95,77,73,78,95,95,32,32,32,32,40,40,100,111,117,98,108,101,41,52,46,57,52,48
-,54,53,54,52,53,56,52,49,50,52,54,53,52,52,49,55,54,53,54,56,55,57,50,56,54
-,56,50,50,49,51,55,50,101,45,51,50,52,76,41,10,10,47,42,32,79,110,32,65,112,112
-,108,101,32,97,114,109,54,52,32,39,108,111,110,103,32,100,111,117,98,108,101,39,32,61,61
-,32,39,100,111,117,98,108,101,39,32,40,54,52,45,98,105,116,32,98,105,110,97,114,121,54
-,52,41,46,32,42,47,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,77,65,78
-,84,95,68,73,71,95,95,32,32,32,32,32,53,51,10,35,100,101,102,105,110,101,32,95,95
-,76,68,66,76,95,68,73,71,95,95,32,32,32,32,32,32,32,32,32,32,49,53,10,35,100
-,101,102,105,110,101,32,95,95,76,68,66,76,95,77,73,78,95,69,88,80,95,95,32,32,32
-,32,32,32,40,45,49,48,50,49,41,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76
-,95,77,73,78,95,49,48,95,69,88,80,95,95,32,32,32,40,45,51,48,55,41,10,35,100
-,101,102,105,110,101,32,95,95,76,68,66,76,95,77,65,88,95,69,88,80,95,95,32,32,32
-,32,32,32,49,48,50,52,10,35,100,101,102,105,110,101,32,95,95,76,68,66,76,95,77,65
-,88,95,49,48,95,69,88,80,95,95,32,32,32,51,48,56,10,35,100,101,102,105,110,101,32
-,95,95,76,68,66,76,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,49,46,55
-,57,55,54,57,51,49,51,52,56,54,50,51,49,53,55,48,56,49,52,53,50,55,52,50,51
-,55,51,49,55,48,52,51,53,55,101,43,51,48,56,76,10,35,100,101,102,105,110,101,32,95
-,95,76,68,66,76,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32,32,50,46,50,50
-,53,48,55,51,56,53,56,53,48,55,50,48,49,51,56,51,48,57,48,50,51,50,55,49,55
-,51,51,50,52,48,52,48,54,101,45,51,48,56,76,10,35,100,101,102,105,110,101,32,95,95
-,76,68,66,76,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,50,46,50,50,48
-,52,52,54,48,52,57,50,53,48,51,49,51,48,56,48,56,52,55,50,54,51,51,51,54,49
-,56,49,54,52,48,54,50,101,45,49,54,76,10,35,100,101,102,105,110,101,32,95,95,76,68
-,66,76,95,68,69,78,79,82,77,95,77,73,78,95,95,32,32,32,52,46,57,52,48,54,53
-,54,52,53,56,52,49,50,52,54,53,52,52,49,55,54,53,54,56,55,57,50,56,54,56,50
-,50,49,51,55,50,101,45,51,50,52,76,10,35,100,101,102,105,110,101,32,95,95,76,68,66
-,76,95,72,65,83,95,68,69,78,79,82,77,95,95,32,32,32,49,10,35,100,101,102,105,110
-,101,32,95,95,76,68,66,76,95,68,69,67,73,77,65,76,95,68,73,71,95,95,32,32,49
-,55,10,10,47,42,32,69,120,112,111,115,101,32,116,104,101,32,66,83,68,32,116,121,112,101
-,115,32,40,117,95,99,104,97,114,47,117,95,115,104,111,114,116,47,117,95,105,110,116,47,117
-,95,108,111,110,103,41,32,111,110,32,109,97,99,79,83,46,32,42,47,10,35,100,101,102,105
-,110,101,32,95,68,65,82,87,73,78,95,67,95,83,79,85,82,67,69,32,32,32,32,32,32
-,49,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,68,69,67,73,77,65,76,95,68
-,73,71,95,95,32,32,32,57,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,73
-,78,95,49,48,95,69,88,80,95,95,32,32,32,32,40,45,51,55,41,10,35,100,101,102,105
-,110,101,32,95,95,70,76,84,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32,32,32
-,49,46,49,55,53,52,57,52,51,53,48,56,50,50,50,56,55,53,48,55,57,54,56,55,51
-,54,53,51,55,50,50,50,50,52,53,54,56,101,45,51,56,70,10,35,100,101,102,105,110,101
-,32,95,95,70,76,84,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,32,51,46
-,52,48,50,56,50,51,52,54,54,51,56,53,50,56,56,53,57,56,49,49,55,48,52,49,56
-,51,52,56,52,53,49,54,57,50,53,101,43,51,56,70,10,35,100,101,102,105,110,101,32,95
-,95,70,76,84,95,69,80,83,73,76,79,78,95,95,32,32,32,32,32,32,32,49,46,49,57
-,50,48,57,50,56,57,53,53,48,55,56,49,50,53,48,48,48,48,48,48,48,48,48,48,48
-,48,48,48,48,48,48,48,48,101,45,55,70,10,35,100,101,102,105,110,101,32,95,95,70,76
-,84,95,68,73,71,95,95,32,32,32,32,32,32,32,32,32,32,32,54,10,35,100,101,102,105
-,110,101,32,95,95,70,76,84,95,77,65,78,84,95,68,73,71,95,95,32,32,32,32,32,32
-,50,52,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,73,78,95,69,88,80,95
-,95,32,32,32,32,32,32,32,40,45,49,50,53,41,10,35,100,101,102,105,110,101,32,95,95
-,70,76,84,95,77,65,88,95,49,48,95,69,88,80,95,95,32,32,32,32,51,56,10,35,100
-,101,102,105,110,101,32,95,95,70,76,84,95,69,86,65,76,95,77,69,84,72,79,68,95,95
-,32,32,32,48,10,35,100,101,102,105,110,101,32,95,95,70,76,84,95,77,65,88,95,69,88
-,80,95,95,32,32,32,32,32,32,32,49,50,56,10,35,100,101,102,105,110,101,32,95,95,70
-,76,84,95,72,65,83,95,68,69,78,79,82,77,95,95,32,32,32,32,49,10,35,100,101,102
-,105,110,101,32,95,95,83,67,72,65,82,95,77,65,88,95,95,32,32,32,32,32,32,32,32
-,32,48,120,55,102,10,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,65,88
-,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35,100,101
-,102,105,110,101,32,95,95,83,72,82,84,95,77,65,88,95,95,32,32,32,32,32,32,32,32
-,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,77,65
-,88,95,95,32,32,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10
-,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,77,65,88,95,95,32,32,32,32,32
-,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10
-,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71,95,77,65,88,95,95
-,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,76
-,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,77,65,88,95,95,32,32,32,32
-,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101
-,32,95,95,83,73,90,69,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120
-,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110
-,101,32,95,95,80,84,82,68,73,70,70,95,77,65,88,95,95,32,32,32,32,32,32,32,48
-,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102,105,110
-,101,32,95,95,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48
-,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101,102,105,110
-,101,32,95,95,85,73,78,84,77,65,88,95,77,65,88,95,95,32,32,32,32,32,32,32,48
-,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105
-,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77,65,88,95,95,32,32,32,32
-,48,120,55,102,102,102,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,56
-,95,77,65,88,95,95,32,32,32,32,32,32,32,32,32,32,48,120,55,102,10,35,100,101,102
-,105,110,101,32,95,95,73,78,84,49,54,95,77,65,88,95,95,32,32,32,32,32,32,32,32
-,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,51,50,95,77
-,65,88,95,95,32,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,10,35
-,100,101,102,105,110,101,32,95,95,73,78,84,54,52,95,77,65,88,95,95,32,32,32,32,32
-,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35
-,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,77,65,88,95,95,32,32,32,32,32
-,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,49,54
-,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,102,102,102,102,10,35,100,101,102
-,105,110,101,32,95,95,85,73,78,84,51,50,95,77,65,88,95,95,32,32,32,32,32,32,32
-,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95,95,85,73
-,78,84,54,52,95,77,65,88,95,95,32,32,32,32,32,32,32,32,48,120,102,102,102,102,102
-,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32,95,95,73
-,78,84,95,76,69,65,83,84,56,95,77,65,88,95,95,32,32,32,32,48,120,55,102,10,35
-,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,49,54,95,77,65,88,95
-,95,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95
-,76,69,65,83,84,51,50,95,77,65,88,95,95,32,32,32,48,120,55,102,102,102,102,102,102
-,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54,52,95,77
-,65,88,95,95,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
-,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,56,95,77
-,65,88,95,95,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78
-,84,95,76,69,65,83,84,49,54,95,77,65,88,95,95,32,32,48,120,102,102,102,102,10,35
-,100,101,102,105,110,101,32,95,95,85,73,78,84,95,76,69,65,83,84,51,50,95,77,65,88
-,95,95,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105,110,101,32,95
-,95,85,73,78,84,95,76,69,65,83,84,54,52,95,77,65,88,95,95,32,32,48,120,102,102
-,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100,101,102,105,110,101,32
-,95,95,73,78,84,95,70,65,83,84,56,95,77,65,88,95,95,32,32,32,32,32,48,120,55
-,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95,77,65
-,88,95,95,32,32,32,32,48,120,55,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73
-,78,84,95,70,65,83,84,51,50,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102
-,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52
-,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102
-,102,102,102,76,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84
-,56,95,77,65,88,95,95,32,32,32,32,48,120,102,102,10,35,100,101,102,105,110,101,32,95
-,95,85,73,78,84,95,70,65,83,84,49,54,95,77,65,88,95,95,32,32,32,48,120,102,102
-,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,51,50,95
-,77,65,88,95,95,32,32,32,48,120,102,102,102,102,102,102,102,102,85,10,35,100,101,102,105
-,110,101,32,95,95,85,73,78,84,95,70,65,83,84,54,52,95,77,65,88,95,95,32,32,32
-,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,76,10,35,100,101
-,102,105,110,101,32,95,95,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32,32,32
-,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,76,10,35,100,101
-,102,105,110,101,32,95,95,85,73,78,84,80,84,82,95,77,65,88,95,95,32,32,32,32,32
-,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102,85,76,10,35,100
-,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,73,78,95,95,32,32,32,32,32,32
-,32,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10,35,100,101,102,105
-,110,101,32,95,95,87,73,78,84,95,77,73,78,95,95,32,32,32,32,32,32,32,32,32,48
-,85,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77,73,67,95,77,73
-,78,95,95,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32,49,41,10,47,42,32
-,105,110,116,101,103,101,114,45,99,111,110,115,116,97,110,116,32,98,117,105,108,100,101,114,32
-,109,97,99,114,111,115,32,40,99,108,97,110,103,32,112,114,111,118,105,100,101,115,32,116,104
-,101,115,101,59,32,116,104,101,32,83,68,75,39,115,10,32,32,32,115,116,100,105,110,116,46
-,104,32,117,115,101,115,32,116,104,101,109,44,32,101,46,103,46,32,85,73,78,84,49,54,95
-,77,65,88,32,61,61,32,95,95,85,73,78,84,49,54,95,67,40,54,53,53,51,53,41,41
-,46,32,42,47,10,35,100,101,102,105,110,101,32,95,95,73,78,84,56,95,67,40,99,41,32
-,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,56,95,67,40,99
-,41,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,73,78,84,49,54,95,67,40
-,99,41,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,49,54,95
-,67,40,99,41,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,73,78,84,51,50,95
-,67,40,99,41,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,51
-,50,95,67,40,99,41,32,32,32,99,32,35,35,32,85,10,35,100,101,102,105,110,101,32,95
-,95,73,78,84,54,52,95,67,40,99,41,32,32,32,32,99,32,35,35,32,76,76,10,35,100
-,101,102,105,110,101,32,95,95,85,73,78,84,54,52,95,67,40,99,41,32,32,32,99,32,35
-,35,32,85,76,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,67,40
-,99,41,32,32,32,99,32,35,35,32,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78
-,84,77,65,88,95,67,40,99,41,32,32,99,32,35,35,32,85,76,10,35,100,101,102,105,110
-,101,32,95,95,83,67,72,65,82,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105
-,110,101,32,95,95,83,72,82,84,95,87,73,68,84,72,95,95,32,49,54,10,35,100,101,102
-,105,110,101,32,95,95,73,78,84,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102
-,105,110,101,32,95,95,76,79,78,71,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101
-,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71,95,87,73,68,84,72,95,95,32
-,54,52,10,35,100,101,102,105,110,101,32,95,95,80,84,82,68,73,70,70,95,87,73,68,84
-,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65,84,79,77
-,73,67,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95,83
-,73,90,69,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95
-,87,67,72,65,82,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32
-,95,95,87,73,78,84,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101
-,32,95,95,73,78,84,95,76,69,65,83,84,56,95,87,73,68,84,72,95,95,32,56,10,35
-,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,49,54,95,87,73,68,84
-,72,95,95,32,49,54,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83
-,84,51,50,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32,95,95
-,73,78,84,95,76,69,65,83,84,54,52,95,87,73,68,84,72,95,95,32,54,52,10,35,100
-,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,56,95,87,73,68,84,72,95,95
-,32,56,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,49,54,95,87
-,73,68,84,72,95,95,32,49,54,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70
-,65,83,84,51,50,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101,102,105,110,101,32
-,95,95,73,78,84,95,70,65,83,84,54,52,95,87,73,68,84,72,95,95,32,54,52,10,35
-,100,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95,87,73,68,84,72,95,95,32,54
-,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65,88,95,87,73,68,84,72,95
-,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,73,78,84
-,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,73,78,84,95,95,10,35,100
-,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,76,79,78,71,95,95,32,95,95,67
-,65,75,69,95,83,73,90,69,79,70,95,76,79,78,71,95,95,10,35,100,101,102,105,110,101
-,32,95,95,83,73,90,69,79,70,95,76,79,78,71,95,76,79,78,71,95,95,32,95,95,67
-,65,75,69,95,83,73,90,69,79,70,95,76,79,78,71,95,76,79,78,71,95,95,10,35,100
-,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,83,72,79,82,84,95,95,32,95,95
-,67,65,75,69,95,83,73,90,69,79,70,95,83,72,79,82,84,95,95,10,35,100,101,102,105
-,110,101,32,95,95,83,73,90,69,79,70,95,80,79,73,78,84,69,82,95,95,32,95,95,67
-,65,75,69,95,83,73,90,69,79,70,95,80,79,73,78,84,69,82,95,95,10,35,100,101,102
-,105,110,101,32,95,95,80,79,73,78,84,69,82,95,87,73,68,84,72,95,95,32,54,52,10
-,35,100,101,102,105,110,101,32,95,95,76,80,54,52,95,95,32,49,10,35,100,101,102,105,110
-,101,32,95,76,80,54,52,32,49,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79
-,70,95,70,76,79,65,84,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,70
-,76,79,65,84,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,68
-,79,85,66,76,69,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,68,79,85
-,66,76,69,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,76,79
-,78,71,95,68,79,85,66,76,69,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70
-,95,76,79,78,71,95,68,79,85,66,76,69,95,95,10,35,100,101,102,105,110,101,32,95,95
-,83,73,90,69,79,70,95,83,73,90,69,95,84,95,95,32,95,95,67,65,75,69,95,83,73
-,90,69,79,70,95,83,73,90,69,95,84,95,95,10,35,100,101,102,105,110,101,32,95,95,83
-,73,90,69,79,70,95,87,67,72,65,82,95,84,95,95,32,95,95,67,65,75,69,95,83,73
-,90,69,79,70,95,87,67,72,65,82,95,84,95,95,10,35,100,101,102,105,110,101,32,95,95
-,83,73,90,69,79,70,95,87,73,78,84,95,84,95,95,32,52,10,35,100,101,102,105,110,101
-,32,95,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95,32,95,95,67
-,65,75,69,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95,10,10,10
-,47,42,32,109,101,109,111,114,121,32,111,114,100,101,114,115,32,117,115,101,100,32,98,121,32
-,60,115,116,100,97,116,111,109,105,99,46,104,62,32,97,110,100,32,116,104,101,32,95,95,97
-,116,111,109,105,99,47,95,95,99,49,49,95,97,116,111,109,105,99,32,98,117,105,108,116,105
-,110,115,32,42,47,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67,95,82,69
-,76,65,88,69,68,32,48,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67,95
-,67,79,78,83,85,77,69,32,49,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73
-,67,95,65,67,81,85,73,82,69,32,50,10,35,100,101,102,105,110,101,32,95,95,65,84,79
-,77,73,67,95,82,69,76,69,65,83,69,32,51,10,35,100,101,102,105,110,101,32,95,95,65
-,84,79,77,73,67,95,65,67,81,95,82,69,76,32,52,10,35,100,101,102,105,110,101,32,95
-,95,65,84,79,77,73,67,95,83,69,81,95,67,83,84,32,53,10,10,35,100,101,102,105,110
-,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,66,79,79,76,95,76,79,67
-,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95
-,65,84,79,77,73,67,95,67,72,65,82,95,76,79,67,75,95,70,82,69,69,32,50,10,35
-,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,67,72,65
-,82,49,54,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101
-,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,67,72,65,82,51,50,95,84,95
-,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65
-,78,71,95,65,84,79,77,73,67,95,87,67,72,65,82,95,84,95,76,79,67,75,95,70,82
-,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77
-,73,67,95,83,72,79,82,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102
-,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,73,78,84,95,76,79
-,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71
-,95,65,84,79,77,73,67,95,76,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50,10
-,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,76,76
-,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95
-,95,67,76,65,78,71,95,65,84,79,77,73,67,95,80,79,73,78,84,69,82,95,76,79,67
-,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84
-,79,77,73,67,95,66,79,79,76,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101
-,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72,65,82,95,76,79
+,84,95,70,65,83,84,54,52,95,77,65,88,95,95,32,32,32,32,48,120,55,102,102,102,102
+,102,102,102,102,102,102,102,102,102,102,102,76,76,10,35,100,101,102,105,110,101,32,95,95,85
+,73,78,84,95,70,65,83,84,56,95,77,65,88,95,95,32,32,32,32,48,120,102,102,10,35
+,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,49,54,95,77,65,88,95
+,95,32,32,32,48,120,102,102,102,102,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84
+,95,70,65,83,84,51,50,95,77,65,88,95,95,32,32,32,48,120,102,102,102,102,102,102,102
+,102,85,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,95,70,65,83,84,54,52,95
+,77,65,88,95,95,32,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102,102,102
+,102,85,76,76,10,35,100,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95,77,65,88
+,95,95,32,32,32,32,32,32,32,32,48,120,55,102,102,102,102,102,102,102,102,102,102,102,102
+,102,102,102,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,80,84,82,95,77,65
+,88,95,95,32,32,32,32,32,32,32,48,120,102,102,102,102,102,102,102,102,102,102,102,102,102
+,102,102,102,85,76,10,35,100,101,102,105,110,101,32,95,95,87,67,72,65,82,95,77,73,78
+,95,95,32,32,32,32,32,32,32,32,40,45,48,120,55,102,102,102,102,102,102,102,32,45,32
+,49,41,10,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,77,73,78,95,95,32,32
+,32,32,32,32,32,32,32,48,85,10,35,100,101,102,105,110,101,32,95,95,83,73,71,95,65
+,84,79,77,73,67,95,77,73,78,95,95,32,40,45,48,120,55,102,102,102,102,102,102,102,32
+,45,32,49,41,10,47,42,32,105,110,116,101,103,101,114,45,99,111,110,115,116,97,110,116,32
+,98,117,105,108,100,101,114,32,109,97,99,114,111,115,32,40,99,108,97,110,103,32,112,114,111
+,118,105,100,101,115,32,116,104,101,115,101,59,32,116,104,101,32,83,68,75,39,115,10,32,32
+,32,115,116,100,105,110,116,46,104,32,117,115,101,115,32,116,104,101,109,44,32,101,46,103,46
+,32,85,73,78,84,49,54,95,77,65,88,32,61,61,32,95,95,85,73,78,84,49,54,95,67
+,40,54,53,53,51,53,41,41,46,32,42,47,10,35,100,101,102,105,110,101,32,95,95,73,78
+,84,56,95,67,40,99,41,32,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95,85
+,73,78,84,56,95,67,40,99,41,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95,95
+,73,78,84,49,54,95,67,40,99,41,32,32,32,32,99,10,35,100,101,102,105,110,101,32,95
+,95,85,73,78,84,49,54,95,67,40,99,41,32,32,32,99,10,35,100,101,102,105,110,101,32
+,95,95,73,78,84,51,50,95,67,40,99,41,32,32,32,32,99,10,35,100,101,102,105,110,101
+,32,95,95,85,73,78,84,51,50,95,67,40,99,41,32,32,32,99,32,35,35,32,85,10,35
+,100,101,102,105,110,101,32,95,95,73,78,84,54,52,95,67,40,99,41,32,32,32,32,99,32
+,35,35,32,76,76,10,35,100,101,102,105,110,101,32,95,95,85,73,78,84,54,52,95,67,40
+,99,41,32,32,32,99,32,35,35,32,85,76,76,10,35,100,101,102,105,110,101,32,95,95,73
+,78,84,77,65,88,95,67,40,99,41,32,32,32,99,32,35,35,32,76,10,35,100,101,102,105
+,110,101,32,95,95,85,73,78,84,77,65,88,95,67,40,99,41,32,32,99,32,35,35,32,85
+,76,10,35,100,101,102,105,110,101,32,95,95,83,67,72,65,82,95,87,73,68,84,72,95,95
+,32,56,10,35,100,101,102,105,110,101,32,95,95,83,72,82,84,95,87,73,68,84,72,95,95
+,32,49,54,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,87,73,68,84,72,95,95
+,32,51,50,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,87,73,68,84,72,95
+,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,76,79,78,71,95,76,79,78,71,95
+,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,80,84,82,68
+,73,70,70,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95
+,83,73,71,95,65,84,79,77,73,67,95,87,73,68,84,72,95,95,32,51,50,10,35,100,101
+,102,105,110,101,32,95,95,83,73,90,69,95,87,73,68,84,72,95,95,32,54,52,10,35,100
+,101,102,105,110,101,32,95,95,87,67,72,65,82,95,87,73,68,84,72,95,95,32,51,50,10
+,35,100,101,102,105,110,101,32,95,95,87,73,78,84,95,87,73,68,84,72,95,95,32,51,50
+,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,56,95,87,73,68
+,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83
+,84,49,54,95,87,73,68,84,72,95,95,32,49,54,10,35,100,101,102,105,110,101,32,95,95
+,73,78,84,95,76,69,65,83,84,51,50,95,87,73,68,84,72,95,95,32,51,50,10,35,100
+,101,102,105,110,101,32,95,95,73,78,84,95,76,69,65,83,84,54,52,95,87,73,68,84,72
+,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,56
+,95,87,73,68,84,72,95,95,32,56,10,35,100,101,102,105,110,101,32,95,95,73,78,84,95
+,70,65,83,84,49,54,95,87,73,68,84,72,95,95,32,49,54,10,35,100,101,102,105,110,101
+,32,95,95,73,78,84,95,70,65,83,84,51,50,95,87,73,68,84,72,95,95,32,51,50,10
+,35,100,101,102,105,110,101,32,95,95,73,78,84,95,70,65,83,84,54,52,95,87,73,68,84
+,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,80,84,82,95,87
+,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,73,78,84,77,65
+,88,95,87,73,68,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,83,73
+,90,69,79,70,95,73,78,84,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95
+,73,78,84,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,76,79
+,78,71,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,76,79,78,71,95,95
+,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,76,79,78,71,95,76,79
+,78,71,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,76,79,78,71,95,76
+,79,78,71,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,83,72
+,79,82,84,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,83,72,79,82,84
+,95,95,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,80,79,73,78,84
+,69,82,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,80,79,73,78,84,69
+,82,95,95,10,35,100,101,102,105,110,101,32,95,95,80,79,73,78,84,69,82,95,87,73,68
+,84,72,95,95,32,54,52,10,35,100,101,102,105,110,101,32,95,95,76,80,54,52,95,95,32
+,49,10,35,100,101,102,105,110,101,32,95,76,80,54,52,32,49,10,35,100,101,102,105,110,101
+,32,95,95,83,73,90,69,79,70,95,70,76,79,65,84,95,95,32,95,95,67,65,75,69,95
+,83,73,90,69,79,70,95,70,76,79,65,84,95,95,10,35,100,101,102,105,110,101,32,95,95
+,83,73,90,69,79,70,95,68,79,85,66,76,69,95,95,32,95,95,67,65,75,69,95,83,73
+,90,69,79,70,95,68,79,85,66,76,69,95,95,10,35,100,101,102,105,110,101,32,95,95,83
+,73,90,69,79,70,95,76,79,78,71,95,68,79,85,66,76,69,95,95,32,95,95,67,65,75
+,69,95,83,73,90,69,79,70,95,76,79,78,71,95,68,79,85,66,76,69,95,95,10,35,100
+,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,83,73,90,69,95,84,95,95,32,95
+,95,67,65,75,69,95,83,73,90,69,79,70,95,83,73,90,69,95,84,95,95,10,35,100,101
+,102,105,110,101,32,95,95,83,73,90,69,79,70,95,87,67,72,65,82,95,84,95,95,32,95
+,95,67,65,75,69,95,83,73,90,69,79,70,95,87,67,72,65,82,95,84,95,95,10,35,100
+,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,87,73,78,84,95,84,95,95,32,52
+,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70
+,95,84,95,95,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,80,84,82,68,73,70
+,70,95,84,95,95,10,10,10,47,42,32,109,101,109,111,114,121,32,111,114,100,101,114,115,32
+,117,115,101,100,32,98,121,32,60,115,116,100,97,116,111,109,105,99,46,104,62,32,97,110,100
+,32,116,104,101,32,95,95,97,116,111,109,105,99,47,95,95,99,49,49,95,97,116,111,109,105
+,99,32,98,117,105,108,116,105,110,115,32,42,47,10,35,100,101,102,105,110,101,32,95,95,65
+,84,79,77,73,67,95,82,69,76,65,88,69,68,32,48,10,35,100,101,102,105,110,101,32,95
+,95,65,84,79,77,73,67,95,67,79,78,83,85,77,69,32,49,10,35,100,101,102,105,110,101
+,32,95,95,65,84,79,77,73,67,95,65,67,81,85,73,82,69,32,50,10,35,100,101,102,105
+,110,101,32,95,95,65,84,79,77,73,67,95,82,69,76,69,65,83,69,32,51,10,35,100,101
+,102,105,110,101,32,95,95,65,84,79,77,73,67,95,65,67,81,95,82,69,76,32,52,10,35
+,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67,95,83,69,81,95,67,83,84,32,53
+,10,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95
+,66,79,79,76,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32
+,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,67,72,65,82,95,76,79,67,75,95
+,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84
+,79,77,73,67,95,67,72,65,82,49,54,95,84,95,76,79,67,75,95,70,82,69,69,32,50
+,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,67
+,72,65,82,51,50,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105
+,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,87,67,72,65,82,95,84
+,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76
+,65,78,71,95,65,84,79,77,73,67,95,83,72,79,82,84,95,76,79,67,75,95,70,82,69
+,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73
+,67,95,73,78,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101
+,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,76,79,78,71,95,76,79,67,75
+,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65
+,84,79,77,73,67,95,76,76,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50,10,35
+,100,101,102,105,110,101,32,95,95,67,76,65,78,71,95,65,84,79,77,73,67,95,80,79,73
+,78,84,69,82,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32
+,95,95,71,67,67,95,65,84,79,77,73,67,95,66,79,79,76,95,76,79,67,75,95,70,82
+,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67
+,95,67,72,65,82,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101
+,32,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72,65,82,49,54,95,84,95,76,79
 ,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65
-,84,79,77,73,67,95,67,72,65,82,49,54,95,84,95,76,79,67,75,95,70,82,69,69,32
-,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72
-,65,82,51,50,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110
-,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,87,67,72,65,82,95,84,95,76,79
-,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65
-,84,79,77,73,67,95,83,72,79,82,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35
-,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,73,78,84,95,76
-,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95
-,65,84,79,77,73,67,95,76,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50,10,35
-,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,76,76,79,78,71
-,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67
-,67,95,65,84,79,77,73,67,95,80,79,73,78,84,69,82,95,76,79,67,75,95,70,82,69
-,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95
-,84,69,83,84,95,65,78,68,95,83,69,84,95,84,82,85,69,86,65,76,32,49,10
-#line 42 "target.c"
+,84,79,77,73,67,95,67,72,65,82,51,50,95,84,95,76,79,67,75,95,70,82,69,69,32
+,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,87,67
+,72,65,82,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101
+,32,95,95,71,67,67,95,65,84,79,77,73,67,95,83,72,79,82,84,95,76,79,67,75,95
+,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77
+,73,67,95,73,78,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110
+,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,76,79,78,71,95,76,79,67,75,95
+,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77
+,73,67,95,76,76,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102
+,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,80,79,73,78,84,69,82,95
+,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67
+,95,65,84,79,77,73,67,95,84,69,83,84,95,65,78,68,95,83,69,84,95,84,82,85,69
+,86,65,76,32,49,10
+#line 48 "target.c"
  , 0
 };
 
@@ -89783,7 +90002,7 @@ static char msvc_macros[] =
 ,78,54,52,32,49,10,32,32,32,32,35,100,101,102,105,110,101,32,95,77,95,88,54,52,32
 ,49,48,48,10,32,32,32,32,35,100,101,102,105,110,101,32,95,77,95,65,77,68,54,52,32
 ,49,48,48,10,35,101,110,100,105,102,10
-#line 48 "target.c"
+#line 54 "target.c"
  , 0
 };
 
@@ -89888,7 +90107,7 @@ static char tcc_macros[] =
 ,67,84,89,80,69,95,73,78,76,73,78,69,95,32,49,10,32,32,32,32,35,100,101,102,105
 ,110,101,32,95,70,79,82,84,73,70,89,95,83,79,85,82,67,69,32,48,10,35,101,110,100
 ,105,102,10
-#line 54 "target.c"
+#line 60 "target.c"
  , 0
 };
 
@@ -89905,7 +90124,7 @@ static char catalina_macros[] =
 ,32,95,95,83,84,68,67,95,78,79,95,86,76,65,95,95,10,35,100,101,102,105,110,101,32
 ,95,95,95,67,65,84,65,76,73,78,65,95,95,10,35,100,101,102,105,110,101,32,95,95,95
 ,67,65,84,65,76,89,83,84,95,95,10,10
-#line 60 "target.c"
+#line 66 "target.c"
  , 0
 };
 
@@ -89945,6 +90164,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
+    p->long_long_long_n_bits = p->long_long_n_bits;
+    p->long_long_long_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -89955,6 +90176,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     {
         p->name = "x86_64-linux-gnu-gcc";
         p->arch = "X64";
+        p->long_long_long_n_bits = 128;
+        p->long_long_long_alignment = 16;
         p->size_t_type = TYPE_UNSIGNED_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG;
         p->char_t_type = TYPE_SIGNED_CHAR;
@@ -89971,6 +90194,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     {
         p->name = "aarch64-linux-gnu-gcc";
         p->arch = "ARM64";
+        p->long_long_long_n_bits = 128;
+        p->long_long_long_alignment = 16;
         p->size_t_type = TYPE_UNSIGNED_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG;
         p->char_t_type = TYPE_UNSIGNED_CHAR;
@@ -90046,6 +90271,8 @@ static void platform_clang_macos_arm64(_Out struct platform* p)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
+    p->long_long_long_n_bits = 128;
+    p->long_long_long_alignment = 16;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -90054,6 +90281,68 @@ static void platform_clang_macos_arm64(_Out struct platform* p)
 
     p->long_double_n_bits = 64;
     p->long_double_alignment = 8;
+}
+
+/*
+  clang on macOS, Intel (x86_64).  Same LP64 ABI as the arm64 macOS target
+  except that 'long double' is the 80-bit extended type (16 bytes of storage,
+  16-byte alignment) and the arch macros/sizes come from clang_macros_x64.
+*/
+static void platform_clang_macos_x64(_Out struct platform* p)
+{
+    *p = (struct platform){ 0 };
+
+    p->name = "x86_64-apple-darwin-clang";
+    p->compiler = "CLANG";
+    p->os = "MACOS";
+    p->arch = "X64";
+    p->code_thread_local_spelling = "__thread";
+    p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
+    p->predefined_macros = clang_macros_x64;
+    p->builtins = gcc_builtins;
+    p->code_alloca_spelling = "__builtin_alloca";
+
+    p->size_t_type = TYPE_UNSIGNED_LONG;
+    p->ptrdiff_type = TYPE_SIGNED_LONG;
+
+    p->bool_n_bits = 8;
+    p->bool_type = TYPE_UNSIGNED_CHAR;
+    p->bool_alignment = 1;
+
+    p->char_n_bits = 8;
+    p->char_t_type = TYPE_SIGNED_CHAR;
+    p->char_alignment = 1;
+
+    p->int8_type = TYPE_SIGNED_CHAR;
+    p->int16_type = TYPE_SIGNED_SHORT;
+    p->int32_type = TYPE_SIGNED_INT;
+    p->int64_type = TYPE_SIGNED_LONG_LONG;
+
+    p->pointer_n_bits = 64;
+    p->pointer_alignment = 8;
+
+    p->wchar_t_type = TYPE_SIGNED_INT;
+
+    p->short_n_bits = 16;
+    p->short_alignment = 2;
+    p->int_n_bits = 32;
+    p->int_alignment = 4;
+
+    p->long_n_bits = 64;
+    p->long_alignment = 8;
+
+    p->long_long_n_bits = 64;
+    p->long_long_alignment = 8;
+    p->long_long_long_n_bits = 128;
+    p->long_long_long_alignment = 16;
+    p->float_n_bits = 32;
+    p->float_alignment = 4;
+
+    p->double_n_bits = 64;
+    p->double_alignment = 8;
+
+    p->long_double_n_bits = 128;
+    p->long_double_alignment = 16;
 }
 
 static void platform_msvc(_Out struct platform* p, const char* arch)
@@ -90100,6 +90389,8 @@ static void platform_msvc(_Out struct platform* p, const char* arch)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
+    p->long_long_long_n_bits = p->long_long_n_bits;
+    p->long_long_long_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -90171,6 +90462,8 @@ static void platform_tcc(_Out struct platform* p, const char* os)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
+    p->long_long_long_n_bits = p->long_long_n_bits;
+    p->long_long_long_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -90264,6 +90557,8 @@ static void platform_catalina(_Out struct platform* p)
 
     p->long_long_n_bits = 32;
     p->long_long_alignment = 4;
+    p->long_long_long_n_bits = p->long_long_n_bits;
+    p->long_long_long_alignment = p->long_long_alignment;
 
     p->float_n_bits = 32;
     p->float_alignment = 4;
@@ -90292,6 +90587,10 @@ void platform_default(_Out struct platform* p)
     platform_gcc(p, "x64");
 #elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
     platform_clang_macos_arm64(p);
+#elif defined(__APPLE__) && defined(__x86_64__)
+    platform_clang_macos_x64(p);
+#elif !defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64) || defined(__EMSCRIPTEN__)) && !defined(__CATALINA__)
+    platform_gcc(p, "x64");
 #elif defined(__linux__) && defined(__aarch64__)
     platform_gcc(p, "arm64");
 #elif defined(__linux__) && defined(__arm__)
@@ -90317,6 +90616,8 @@ int parse_target(const char* targetstr, struct platform* p_platform)
         platform_catalina(p_platform);
     else if (strcmp(targetstr, "aarch64-apple-darwin-clang") == 0)
         platform_clang_macos_arm64(p_platform);
+    else if (strcmp(targetstr, "x86_64-apple-darwin-clang") == 0)
+        platform_clang_macos_x64(p_platform);
     else if (strcmp(targetstr, "x86_64-w64-mingw32-tcc") == 0)
         platform_tcc(p_platform, "win");
     else if (strcmp(targetstr, "x86_64-linux-gnu-tcc") == 0)
@@ -90335,7 +90636,7 @@ int parse_target(const char* targetstr, struct platform* p_platform)
 
 void print_target_options()
 {
-    printf("default x86_64-linux-gnu-gcc i686-pc-windows-msvc x86_64-pc-windows-msvc propeller-catalina aarch64-apple-darwin-clang x86_64-w64-mingw32-tcc x86_64-linux-gnu-tcc aarch64-apple-darwin-tcc aarch64-linux-gnu-gcc arm-linux-gnueabihf-gcc\n");
+    printf("default x86_64-linux-gnu-gcc i686-pc-windows-msvc x86_64-pc-windows-msvc propeller-catalina aarch64-apple-darwin-clang x86_64-apple-darwin-clang x86_64-w64-mingw32-tcc x86_64-linux-gnu-tcc aarch64-apple-darwin-tcc aarch64-linux-gnu-gcc arm-linux-gnueabihf-gcc\n");
 }
 
 static bool str_is(const char* _Opt a, const char* b)
@@ -90355,7 +90656,7 @@ bool platform_arch_is(const struct platform* p_platform, const char* arch)
 
 long long target_signed_max(const struct platform* target, enum object_type type)
 {
-    const int bits = target_get_num_of_bits(target, type);
+    const unsigned int bits = target_get_num_of_bits(target, type);
     assert(bits <= sizeof(long long) * CHAR_BIT);
 
     if (bits >= sizeof(long long) * CHAR_BIT)
@@ -90368,7 +90669,7 @@ long long target_signed_max(const struct platform* target, enum object_type type
 
 long long target_signed_min(const struct platform* target, enum object_type type)
 {
-    const int bits = target_get_num_of_bits(target, type);
+    const unsigned int bits = target_get_num_of_bits(target, type);
     assert(bits <= sizeof(long long) * CHAR_BIT);
 
     if (bits >= sizeof(long long) * CHAR_BIT)
@@ -90381,7 +90682,7 @@ long long target_signed_min(const struct platform* target, enum object_type type
 
 unsigned long long target_unsigned_max(const struct platform* target, enum object_type type)
 {
-    const int bits = target_get_num_of_bits(target, type);
+    const unsigned int bits = target_get_num_of_bits(target, type);
     assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
     if (bits >= sizeof(unsigned long long) * CHAR_BIT)
@@ -90390,26 +90691,31 @@ unsigned long long target_unsigned_max(const struct platform* target, enum objec
     return (1ULL << bits) - 1;
 }
 
-int target_get_num_of_bits(const struct platform* target, enum object_type type)
+int target_bitint_maxwidth(const struct platform* target)
+{
+    return target->long_long_long_n_bits > 64 ? target->long_long_long_n_bits : 64;
+}
+
+unsigned int target_get_num_of_bits(const struct platform* target, enum object_type type)
 {
     if (type >= TYPE_UNSIGNED_BITFIELD_1 && type <= TYPE_UNSIGNED_BITFIELD_128)
     {
-        return (int)(type - TYPE_UNSIGNED_BITFIELD_1 + 1);
+        return (unsigned int)(type - TYPE_UNSIGNED_BITFIELD_1 + 1);
     }
 
     if (type >= TYPE_SIGNED_BITFIELD_1 && type <= TYPE_SIGNED_BITFIELD_128)
     {
-        return (int)(type - TYPE_SIGNED_BITFIELD_1 + 1);
+        return (unsigned int)(type - TYPE_SIGNED_BITFIELD_1 + 1);
     }
 
     if (type >= TYPE_UNSIGNED_BITINT_1 && type <= TYPE_UNSIGNED_BITINT_128)
     {
-        return (int)(type - TYPE_UNSIGNED_BITINT_1 + 1);
+        return (unsigned int)(type - TYPE_UNSIGNED_BITINT_1 + 1);
     }
 
     if (type >= TYPE_SIGNED_BITINT_1 && type <= TYPE_SIGNED_BITINT_128)
     {
-        return (int)(type - TYPE_SIGNED_BITINT_1 + 1);
+        return (unsigned int)(type - TYPE_SIGNED_BITINT_1 + 1);
     }
 
     switch (type)
@@ -90433,6 +90739,10 @@ int target_get_num_of_bits(const struct platform* target, enum object_type type)
     case TYPE_SIGNED_LONG_LONG:
     case TYPE_UNSIGNED_LONG_LONG:
         return target->long_long_n_bits;
+
+    case TYPE_SIGNED_LONG_LONG_LONG:
+    case TYPE_UNSIGNED_LONG_LONG_LONG:
+        return target->long_long_long_n_bits;
 
     case TYPE_FLOAT:
         return target->float_n_bits;
@@ -90626,6 +90936,9 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+        print_item(ss, first, "long long long");
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
         print_item(ss, first, "char");
@@ -92217,9 +92530,13 @@ enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is
     {
         flags = TYPE_SPECIFIER_LONG | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
     }
-    else
+    else if (width <= target->long_long_n_bits)
     {
         flags = TYPE_SPECIFIER_LONG_LONG | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
+    }
+    else
+    {
+        flags = TYPE_SPECIFIER_LONG_LONG_LONG | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
     }
 
     return flags;
@@ -92414,6 +92731,7 @@ bool type_is_integer(const struct type* p_type)
             TYPE_SPECIFIER_SIGNED |
             TYPE_SPECIFIER_UNSIGNED |
             TYPE_SPECIFIER_LONG_LONG |
+            TYPE_SPECIFIER_LONG_LONG_LONG |
             TYPE_SPECIFIER_BITINT |
             TYPE_SPECIFIER_BOOL);
 }
@@ -92689,11 +93007,19 @@ int type_get_integer_rank(const struct type* p_type1, const struct platform* tar
         {
             standard_rank = 50;
         }
+        else if (width > target->long_long_n_bits)
+        {
+            standard_rank = 90; /* long long long */
+        }
 
         return standard_rank - 10 + width / 16;
     }
 
-    if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+    if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+    {
+        return 90;
+    }
+    else if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
         return 80;
     }
@@ -94021,6 +94347,10 @@ size_t type_get_alignof(const struct type* p_type, const struct platform* target
         {
             align = target->long_long_alignment;
         }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+        {
+            align = target->long_long_long_alignment;
+        }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
             align = target->int_alignment;
@@ -94321,6 +94651,12 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, cons
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
     {
         *size = target->long_long_n_bits / 8;
+        return SIZEOF_RESULT_OK;
+    }
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+    {
+        *size = target->long_long_long_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
@@ -94863,12 +95199,12 @@ static bool type_is_same_impl(const struct type* a,
           'long'/'long int' and 'short'/'short int'). Normalize away the
           redundant TYPE_SPECIFIER_INT before comparing. (issue #164)
         */
-        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG))
+        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
         {
             a_flags &= ~TYPE_SPECIFIER_INT;
         }
 
-        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG))
+        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
         {
             b_flags &= ~TYPE_SPECIFIER_INT;
         }
@@ -95019,12 +95355,12 @@ bool type_is_compatible(const struct type* a, const struct type* b)
           'long'/'long int' and 'short'/'short int'). Normalize away the
           redundant TYPE_SPECIFIER_INT before comparing. (issue #164)
         */
-        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG))
+        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
         {
             a_flags &= ~TYPE_SPECIFIER_INT;
         }
 
-        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG))
+        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
         {
             b_flags &= ~TYPE_SPECIFIER_INT;
         }

@@ -45,6 +45,7 @@
     " osstream.c "            \
     " fs.c "                  \
     " options.c "             \
+    " wide_integer.c "        \
     " object.c "              \
     " expressions.c "         \
     " pre_expressions.c "     \

@@ -9,9 +9,14 @@ typedef typeof(sizeof(1)) size_t;
     typedef float _Float16;
 #endif /* __CAKE_TARGET_OS_MACOS */
 
+#if __CAKE_SIZEOF_LONG_LONG_LONG__ == 16
+typedef unsigned __int128 __uint128_t;
+typedef __int128 __int128_t;
+#else
 /* 128-bit ints only appear as struct fields in system headers (arm64 NEON state, glibc link.h), modeled as a 16-byte aggregate. */
 typedef struct { unsigned long long __a, __b; } __uint128_t;
 typedef struct { unsigned long long __a, __b; } __int128_t;
+#endif
 
 long __builtin_expect(long exp, long c);
 #ifdef __CAKE_TARGET_OS_MACOS

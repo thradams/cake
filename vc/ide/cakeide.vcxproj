@@ -144,6 +144,10 @@
       <WarningLevel>Level3</WarningLevel>
       <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
     </ClCompile>
+    <ClCompile Include="..\..\src\wide_integer.c">
+      <WarningLevel>Level3</WarningLevel>
+      <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>
+    </ClCompile>
     <ClCompile Include="..\..\src\object.c">
       <WarningLevel>Level3</WarningLevel>
       <DisableSpecificWarnings>4996;4100;4068;4146</DisableSpecificWarnings>

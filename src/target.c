@@ -42,6 +42,12 @@ static char clang_macros[] =
  , 0
 };
 
+static char clang_macros_x64[] =
+{
+ #include "include/builtins/clang_macros_x64.h.include"
+ , 0
+};
+
 static char msvc_macros[] =
 {
  #include "include/builtins/msvc_macros.h.include"
@@ -96,6 +102,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
+    p->long_long_long_n_bits = p->long_long_n_bits;
+    p->long_long_long_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -106,6 +114,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     {
         p->name = "x86_64-linux-gnu-gcc";
         p->arch = "X64";
+        p->long_long_long_n_bits = 128;
+        p->long_long_long_alignment = 16;
         p->size_t_type = TYPE_UNSIGNED_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG;
         p->char_t_type = TYPE_SIGNED_CHAR;
@@ -122,6 +132,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     {
         p->name = "aarch64-linux-gnu-gcc";
         p->arch = "ARM64";
+        p->long_long_long_n_bits = 128;
+        p->long_long_long_alignment = 16;
         p->size_t_type = TYPE_UNSIGNED_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG;
         p->char_t_type = TYPE_UNSIGNED_CHAR;
@@ -197,6 +209,8 @@ static void platform_clang_macos_arm64(_Out struct platform* p)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
+    p->long_long_long_n_bits = 128;
+    p->long_long_long_alignment = 16;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -205,6 +219,68 @@ static void platform_clang_macos_arm64(_Out struct platform* p)
 
     p->long_double_n_bits = 64;
     p->long_double_alignment = 8;
+}
+
+/*
+  clang on macOS, Intel (x86_64).  Same LP64 ABI as the arm64 macOS target
+  except that 'long double' is the 80-bit extended type (16 bytes of storage,
+  16-byte alignment) and the arch macros/sizes come from clang_macros_x64.
+*/
+static void platform_clang_macos_x64(_Out struct platform* p)
+{
+    *p = (struct platform){ 0 };
+
+    p->name = "x86_64-apple-darwin-clang";
+    p->compiler = "CLANG";
+    p->os = "MACOS";
+    p->arch = "X64";
+    p->code_thread_local_spelling = "__thread";
+    p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
+    p->predefined_macros = clang_macros_x64;
+    p->builtins = gcc_builtins;
+    p->code_alloca_spelling = "__builtin_alloca";
+
+    p->size_t_type = TYPE_UNSIGNED_LONG;
+    p->ptrdiff_type = TYPE_SIGNED_LONG;
+
+    p->bool_n_bits = 8;
+    p->bool_type = TYPE_UNSIGNED_CHAR;
+    p->bool_alignment = 1;
+
+    p->char_n_bits = 8;
+    p->char_t_type = TYPE_SIGNED_CHAR;
+    p->char_alignment = 1;
+
+    p->int8_type = TYPE_SIGNED_CHAR;
+    p->int16_type = TYPE_SIGNED_SHORT;
+    p->int32_type = TYPE_SIGNED_INT;
+    p->int64_type = TYPE_SIGNED_LONG_LONG;
+
+    p->pointer_n_bits = 64;
+    p->pointer_alignment = 8;
+
+    p->wchar_t_type = TYPE_SIGNED_INT;
+
+    p->short_n_bits = 16;
+    p->short_alignment = 2;
+    p->int_n_bits = 32;
+    p->int_alignment = 4;
+
+    p->long_n_bits = 64;
+    p->long_alignment = 8;
+
+    p->long_long_n_bits = 64;
+    p->long_long_alignment = 8;
+    p->long_long_long_n_bits = 128;
+    p->long_long_long_alignment = 16;
+    p->float_n_bits = 32;
+    p->float_alignment = 4;
+
+    p->double_n_bits = 64;
+    p->double_alignment = 8;
+
+    p->long_double_n_bits = 128;
+    p->long_double_alignment = 16;
 }
 
 static void platform_msvc(_Out struct platform* p, const char* arch)
@@ -251,6 +327,8 @@ static void platform_msvc(_Out struct platform* p, const char* arch)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
+    p->long_long_long_n_bits = p->long_long_n_bits;
+    p->long_long_long_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -322,6 +400,8 @@ static void platform_tcc(_Out struct platform* p, const char* os)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
+    p->long_long_long_n_bits = p->long_long_n_bits;
+    p->long_long_long_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -415,6 +495,8 @@ static void platform_catalina(_Out struct platform* p)
 
     p->long_long_n_bits = 32;
     p->long_long_alignment = 4;
+    p->long_long_long_n_bits = p->long_long_n_bits;
+    p->long_long_long_alignment = p->long_long_alignment;
 
     p->float_n_bits = 32;
     p->float_alignment = 4;
@@ -443,6 +525,10 @@ void platform_default(_Out struct platform* p)
     platform_gcc(p, "x64");
 #elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
     platform_clang_macos_arm64(p);
+#elif defined(__APPLE__) && defined(__x86_64__)
+    platform_clang_macos_x64(p);
+#elif !defined(_WIN32) && (defined(__x86_64__) || defined(_M_X64) || defined(__EMSCRIPTEN__)) && !defined(__CATALINA__)
+    platform_gcc(p, "x64");
 #elif defined(__linux__) && defined(__aarch64__)
     platform_gcc(p, "arm64");
 #elif defined(__linux__) && defined(__arm__)
@@ -468,6 +554,8 @@ int parse_target(const char* targetstr, struct platform* p_platform)
         platform_catalina(p_platform);
     else if (strcmp(targetstr, "aarch64-apple-darwin-clang") == 0)
         platform_clang_macos_arm64(p_platform);
+    else if (strcmp(targetstr, "x86_64-apple-darwin-clang") == 0)
+        platform_clang_macos_x64(p_platform);
     else if (strcmp(targetstr, "x86_64-w64-mingw32-tcc") == 0)
         platform_tcc(p_platform, "win");
     else if (strcmp(targetstr, "x86_64-linux-gnu-tcc") == 0)
@@ -486,7 +574,7 @@ int parse_target(const char* targetstr, struct platform* p_platform)
 
 void print_target_options()
 {
-    printf("default x86_64-linux-gnu-gcc i686-pc-windows-msvc x86_64-pc-windows-msvc propeller-catalina aarch64-apple-darwin-clang x86_64-w64-mingw32-tcc x86_64-linux-gnu-tcc aarch64-apple-darwin-tcc aarch64-linux-gnu-gcc arm-linux-gnueabihf-gcc\n");
+    printf("default x86_64-linux-gnu-gcc i686-pc-windows-msvc x86_64-pc-windows-msvc propeller-catalina aarch64-apple-darwin-clang x86_64-apple-darwin-clang x86_64-w64-mingw32-tcc x86_64-linux-gnu-tcc aarch64-apple-darwin-tcc aarch64-linux-gnu-gcc arm-linux-gnueabihf-gcc\n");
 }
 
 static bool str_is(const char* _Opt a, const char* b)
@@ -506,7 +594,7 @@ bool platform_arch_is(const struct platform* p_platform, const char* arch)
 
 long long target_signed_max(const struct platform* target, enum object_type type)
 {
-    const int bits = target_get_num_of_bits(target, type);
+    const unsigned int bits = target_get_num_of_bits(target, type);
     assert(bits <= sizeof(long long) * CHAR_BIT);
 
     if (bits >= sizeof(long long) * CHAR_BIT)
@@ -519,7 +607,7 @@ long long target_signed_max(const struct platform* target, enum object_type type
 
 long long target_signed_min(const struct platform* target, enum object_type type)
 {
-    const int bits = target_get_num_of_bits(target, type);
+    const unsigned int bits = target_get_num_of_bits(target, type);
     assert(bits <= sizeof(long long) * CHAR_BIT);
 
     if (bits >= sizeof(long long) * CHAR_BIT)
@@ -532,7 +620,7 @@ long long target_signed_min(const struct platform* target, enum object_type type
 
 unsigned long long target_unsigned_max(const struct platform* target, enum object_type type)
 {
-    const int bits = target_get_num_of_bits(target, type);
+    const unsigned int bits = target_get_num_of_bits(target, type);
     assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
 
     if (bits >= sizeof(unsigned long long) * CHAR_BIT)
@@ -541,26 +629,31 @@ unsigned long long target_unsigned_max(const struct platform* target, enum objec
     return (1ULL << bits) - 1;
 }
 
-int target_get_num_of_bits(const struct platform* target, enum object_type type)
+int target_bitint_maxwidth(const struct platform* target)
+{
+    return target->long_long_long_n_bits > 64 ? target->long_long_long_n_bits : 64;
+}
+
+unsigned int target_get_num_of_bits(const struct platform* target, enum object_type type)
 {
     if (type >= TYPE_UNSIGNED_BITFIELD_1 && type <= TYPE_UNSIGNED_BITFIELD_128)
     {
-        return (int)(type - TYPE_UNSIGNED_BITFIELD_1 + 1);
+        return (unsigned int)(type - TYPE_UNSIGNED_BITFIELD_1 + 1);
     }
 
     if (type >= TYPE_SIGNED_BITFIELD_1 && type <= TYPE_SIGNED_BITFIELD_128)
     {
-        return (int)(type - TYPE_SIGNED_BITFIELD_1 + 1);
+        return (unsigned int)(type - TYPE_SIGNED_BITFIELD_1 + 1);
     }
 
     if (type >= TYPE_UNSIGNED_BITINT_1 && type <= TYPE_UNSIGNED_BITINT_128)
     {
-        return (int)(type - TYPE_UNSIGNED_BITINT_1 + 1);
+        return (unsigned int)(type - TYPE_UNSIGNED_BITINT_1 + 1);
     }
 
     if (type >= TYPE_SIGNED_BITINT_1 && type <= TYPE_SIGNED_BITINT_128)
     {
-        return (int)(type - TYPE_SIGNED_BITINT_1 + 1);
+        return (unsigned int)(type - TYPE_SIGNED_BITINT_1 + 1);
     }
 
     switch (type)
@@ -584,6 +677,10 @@ int target_get_num_of_bits(const struct platform* target, enum object_type type)
     case TYPE_SIGNED_LONG_LONG:
     case TYPE_UNSIGNED_LONG_LONG:
         return target->long_long_n_bits;
+
+    case TYPE_SIGNED_LONG_LONG_LONG:
+    case TYPE_UNSIGNED_LONG_LONG_LONG:
+        return target->long_long_long_n_bits;
 
     case TYPE_FLOAT:
         return target->float_n_bits;
