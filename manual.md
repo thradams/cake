@@ -284,6 +284,7 @@ Available targets:
 | `x86_msvc` | Windows x86 | MSVC |
 | `x64_msvc` | Windows x64 | MSVC |
 | `macos_arm64` | macOS arm64 (Apple Silicon) | Clang |
+| `macos_x64` | macOS x86-64 (Intel) | Clang |
 | `catalina` | Catalina | Catalina C compiler |
 | `ccu8` | Embedded / custom | — |
 
