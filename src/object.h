@@ -20,13 +20,9 @@
 #include <wchar.h>
 #include "error.h"
 #include "type.h"
-#include "wide_integer.h"
+#include "integer128.h"
 #include <inttypes.h>
 struct parser_ctx;
-
-
-long long target_signed_max(const struct platform* target, enum object_type type);
-unsigned long long target_unsigned_max(const struct platform* target, enum object_type type);
 
 
 enum object_value_state
@@ -65,7 +61,7 @@ struct object
 
     union
     {
-        struct wide_integer host_wide_integer; /* 2x long long */        
+        struct integer128 host_integer128; /* 2x long long */        
         long double host_long_double; /* */
     } value;
 
@@ -102,7 +98,7 @@ struct object        object_make_signed_long(const struct platform* target, sign
 struct object      object_make_unsigned_long(const struct platform* target, unsigned long long value);
 
 struct object   object_make_signed_long_long(const struct platform* target, signed long long value);
-struct object object_make_unsigned_long_long( unsigned long long value);
+struct object object_make_unsigned_long_long(const struct platform* target, unsigned long long value);
 struct object              object_make_float(const struct platform* target, long double value);
 struct object             object_make_double(const struct platform* target, long double value);
 struct object        object_make_long_double(const struct platform* target, long double value);

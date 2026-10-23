@@ -549,7 +549,7 @@ int compile_one_file(const char* file_name,
         if (tctx.n_errors > 0)
             throw;
 
-        const char* _Opt builtin = ctx.options.platform.builtins;
+        const char* _Opt builtin = ctx.options.platform.dialect_builtins;
         if (builtin && builtin[0] != '\0')
         {
             struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 1, TK_FLAG_NONE);
@@ -657,6 +657,7 @@ int compile_one_file(const char* file_name,
                 struct codegen_ctx ctx2 = { 0 };
                 ctx2.p_ast = &ast;
                 ctx2.options = ctx.options;
+                ctx2.p_report = report;
                 const int codegen_error = codegen_visit(&ctx2, &ss);
                 p_output_string = ss.c_str; // MOVE
                 codegen_visit_ctx_destroy(&ctx2);
@@ -1706,6 +1707,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             struct codegen_ctx ctx2 = { 0 };
             ctx2.p_ast = &ast;
             ctx2.options = options;
+            ctx2.p_report = report;
             const int codegen_error = codegen_visit(&ctx2, &ss);
             s = ss.c_str; // MOVED
             codegen_visit_ctx_destroy(&ctx2);
@@ -1767,7 +1769,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         if (tctx.n_errors > 0)
             throw;
 
-        const char* _Opt builtin = options.platform.builtins;
+        const char* _Opt builtin = options.platform.dialect_builtins;
         if (builtin && builtin[0] != '\0')
         {
             /* level 1 - see the identical comment in compile_one_file() above. */

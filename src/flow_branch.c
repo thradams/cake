@@ -1703,6 +1703,8 @@ struct flow_branch* _Opt flow_branch_arena_new_branch(struct flow_branch_arena* 
     if (m)
     {
         m->p_branch_expr = p_expr;
+        /* a condition in dead code (an `if` after a return) has dead arms */
+        m->is_unreachable = parent != NULL && parent->is_unreachable;
     }
     return m;
 }

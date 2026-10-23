@@ -1,18 +1,16 @@
 /*
- * Constant folding of long long long values wider than 64 bits.
+ * Constant folding of __int128 values wider than 64 bits.
  *
- * Every integer constant is held in a struct wide_integer (two unsigned long long),
- * so on the targets where long long long has 128 bits (__SIZEOF_INT128__)
- * the whole range folds exactly. Elsewhere long long long has the size of
- * long long, already covered by parser_long_long_long.c.
+ * Every integer constant is held in a struct integer128, so on the targets
+ * that have __int128 (__SIZEOF_INT128__) the whole range folds exactly.
  */
 
 #ifdef __SIZEOF_INT128__
 
 #pragma CAKE diagnostic ignored 51 /* unsigned wrap-around is what is tested */
 
-typedef unsigned long long long u128;
-typedef long long long i128;
+typedef unsigned __int128 u128;
+typedef __int128 i128;
 
 #define TWO_POW_100 ((u128)1 << 100)
 

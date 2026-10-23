@@ -80,9 +80,9 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     p->code_thread_local_spelling = "__thread";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = gcc_macros;
-    p->builtins = gcc_builtins;
+    p->dialect_builtins = gcc_builtins;
     p->code_alloca_spelling = "__builtin_alloca";
-    p->gcc_like_asm_label = true;
+    p->dialect_gcc_like_asm_label = true;
 
     p->bool_n_bits = 8;
     p->bool_type = TYPE_UNSIGNED_CHAR;
@@ -102,8 +102,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = p->long_long_n_bits;
-    p->long_long_long_alignment = p->long_long_alignment;
+    p->int128_n_bits = p->long_long_n_bits;
+    p->int128_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -114,8 +114,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     {
         p->name = "x86_64-linux-gnu-gcc";
         p->arch = "X64";
-        p->long_long_long_n_bits = 128;
-        p->long_long_long_alignment = 16;
+        p->int128_n_bits = 128;
+        p->int128_alignment = 16;
         p->size_t_type = TYPE_UNSIGNED_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG;
         p->char_t_type = TYPE_SIGNED_CHAR;
@@ -132,8 +132,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     {
         p->name = "aarch64-linux-gnu-gcc";
         p->arch = "ARM64";
-        p->long_long_long_n_bits = 128;
-        p->long_long_long_alignment = 16;
+        p->int128_n_bits = 128;
+        p->int128_alignment = 16;
         p->size_t_type = TYPE_UNSIGNED_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG;
         p->char_t_type = TYPE_UNSIGNED_CHAR;
@@ -175,7 +175,7 @@ static void platform_clang_macos_arm64(_Out struct platform* p)
     p->code_thread_local_spelling = "__thread";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = clang_macros;
-    p->builtins = gcc_builtins;
+    p->dialect_builtins = gcc_builtins;
     p->code_alloca_spelling = "__builtin_alloca";
 
     p->size_t_type = TYPE_UNSIGNED_LONG;
@@ -209,8 +209,8 @@ static void platform_clang_macos_arm64(_Out struct platform* p)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = 128;
-    p->long_long_long_alignment = 16;
+    p->int128_n_bits = 128;
+    p->int128_alignment = 16;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -237,7 +237,7 @@ static void platform_clang_macos_x64(_Out struct platform* p)
     p->code_thread_local_spelling = "__thread";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = clang_macros_x64;
-    p->builtins = gcc_builtins;
+    p->dialect_builtins = gcc_builtins;
     p->code_alloca_spelling = "__builtin_alloca";
 
     p->size_t_type = TYPE_UNSIGNED_LONG;
@@ -271,8 +271,8 @@ static void platform_clang_macos_x64(_Out struct platform* p)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = 128;
-    p->long_long_long_alignment = 16;
+    p->int128_n_bits = 128;
+    p->int128_alignment = 16;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -292,13 +292,13 @@ static void platform_msvc(_Out struct platform* p, const char* arch)
     p->code_thread_local_spelling = "__declspec(thread)";
     p->code_alignas_spelling_fmt = "__declspec(align(%d))";
     p->predefined_macros = msvc_macros;
-    p->builtins = "";
+    p->dialect_builtins = "";
     p->code_alloca_spelling = "_alloca";
     p->msvc_like_bitfield_layout = true;
     p->msvc_like_object_size_limit = true;
-    p->msvc_like_decimal_literal_type = true;
-    p->msvc_like_keywords = true;
-    p->msvc_like_asm_statement = true;
+    p->dialect_msvc_like_decimal_literal_type = true;
+    p->dialect_msvc_like_keywords = true;
+    p->dialect_msvc_like_asm_statement = true;
     p->code_msvc_like_atomics = true;
     p->code_msvc_like_no_member_packed = true;
 
@@ -327,8 +327,8 @@ static void platform_msvc(_Out struct platform* p, const char* arch)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = p->long_long_n_bits;
-    p->long_long_long_alignment = p->long_long_alignment;
+    p->int128_n_bits = p->long_long_n_bits;
+    p->int128_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -372,9 +372,9 @@ static void platform_tcc(_Out struct platform* p, const char* os)
     p->code_thread_local_spelling = "__thread";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = tcc_macros;
-    p->builtins = tcc_builtins;
+    p->dialect_builtins = tcc_builtins;
     p->code_alloca_spelling = "alloca";
-    p->gcc_like_asm_label = true;
+    p->dialect_gcc_like_asm_label = true;
     p->code_tcc_like_atomics = true;
     p->code_tcc_like_alloca_declaration = true;
 
@@ -400,8 +400,8 @@ static void platform_tcc(_Out struct platform* p, const char* os)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = p->long_long_n_bits;
-    p->long_long_long_alignment = p->long_long_alignment;
+    p->int128_n_bits = p->long_long_n_bits;
+    p->int128_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -413,7 +413,7 @@ static void platform_tcc(_Out struct platform* p, const char* os)
         p->name = "x86_64-w64-mingw32-tcc";
         p->os = "WINDOWS";
         p->arch = "X64";
-        p->tcc_like_static_redeclaration = true;
+        p->dialect_tcc_like_static_redeclaration = true;
         p->size_t_type = TYPE_UNSIGNED_LONG_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG_LONG;
         p->int64_type = TYPE_SIGNED_LONG_LONG;
@@ -462,7 +462,7 @@ static void platform_catalina(_Out struct platform* p)
     p->code_thread_local_spelling = "/*thread*/";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = catalina_macros;
-    p->builtins = catalina_builtins;
+    p->dialect_builtins = catalina_builtins;
     p->code_alloca_spelling = "__builtin_alloca";
 
     p->size_t_type = TYPE_UNSIGNED_INT;
@@ -495,8 +495,8 @@ static void platform_catalina(_Out struct platform* p)
 
     p->long_long_n_bits = 32;
     p->long_long_alignment = 4;
-    p->long_long_long_n_bits = p->long_long_n_bits;
-    p->long_long_long_alignment = p->long_long_alignment;
+    p->int128_n_bits = p->long_long_n_bits;
+    p->int128_alignment = p->long_long_alignment;
 
     p->float_n_bits = 32;
     p->float_alignment = 4;
@@ -572,9 +572,24 @@ int parse_target(const char* targetstr, struct platform* p_platform)
     return 0;
 }
 
+const char* _Opt target_name(int i)
+{
+    static const char* const names[] = {
+        "default", "x86_64-linux-gnu-gcc", "i686-pc-windows-msvc", "x86_64-pc-windows-msvc",
+        "propeller-catalina", "aarch64-apple-darwin-clang", "x86_64-apple-darwin-clang",
+        "x86_64-w64-mingw32-tcc", "x86_64-linux-gnu-tcc", "aarch64-apple-darwin-tcc",
+        "aarch64-linux-gnu-gcc", "arm-linux-gnueabihf-gcc"
+    };
+    if (i < 0 || i >= (int)(sizeof names / sizeof names[0]))
+        return NULL;
+    return names[i];
+}
+
 void print_target_options()
 {
-    printf("default x86_64-linux-gnu-gcc i686-pc-windows-msvc x86_64-pc-windows-msvc propeller-catalina aarch64-apple-darwin-clang x86_64-apple-darwin-clang x86_64-w64-mingw32-tcc x86_64-linux-gnu-tcc aarch64-apple-darwin-tcc aarch64-linux-gnu-gcc arm-linux-gnueabihf-gcc\n");
+    for (int i = 0; target_name(i); i++)
+        printf(i == 0 ? "%s" : " %s", target_name(i));
+    printf("\n");
 }
 
 static bool str_is(const char* _Opt a, const char* b)
@@ -592,46 +607,32 @@ bool platform_arch_is(const struct platform* p_platform, const char* arch)
     return str_is(p_platform->arch, arch);
 }
 
-long long target_signed_max(const struct platform* target, enum object_type type)
+struct integer128 target_unsigned_max(const struct platform* target, enum object_type type)
 {
     const unsigned int bits = target_get_num_of_bits(target, type);
-    assert(bits <= sizeof(long long) * CHAR_BIT);
-
-    if (bits >= sizeof(long long) * CHAR_BIT)
-    {
-        return LLONG_MAX;
-    }
-
-    return (1LL << (bits - 1)) - 1; // 2^(bits-1) - 1    
+    assert(bits >= 1 && bits <= INTEGER128_BITS);
+    return integer128_shr_u(integer128_not(integer128_from_unsigned(0)), INTEGER128_BITS - (int)bits);
 }
 
-long long target_signed_min(const struct platform* target, enum object_type type)
+struct integer128 target_signed_max(const struct platform* target, enum object_type type)
 {
     const unsigned int bits = target_get_num_of_bits(target, type);
-    assert(bits <= sizeof(long long) * CHAR_BIT);
-
-    if (bits >= sizeof(long long) * CHAR_BIT)
-    {
-        return LLONG_MIN;
-    }
-
-    return -(1LL << (bits - 1));
+    assert(bits >= 1 && bits <= INTEGER128_BITS);
+    if (bits == 1)
+        return integer128_from_unsigned(0); /* only the sign bit: 0 and -1 */
+    return integer128_shr_u(integer128_not(integer128_from_unsigned(0)), INTEGER128_BITS - (int)bits + 1);
 }
 
-unsigned long long target_unsigned_max(const struct platform* target, enum object_type type)
+struct integer128 target_signed_min(const struct platform* target, enum object_type type)
 {
-    const unsigned int bits = target_get_num_of_bits(target, type);
-    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
-
-    if (bits >= sizeof(unsigned long long) * CHAR_BIT)
-        return ULLONG_MAX;
-
-    return (1ULL << bits) - 1;
+    /* two's complement: ~max is -max - 1 */
+    return integer128_not(target_signed_max(target, type));
 }
 
 int target_bitint_maxwidth(const struct platform* target)
 {
-    return target->long_long_long_n_bits > 64 ? target->long_long_long_n_bits : 64;
+    /* the widest integer type of the target, the one wide _BitInt is lowered to */
+    return target->int128_n_bits > target->long_long_n_bits ? target->int128_n_bits : target->long_long_n_bits;
 }
 
 unsigned int target_get_num_of_bits(const struct platform* target, enum object_type type)
@@ -678,9 +679,9 @@ unsigned int target_get_num_of_bits(const struct platform* target, enum object_t
     case TYPE_UNSIGNED_LONG_LONG:
         return target->long_long_n_bits;
 
-    case TYPE_SIGNED_LONG_LONG_LONG:
-    case TYPE_UNSIGNED_LONG_LONG_LONG:
-        return target->long_long_long_n_bits;
+    case TYPE_SIGNED_INT128:
+    case TYPE_UNSIGNED_INT128:
+        return target->int128_n_bits;
 
     case TYPE_FLOAT:
         return target->float_n_bits;
@@ -701,23 +702,24 @@ unsigned int target_get_num_of_bits(const struct platform* target, enum object_t
 
 #ifdef TEST
 #include "unit_test.h"
+#include "object.h"
 
 void target_self_test()
 {
     struct platform host;
     platform_default(&host);
 
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_INT) == UINT_MAX);
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_LONG) == ULONG_MAX);
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_CHAR)) == UCHAR_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_SHORT)) == USHRT_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_INT)) == UINT_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_LONG)) == ULONG_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_LONG_LONG)) == ULLONG_MAX);
 
-    assert(target_signed_max(&host, TYPE_SIGNED_CHAR) == SCHAR_MAX);
-    assert(target_signed_max(&host, TYPE_SIGNED_SHORT) == SHRT_MAX);
-    assert(target_signed_max(&host, TYPE_SIGNED_INT) == INT_MAX);
-    assert(target_signed_max(&host, TYPE_SIGNED_LONG) == LONG_MAX);
-    assert(target_signed_max(&host, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_CHAR)) == SCHAR_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_SHORT)) == SHRT_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_INT)) == INT_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_LONG)) == LONG_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_LONG_LONG)) == LLONG_MAX);
 
     assert(target_get_num_of_bits(&host, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
     assert(target_get_num_of_bits(&host, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
@@ -736,6 +738,21 @@ void target_self_test()
 #else
     assert(host.char_t_type == TYPE_UNSIGNED_CHAR);
 #endif
+
+    /* propeller-catalina: long long has 32 bits and there is no __int128 */
+    struct platform catalina;
+    assert(parse_target("propeller-catalina", &catalina) == 0);
+    assert(target_get_num_of_bits(&catalina, TYPE_SIGNED_LONG_LONG) == 32);
+    assert(integer128_to_ull(target_unsigned_max(&catalina, TYPE_UNSIGNED_LONG_LONG)) == 0xFFFFFFFFULL);
+    assert(integer128_to_ll(target_signed_min(&catalina, TYPE_SIGNED_LONG_LONG)) == -2147483647LL - 1);
+    assert(integer128_equal(target_signed_max(&catalina, TYPE_SIGNED_LONG_LONG), integer128_from_unsigned(0x7FFFFFFF)));
+    assert(catalina.int128_n_bits < 128);
+    assert(target_bitint_maxwidth(&catalina) == 32);
+
+    /* an unsigned long long value is cut to the 32 bits of the target */
+    struct object v = object_make_unsigned_long_long(&catalina, 0x100000001ULL);
+    assert(integer128_equal(v.value.host_integer128, integer128_from_unsigned(1)));
+    object_destroy(&v);
 
 }
 #endif

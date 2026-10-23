@@ -722,17 +722,17 @@ static void flow_object_init(struct flow_ctx* ctx, struct object* p_object, cons
     if (type_is_pointer(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_PTR;
-        value.value.p = (void*)(uintptr_t)p_object->value.host_wide_integer.lo;
+        value.value.p = (void*)(uintptr_t)integer128_to_ull(p_object->value.host_integer128);
     }
     else if (type_is_signed(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_SIGNED;
-        value.value.i = ((long long)p_object->value.host_wide_integer.lo);
+        value.value.i = integer128_to_ll(p_object->value.host_integer128);
     }
     else
     {
         value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-        value.value.u = p_object->value.host_wide_integer.lo;
+        value.value.u = integer128_to_ull(p_object->value.host_integer128);
     }
 
     switch (p_object->state)
@@ -826,12 +826,12 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
         else if (type_is_signed(&p_object->type))
         {
             value.value_kind = FLOW_VALUE_KIND_SIGNED;
-            value.value.i = ((long long)p_object->value.host_wide_integer.lo);
+            value.value.i = integer128_to_ll(p_object->value.host_integer128);
         }
         else
         {
             value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-            value.value.u = p_object->value.host_wide_integer.lo;
+            value.value.u = integer128_to_ull(p_object->value.host_integer128);
         }
 
         switch (p_object->state)
@@ -2444,7 +2444,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                 */
             bool members_check_moved = check_moved;
 
-            if (members_check_uninit)
+            if (members_check_uninit && !(ctx->p_current_flow_branch && ctx->p_current_flow_branch->is_unreachable))
             {
                 int uninit_line = 0;
                 const struct flow_branch* _Opt uninit_origin = NULL;
@@ -2480,7 +2480,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                 `expression_delete(...)` (expressions.c:5667).
             */
             bool members_check_ended = check_ended;
-            if (members_check_ended)
+            if (members_check_ended && !(ctx->p_current_flow_branch && ctx->p_current_flow_branch->is_unreachable))
             {
                 int ended_line = 0;
                 const struct flow_branch* _Opt ended_origin = NULL;
@@ -3556,6 +3556,15 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 {
                     /* Determine write-effect on the pointee (same as above, but for a PTR alternative). */
                     const struct object* pointee = p_src_alternative->value.p;
+
+                    if (ctx->call_has_restrict && ctx->restrict_arguments_count < FLOW_MAX_RESTRICT_ARGUMENTS)
+                    {
+                        struct flow_restrict_argument* r = &ctx->restrict_arguments[ctx->restrict_arguments_count++];
+                        r->pointee = pointee;
+                        r->argument_serial = ctx->argument_serial;
+                        r->is_restrict = (p_object_dest->type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) != 0;
+                        r->p_argument = p_expression;
+                    }
                     const struct token* p_effect_token = p_expression->first_token;
                     enum flow_pointee_effect_kind effect_kind = FLOW_EFFECT_NONE;
 
@@ -4254,6 +4263,44 @@ static const struct flow_key_alternatives* _Opt flow_pointer_pointee_on_demand(s
     return p_left_alternatives;
 }
 
+/*
+    Two arguments of a call that may point to the same object, when one of
+    them goes to a restrict parameter (C23 6.7.4.2). The pointees were recorded
+    by flow_check_object_init_assigment, from index first on.
+*/
+static void flow_check_restrict_arguments(struct flow_ctx* ctx, int first)
+{
+    for (int i = first; i < ctx->restrict_arguments_count; i++)
+    {
+        const struct flow_restrict_argument* a = &ctx->restrict_arguments[i];
+        for (int j = i + 1; j < ctx->restrict_arguments_count; j++)
+        {
+            const struct flow_restrict_argument* b = &ctx->restrict_arguments[j];
+            const struct expression* _Opt p_argument_a = a->p_argument;
+            const struct expression* _Opt p_argument_b = b->p_argument;
+            if (a->pointee == NULL ||
+                    a->pointee != b->pointee ||
+                    a->argument_serial == b->argument_serial ||
+                    !(a->is_restrict || b->is_restrict) ||
+                    p_argument_a == NULL ||
+                    p_argument_b == NULL)
+                continue;
+
+            struct osstream name_a = { 0 };
+            struct osstream name_b = { 0 };
+            flow_expression_to_string(p_argument_a, &name_a);
+            flow_expression_to_string(p_argument_b, &name_b);
+            const struct marker marker = expression_to_marker(p_argument_b);
+            diagnostic(W_FLOW_RESTRICT_ARGUMENTS_ALIAS, ctx->ctx, NULL, &marker,
+                       "'%s' and '%s' may point to the same object, but the parameter is restrict",
+                       name_a.c_str ? name_a.c_str : "", name_b.c_str ? name_b.c_str : "");
+            ss_close(&name_a);
+            ss_close(&name_b);
+            return; /* one report per call */
+        }
+    }
+}
+
 static void flow_visit_function_arguments(struct flow_ctx* ctx,
                                           const struct type* p_type,
                                           struct argument_expression_list* p_argument_expression_list)
@@ -4271,6 +4318,15 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
 
         const struct param* _Opt p_current_parameter_type = p_param_list->head;
         struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
+
+        const bool saved_call_has_restrict = ctx->call_has_restrict;
+        const int saved_restrict_count = ctx->restrict_arguments_count;
+        ctx->call_has_restrict = false;
+        for (const struct param* _Opt p = p_param_list->head; p; p = p->next)
+        {
+            if (type_is_pointer(&p->type) && (p->type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT))
+                ctx->call_has_restrict = true;
+        }
 
         /*
             Collect pointee write-effects and apply them after all arguments:
@@ -4321,6 +4377,10 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
             object_destroy(&param_object);
             type_destroy(&variadic_type);
         }
+
+        flow_check_restrict_arguments(ctx, saved_restrict_count);
+        ctx->restrict_arguments_count = saved_restrict_count;
+        ctx->call_has_restrict = saved_call_has_restrict;
 
         /*
             All arguments evaluated: now apply the deferred write-effects (the
@@ -6774,17 +6834,17 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     if (type_is_pointer(&p_obj->type))
                     {
                         value.value_kind = FLOW_VALUE_KIND_PTR;
-                        value.value.p = (void*)(uintptr_t)p_obj->value.host_wide_integer.lo;
+                        value.value.p = (void*)(uintptr_t)integer128_to_ull(p_obj->value.host_integer128);
                     }
                     else if (type_is_signed(&p_obj->type))
                     {
                         value.value_kind = FLOW_VALUE_KIND_SIGNED;
-                        value.value.i = ((long long)p_obj->value.host_wide_integer.lo);
+                        value.value.i = integer128_to_ll(p_obj->value.host_integer128);
                     }
                     else
                     {
                         value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-                        value.value.u = p_obj->value.host_wide_integer.lo;
+                        value.value.u = integer128_to_ull(p_obj->value.host_integer128);
                     }
 
                     struct flow_key_alternatives* _Opt e1 = flow_branch_find_add(ctx->p_current_flow_branch, p_obj);
@@ -6834,7 +6894,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_PRIMARY_PARENTHESIS:
             {
                 assert(p_expression->right != NULL);
-                struct expression* p_inner = skip_parenthesis(p_expression->right); //lint 15
+                struct expression* p_inner = (struct expression*)skip_parenthesis(p_expression->right);
                 struct flow_true_false_branches paren_pair = flow_visit_expression(ctx, p_inner);
 
                 /*
@@ -10234,6 +10294,8 @@ static void flow_visit_loop(struct flow_ctx* ctx,
                                                                 p_pass1_body_entry, FLOW_BRANCH_FOR_BODY_PASS1);
         if (p_pass1_body != NULL)
         {
+            /* a condition that never holds: the body never runs, and its assignments must not reach pass 2 */
+            p_pass1_body->is_unreachable = p_pass1_body_entry->is_unreachable;
             ctx->p_current_flow_branch = p_pass1_body;
         }
     }
@@ -11610,10 +11672,12 @@ static void flow_visit_block_item_list(struct flow_ctx* ctx, struct block_item_l
 
     while (p_block_item)
     {
+        /* a block nested in dead code was already reported by the enclosing one */
         if (!warned_unreachable &&
                 p_block_item->label == NULL &&
                 ctx->p_current_flow_branch != NULL &&
-                ctx->p_current_flow_branch->is_unreachable)
+                ctx->p_current_flow_branch->is_unreachable &&
+                !(ctx->p_current_flow_branch->p_parent_map != NULL && ctx->p_current_flow_branch->p_parent_map->is_unreachable))
         {
             const struct marker m =
             {
@@ -11806,6 +11870,40 @@ static void flow_visit_static_assertion(struct flow_ctx* ctx, struct static_asse
     }
 }
 
+/* The object a parameter points to when it is non-null, or NULL. */
+static const struct object* _Opt flow_alias_pointee(const struct flow_key_alternatives* p_entry)
+{
+    if (p_entry->alternatives.data == NULL)
+        return NULL;
+    for (int i = 0; i < p_entry->alternatives.size; i++)
+    {
+        const struct flow_alternative* _Opt a = p_entry->alternatives.data[i];
+        if (a && a->value_kind == FLOW_VALUE_KIND_PTR && a->value_relation == FLOW_RELATION_EQUAL && a->value.p != NULL)
+            return a->value.p;
+    }
+    return NULL;
+}
+
+/* Aliasing pass: when non-null, p_dest points to the object of p_src; p_dest keeps its own nullability. */
+static void flow_alias_retarget(struct flow_ctx* ctx, const struct object* p_src, const struct object* p_dest)
+{
+    struct flow_key_alternatives* _Opt p_src_entry = flow_branch_find_add(ctx->p_current_flow_branch, p_src);
+    struct flow_key_alternatives* _Opt p_dest_entry = flow_branch_find_add(ctx->p_current_flow_branch, p_dest);
+    if (p_src_entry == NULL || p_dest_entry == NULL || p_dest_entry->alternatives.data == NULL)
+        return;
+
+    const struct object* _Opt p_target = flow_alias_pointee(p_src_entry);
+    if (p_target == NULL)
+        return;
+
+    for (int i = 0; i < p_dest_entry->alternatives.size; i++)
+    {
+        struct flow_alternative* _Opt a = p_dest_entry->alternatives.data[i];
+        if (a && a->value_kind == FLOW_VALUE_KIND_PTR && a->value_relation == FLOW_RELATION_EQUAL && a->value.p != NULL)
+            a->value.p = p_target;
+    }
+}
+
 static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
@@ -11827,6 +11925,10 @@ static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_dec
                 flow_visit_declaration_specifiers(ctx, parameter->declaration_specifiers);
                 flow_visit_declarator(ctx, parameter->declarator);
                 flow_parameter_object_init(ctx, &parameter->declarator->object, &parameter->declarator->object.type, parameter->declaration_specifiers->first_token);
+                if (ctx->p_alias_dest == parameter->declarator && ctx->p_alias_src != NULL)
+                {
+                    flow_alias_retarget(ctx, &ctx->p_alias_src->object, &parameter->declarator->object);
+                }
             }
             parameter = parameter->next;
         }
@@ -12313,7 +12415,7 @@ void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declarat
     }
 }
 
-void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
+static void flow_analyze_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
 {
     try
     {
@@ -12355,6 +12457,239 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
     catch
     {
     }
+}
+
+#define FLOW_ALIAS_MAX_PARAMETERS 16
+#define FLOW_ALIAS_MAX_REPORTS 32
+
+/* A W_FLOW_PARAM_MAY_ALIAS, reported after the //lint of its line is checked. */
+struct flow_alias_report
+{
+    int line; /* 0 when suppressed */
+    const struct token* _Opt p_token;
+    char message[200];
+};
+
+static bool flow_alias_item_is_compared(const struct diagnostic_item* p)
+{
+    /* code unreachable or a condition known only because the pointers are equal is not a problem */
+    return (p->is_error || p->is_warning) &&
+           get_diagnostic_phase(p->id) == 2 &&
+           p->id != W_FLOW_NOT_DONE &&
+           p->id != W_FLOW_UNREACHABLE_CODE &&
+           p->id != W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME;
+}
+
+/* The message of a queued diagnostic: its text after "<id>: " up to the end of the line or a color code. */
+static void flow_alias_item_message(const struct diagnostic_item* p, char* out, int out_size)
+{
+    snprintf(out, out_size, "diagnostic %d", (int)p->id);
+    if (p->text == NULL)
+        return;
+
+    char id_text[16] = { 0 };
+    snprintf(id_text, sizeof id_text, "%d: ", (int)p->id);
+    const int id_length = (int)strlen(id_text);
+
+    /* the column of the header is preceded by ':', the id by ' ' or the end of a color code */
+    for (const char* _Opt s = strstr(p->text, id_text); s; s = strstr(s + 1, id_text))
+    {
+        if (s > p->text && (s[-1] == ' ' || s[-1] == 'm'))
+        {
+            const char* begin = s + id_length;
+            int n = 0;
+            while (begin[n] != '\0' && begin[n] != '\n' && begin[n] != '\r' && begin[n] != '\x1b')
+                n++;
+            snprintf(out, out_size, "%.*s", n, begin);
+            return;
+        }
+    }
+}
+
+static bool flow_alias_item_is_in(const struct diagnostic_item* _Opt p_list, int line, enum diagnostic_id id)
+{
+    for (const struct diagnostic_item* _Opt p = p_list; p; p = p->next)
+    {
+        if (p->line == line && p->id == id)
+            return true;
+    }
+    return false;
+}
+
+/* Pointer parameters of the function definition that point to objects (not void, not functions). */
+static int flow_alias_parameters(const struct declaration* p_declaration, const struct declarator* out[], int max)
+{
+    const struct init_declarator* _Opt p_init = p_declaration->init_declarator_list.head;
+    if (p_init == NULL || p_init->p_declarator->direct_declarator == NULL)
+        return 0;
+    const struct function_declarator* _Opt p_function = p_init->p_declarator->direct_declarator->function_declarator;
+    if (p_function == NULL ||
+            p_function->parameter_type_list_opt == NULL ||
+            p_function->parameter_type_list_opt->parameter_list == NULL)
+        return 0;
+
+    int count = 0;
+    for (const struct parameter_declaration* _Opt p = p_function->parameter_type_list_opt->parameter_list->head; p && count < max; p = p->next)
+    {
+        if (p->declarator == NULL || p->declarator->name_opt == NULL || !type_is_pointer(&p->declarator->object.type))
+            continue;
+        struct type pointed = type_remove_pointer(&p->declarator->object.type);
+        const bool is_object = !type_is_void(&pointed) && !type_is_function(&pointed);
+        type_destroy(&pointed);
+        if (is_object)
+            out[count++] = p->declarator;
+    }
+    return count;
+}
+
+static bool flow_alias_same_pointee(const struct declarator* a, const struct declarator* b)
+{
+    struct type ta = type_remove_pointer(&a->object.type);
+    struct type tb = type_remove_pointer(&b->object.type);
+    const bool same = type_is_same(&ta, &tb, false);
+    type_destroy(&ta);
+    type_destroy(&tb);
+    return same;
+}
+
+static bool flow_alias_is_restrict(const struct declarator* p)
+{
+    return (p->object.type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) != 0;
+}
+
+/*
+    Pairs of pointer parameters with the same pointee are analyzed again with
+    both pointing to the same object. A diagnostic that only this pass has is an
+    error of the function when they alias: W_FLOW_PARAM_MAY_ALIAS. restrict on one
+    of them says they never alias, so the pair is not analyzed. p_normal is the
+    queue with the normal pass diagnostics.
+*/
+static void flow_check_parameter_aliasing(struct flow_ctx* ctx, struct declaration* p_declaration, const struct diagnostic_item* _Opt p_normal)
+{
+    const struct declarator* params[FLOW_ALIAS_MAX_PARAMETERS] = { 0 };
+    const int params_count = flow_alias_parameters(p_declaration, params, FLOW_ALIAS_MAX_PARAMETERS);
+
+    struct flow_alias_report reports[FLOW_ALIAS_MAX_REPORTS] = { 0 };
+    int reports_count = 0;
+
+    for (int i = 0; i < params_count; i++)
+    {
+        for (int j = i + 1; j < params_count; j++)
+        {
+            /* two _Owner parameters each own their object: the caller cannot pass the same one twice */
+            const bool both_owner = type_is_owner(&params[i]->object.type) && type_is_owner(&params[j]->object.type);
+            /* two const views only read: the same object changes nothing */
+            const bool both_const_views =
+                flow_dest_pointee_is_const(&params[i]->object.type) && !type_is_owner(&params[i]->object.type) &&
+                flow_dest_pointee_is_const(&params[j]->object.type) && !type_is_owner(&params[j]->object.type);
+            if (flow_alias_is_restrict(params[i]) ||
+                    flow_alias_is_restrict(params[j]) ||
+                    both_owner ||
+                    both_const_views ||
+                    !flow_alias_same_pointee(params[i], params[j]))
+                continue;
+
+            struct diagnostic_queue alias_queue = { 0 };
+            diagnostic_queue_swap(&ctx->ctx->diagnostic_queue, &alias_queue);
+
+            ctx->p_alias_src = params[i];
+            ctx->p_alias_dest = params[j];
+            flow_analyze_declaration(ctx, p_declaration);
+            ctx->p_alias_src = NULL;
+            ctx->p_alias_dest = NULL;
+
+            diagnostic_queue_swap(&ctx->ctx->diagnostic_queue, &alias_queue);
+
+            const struct token* _Opt p_name_i = params[i]->name_opt;
+            const struct token* _Opt p_name_j = params[j]->name_opt;
+            const char* name_i = p_name_i ? p_name_i->lexeme : "";
+            const char* name_j = p_name_j ? p_name_j->lexeme : "";
+
+            if (!ctx->stopped)
+            {
+                for (const struct diagnostic_item* _Opt p = alias_queue.head; p; p = p->next)
+                {
+                    if (!flow_alias_item_is_compared(p) || flow_alias_item_is_in(p_normal, p->line, p->id))
+                        continue;
+
+                    bool line_reported = false;
+                    for (int k = 0; k < reports_count; k++)
+                        line_reported = line_reported || reports[k].line == p->line;
+
+                    if (!line_reported && reports_count < FLOW_ALIAS_MAX_REPORTS)
+                    {
+                        struct flow_alias_report* r = &reports[reports_count++];
+                        r->line = p->line;
+                        char problem[160] = { 0 };
+                        flow_alias_item_message(p, problem, sizeof problem);
+                        snprintf(r->message, sizeof r->message,
+                                 "in case '%s' and '%s' point to the same object: %s",
+                                 name_i, name_j, problem);
+                    }
+                }
+            }
+
+            diagnostic_queue_destroy(&alias_queue);
+        }
+    }
+
+    /* the //lint of W_FLOW_PARAM_MAY_ALIAS is checked here, phase 3 is not checked by the parser */
+    const struct token* _Opt p_last = p_declaration->function_body ? p_declaration->function_body->last_token : p_declaration->last_token;
+    for (const struct token* _Opt p_token = p_declaration->first_token; p_token; p_token = p_token->next)
+    {
+        if (p_token->flags & TK_FLAG_FINAL)
+        {
+            for (int k = 0; k < reports_count; k++)
+            {
+                if (reports[k].p_token == NULL && reports[k].line == p_token->line)
+                    reports[k].p_token = p_token;
+            }
+        }
+        else if (p_token->type == TK_LINE_COMMENT || p_token->type == TK_COMMENT)
+        {
+            int ids[32] = { 0 };
+            const int count = parse_diagnostic_suppression(p_token->lexeme, ids, sizeof ids / sizeof ids[0]);
+            for (int n = 0; n < count; n++)
+            {
+                if (ids[n] != W_FLOW_PARAM_MAY_ALIAS)
+                    continue;
+                bool found = false;
+                for (int k = 0; k < reports_count; k++)
+                {
+                    if (reports[k].line == p_token->line && reports[k].line != 0)
+                    {
+                        reports[k].line = 0; /* suppressed */
+                        found = true;
+                    }
+                }
+                if (!found && diagnostic_can_happen(&ctx->ctx->options, (enum diagnostic_id)ids[n]))
+                {
+                    diagnostic(W_WARNING_DID_NOT_HAPPEN, ctx->ctx, p_token, NULL,
+                               "lint %d expects warning %d on this line, but it is not reported here",
+                               ids[n], ids[n]);
+                }
+            }
+        }
+        if (p_token == p_last)
+            break;
+    }
+
+    for (int k = 0; k < reports_count; k++)
+    {
+        if (reports[k].line != 0 && reports[k].p_token != NULL)
+            diagnostic(W_FLOW_PARAM_MAY_ALIAS, ctx->ctx, reports[k].p_token, NULL, "%s", reports[k].message);
+    }
+}
+
+void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
+{
+    flow_analyze_declaration(ctx, p_declaration);
+
+    if (p_declaration->function_body == NULL || ctx->stopped)
+        return;
+
+    /* the queue still has the normal pass diagnostics: a //lint may remove any item, so it is not split by a saved tail */
+    flow_check_parameter_aliasing(ctx, p_declaration, ctx->ctx->diagnostic_queue.head);
 }
 
 void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)

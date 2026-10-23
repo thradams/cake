@@ -629,7 +629,7 @@ static struct osstream build_printf_format_text(const struct expression* p_fmt_e
     const struct object* _Opt it = p_fmt_expression->object.members.head;
     while (it != NULL)
     {
-        const unsigned char c = (unsigned char)((long long)it->value.host_wide_integer.lo);
+        const unsigned char c = (unsigned char)integer128_to_ll(it->value.host_integer128);
         if (c == '\0')
             break; // the appended terminator, not part of the format text
 
@@ -942,8 +942,8 @@ static const char* object_type_to_name(enum object_type t)
         case TYPE_UNSIGNED_LONG: return "unsigned long";
         case TYPE_SIGNED_LONG_LONG: return "long long";
         case TYPE_UNSIGNED_LONG_LONG: return "unsigned long long";
-        case TYPE_SIGNED_LONG_LONG_LONG: return "long long long";
-        case TYPE_UNSIGNED_LONG_LONG_LONG: return "unsigned long long long";
+        case TYPE_SIGNED_INT128: return "__int128";
+        case TYPE_UNSIGNED_INT128: return "unsigned __int128";
         case TYPE_FLOAT: return "float";
         case TYPE_DOUBLE: return "double";
         case TYPE_LONG_DOUBLE: return "long double";
@@ -2536,10 +2536,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     struct expression* _Owner _Opt p_expression_node = NULL;
 
     const unsigned long long
-        wchar_max_value = target_unsigned_max(&ctx->options.platform, ctx->options.platform.wchar_t_type);
+        wchar_max_value = integer128_to_ull(target_unsigned_max(&ctx->options.platform, ctx->options.platform.wchar_t_type));
 
     const unsigned long long
-        int_max_value = target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT);
+        int_max_value = integer128_to_ull(target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT));
 
     try
     {
@@ -2808,7 +2808,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 else
                 {
                     struct object obj = object_make_char(&ctx->options.platform, (int)c);
-                    value = ((long long)obj.value.host_wide_integer.lo);
+                    value = integer128_to_ll(obj.value.host_integer128);
                     object_destroy(&obj);
                 }
 
@@ -2850,22 +2850,22 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, const struct platform* target)
 {
     const unsigned long long unsigned_int_max_value =
-        target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_INT);
+        integer128_to_ull(target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_INT));
 
     const unsigned long long signed_int_max_value =
-        target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT);
+        integer128_to_ull(target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT));
 
     const unsigned long long signed_long_max_value =
-        target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG);
+        integer128_to_ull(target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG));
 
     const unsigned long long unsigned_long_max_value =
-        target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG);
+        integer128_to_ull(target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG));
 
     const unsigned long long signed_long_long_max_value =
-        target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG_LONG);
+        integer128_to_ull(target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG_LONG));
 
     const unsigned long long unsigned_long_long_max_value =
-        target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG_LONG);
+        integer128_to_ull(target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG_LONG));
 
     errno = 0;
 
@@ -2946,7 +2946,8 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             /* a _BitInt literal (wb, uwb) can be wider than an unsigned long long, it is checked below */
             const bool suffix_is_bitint = suffix[0] == 'W' || (suffix[0] == 'U' && suffix[1] == 'W');
 
-            if (value == unsigned_long_long_max_value && errno == ERANGE && !suffix_is_bitint)
+            /* the host strtoull stops at its own unsigned long long; the target one can be narrower */
+            if (((value == ULLONG_MAX && errno == ERANGE) || value > unsigned_long_long_max_value) && !suffix_is_bitint)
             {
                 diagnostic(
                 C_ERROR_LITERAL_OVERFLOW,
@@ -2958,7 +2959,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
             // This code follows the table in the standard.
 
-            const bool is_msvc = target->msvc_like_decimal_literal_type;
+            const bool is_msvc = target->dialect_msvc_like_decimal_literal_type;
 
             const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
             const bool suffix_none = (suffix[0] == '\0');
@@ -3009,14 +3010,14 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
 
                 bool too_wide = false;
-                const struct wide_integer wide_value = wide_integer_from_digits(digits, base, &too_wide);
+                const struct integer128 value128 = integer128_from_digits(digits, base, &too_wide);
 
                 int width = 0;
-                struct wide_integer v = wide_value;
-                while (!wide_integer_is_zero(v))
+                struct integer128 v = value128;
+                while (!integer128_is_zero(v))
                 {
                     width++;
-                    v = wide_integer_shr_u(v, 1);
+                    v = integer128_shr_u(v, 1);
                 }
 
                 const int maxwidth = target_bitint_maxwidth(&ctx->options.platform);
@@ -3062,9 +3063,9 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
 
                 /* the value fits in width bits (the sign bit is 0 for wb), unless it was reported above */
-                p_expression_node->object.value.host_wide_integer = suffix_uwb ?
-                    wide_integer_wrap_u(wide_value, width) :
-                    wide_integer_wrap_s(wide_value, width);
+                p_expression_node->object.value.host_integer128 = suffix_uwb ?
+                    integer128_wrap_u(value128, width) :
+                    integer128_wrap_s(value128, width);
                 p_expression_node->object.type.bitint_width = width;
             }
             else if (suffix_none)
@@ -3096,7 +3097,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
                 else
@@ -3107,7 +3108,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     NULL,
                                "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
 
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
                 }
             }
@@ -3125,7 +3126,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else // if (value <= unsigned_long_long_max_value)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
             }
@@ -3148,7 +3149,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
                 else
@@ -3159,7 +3160,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     NULL,
                                "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
 
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
                 }
             }
@@ -3172,7 +3173,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else // if (value <= unsigned_long_long_max_value)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
             }
@@ -3185,7 +3186,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
                 else
@@ -3196,7 +3197,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     NULL,
                                "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
 
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
                 }
             }
@@ -3204,7 +3205,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
                 // if (value <= unsigned_long_long_max_value && !is_decimal_constant)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
             }

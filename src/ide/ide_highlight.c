@@ -138,6 +138,7 @@ static int is_c_keyword1(const char* word, int len)
         if (len == 13 && word[1] == 'T' && memcmp(word, "_Thread_local", 13) == 0) return 1;
         if (len == 14 && word[1] == 'S' && memcmp(word, "_Static_assert", 14) == 0) return 1;
         if (len == 7 && memcmp(word, "_Assert", 7) == 0) return 1;
+        if (len == 8 && memcmp(word, "__int128", 8) == 0) return 1;   // GNU
     }
     return 0;
 }

@@ -385,7 +385,7 @@
 <a href="#toc_67">9.13 <code>constexpr</code></a>
 </li>
 <li>
-<a href="#toc_68">9.14 Improved and enhancements to Enumerations (Typed Enums)</a>
+<a href="#toc_68">9.14 Enumerations with Fixed Underlying Type and Improved Enumerations</a>
 </li>
 <li>
 <a href="#toc_69">9.15 Attributes (<code>[[...]]</code>)</a>
@@ -500,7 +500,7 @@
 <a href="#toc_104">11.10 Pre-defined Macros</a>
 </li>
 <li>
-<a href="#toc_105">11.11 <code>long long long</code></a>
+<a href="#toc_105">11.11 <code>__int128</code></a>
 </li>
 </ul>
 </li>
@@ -1992,7 +1992,11 @@ int main() {
 
 <p>Reference: <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm</a></p>
 
-<h3 id="toc_68">9.14 Improved and enhancements to Enumerations (Typed Enums)</h3>
+<h3 id="toc_68">9.14 Enumerations with Fixed Underlying Type and Improved Enumerations</h3>
+
+<p>An enum can give its underlying type after <code>:</code>. Its enumerators have the enum
+type, and each value must be representable in the underlying type, otherwise it
+is a constraint violation (C23 6.7.2.2):</p>
 
 <!-- runnable -->
 
@@ -2003,12 +2007,42 @@ int main() {
 }
 </code></pre>
 
-<p>Reference: 
+<!-- runnable -->
+
+<pre><code class="language-c">enum E : unsigned char {
+    A = 256  //error 860: enumerator value outside of underlying type range
+};
+</code></pre>
+
+<p>An enumerator without initializer is the previous one plus 1, computed in the
+underlying type, so going past the last value is an error. With <code>bool</code> only 0
+and 1 are values:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">enum E : bool {
+    A,
+    B,
+    C  //error 860: enumerator value outside of underlying type range
+};
+</code></pre>
+
+<p>The values are checked in the full width of the type, <code>__int128</code> included
+(11.11):</p>
+
+<pre><code class="language-c">enum E : __int128 {
+    A = 9223372036854775807LL,
+    B  /* 9223372036854775808, it fits __int128 */
+};
+</code></pre>
+
+<p>Reference:
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm</a></p>
 
-<p>Improved enumerations
-Reference: 
-<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm</a></p>
+<p>Without fixed underlying type, the enum takes the first of <code>unsigned int</code>,
+<code>int</code>, <code>unsigned long</code>, <code>long</code>, <code>unsigned long long</code>, <code>long long</code> where all the
+values fit. Like GCC and Clang it is never wider than 64 bits; a wider value
+is reported as an error (860) and the enum stays at 64 bits.</p>
 
 <!-- runnable -->
 
@@ -2020,6 +2054,9 @@ enum a {
 
 int main () {}
 </code></pre>
+
+<p>Reference:
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3029.htm</a></p>
 
 <h3 id="toc_69">9.15 Attributes (<code>[[...]]</code>)</h3>
 
@@ -2228,8 +2265,8 @@ int main() {
 <h3 id="toc_75">9.21 <code>_BitInt(N)</code> — Bit-Precise Integers</h3>
 
 <p>Supported for widths up to <code>BITINT_MAXWIDTH</code> (<code>__BITINT_MAXWIDTH__</code>): the
-width of <code>long long long</code> (11.11) when it is wider than 64 bits - 128 on the
-GCC and Clang 64-bit targets - and 64 on the others. Wider types are reported
+width of <code>__int128</code> (11.11) on the targets that have it - the GCC and Clang
+64-bit targets - and the width of <code>long long</code> on the others. Wider types are reported
 as an error.</p>
 
 <!-- runnable -->
@@ -2290,8 +2327,7 @@ _BitInt(12) b = x;            /* b = ((short)(((long long)((unsigned long long)(
 no mask, and a value that already has the target <code>_BitInt</code> type is not masked
 again.</p>
 
-<p>A <code>_BitInt(N)</code> wider than <code>long long</code> is lowered to <code>long long long</code>, written
-<code>__int128</code> in the output, and the mask is built from two halves since there
+<p>A <code>_BitInt(N)</code> wider than <code>long long</code> is lowered to <code>__int128</code>, and the mask is built from two halves since there
 are no 128-bit literals:</p>
 
 <pre><code class="language-c">unsigned _BitInt(100) a = x;  /* a = ((unsigned __int128)((unsigned __int128)(x) &amp; ((unsigned __int128)0xfffffffffULL &lt;&lt; 64 | 0xffffffffffffffffULL))); */
@@ -3316,31 +3352,27 @@ with <code>#include_next</code> (2.3).</p>
 #define __STDC_VERSION__  202311L
 </code></pre>
 
-<h3 id="toc_105">11.11 <code>long long long</code></h3>
+<h3 id="toc_105">11.11 <code>__int128</code></h3>
 
-<p><code>long long long</code> is the integer type one rank above <code>long long</code>, as if C had
-one more step in <code>char</code>, <code>short</code>, <code>int</code>, <code>long</code>, <code>long long</code>. Like the others it
-is never narrower than the step below, and the target gives its size: 128 bits
-on the GCC and Clang 64-bit targets (x86_64 and arm64 Linux, macOS), the size of
-<code>long long</code> on the others (MSVC, TCC, ARM32).</p>
+<p><code>__int128</code> and <code>unsigned __int128</code> are the 128-bit integer types of GCC and
+Clang. Like in GCC, they exist only on the targets with 128-bit integers - the
+GCC and Clang 64-bit targets (x86_64 and arm64 Linux, macOS) - where
+<code>__SIZEOF_INT128__</code> is defined. On the others (MSVC, TCC, ARM32) using them is
+an error, like in GCC on 32-bit targets and in MSVC:</p>
 
-<pre><code class="language-c">long long long a;
-unsigned long long long int b;
-static_assert(sizeof(long long long) &gt;= sizeof(long long));
-static_assert(_Generic((long long long)0, long long: 1, default: 2) == 2);
+<pre><code class="language-c">__int128 a;  //error 860: &#39;__int128&#39; is not supported on this target
 </code></pre>
 
-<p>It is a type of its own even when it has the size of <code>long long</code>, and its rank
-is above it, so <code>(long long long)1 + 1ULL</code> is <code>unsigned long long long</code> when
-both have the same size and <code>long long long</code> when it is wider.</p>
+<p>Their rank is above <code>long long</code>, so <code>1ULL + (__int128)0</code> is <code>__int128</code>, and
+<code>sizeof</code> and <code>alignof</code> are 16.</p>
 
-<p><code>__int128</code> is an alias of it, like <code>__int64</code> is of the 64-bit type on MSVC, and
-<code>__SIZEOF_INT128__</code> is defined only where it has 128 bits. In the output it is
-written <code>long long</code> when it has that size and <code>__int128</code> when it has 128 bits.</p>
+<pre><code class="language-c">static_assert(sizeof(__int128) == 16);
+static_assert(_Generic(1ULL + (__int128)0, __int128: 1, default: 0));
+</code></pre>
 
-<p>Constant expressions are folded in its full width (the values are held in two
-<code>unsigned long long</code> of the host, so it works when Cake itself is built with
-MSVC). A value that does not fit in a <code>long long</code> has no literal, and is
+<p>Constant expressions are folded in the full 128 bits (the values are held in
+two <code>unsigned long long</code> of the host, so it works when Cake itself is built
+with MSVC). A value that does not fit in a <code>long long</code> has no literal, and is
 written from its halves:</p>
 
 <pre><code class="language-c">unsigned __int128 big = (unsigned __int128)1 &lt;&lt; 100;  /* big = ((unsigned __int128)0x1000000000ULL &lt;&lt; 64 | 0x0ULL); */

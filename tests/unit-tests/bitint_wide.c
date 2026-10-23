@@ -1,37 +1,37 @@
 /*
  * C23 _BitInt(N) wider than 64 bits.
  *
- * __BITINT_MAXWIDTH__ is the width of long long long when it is wider than
- * 64 bits (128 on gcc/clang x64 and arm64), else 64. The wider _BitInt are
- * lowered to long long long (__int128) and their constants fold exactly.
+ * __BITINT_MAXWIDTH__ is the width of __int128 on the targets that have it
+ * (gcc/clang x64 and arm64), else the width of long long. The wider _BitInt
+ * are lowered to __int128 and their constants fold exactly.
  */
 
 static_assert(__BITINT_MAXWIDTH__ >= 64);
-static_assert(__BITINT_MAXWIDTH__ >= sizeof(long long long) * 8);
+static_assert(__BITINT_MAXWIDTH__ >= sizeof(long long) * 8);
 
 #if __BITINT_MAXWIDTH__ >= 128
 
 #pragma CAKE diagnostic ignored 51 /* unsigned wrap-around is what is tested */
 
-typedef unsigned long long long u128;
+typedef unsigned __int128 u128;
 
 /* 1. size and alignment of the lowered type */
-static_assert(sizeof(_BitInt(65)) == sizeof(long long long));
-static_assert(sizeof(unsigned _BitInt(100)) == sizeof(long long long));
-static_assert(sizeof(_BitInt(128)) == sizeof(long long long));
-static_assert(alignof(_BitInt(100)) == alignof(long long long));
+static_assert(sizeof(_BitInt(65)) == sizeof(__int128));
+static_assert(sizeof(unsigned _BitInt(100)) == sizeof(__int128));
+static_assert(sizeof(_BitInt(128)) == sizeof(__int128));
+static_assert(alignof(_BitInt(100)) == alignof(__int128));
 
 /* 2. the width is part of the type */
 static_assert(_Generic((_BitInt(100)) 0, _BitInt(100): 1, default: 2) == 1);
 static_assert(_Generic((_BitInt(100)) 0, _BitInt(101): 1, default: 2) == 2);
-static_assert(_Generic((_BitInt(128)) 0, long long long: 1, default: 2) == 2);
+static_assert(_Generic((_BitInt(128)) 0, __int128: 1, default: 2) == 2);
 
-/* 3. no promotion; rank between long long and long long long */
+/* 3. no promotion; rank between long long and __int128 */
 static_assert(_Generic((_BitInt(100)) 1 + (_BitInt(100)) 1, _BitInt(100): 1, default: 2) == 1);
 static_assert(_Generic((_BitInt(100)) 1 + 1LL, _BitInt(100): 1, default: 2) == 1);
 static_assert(_Generic((_BitInt(100)) 1 + 1ULL, _BitInt(100): 1, default: 2) == 1); /* holds every unsigned long long */
-static_assert(_Generic((_BitInt(100)) 1 + (long long long) 1, long long long: 1, default: 2) == 1);
-static_assert(_Generic((unsigned _BitInt(100)) 1 + (long long long) 1, long long long: 1, default: 2) == 1);
+static_assert(_Generic((_BitInt(100)) 1 + (__int128) 1, __int128: 1, default: 2) == 1);
+static_assert(_Generic((unsigned _BitInt(100)) 1 + (__int128) 1, __int128: 1, default: 2) == 1);
 
 /* 4. conversions wrap at N bits */
 static_assert((unsigned _BitInt(100)) -1 == ((u128)1 << 100) - 1);

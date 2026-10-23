@@ -29,6 +29,32 @@
 */
 #define CAKE_PREFIX_LABEL "__L"
 
+void codegen_error(struct codegen_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...)
+{
+    ctx->error = true;
+    if (ctx->p_report == NULL)
+        return;
+
+    char buffer[200] = { 0 };
+    va_list args = { 0 };
+    va_start(args, fmt);
+    vsnprintf(buffer, sizeof buffer, fmt, args);
+    va_end(args);
+
+    const char* file = (p_token && p_token->token_origin) ? p_token->token_origin->lexeme : "";
+    pos_diagnostic(C_ERROR_CODEGEN_UNSUPPORTED, &ctx->options, ctx->p_report,
+                   file, p_token ? p_token->line : 0, p_token ? p_token->col : 0, "%s", buffer);
+}
+
+static bool codegen_require_int128(struct codegen_ctx* ctx, const struct token* _Opt p_token, const char* what)
+{
+    if (ctx->options.platform.int128_n_bits >= 128)
+        return true;
+
+    codegen_error(ctx, p_token, "%s needs a 128-bit integer, not available on this target", what);
+    return false;
+}
+
 static void emit_line_directive(const struct codegen_ctx* ctx,
                                 struct osstream* oss,
                                 const struct token* _Opt tk)
@@ -660,30 +686,6 @@ static const char* _Opt codegen_unsigned_type_of_size(const struct codegen_ctx* 
     if ((size_t)p->int_n_bits / 8 == size) return "unsigned int";
     if ((size_t)p->long_long_n_bits / 8 == size) return "unsigned long long";
     return NULL;
-}
-
-/*
-  long long long is a cake extension. It is emitted as the target type that
-  has its size: long long when both have the same width, otherwise __int128.
-*/
-static void codegen_print_type_specifier_flags(const struct codegen_ctx* ctx,
-                                               struct osstream* ss,
-                                               bool* first,
-                                               enum type_specifier_flags flags)
-{
-    if (flags & TYPE_SPECIFIER_LONG_LONG_LONG)
-    {
-        const struct platform* p = &ctx->options.platform;
-        flags &= ~(TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT);
-        if (p->long_long_long_n_bits != p->long_long_n_bits)
-        {
-            print_type_specifier_flags(ss, first, flags, 0);
-            print_item(ss, first, "__int128");
-            return;
-        }
-        flags |= TYPE_SPECIFIER_LONG_LONG;
-    }
-    print_type_specifier_flags(ss, first, flags, 0);
 }
 
 static size_t codegen_bitfield_tile_size(const struct codegen_ctx* ctx, size_t pos, size_t end, size_t cap)
@@ -1521,7 +1523,7 @@ static bool codegen_emit_bitfield_init_statement(struct codegen_ctx* ctx,
     ss_fprintf(&lvalue, "%s", prefix);
     codegen_print_designator(&lvalue, p_object, NULL);
 
-    struct object zero = object_make_unsigned_long_long(0);
+    struct object zero = object_make_unsigned_long_long(&ctx->options.platform, 0);
     if (p_init)
         codegen_visit_expression(ctx, &value, p_init);
     else
@@ -2124,15 +2126,17 @@ static void codegen_emit_wrap_text(const struct codegen_ctx* ctx,
     const char* const u_type = use_int ? "unsigned" : use_wide ? "unsigned __int128" : "unsigned long long";
     const char* const s_type = use_int ? "int" : use_wide ? "__int128" : "long long";
 
-    char mask_text[100] = { 0 };
-    char sign_text[100] = { 0 };
+    char mask_text[INTEGER128_TO_C_TEXT_MIN_SIZE] = { 0 };
+    char sign_text[INTEGER128_TO_C_TEXT_MIN_SIZE + 16] = { 0 };
     if (use_wide)
     {
-        const struct wide_integer mask = wide_integer_wrap_u(wide_integer_from_signed(-1), width);
-        const struct wide_integer sign = wide_integer_shl(wide_integer_from_unsigned(1), width - 1);
-        snprintf(mask_text, sizeof mask_text, "((unsigned __int128)0x%llxULL << %d | 0x%llxULL)", mask.hi, WIDE_INTEGER_HALF_BITS, mask.lo);
+        const struct integer128 mask = integer128_wrap_u(integer128_from_signed(-1), width);
+        const struct integer128 sign = integer128_shl(integer128_from_unsigned(1), width - 1);
+        integer128_to_c_text(mask, mask_text, sizeof mask_text);
         /* 2^(N - 1) with N below 128 is a positive __int128 */
-        snprintf(sign_text, sizeof sign_text, "((__int128)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", sign.hi, WIDE_INTEGER_HALF_BITS, sign.lo);
+        char sign_value_text[INTEGER128_TO_C_TEXT_MIN_SIZE] = { 0 };
+        integer128_to_c_text(sign, sign_value_text, sizeof sign_value_text);
+        snprintf(sign_text, sizeof sign_text, "((__int128)%s)", sign_value_text);
     }
     else
     {
@@ -2169,6 +2173,12 @@ static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
                                           const char* text,
                                           bool source_is_floating)
 {
+    if (p_type->bitint_width > ctx->options.platform.long_long_n_bits &&
+        !codegen_require_int128(ctx, NULL, "_BitInt arithmetic"))
+    {
+        return;
+    }
+
     struct osstream lowered = { 0 };
     d_print_type(ctx, &lowered, p_type, NULL, false, false);
     if (lowered.c_str != NULL)
@@ -2201,7 +2211,7 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
     {
         /* the 128-bit value, wrapped by the cast; written from its halves when it has no literal */
         struct object wrapped = object_cast(&ctx->options.platform, type_to_object_type(p_type, &ctx->options.platform), p_source);
-        const struct wide_integer v = wrapped.value.host_wide_integer;
+        const struct integer128 v = wrapped.value.host_integer128;
         object_destroy(&wrapped);
 
         struct osstream lowered = { 0 };
@@ -2209,15 +2219,24 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
 
         const bool is_unsigned = (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED) != 0;
         const bool fits = is_unsigned ?
-            v.hi == 0 :
-            wide_integer_equal(v, wide_integer_from_signed((long long)v.lo)) && (long long)v.lo != LLONG_MIN;
+            integer128_fits_ull(v) :
+            integer128_fits_ll(v) && integer128_to_ll(v) != LLONG_MIN;
 
         if (fits && is_unsigned)
-            ss_fprintf(oss, "((%s)%lluULL)", lowered.c_str, v.lo);
+            ss_fprintf(oss, "((%s)%lluULL)", lowered.c_str, integer128_to_ull(v));
         else if (fits)
-            ss_fprintf(oss, "((%s)%lldLL)", lowered.c_str, (long long)v.lo);
+            ss_fprintf(oss, "((%s)%lldLL)", lowered.c_str, integer128_to_ll(v));
         else
-            ss_fprintf(oss, "((%s)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", lowered.c_str, v.hi, WIDE_INTEGER_HALF_BITS, v.lo);
+        {
+            char text[INTEGER128_TO_C_TEXT_MIN_SIZE] = { 0 };
+            if (!codegen_require_int128(ctx, NULL, "a 128-bit constant"))
+            {
+                ss_close(&lowered);
+                return true;
+            }
+            integer128_to_c_text(v, text, sizeof text);
+            ss_fprintf(oss, "((%s)%s)", lowered.c_str, text);
+        }
 
         ss_close(&lowered);
         return true;
@@ -2233,13 +2252,13 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
         struct object wrapped = object_make_unsigned_bitint(width, bits);
-        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, wrapped.value.host_wide_integer.lo);
+        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, integer128_to_ull(wrapped.value.host_integer128));
         object_destroy(&wrapped);
     }
     else
     {
         struct object wrapped = object_make_signed_bitint(width, (long long)bits);
-        const long long value = ((long long)wrapped.value.host_wide_integer.lo);
+        const long long value = integer128_to_ll(wrapped.value.host_integer128);
         object_destroy(&wrapped);
         if (value == LLONG_MIN)
             ss_fprintf(oss, "((%s)(-%lld - 1))", lowered.c_str, LLONG_MAX);
@@ -6350,7 +6369,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                 enum type_specifier_flags enum_type_specifier_flags =
                     get_enum_type_specifier_flags(p_type->enum_specifier);
 
-                codegen_print_type_specifier_flags(ctx, &local, &first, enum_type_specifier_flags);
+                print_type_specifier_flags(&local, &first, enum_type_specifier_flags, 0);
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
@@ -6376,14 +6395,14 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                       type_get_sizeof/type_get_alignof report.
                     */
                     const bool is_unsigned = p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED;
-                    codegen_print_type_specifier_flags(ctx,
-                                                       &local,
-                                                       &first,
-                                                       bitint_lowered_type_specifier_flags(p_type->bitint_width, is_unsigned, &ctx->options.platform));
+                    print_type_specifier_flags(&local,
+                                               &first,
+                                               bitint_lowered_type_specifier_flags(p_type->bitint_width, is_unsigned, &ctx->options.platform),
+                                               0);
                 }
                 else
                 {
-                    codegen_print_type_specifier_flags(ctx, &local, &first, p_type->type_specifier_flags);
+                    print_type_specifier_flags(&local, &first, p_type->type_specifier_flags, 0);
                 }
             }
 
@@ -6892,7 +6911,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
 {
     if (object_is_reference(object))
     {
-        object = object_get_referenced(object); //lint 15
+        object = (struct object*)object_get_referenced(object);
     }
 
     if (object->p_init_expression &&
@@ -7016,7 +7035,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
     {
         if (object_is_reference(object))
         {
-            object = object_get_referenced(object); //lint 15
+            object = (struct object*)object_get_referenced(object);
         }
 
         if (object->members.head != NULL)

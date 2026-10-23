@@ -87,8 +87,8 @@ enum type_specifier_flags
     /* C23 _BitInt(N). The width N lives in type::bitint_width */
     TYPE_SPECIFIER_BITINT = 1 << 18,
 
-    /* long long long, the rank above long long (cake extension, __int128 is an alias) */
-    TYPE_SPECIFIER_LONG_LONG_LONG = 1 << 19,
+    /* __int128, the rank above long long */
+    TYPE_SPECIFIER_INT128 = 1 << 19,
 
 
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,

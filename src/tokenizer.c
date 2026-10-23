@@ -3495,6 +3495,10 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
                                            struct token_list* output_list,
                                            struct token_list* input_list)
 {
+if (output_list == input_list)
+{
+  return 0;
+}
     assert(input_list->head != NULL);
 
     struct token* first = input_list->head; //lint 35 assert line 3493
@@ -7306,7 +7310,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
              "#define __CAKE_SIZEOF_INT__ %d\n"
              "#define __CAKE_SIZEOF_LONG__ %d\n"
              "#define __CAKE_SIZEOF_LONG_LONG__ %d\n"
-             "#define __CAKE_SIZEOF_LONG_LONG_LONG__ %d\n"
+             "#define __CAKE_SIZEOF_INT128__ %d\n"
              "#define __CAKE_SIZEOF_POINTER__ %d\n"
              "#define __CAKE_SIZEOF_LONG_DOUBLE__ %d\n"
              "#define __CAKE_SIZEOF_WCHAR_T__ %d\n"
@@ -7318,7 +7322,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
              p_platform->int_n_bits / 8,
              p_platform->long_n_bits / 8,
              p_platform->long_long_n_bits / 8,
-             p_platform->long_long_long_n_bits / 8,
+             p_platform->int128_n_bits / 8,
              p_platform->pointer_n_bits / 8,
              p_platform->long_double_n_bits / 8,
              target_get_num_of_bits(target, p_platform->wchar_t_type) / 8,
@@ -8485,6 +8489,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
 
     struct token_list r = preprocessor(&ctx, &list, 0);
     const char* _Owner _Opt s = r.head ? print_preprocessed_to_string(r.head) : NULL;
@@ -8540,6 +8545,7 @@ bool test_preprocessor_in_out_match(const char* input, const char* output)
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
     ctx.options.color_disabled = true;
 
     struct token_list r = preprocessor(&ctx, &list, 0);
@@ -9198,6 +9204,7 @@ int test_preprocessor_expression(const char* expr, long long expected)
 {
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
 
     struct token_list r = { 0 };
     struct tokenizer_ctx tctx = { 0 };
@@ -9449,6 +9456,7 @@ void test_counter()
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
     ctx.options.color_disabled = true;
     add_macro(&ctx, "__COUNTER__");
 
@@ -9660,6 +9668,7 @@ static int preprocessor_error_count(const char* input)
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
     ctx.options.color_disabled = true;
 
     struct token_list r = preprocessor(&ctx, &list, 0);

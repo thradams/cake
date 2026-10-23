@@ -53,6 +53,17 @@ struct flow_deferred_pointee_effect
     int argument_serial;
 };
 
+/* A pointee passed to a call that has a restrict parameter (see flow_check_restrict_arguments). */
+struct flow_restrict_argument
+{
+    const struct object* _Opt pointee;
+    int argument_serial;
+    bool is_restrict; /* the parameter receiving it is restrict */
+    const struct expression* _Opt p_argument;
+};
+
+#define FLOW_MAX_RESTRICT_ARGUMENTS 64
+
 /* Entries in flow_ctx.p_reported_findings. */
 #define FLOW_MAX_REPORTED_FINDINGS 256
 
@@ -151,6 +162,11 @@ struct flow_ctx
     bool collect_deferred_effects;
     int argument_serial; /* the argument being checked, see flow_deferred_pointee_effect */
 
+    /* the call whose arguments are checked has a restrict parameter: its arguments' pointees are recorded */
+    bool call_has_restrict;
+    struct flow_restrict_argument restrict_arguments[FLOW_MAX_RESTRICT_ARGUMENTS];
+    int restrict_arguments_count;
+
     struct flow_allocated_object_arena allocated_object_arena;
     struct flow_branch_arena flow_branch_arena;
     struct flow_branch* _Opt p_current_flow_branch;
@@ -195,6 +211,10 @@ struct flow_ctx
      */
     const struct expression* _Opt p_subscript_being_written;
     int pending_ended_report_line;
+
+    /* aliasing pass: parameter p_alias_dest starts with the value of p_alias_src (see flow_check_parameter_aliasing) */
+    const struct declarator* _Opt p_alias_src;
+    const struct declarator* _Opt p_alias_dest;
 };
 
 void flow_visit_ctx_destroy(_Dtor struct flow_ctx* p);

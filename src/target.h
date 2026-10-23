@@ -1,5 +1,6 @@
 #pragma once
 #include <stdbool.h>
+#include "integer128.h"
 
 
 enum object_type
@@ -19,8 +20,8 @@ enum object_type
     TYPE_SIGNED_LONG_LONG,
     TYPE_UNSIGNED_LONG_LONG,
 
-    TYPE_SIGNED_LONG_LONG_LONG,
-    TYPE_UNSIGNED_LONG_LONG_LONG,
+    TYPE_SIGNED_INT128,
+    TYPE_UNSIGNED_INT128,
 
     TYPE_FLOAT,
     TYPE_DOUBLE,
@@ -62,29 +63,29 @@ struct platform
     const char* _Opt arch;
 
     const char* _Opt predefined_macros;
-    const char* _Opt builtins;
+    const char* _Opt dialect_builtins;
 
     /* code gen flags; false is the GCC behavior */
     const char* _Opt code_thread_local_spelling;
     const char* _Opt code_alignas_spelling_fmt;  /* must have one %d */
     const char* _Opt code_alloca_spelling;
-    bool code_msvc_like_atomics;               /* atomics use _Interlocked* */
-    bool code_tcc_like_atomics;                /* atomics use tcc's lock; neither = __atomic_* */
-    bool code_msvc_like_no_member_packed;      /* no __attribute__((packed)) on a member */
-    bool code_tcc_like_no_builtin_inf;         /* no __builtin_inf / __builtin_fabs */
-    bool code_tcc_like_alloca_declaration;     /* alloca needs a prototype */
+    bool code_msvc_like_atomics;                    /* atomics use _Interlocked* */
+    bool code_tcc_like_atomics;                     /* atomics use tcc's lock; neither = __atomic_* */
+    bool code_msvc_like_no_member_packed;           /* no __attribute__((packed)) on a member */
+    bool code_tcc_like_no_builtin_inf;              /* no __builtin_inf / __builtin_fabs */
+    bool code_tcc_like_alloca_declaration;          /* alloca needs a prototype */
 
     /*
       Behaviors of a compiler that differ from C/GCC; false is the C/GCC behavior.
       Named by the compiler that has it, but any target can imitate it.
     */
-    bool msvc_like_bitfield_layout;       /* bit-field units and unnamed bit-field alignment as MSVC */
-    bool msvc_like_object_size_limit;     /* one object cannot exceed 0x7FFFFFFF bytes */
-    bool msvc_like_decimal_literal_type;  /* unsuffixed decimal literal can be unsigned long (C90) */
-    bool msvc_like_keywords;              /* __ptr32, __ptr64 ... */
-    bool msvc_like_asm_statement;         /* __asm { ... } instead of asm("...") */
-    bool gcc_like_asm_label;              /* int x __asm("name"); */
-    bool tcc_like_static_redeclaration;   /* block scope static after a non-static declaration */
+    bool msvc_like_bitfield_layout;                 /* bit-field units and unnamed bit-field alignment as MSVC */
+    bool msvc_like_object_size_limit;               /* one object cannot exceed 0x7FFFFFFF bytes */
+    bool dialect_msvc_like_decimal_literal_type;    /* unsuffixed decimal literal can be unsigned long (C90) */
+    bool dialect_msvc_like_keywords;                /* __ptr32, __ptr64 ... */
+    bool dialect_msvc_like_asm_statement;           /* __asm { ... } instead of asm("...") */
+    bool dialect_gcc_like_asm_label;                /* int x __asm("name"); */
+    bool dialect_tcc_like_static_redeclaration;     /* block scope static after a non-static declaration */
 
     int bool_n_bits;
     int bool_alignment;
@@ -107,8 +108,8 @@ struct platform
     int long_long_alignment;
 
     /* the rank above long long, never narrower than it; 128 bits is spelled __int128 */
-    int long_long_long_n_bits;
-    int long_long_long_alignment;
+    int int128_n_bits;
+    int int128_alignment;
 
     int float_n_bits;
     int float_alignment;
@@ -137,6 +138,8 @@ struct platform
 /* fills *p_platform with the platform named targetstr ("default" is the host) */
 int parse_target(const char* targetstr, struct platform* p_platform);
 void print_target_options();
+/* the i-th name parse_target accepts, NULL past the last */
+const char* _Opt target_name(int i);
 void platform_default(_Out struct platform* p);
 
 bool platform_os_is(const struct platform* p_platform, const char* os);
@@ -144,8 +147,9 @@ bool platform_arch_is(const struct platform* p_platform, const char* arch);
 
 unsigned int target_get_num_of_bits(const struct platform* target, enum object_type type);
 
-/* the widest _BitInt(N): long long long when it is wider than 64 bits, else 64 */
+/* the widest _BitInt(N): __int128 when the target has it, else long long */
 int target_bitint_maxwidth(const struct platform* target);
-long long target_signed_max(const struct platform* target, enum object_type type);
-long long target_signed_min(const struct platform* target, enum object_type type);
-unsigned long long target_unsigned_max(const struct platform* target, enum object_type type);
+/* the limits of the integer type, up to 128 bits; signed ones are sign-extended */
+struct integer128 target_signed_max(const struct platform* target, enum object_type type);
+struct integer128 target_signed_min(const struct platform* target, enum object_type type);
+struct integer128 target_unsigned_max(const struct platform* target, enum object_type type);

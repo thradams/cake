@@ -125,6 +125,7 @@ void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _O
 void diagnostic_queue_flush(struct diagnostic_queue* q, struct parser_ctx* ctx);
 bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id);
 void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
+void diagnostic_queue_swap(struct diagnostic_queue* a, struct diagnostic_queue* b);
 
 
 int parse_diagnostic_suppression(const char* p, int ids[], int ids_max);
@@ -1913,7 +1914,7 @@ struct enumerator
     struct object value;
 };
 
-struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct enum_specifier* _Opt prev_decl_same_scope, struct object* p_enumerator_value, long long lo_limit, unsigned long long hi_limit, long long *min_value, unsigned long long *max_value, bool* next_ovf);
+struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct enum_specifier* _Opt prev_decl_same_scope, struct object* p_enumerator_value, struct integer128* min_value, struct integer128* max_value, bool* next_ovf);
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p);
 void enumerator_delete(_Dtor struct enumerator* _Owner _Opt  p);
 
@@ -1947,7 +1948,7 @@ struct balanced_token_sequence
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx);
 void balanced_token_sequence_delete(_Dtor struct balanced_token_sequence* _Owner _Opt  p);
 
-bool first_of_type_name(struct parser_ctx* ctx);
+bool first_of_type_name(const struct parser_ctx* ctx);
 bool first_of_type_name_ahead(const struct parser_ctx* ctx);
 bool first_of_type_name_token(const struct parser_ctx* ctx /*only to typedef*/, struct token* p_token);
 

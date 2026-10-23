@@ -138,7 +138,7 @@ static struct object char_constant_to_value(const char* s, char error_message[ /
 
     const unsigned char* _Opt p = (const unsigned char*)s;
     const unsigned long long
-    wchar_max_value = target_unsigned_max(target, target->wchar_t_type);
+    wchar_max_value = integer128_to_ull(target_unsigned_max(target, target->wchar_t_type));
 
     try
     {

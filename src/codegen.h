@@ -118,7 +118,13 @@ struct codegen_ctx
     struct ast* p_ast;
     
     bool error;
+
+    /* where codegen_error reports; NULL keeps only the ctx->error flag */
+    struct report* _Opt p_report;
 };
+
+/* Reports a construct the target cannot express and sets ctx->error. */
+void codegen_error(struct codegen_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...);
 
 /* Returns 0 on success, non-zero if code generation failed (ctx->error). */
 int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);

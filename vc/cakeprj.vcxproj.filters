@@ -46,7 +46,7 @@
     <ClCompile Include="..\src\type.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\wide_integer.c">
+    <ClCompile Include="..\src\integer128.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\object.c">
@@ -120,7 +120,7 @@
     <ClInclude Include="..\src\version.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\wide_integer.h">
+    <ClInclude Include="..\src\integer128.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\object.h">

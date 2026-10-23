@@ -1,6 +1,6 @@
 /*
    _BitInt(N) wider than 64 bits in the generated code: it is lowered to
-   long long long (__int128), and every result is wrapped to N bits with
+   __int128, and every result is wrapped to N bits with
    masks built from two halves, since there are no 128-bit literals.
 */
 #include <stdio.h>
@@ -52,7 +52,7 @@ int main(void)
     CHECK(big == 0);
 
     /* conversions from wider and narrower types */
-    unsigned long long long wide = (unsigned long long long)-1;
+    unsigned __int128 wide = (unsigned __int128)-1;
     unsigned _BitInt(65) narrow = (unsigned _BitInt(65))wide;
     CHECK((unsigned long long)(narrow >> 64) == 1);
     CHECK((unsigned long long)narrow == 0xFFFFFFFFFFFFFFFFULL);

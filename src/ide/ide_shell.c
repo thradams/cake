@@ -92,6 +92,7 @@ enum ide_event
     EV_PROJ_RENAME_OK, EV_PROJ_RENAME_CANCEL,
     EV_FR_DBLCLICK, EV_FR_CLEAR,
     EV_NEWFILE_OVERWRITE, EV_SAVEAS_OVERWRITE, EV_OPEN_LINK,
+    EV_RECENT_LIST, EV_RECENT_OK, EV_RECENT_CANCEL, EV_RECENT_PLAYGROUND,
     EV_EDITOR_MENU, EV_TOGGLE_READONLY, EV_TOGGLE_DETACH,
 
     EV_FR_TAB_FIND, EV_FR_TAB_REPLACE, EV_FR_FIND, EV_FR_REPLACE,
@@ -472,6 +473,13 @@ struct search_state
     int selected_only;     /* scope: the text selected when the dialog was used */
     int from_start;        /* origin: the whole scope rather than from the caret */
     int scope_lo, scope_hi;
+};
+
+struct recent_dialog
+{
+    struct gui_node* window;
+    struct gui_node* list;
+    int pending;   /* shown on the first tick, once the main window has its size */
 };
 
 struct rename_dialog
@@ -866,6 +874,7 @@ struct ide
     struct search_state search;
     struct gui_node* editor_menu;
     struct gui_node* folder_menu;
+    struct recent_dialog recent;
     struct rename_dialog rename;
     struct project_rename_dialog project_rename;
     struct edit_string_dialog estr;
@@ -1647,6 +1656,7 @@ static void build_panels(struct ide* ide)
 }
 
 static void build_open(struct ide* ide);
+static void build_recent(struct ide* ide);
 static void build_rename(struct ide* ide);
 static void build_project_rename(struct ide* ide);
 static void build_edit_string(struct ide* ide);
@@ -1747,6 +1757,7 @@ static void build_dialogs(struct ide* ide)
     build_newfile(ide);
     build_wrap(ide);
     build_find(ide);
+    build_recent(ide);
     build_rename(ide);
     build_project_rename(ide);
     build_edit_string(ide);
@@ -2773,6 +2784,58 @@ static void show_folder_of(struct ide* ide, const char* path)
     show_side_panel(ide, ide->folder.window);
 }
 
+/* --- Get Started: 82 x 20, shown at start - Visual Studio's start window --- */
+
+static void build_recent(struct ide* ide)
+{
+    struct recent_dialog* r = &ide->recent;
+    r->window = new_dialog(ide, "Get Started");
+    add_label(ide, r->window, 2, 1, "Open recent");
+    r->list = add_at(ide, r->window, GUI_LISTBOX, 2, 2, 60, 15, NULL);
+    gui_set_id(r->list, EV_RECENT_LIST);
+    static const struct { int id; const char* label; } actions[] = {
+        { EV_RECENT_OK, "Open" },
+        { EV_PROJECT_NEW, "New Project..." },
+        { EV_PROJECT_OPEN, "Open Project..." },
+        { EV_OPEN_FOLDER, "Open Folder..." },
+        { EV_GIT_CLONE, "Git Clone..." },
+        { EV_RECENT_PLAYGROUND, "Playground" },
+    };
+    for (int i = 0; i < COUNT(actions); i++)
+        gui_set_id(add_at(ide, r->window, GUI_BUTTON, 63, 2 + 2 * i, 16, 1, actions[i].label), actions[i].id);
+    gui_set_id(add_at(ide, r->window, GUI_BUTTON, 63, 16, 16, 1, "Close"), EV_RECENT_CANCEL);
+}
+
+/* Rows "name.cakeproj  (full path)", newest first; nothing when there are none. */
+static void show_recent(struct ide* ide)
+{
+    struct recent_dialog* r = &ide->recent;
+    gui_clear_children(r->list);
+    for (int i = 0; i < ide->recent_projects.count; i++)
+    {
+        const char* p = ide->recent_projects.items[i];
+        char label[1400] = { 0 };
+        snprintf(label, sizeof label, "%s  (%s)", file_name(p), p);
+        gui_append(r->list, create(ide, GUI_ITEM, label));
+    }
+    if (ide->recent_projects.count > 0)
+        gui_set_selected(r->list, 0);
+    show_dialog(ide, r->window, 82, 20, r->list);
+}
+
+static void project_open(struct ide* ide, const char* path);
+
+static void recent_pick(struct ide* ide)
+{
+    int row = gui_get_selected(ide->recent.list);
+    if (row < 0 || row >= ide->recent_projects.count)
+        return;
+    char path[1024] = { 0 };
+    snprintf(path, sizeof path, "%s", ide->recent_projects.items[row]);   /* project_open may drop it */
+    gui_window_close(ide->app, ide->recent.window);
+    project_open(ide, path);
+}
+
 /* --- Rename: 50 x 8 --- */
 
 static void build_rename(struct ide* ide)
@@ -3350,7 +3413,7 @@ static void build_compiler_options(struct ide* ide)
     int first = gui_child_count(c->window);
     /* the Compiler page */
     struct gui_node* cake_target_label = add_label(ide, c->window, 18, 4, "Target");
-    c->cake_target = add_at(ide, c->window, GUI_INPUT, 30, 4, 28, 1, NULL);
+    c->cake_target = add_at(ide, c->window, GUI_SELECT, 30, 4, 28, 1, NULL);   /* filled by copts_fill_targets */
     stretch_right(c->cake_target, 30, 4, 3, 1);
     gui_set_after_label(c->cake_target, cake_target_label);
     struct gui_node* style_label = add_label(ide, c->window, 18, 6, "Style");
@@ -3497,6 +3560,27 @@ static void copts_select_page(struct copts_dialog* c, int page)
 }
 
 /* The dialog shows the options of the selected configuration; each keeps its own. */
+/* The target combo's rows: empty (cake's own default), every target cake knows, and `current` when it is none of them. */
+static void copts_fill_targets(struct ide* ide, const char* current)
+{
+    struct copts_dialog* c = &ide->copts;
+    gui_clear_children(c->cake_target);
+    gui_append(c->cake_target, create(ide, GUI_ITEM, ""));
+    int selected = 0;
+    for (int i = 0; target_name(i); i++)
+    {
+        gui_append(c->cake_target, create(ide, GUI_ITEM, target_name(i)));
+        if (strcmp(current, target_name(i)) == 0)
+            selected = i + 1;
+    }
+    if (current[0] && selected == 0)
+    {
+        selected = gui_child_count(c->cake_target);
+        gui_append(c->cake_target, create(ide, GUI_ITEM, current));
+    }
+    gui_set_selected(c->cake_target, selected);
+}
+
 static void copts_show(struct ide* ide)
 {
     struct copts_dialog* c = &ide->copts;
@@ -3504,7 +3588,7 @@ static void copts_show(struct ide* ide)
     int i = gui_get_selected(c->configs);
     c->shown = c->edit.count > 0 && i >= 0 && i < c->edit.count ? i : -1;
     const struct target_settings* s = c->shown >= 0 ? &c->edit.configurations[c->shown] : &none;
-    gui_set_value(c->cake_target, s->cake_target);
+    copts_fill_targets(ide, s->cake_target);
     gui_set_selected(c->headers, s->headers);
     gui_set_selected(c->style, s->style);
     gui_set_selected(c->diag, s->diag);
@@ -3527,7 +3611,8 @@ static void copts_store(struct ide* ide)
     if (c->shown < 0 || c->shown >= c->edit.count)
         return;
     struct target_settings* s = &c->edit.configurations[c->shown];
-    snprintf(s->cake_target, sizeof s->cake_target, "%s", gui_get_value(c->cake_target));
+    const struct gui_node* target = gui_child_at(c->cake_target, gui_get_selected(c->cake_target));
+    snprintf(s->cake_target, sizeof s->cake_target, "%s", target ? gui_get_label(target) : "");
     s->headers = gui_get_selected(c->headers);
     s->style = gui_get_selected(c->style);
     s->diag = gui_get_selected(c->diag);
@@ -9261,6 +9346,9 @@ static void project_open(struct ide* ide, const char* path)
         return;
     }
     recent_project_add(ide, ide->project.file_path);
+    snprintf(ide->folder.dir, sizeof ide->folder.dir, "%s", ide->project.dir);   /* the Folder panel - and Git - follow the project */
+    folder_refresh(ide);
+    ide->git.root[0] = '\0';   /* found again from the new folder on the next Git refresh */
     project_refresh(ide, 0);
     project_show_panel(ide);
 }
@@ -9761,7 +9849,6 @@ static void session_save(struct ide* ide)
         return;
     root->type = JSON_OBJECT;
     json_set_string(root, "folder_dir", ide->folder.dir);
-    json_set_string(root, "project_path", ide->project.file_path);
     json_set_string(root, "configuration", ide->active_config);
     struct json_value* recent = json_set_array(root, "recent_projects");
     for (int i = 0; i < ide->recent_projects.count; i++)
@@ -9808,7 +9895,7 @@ static void load_dock(const struct json_value* root, const char* key, struct gui
 }
 
 /* 1 when it reopened a document - else the Playground opens. */
-static int session_load(struct ide* ide)
+static int session_load(struct ide* ide, int restore)
 {
     char path[1400] = { 0 };
     session_path(path, sizeof path);
@@ -9838,8 +9925,6 @@ static int session_load(struct ide* ide)
     side_capture(ide);   /* the Folder panel, where the session put it */
     const struct json_value* side_dock = json_find_member(root, "folder_dock");
     int active = get_int(side_dock, "active", 0);
-    char project[1024] = "";
-    get_string(root, "project_path", project, sizeof project);
     get_string(root, "configuration", ide->active_config, sizeof ide->active_config);
     const struct json_value* recent = json_find_member(root, "recent_projects");
     size_t recent_n = recent && recent->type == JSON_ARRAY ? json_count(recent) : 0;
@@ -9849,8 +9934,11 @@ static int session_load(struct ide* ide)
         if (r && r->type == JSON_STRING && r->string)
             ide_strings_add(&ide->recent_projects, r->string);
     }
-    if (project[0] && ide_file_exists(project))
-        project_open(ide, project);
+    if (!restore)
+    {
+        json_delete(root);
+        return 0;
+    }
     if (active == 2 || (active == 0 && is_open(ide, ide->project_window)))
     {
         if (active == 2)
@@ -11362,6 +11450,13 @@ static void on_event(void* ctx, int id)
         return;
     }
 
+    /* Get Started's actions: it closes, the command runs as from the menu */
+    if ((id == EV_PROJECT_NEW || id == EV_PROJECT_OPEN || id == EV_OPEN_FOLDER || id == EV_GIT_CLONE) &&
+        is_open(ide, ide->recent.window))
+    {
+        gui_window_close(ide->app, ide->recent.window);
+    }
+
     switch (id)
     {
     case EV_NEW_FILE:
@@ -11410,6 +11505,13 @@ static void on_event(void* ctx, int id)
     }
     case EV_RENAME_OK: rename_run(ide); break;
     case EV_RENAME_CANCEL: gui_window_close(ide->app, ide->rename.window); break;
+    case EV_RECENT_LIST:
+    case EV_RECENT_OK: recent_pick(ide); break;
+    case EV_RECENT_CANCEL: gui_window_close(ide->app, ide->recent.window); break;
+    case EV_RECENT_PLAYGROUND:
+        gui_window_close(ide->app, ide->recent.window);
+        open_playground(ide);
+        break;
     case EV_EDIT_STRING: if (ed) edit_string_open(ide, ed); break;
     case EV_ESTR_OK: edit_string_accept(ide); break;
     case EV_ESTR_CANCEL: gui_window_close(ide->app, ide->estr.window); break;
@@ -11508,6 +11610,13 @@ static void on_event(void* ctx, int id)
     case EV_BUILD: build_then(ide, 0, 0, 0); break;
     case EV_REBUILD: build_then(ide, 1, 0, 0); break;
     case EV_TICK:
+        if (ide->recent.pending)
+        {
+            ide->recent.pending = 0;
+            while (gui_window_count(ide->app) > 0)
+                gui_window_close(ide->app, gui_window_at(ide->app, 0));   /* only Get Started on screen */
+            show_recent(ide);
+        }
         if (is_open(ide, ide->git.diff_window))
             git_diff_counter_refresh(ide);
         if (ide->session.state != DBG_IDLE)
@@ -12032,7 +12141,12 @@ void gui_main(struct gui_app* app, int argc, char** argv)
     */
     for (int i = 1; i < argc; i++)
         open_file(ide, argv[i]);
-    if (argc < 2 && !session_load(ide))
-        open_playground(ide);
+    session_load(ide, 0);   /* sizes, zoom and the recent projects - the documents stay closed */
+    recent_menu_refresh(ide);
     config_menu_refresh(ide);   /* with the session's configuration in use */
+    if (argc < 2)
+    {
+        ide->recent.pending = 1;
+        gui_set_timer(app, 50, EV_TICK);
+    }
 }

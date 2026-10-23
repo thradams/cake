@@ -2100,6 +2100,125 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * it
 //#pragma once
 #include <stdbool.h>
 
+#line 1 "integer128.h"
+/*
+ *  This file is part of cake compiler
+ *  https://github.com/thradams/cake
+*/
+
+//#pragma once
+
+
+#include <stdbool.h>
+#include <limits.h>
+
+/*
+ *  integer128: a 128-bit integer, whatever the widths of the host are. It
+ *  is an array of unsigned long long words, as many as needed to hold 128
+ *  bits (2 when unsigned long long has 64 bits, 1 when it has 128 or more);
+ *  the bits of the top word above bit 127 are always 0. cake keeps the
+ *  constant value of every integer in one
+ *  (struct object::value.host_integer128), up to __int128.
+ *
+ *  struct integer128 is only the bits, in two's complement. Like in the
+ *  hardware, the same bits are a signed or an unsigned value: the
+ *  operations where that matters have a _s and a _u version.
+ *
+ *  Shift counts are 0..INTEGER128_BITS - 1 and widths are 1..INTEGER128_BITS;
+ *  anything else is a caller error (asserted).
+ */
+
+#define INTEGER128_BITS 128
+#define INTEGER128_WORD_BITS ((int)(sizeof(unsigned long long) * CHAR_BIT))
+#define INTEGER128_WORDS ((INTEGER128_BITS + INTEGER128_WORD_BITS - 1) / INTEGER128_WORD_BITS)
+
+struct integer128
+{
+    unsigned long long w[INTEGER128_WORDS]; /* w[0] is the lowest */
+};
+
+struct integer128 integer128_from_signed(long long value);
+struct integer128 integer128_from_unsigned(unsigned long long value);
+
+/*
+ *  The value of the digits of text in base (2, 8, 10 or 16), up to the
+ *  first character that is not one. *overflow tells it did not fit in
+ *  INTEGER128_BITS (the result is then the value modulo 2^INTEGER128_BITS).
+ */
+struct integer128 integer128_from_digits(const char* text, int base, _Out bool* overflow);
+
+/* truncates toward zero; the value must fit in INTEGER128_BITS */
+struct integer128 integer128_from_long_double(long double value);
+long double integer128_to_long_double_s(struct integer128 a);
+long double integer128_to_long_double_u(struct integer128 a);
+
+bool integer128_is_zero(struct integer128 a);
+bool integer128_is_negative(struct integer128 a);
+bool integer128_equal(struct integer128 a, struct integer128 b);
+
+/* -1, 0 or 1 */
+int integer128_compare_s(struct integer128 a, struct integer128 b);
+int integer128_compare_u(struct integer128 a, struct integer128 b);
+
+/* these wrap around modulo 2^INTEGER128_BITS */
+struct integer128 integer128_add(struct integer128 a, struct integer128 b);
+struct integer128 integer128_sub(struct integer128 a, struct integer128 b);
+struct integer128 integer128_neg(struct integer128 a);
+struct integer128 integer128_mul(struct integer128 a, struct integer128 b);
+
+struct integer128 integer128_not(struct integer128 a);
+struct integer128 integer128_and(struct integer128 a, struct integer128 b);
+struct integer128 integer128_or(struct integer128 a, struct integer128 b);
+struct integer128 integer128_xor(struct integer128 a, struct integer128 b);
+
+struct integer128 integer128_shl(struct integer128 a, int count);
+struct integer128 integer128_shr_u(struct integer128 a, int count); /* fills with 0 */
+struct integer128 integer128_shr_s(struct integer128 a, int count); /* fills with the sign bit */
+
+/*
+ *  Quotient truncated toward zero, remainder with the sign of the dividend
+ *  (C semantics). Return false, leaving *quotient and *remainder 0, when the
+ *  divisor is 0. The signed MIN / -1 wraps to MIN with remainder 0.
+ */
+bool integer128_divmod_s(struct integer128 a, struct integer128 b, _Out struct integer128* quotient, _Out struct integer128* remainder);
+bool integer128_divmod_u(struct integer128 a, struct integer128 b, _Out struct integer128* quotient, _Out struct integer128* remainder);
+
+/*
+ *  Keep the low 'width' bits. _u fills the bits above with 0, _s copies
+ *  bit width - 1 into them, so the result is the value as a 'width' bit
+ *  integer seen in INTEGER128_BITS.
+ */
+struct integer128 integer128_wrap_u(struct integer128 a, int width);
+struct integer128 integer128_wrap_s(struct integer128 a, int width);
+
+/*
+ *  Decimal text, NUL-terminated, returns its length. buffer must hold at
+ *  least INTEGER128_TO_STRING_MIN_SIZE bytes (the digits of 2^INTEGER128_BITS, a sign
+ *  and the NUL); a smaller size writes an empty string and returns 0.
+ */
+#define INTEGER128_TO_STRING_MIN_SIZE (INTEGER128_BITS * 302 / 1000 + 3)
+
+int integer128_to_string_s(struct integer128 a, char* buffer, int size);
+int integer128_to_string_u(struct integer128 a, char* buffer, int size);
+
+/* the low bits that fit, like a conversion of the value to unsigned long long or long long */
+unsigned long long integer128_to_ull(struct integer128 a);
+long long integer128_to_ll(struct integer128 a);
+
+/* true when the value is the same as an unsigned long long (_u) or a long long (_s) */
+bool integer128_fits_ull(struct integer128 a);
+bool integer128_fits_ll(struct integer128 a);
+
+/*
+ *  The value as a C expression of type unsigned __int128 built from the
+ *  words, for values that have no literal: ((unsigned __int128)0x1ULL << 64 | 0x0ULL).
+ *  Returns the length, or 0 (empty string) when size is too small.
+ */
+#define INTEGER128_TO_C_TEXT_MIN_SIZE (INTEGER128_WORDS * 48 + 32)
+int integer128_to_c_text(struct integer128 a, char* buffer, int size);
+
+#line 4 "target.h"
+
 
 enum object_type
 {
@@ -2118,8 +2237,8 @@ enum object_type
     TYPE_SIGNED_LONG_LONG,
     TYPE_UNSIGNED_LONG_LONG,
 
-    TYPE_SIGNED_LONG_LONG_LONG,
-    TYPE_UNSIGNED_LONG_LONG_LONG,
+    TYPE_SIGNED_INT128,
+    TYPE_UNSIGNED_INT128,
 
     TYPE_FLOAT,
     TYPE_DOUBLE,
@@ -2161,29 +2280,29 @@ struct platform
     const char* _Opt arch;
 
     const char* _Opt predefined_macros;
-    const char* _Opt builtins;
+    const char* _Opt dialect_builtins;
 
     /* code gen flags; false is the GCC behavior */
     const char* _Opt code_thread_local_spelling;
     const char* _Opt code_alignas_spelling_fmt;  /* must have one %d */
     const char* _Opt code_alloca_spelling;
-    bool code_msvc_like_atomics;               /* atomics use _Interlocked* */
-    bool code_tcc_like_atomics;                /* atomics use tcc's lock; neither = __atomic_* */
-    bool code_msvc_like_no_member_packed;      /* no __attribute__((packed)) on a member */
-    bool code_tcc_like_no_builtin_inf;         /* no __builtin_inf / __builtin_fabs */
-    bool code_tcc_like_alloca_declaration;     /* alloca needs a prototype */
+    bool code_msvc_like_atomics;                    /* atomics use _Interlocked* */
+    bool code_tcc_like_atomics;                     /* atomics use tcc's lock; neither = __atomic_* */
+    bool code_msvc_like_no_member_packed;           /* no __attribute__((packed)) on a member */
+    bool code_tcc_like_no_builtin_inf;              /* no __builtin_inf / __builtin_fabs */
+    bool code_tcc_like_alloca_declaration;          /* alloca needs a prototype */
 
     /*
       Behaviors of a compiler that differ from C/GCC; false is the C/GCC behavior.
       Named by the compiler that has it, but any target can imitate it.
     */
-    bool msvc_like_bitfield_layout;       /* bit-field units and unnamed bit-field alignment as MSVC */
-    bool msvc_like_object_size_limit;     /* one object cannot exceed 0x7FFFFFFF bytes */
-    bool msvc_like_decimal_literal_type;  /* unsuffixed decimal literal can be unsigned long (C90) */
-    bool msvc_like_keywords;              /* __ptr32, __ptr64 ... */
-    bool msvc_like_asm_statement;         /* __asm { ... } instead of asm("...") */
-    bool gcc_like_asm_label;              /* int x __asm("name"); */
-    bool tcc_like_static_redeclaration;   /* block scope static after a non-static declaration */
+    bool msvc_like_bitfield_layout;                 /* bit-field units and unnamed bit-field alignment as MSVC */
+    bool msvc_like_object_size_limit;               /* one object cannot exceed 0x7FFFFFFF bytes */
+    bool dialect_msvc_like_decimal_literal_type;    /* unsuffixed decimal literal can be unsigned long (C90) */
+    bool dialect_msvc_like_keywords;                /* __ptr32, __ptr64 ... */
+    bool dialect_msvc_like_asm_statement;           /* __asm { ... } instead of asm("...") */
+    bool dialect_gcc_like_asm_label;                /* int x __asm("name"); */
+    bool dialect_tcc_like_static_redeclaration;     /* block scope static after a non-static declaration */
 
     int bool_n_bits;
     int bool_alignment;
@@ -2206,8 +2325,8 @@ struct platform
     int long_long_alignment;
 
     /* the rank above long long, never narrower than it; 128 bits is spelled __int128 */
-    int long_long_long_n_bits;
-    int long_long_long_alignment;
+    int int128_n_bits;
+    int int128_alignment;
 
     int float_n_bits;
     int float_alignment;
@@ -2236,6 +2355,8 @@ struct platform
 /* fills *p_platform with the platform named targetstr ("default" is the host) */
 int parse_target(const char* targetstr, struct platform* p_platform);
 void print_target_options();
+/* the i-th name parse_target accepts, NULL past the last */
+const char* _Opt target_name(int i);
 void platform_default(_Out struct platform* p);
 
 bool platform_os_is(const struct platform* p_platform, const char* os);
@@ -2243,11 +2364,12 @@ bool platform_arch_is(const struct platform* p_platform, const char* arch);
 
 unsigned int target_get_num_of_bits(const struct platform* target, enum object_type type);
 
-/* the widest _BitInt(N): long long long when it is wider than 64 bits, else 64 */
+/* the widest _BitInt(N): __int128 when the target has it, else long long */
 int target_bitint_maxwidth(const struct platform* target);
-long long target_signed_max(const struct platform* target, enum object_type type);
-long long target_signed_min(const struct platform* target, enum object_type type);
-unsigned long long target_unsigned_max(const struct platform* target, enum object_type type);
+/* the limits of the integer type, up to 128 bits; signed ones are sign-extended */
+struct integer128 target_signed_max(const struct platform* target, enum object_type type);
+struct integer128 target_signed_min(const struct platform* target, enum object_type type);
+struct integer128 target_unsigned_max(const struct platform* target, enum object_type type);
 
 #line 9 "options.h"
 #include <limits.h>
@@ -2417,8 +2539,8 @@ enum diagnostic_id {
     W_FLOW_NOT_DONE = 97, /* flow analysis of a function was not done, the message says why */
     W_FLOW_RETURN_TYPE = 98, /* non-void function can reach the end without return */
     W_MOVE_FROM_CONST_OWNER = 99, /* const object cannot be moved: someone may be pointing to it */
-    W_UNUSED_WARNING_100 = 100,
-    W_UNUSED_WARNING_101 = 101,
+    W_FLOW_PARAM_MAY_ALIAS = 100, /* the function has an error when two pointer parameters point to the same object */
+    W_FLOW_RESTRICT_ARGUMENTS_ALIAS = 101, /* arguments of a restrict parameter may point to the same object */
     W_UNUSED_WARNING_102 = 102,
     W_UNUSED_WARNING_103 = 103,
     W_UNUSED_WARNING_104 = 104,
@@ -2606,6 +2728,7 @@ enum diagnostic_id {
     C_ERROR_FLEXIBLE_ARRAY_MEMBER_IN_UNION = 2360,
     C_ERROR_ARRAY_DESIGNATOR_IN_NON_ARRAY = 2370,
     C_ERROR_CONSTEXPR_POINTER_NOT_NULL = 2380,
+    C_ERROR_CODEGEN_UNSUPPORTED = 2390,
 };
 
 
@@ -3042,7 +3165,7 @@ enum token_type
     TK_KEYWORD_MSVC__INT16,
     TK_KEYWORD_MSVC__INT32,
     TK_KEYWORD_MSVC__INT64,
-    TK_KEYWORD_GCC__INT128, /* alias of long long long when it has 128 bits */
+    TK_KEYWORD_GCC__INT128, /* the 128-bit integer of gcc and clang */
 
     TK_KEYWORD_REGISTER,
     TK_KEYWORD_RESTRICT,
@@ -10399,6 +10522,10 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
                                            struct token_list* output_list,
                                            struct token_list* input_list)
 {
+if (output_list == input_list)
+{
+  return 0;
+}
     assert(input_list->head != NULL);
 
     struct token* first = input_list->head; //lint 35 assert line 3493
@@ -14210,7 +14337,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
              "#define __CAKE_SIZEOF_INT__ %d\n"
              "#define __CAKE_SIZEOF_LONG__ %d\n"
              "#define __CAKE_SIZEOF_LONG_LONG__ %d\n"
-             "#define __CAKE_SIZEOF_LONG_LONG_LONG__ %d\n"
+             "#define __CAKE_SIZEOF_INT128__ %d\n"
              "#define __CAKE_SIZEOF_POINTER__ %d\n"
              "#define __CAKE_SIZEOF_LONG_DOUBLE__ %d\n"
              "#define __CAKE_SIZEOF_WCHAR_T__ %d\n"
@@ -14222,7 +14349,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* ta
              p_platform->int_n_bits / 8,
              p_platform->long_n_bits / 8,
              p_platform->long_long_n_bits / 8,
-             p_platform->long_long_long_n_bits / 8,
+             p_platform->int128_n_bits / 8,
              p_platform->pointer_n_bits / 8,
              p_platform->long_double_n_bits / 8,
              target_get_num_of_bits(target, p_platform->wchar_t_type) / 8,
@@ -15389,6 +15516,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
 
     struct token_list r = preprocessor(&ctx, &list, 0);
     const char* _Owner _Opt s = r.head ? print_preprocessed_to_string(r.head) : NULL;
@@ -15444,6 +15572,7 @@ bool test_preprocessor_in_out_match(const char* input, const char* output)
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
     ctx.options.color_disabled = true;
 
     struct token_list r = preprocessor(&ctx, &list, 0);
@@ -16102,6 +16231,7 @@ int test_preprocessor_expression(const char* expr, long long expected)
 {
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
 
     struct token_list r = { 0 };
     struct tokenizer_ctx tctx = { 0 };
@@ -16353,6 +16483,7 @@ void test_counter()
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
     ctx.options.color_disabled = true;
     add_macro(&ctx, "__COUNTER__");
 
@@ -16564,6 +16695,7 @@ static int preprocessor_error_count(const char* input)
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
+    platform_default(&ctx.options.platform);
     ctx.options.color_disabled = true;
 
     struct token_list r = preprocessor(&ctx, &list, 0);
@@ -22717,6 +22849,10 @@ int get_diagnostic_phase(enum diagnostic_id w)
     switch (w)
     {
 
+        /* reported after the aliasing passes; flow.c checks their //lint itself */
+    case W_FLOW_PARAM_MAY_ALIAS:
+        return 3;
+
     case C_ERROR_EXIT_DEFER:
     case C_ERROR_JUMP_OVER_VLA:
         return 1;
@@ -22745,6 +22881,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_PARAM_UNINITIALIZED_AT_EXIT:
     case W_FLOW_NOT_DONE:
     case W_FLOW_RETURN_TYPE:
+    case W_FLOW_RESTRICT_ARGUMENTS_ALIAS:
     case W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME:
     case W_COMPILE_ASSERT_UNPROVEM:
 
@@ -23637,7 +23774,7 @@ struct style_options style_options_microsoft(void)
 }
 
 
-#line 1 "wide_integer.c"
+#line 1 "integer128.c"
 /*
  *  This file is part of cake compiler
  *  https://github.com/thradams/cake
@@ -23647,235 +23784,204 @@ struct style_options style_options_microsoft(void)
 
 
 
-#line 1 "wide_integer.h"
-/*
- *  This file is part of cake compiler
- *  https://github.com/thradams/cake
-*/
-
-//#pragma once
-
-
-#include <stdbool.h>
-#include <limits.h>
-
-/*
- *  wide_integer: an integer with the double of the bits of an unsigned
- *  long long of the host, made of two of them, so it works on hosts that
- *  have nothing wider (msvc). cake keeps the constant value of every
- *  integer in one (struct object::value.host_wide_integer), up to a long
- *  long long.
- *
- *  struct wide_integer is only the bits, in two's complement. Like in the
- *  hardware, the same bits are a signed or an unsigned value: the
- *  operations where that matters have a _s and a _u version.
- *
- *  Shift counts are 0..WIDE_INTEGER_BITS - 1 and widths are 1..WIDE_INTEGER_BITS;
- *  anything else is a caller error (asserted).
- */
-
-#define WIDE_INTEGER_HALF_BITS ((int)(sizeof(unsigned long long) * CHAR_BIT))
-#define WIDE_INTEGER_BITS (2 * WIDE_INTEGER_HALF_BITS)
-
-struct wide_integer
-{
-    unsigned long long lo;
-    unsigned long long hi;
-};
-
-struct wide_integer wide_integer_from_signed(long long value);
-struct wide_integer wide_integer_from_unsigned(unsigned long long value);
-
-/*
- *  The value of the digits of text in base (2, 8, 10 or 16), up to the
- *  first character that is not one. *overflow tells it did not fit in
- *  WIDE_INTEGER_BITS (the result is then the value modulo 2^WIDE_INTEGER_BITS).
- */
-struct wide_integer wide_integer_from_digits(const char* text, int base, _Out bool* overflow);
-
-/* truncates toward zero; the value must fit in WIDE_INTEGER_BITS */
-struct wide_integer wide_integer_from_long_double(long double value);
-long double wide_integer_to_long_double_s(struct wide_integer a);
-long double wide_integer_to_long_double_u(struct wide_integer a);
-
-bool wide_integer_is_zero(struct wide_integer a);
-bool wide_integer_is_negative(struct wide_integer a);
-bool wide_integer_equal(struct wide_integer a, struct wide_integer b);
-
-/* -1, 0 or 1 */
-int wide_integer_compare_s(struct wide_integer a, struct wide_integer b);
-int wide_integer_compare_u(struct wide_integer a, struct wide_integer b);
-
-/* these wrap around modulo 2^WIDE_INTEGER_BITS */
-struct wide_integer wide_integer_add(struct wide_integer a, struct wide_integer b);
-struct wide_integer wide_integer_sub(struct wide_integer a, struct wide_integer b);
-struct wide_integer wide_integer_neg(struct wide_integer a);
-struct wide_integer wide_integer_mul(struct wide_integer a, struct wide_integer b);
-
-struct wide_integer wide_integer_not(struct wide_integer a);
-struct wide_integer wide_integer_and(struct wide_integer a, struct wide_integer b);
-struct wide_integer wide_integer_or(struct wide_integer a, struct wide_integer b);
-struct wide_integer wide_integer_xor(struct wide_integer a, struct wide_integer b);
-
-struct wide_integer wide_integer_shl(struct wide_integer a, int count);
-struct wide_integer wide_integer_shr_u(struct wide_integer a, int count); /* fills with 0 */
-struct wide_integer wide_integer_shr_s(struct wide_integer a, int count); /* fills with the sign bit */
-
-/*
- *  Quotient truncated toward zero, remainder with the sign of the dividend
- *  (C semantics). Return false, leaving *quotient and *remainder 0, when the
- *  divisor is 0. The signed MIN / -1 wraps to MIN with remainder 0.
- */
-bool wide_integer_divmod_s(struct wide_integer a, struct wide_integer b, _Out struct wide_integer* quotient, _Out struct wide_integer* remainder);
-bool wide_integer_divmod_u(struct wide_integer a, struct wide_integer b, _Out struct wide_integer* quotient, _Out struct wide_integer* remainder);
-
-/*
- *  Keep the low 'width' bits. _u fills the bits above with 0, _s copies
- *  bit width - 1 into them, so the result is the value as a 'width' bit
- *  integer seen in WIDE_INTEGER_BITS.
- */
-struct wide_integer wide_integer_wrap_u(struct wide_integer a, int width);
-struct wide_integer wide_integer_wrap_s(struct wide_integer a, int width);
-
-/*
- *  Decimal text, NUL-terminated, returns its length. buffer must hold at
- *  least WIDE_INTEGER_TO_STRING_MIN_SIZE bytes (the digits of 2^WIDE_INTEGER_BITS, a sign
- *  and the NUL); a smaller size writes an empty string and returns 0.
- */
-#define WIDE_INTEGER_TO_STRING_MIN_SIZE (WIDE_INTEGER_BITS * 302 / 1000 + 3)
-
-int wide_integer_to_string_s(struct wide_integer a, char* buffer, int size);
-int wide_integer_to_string_u(struct wide_integer a, char* buffer, int size);
-
-#line 10 "wide_integer.c"
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
-/* 2^WIDE_INTEGER_HALF_BITS, the weight of hi */
-#define WIDE_INTEGER_HI_WEIGHT ((long double)ULLONG_MAX + 1.0L)
+/* the bits used in the top word: 128 - the bits of the words below it */
+#define INTEGER128_TOP_BITS (INTEGER128_BITS - (INTEGER128_WORDS - 1) * INTEGER128_WORD_BITS)
 
-/* 2^-WIDE_INTEGER_HALF_BITS; halving is exact, and needs no libm (ldexpl is not C89) */
-static long double wide_integer_hi_scale(void)
+/* 2^INTEGER128_WORD_BITS, the weight of one word */
+#define INTEGER128_WORD_WEIGHT ((long double)ULLONG_MAX + 1.0L)
+
+static const struct integer128 integer128_zero = { 0 };
+
+static unsigned long long integer128_top_mask(void)
 {
-    long double scale = 1.0L;
-    for (int i = 0; i < WIDE_INTEGER_HALF_BITS; i++)
-        scale *= 0.5L;
-    return scale;
+    return ULLONG_MAX >> (INTEGER128_WORD_BITS - INTEGER128_TOP_BITS);
 }
 
-static const struct wide_integer wide_integer_zero = { 0, 0 };
-
-struct wide_integer wide_integer_from_signed(long long value)
+/* clears the bits above bit 127 */
+static struct integer128 integer128_normalize(struct integer128 r)
 {
-    struct wide_integer r;
-    r.lo = (unsigned long long)value;
-    r.hi = value < 0 ? ULLONG_MAX : 0;
+    r.w[INTEGER128_WORDS - 1] &= integer128_top_mask();
     return r;
 }
 
-struct wide_integer wide_integer_from_unsigned(unsigned long long value)
+static bool integer128_get_bit(struct integer128 a, int i)
 {
-    struct wide_integer r;
-    r.lo = value;
-    r.hi = 0;
-    return r;
+    return (a.w[i / INTEGER128_WORD_BITS] >> (i % INTEGER128_WORD_BITS)) & 1;
 }
 
-struct wide_integer wide_integer_from_long_double(long double value)
+static void integer128_set_bit(struct integer128* a, int i)
+{
+    a->w[i / INTEGER128_WORD_BITS] |= 1ULL << (i % INTEGER128_WORD_BITS);
+}
+
+struct integer128 integer128_from_signed(long long value)
+{
+    struct integer128 r;
+    r.w[0] = (unsigned long long)value;
+    for (int i = 1; i < INTEGER128_WORDS; i++)
+        r.w[i] = value < 0 ? ULLONG_MAX : 0;
+    return integer128_normalize(r);
+}
+
+struct integer128 integer128_from_unsigned(unsigned long long value)
+{
+    struct integer128 r = integer128_zero;
+    r.w[0] = value;
+    return integer128_normalize(r);
+}
+
+unsigned long long integer128_to_ull(struct integer128 a)
+{
+    return a.w[0];
+}
+
+long long integer128_to_ll(struct integer128 a)
+{
+    return (long long)a.w[0];
+}
+
+bool integer128_fits_ull(struct integer128 a)
+{
+    return integer128_equal(a, integer128_from_unsigned(integer128_to_ull(a)));
+}
+
+bool integer128_fits_ll(struct integer128 a)
+{
+    return integer128_equal(a, integer128_from_signed(integer128_to_ll(a)));
+}
+
+struct integer128 integer128_from_long_double(long double value)
 {
     if (value < 0)
     {
-        return wide_integer_neg(wide_integer_from_long_double(-value));
+        return integer128_neg(integer128_from_long_double(-value));
     }
 
-    /* value / 2^WIDE_INTEGER_HALF_BITS, exact because it is a power of 2 */
-    struct wide_integer r;
-    r.hi = (unsigned long long)(value * wide_integer_hi_scale());
-    r.lo = (unsigned long long)(value - (long double)r.hi * WIDE_INTEGER_HI_WEIGHT);
+    /* from the top word down; dividing by a power of 2 is exact, and needs no libm */
+    struct integer128 r = integer128_zero;
+    for (int i = INTEGER128_WORDS - 1; i >= 0; i--)
+    {
+        long double weight = 1.0L;
+        for (int k = 0; k < i; k++)
+            weight *= INTEGER128_WORD_WEIGHT;
+
+        r.w[i] = (unsigned long long)(value / weight);
+        value -= (long double)r.w[i] * weight;
+    }
+    return integer128_normalize(r);
+}
+
+long double integer128_to_long_double_u(struct integer128 a)
+{
+    long double r = 0;
+    for (int i = INTEGER128_WORDS - 1; i >= 0; i--)
+        r = r * INTEGER128_WORD_WEIGHT + (long double)a.w[i];
     return r;
 }
 
-long double wide_integer_to_long_double_u(struct wide_integer a)
+long double integer128_to_long_double_s(struct integer128 a)
 {
-    return (long double)a.hi * WIDE_INTEGER_HI_WEIGHT + (long double)a.lo;
-}
-
-long double wide_integer_to_long_double_s(struct wide_integer a)
-{
-    if (wide_integer_is_negative(a))
+    if (integer128_is_negative(a))
     {
-        return -wide_integer_to_long_double_u(wide_integer_neg(a));
+        return -integer128_to_long_double_u(integer128_neg(a));
     }
-    return wide_integer_to_long_double_u(a);
+    return integer128_to_long_double_u(a);
 }
 
-bool wide_integer_is_zero(struct wide_integer a)
+bool integer128_is_zero(struct integer128 a)
 {
-    return a.lo == 0 && a.hi == 0;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
+    {
+        if (a.w[i] != 0)
+            return false;
+    }
+    return true;
 }
 
-bool wide_integer_is_negative(struct wide_integer a)
+bool integer128_is_negative(struct integer128 a)
 {
-    return (a.hi >> (WIDE_INTEGER_HALF_BITS - 1)) != 0;
+    return integer128_get_bit(a, INTEGER128_BITS - 1);
 }
 
-bool wide_integer_equal(struct wide_integer a, struct wide_integer b)
+bool integer128_equal(struct integer128 a, struct integer128 b)
 {
-    return a.lo == b.lo && a.hi == b.hi;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
+    {
+        if (a.w[i] != b.w[i])
+            return false;
+    }
+    return true;
 }
 
-int wide_integer_compare_u(struct wide_integer a, struct wide_integer b)
+int integer128_compare_u(struct integer128 a, struct integer128 b)
 {
-    if (a.hi != b.hi)
-        return a.hi < b.hi ? -1 : 1;
-    if (a.lo != b.lo)
-        return a.lo < b.lo ? -1 : 1;
+    for (int i = INTEGER128_WORDS - 1; i >= 0; i--)
+    {
+        if (a.w[i] != b.w[i])
+            return a.w[i] < b.w[i] ? -1 : 1;
+    }
     return 0;
 }
 
-int wide_integer_compare_s(struct wide_integer a, struct wide_integer b)
+int integer128_compare_s(struct integer128 a, struct integer128 b)
 {
-    const bool a_negative = wide_integer_is_negative(a);
-    const bool b_negative = wide_integer_is_negative(b);
+    const bool a_negative = integer128_is_negative(a);
+    const bool b_negative = integer128_is_negative(b);
 
     if (a_negative != b_negative)
         return a_negative ? -1 : 1;
 
     /* same sign: two's complement keeps the unsigned order */
-    return wide_integer_compare_u(a, b);
+    return integer128_compare_u(a, b);
 }
 
-struct wide_integer wide_integer_add(struct wide_integer a, struct wide_integer b)
+struct integer128 integer128_add(struct integer128 a, struct integer128 b)
 {
-    struct wide_integer r;
-    r.lo = a.lo + b.lo;
-    r.hi = a.hi + b.hi + (r.lo < a.lo ? 1 : 0);
-    return r;
+    struct integer128 r;
+    unsigned long long carry = 0;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
+    {
+        const unsigned long long s = a.w[i] + b.w[i];
+        const unsigned long long t = s + carry;
+        carry = (s < a.w[i] || t < s) ? 1 : 0;
+        r.w[i] = t;
+    }
+    return integer128_normalize(r);
 }
 
-struct wide_integer wide_integer_sub(struct wide_integer a, struct wide_integer b)
+struct integer128 integer128_sub(struct integer128 a, struct integer128 b)
 {
-    struct wide_integer r;
-    r.lo = a.lo - b.lo;
-    r.hi = a.hi - b.hi - (a.lo < b.lo ? 1 : 0);
-    return r;
+    struct integer128 r;
+    unsigned long long borrow = 0;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
+    {
+        const unsigned long long d = a.w[i] - b.w[i];
+        const unsigned long long t = d - borrow;
+        borrow = (a.w[i] < b.w[i] || d < borrow) ? 1 : 0;
+        r.w[i] = t;
+    }
+    return integer128_normalize(r);
 }
 
-struct wide_integer wide_integer_neg(struct wide_integer a)
+struct integer128 integer128_neg(struct integer128 a)
 {
-    return wide_integer_sub(wide_integer_zero, a);
+    return integer128_sub(integer128_zero, a);
 }
 
-/* the full product of two unsigned long long, from their halves */
-static struct wide_integer wide_integer_mul_half(unsigned long long a, unsigned long long b)
+/* the full product of two words, from their halves */
+static void integer128_mul_word(unsigned long long a, unsigned long long b, unsigned long long* lo, unsigned long long* hi)
 {
-    const int quarter = WIDE_INTEGER_HALF_BITS / 2;
-    const unsigned long long mask = ULLONG_MAX >> quarter;
+    const int half = INTEGER128_WORD_BITS / 2;
+    const unsigned long long mask = ULLONG_MAX >> half;
 
     const unsigned long long a_lo = a & mask;
-    const unsigned long long a_hi = a >> quarter;
+    const unsigned long long a_hi = a >> half;
     const unsigned long long b_lo = b & mask;
-    const unsigned long long b_hi = b >> quarter;
+    const unsigned long long b_hi = b >> half;
 
     const unsigned long long p0 = a_lo * b_lo;
     const unsigned long long p1 = a_lo * b_hi;
@@ -23883,135 +23989,154 @@ static struct wide_integer wide_integer_mul_half(unsigned long long a, unsigned 
     const unsigned long long p3 = a_hi * b_hi;
 
     /* the middle column, at most 3 * mask, cannot overflow */
-    const unsigned long long middle = (p0 >> quarter) + (p1 & mask) + (p2 & mask);
+    const unsigned long long middle = (p0 >> half) + (p1 & mask) + (p2 & mask);
 
-    struct wide_integer r;
-    r.lo = (p0 & mask) | (middle << quarter);
-    r.hi = p3 + (p1 >> quarter) + (p2 >> quarter) + (middle >> quarter);
-    return r;
+    *lo = (p0 & mask) | (middle << half);
+    *hi = p3 + (p1 >> half) + (p2 >> half) + (middle >> half);
 }
 
-struct wide_integer wide_integer_mul(struct wide_integer a, struct wide_integer b)
+/* adds value to the word at index, carrying into the words above; what passes the top is lost */
+static void integer128_add_word_at(struct integer128* r, int index, unsigned long long value)
 {
-    /* modulo 2^WIDE_INTEGER_BITS, the hi * hi part is shifted out */
-    struct wide_integer r = wide_integer_mul_half(a.lo, b.lo);
-    r.hi += a.lo * b.hi + a.hi * b.lo;
-    return r;
-}
-
-struct wide_integer wide_integer_not(struct wide_integer a)
-{
-    struct wide_integer r;
-    r.lo = ~a.lo;
-    r.hi = ~a.hi;
-    return r;
-}
-
-struct wide_integer wide_integer_and(struct wide_integer a, struct wide_integer b)
-{
-    struct wide_integer r;
-    r.lo = a.lo & b.lo;
-    r.hi = a.hi & b.hi;
-    return r;
-}
-
-struct wide_integer wide_integer_or(struct wide_integer a, struct wide_integer b)
-{
-    struct wide_integer r;
-    r.lo = a.lo | b.lo;
-    r.hi = a.hi | b.hi;
-    return r;
-}
-
-struct wide_integer wide_integer_xor(struct wide_integer a, struct wide_integer b)
-{
-    struct wide_integer r;
-    r.lo = a.lo ^ b.lo;
-    r.hi = a.hi ^ b.hi;
-    return r;
-}
-
-struct wide_integer wide_integer_shl(struct wide_integer a, int count)
-{
-    assert(count >= 0 && count < WIDE_INTEGER_BITS);
-
-    struct wide_integer r;
-    if (count == 0)
+    for (int i = index; i < INTEGER128_WORDS && value != 0; i++)
     {
-        r = a;
+        const unsigned long long s = r->w[i] + value;
+        value = s < value ? 1 : 0;
+        r->w[i] = s;
     }
-    else if (count >= WIDE_INTEGER_HALF_BITS)
+}
+
+struct integer128 integer128_mul(struct integer128 a, struct integer128 b)
+{
+    /* modulo 2^INTEGER128_BITS: the products that land above the top word are dropped */
+    struct integer128 r = integer128_zero;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
     {
-        r.hi = a.lo << (count - WIDE_INTEGER_HALF_BITS);
-        r.lo = 0;
+        for (int j = 0; i + j < INTEGER128_WORDS; j++)
+        {
+            unsigned long long lo = 0;
+            unsigned long long hi = 0;
+            integer128_mul_word(a.w[i], b.w[j], &lo, &hi);
+            integer128_add_word_at(&r, i + j, lo);
+            integer128_add_word_at(&r, i + j + 1, hi);
+        }
     }
-    else
+    return integer128_normalize(r);
+}
+
+struct integer128 integer128_not(struct integer128 a)
+{
+    struct integer128 r;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
+        r.w[i] = ~a.w[i];
+    return integer128_normalize(r);
+}
+
+struct integer128 integer128_and(struct integer128 a, struct integer128 b)
+{
+    struct integer128 r;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
+        r.w[i] = a.w[i] & b.w[i];
+    return r;
+}
+
+struct integer128 integer128_or(struct integer128 a, struct integer128 b)
+{
+    struct integer128 r;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
+        r.w[i] = a.w[i] | b.w[i];
+    return r;
+}
+
+struct integer128 integer128_xor(struct integer128 a, struct integer128 b)
+{
+    struct integer128 r;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
+        r.w[i] = a.w[i] ^ b.w[i];
+    return r;
+}
+
+struct integer128 integer128_shl(struct integer128 a, int count)
+{
+    assert(count >= 0 && count < INTEGER128_BITS);
+
+    const int words = count / INTEGER128_WORD_BITS;
+    const int bits = count % INTEGER128_WORD_BITS;
+
+    struct integer128 r;
+    for (int i = INTEGER128_WORDS - 1; i >= 0; i--)
     {
-        r.hi = (a.hi << count) | (a.lo >> (WIDE_INTEGER_HALF_BITS - count));
-        r.lo = a.lo << count;
+        const int from = i - words;
+        unsigned long long v = 0;
+        if (from >= 0)
+        {
+            v = a.w[from] << bits;
+            if (bits != 0 && from - 1 >= 0)
+                v |= a.w[from - 1] >> (INTEGER128_WORD_BITS - bits);
+        }
+        r.w[i] = v;
+    }
+    return integer128_normalize(r);
+}
+
+struct integer128 integer128_shr_u(struct integer128 a, int count)
+{
+    assert(count >= 0 && count < INTEGER128_BITS);
+
+    const int words = count / INTEGER128_WORD_BITS;
+    const int bits = count % INTEGER128_WORD_BITS;
+
+    struct integer128 r;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
+    {
+        const int from = i + words;
+        unsigned long long v = 0;
+        if (from < INTEGER128_WORDS)
+        {
+            v = a.w[from] >> bits;
+            if (bits != 0 && from + 1 < INTEGER128_WORDS)
+                v |= a.w[from + 1] << (INTEGER128_WORD_BITS - bits);
+        }
+        r.w[i] = v;
     }
     return r;
 }
 
-struct wide_integer wide_integer_shr_u(struct wide_integer a, int count)
+struct integer128 integer128_shr_s(struct integer128 a, int count)
 {
-    assert(count >= 0 && count < WIDE_INTEGER_BITS);
+    assert(count >= 0 && count < INTEGER128_BITS);
 
-    struct wide_integer r;
-    if (count == 0)
+    if (!integer128_is_negative(a))
     {
-        r = a;
-    }
-    else if (count >= WIDE_INTEGER_HALF_BITS)
-    {
-        r.lo = a.hi >> (count - WIDE_INTEGER_HALF_BITS);
-        r.hi = 0;
-    }
-    else
-    {
-        r.lo = (a.lo >> count) | (a.hi << (WIDE_INTEGER_HALF_BITS - count));
-        r.hi = a.hi >> count;
-    }
-    return r;
-}
-
-struct wide_integer wide_integer_shr_s(struct wide_integer a, int count)
-{
-    assert(count >= 0 && count < WIDE_INTEGER_BITS);
-
-    if (!wide_integer_is_negative(a))
-    {
-        return wide_integer_shr_u(a, count);
+        return integer128_shr_u(a, count);
     }
 
     /* ~(~a >> n) shifts in ones, without relying on the host >> of a negative */
-    return wide_integer_not(wide_integer_shr_u(wide_integer_not(a), count));
+    return integer128_not(integer128_shr_u(integer128_not(a), count));
 }
 
-bool wide_integer_divmod_u(struct wide_integer a, struct wide_integer b, _Out struct wide_integer* quotient, _Out struct wide_integer* remainder)
+bool integer128_divmod_u(struct integer128 a, struct integer128 b, _Out struct integer128* quotient, _Out struct integer128* remainder)
 {
-    *quotient = wide_integer_zero;
-    *remainder = wide_integer_zero;
+    *quotient = integer128_zero;
+    *remainder = integer128_zero;
 
-    if (wide_integer_is_zero(b))
+    if (integer128_is_zero(b))
     {
         return false;
     }
 
     /* restoring division, one bit of the dividend at a time */
-    struct wide_integer q = wide_integer_zero;
-    struct wide_integer r = wide_integer_zero;
-    for (int i = WIDE_INTEGER_BITS - 1; i >= 0; i--)
+    struct integer128 q = integer128_zero;
+    struct integer128 r = integer128_zero;
+    for (int i = INTEGER128_BITS - 1; i >= 0; i--)
     {
-        r = wide_integer_shl(r, 1);
-        r.lo |= wide_integer_shr_u(a, i).lo & 1;
-        if (wide_integer_compare_u(r, b) >= 0)
+        r = integer128_shl(r, 1);
+        if (integer128_get_bit(a, i))
+            r.w[0] |= 1;
+        if (integer128_compare_u(r, b) >= 0)
         {
-            r = wide_integer_sub(r, b);
-            if (i >= WIDE_INTEGER_HALF_BITS)
-                q.hi |= 1ULL << (i - WIDE_INTEGER_HALF_BITS);
-            else
-                q.lo |= 1ULL << i;
+            r = integer128_sub(r, b);
+            integer128_set_bit(&q, i);
         }
     }
 
@@ -24020,14 +24145,14 @@ bool wide_integer_divmod_u(struct wide_integer a, struct wide_integer b, _Out st
     return true;
 }
 
-bool wide_integer_divmod_s(struct wide_integer a, struct wide_integer b, _Out struct wide_integer* quotient, _Out struct wide_integer* remainder)
+bool integer128_divmod_s(struct integer128 a, struct integer128 b, _Out struct integer128* quotient, _Out struct integer128* remainder)
 {
-    const bool a_negative = wide_integer_is_negative(a);
-    const bool b_negative = wide_integer_is_negative(b);
+    const bool a_negative = integer128_is_negative(a);
+    const bool b_negative = integer128_is_negative(b);
 
-    /* MIN negates to itself, and as unsigned it is still 2^(WIDE_INTEGER_BITS - 1), so this works for it too */
-    if (!wide_integer_divmod_u(a_negative ? wide_integer_neg(a) : a,
-                        b_negative ? wide_integer_neg(b) : b,
+    /* MIN negates to itself, and as unsigned it is still 2^(INTEGER128_BITS - 1), so this works for it too */
+    if (!integer128_divmod_u(a_negative ? integer128_neg(a) : a,
+                        b_negative ? integer128_neg(b) : b,
                         quotient,
                         remainder))
     {
@@ -24035,69 +24160,63 @@ bool wide_integer_divmod_s(struct wide_integer a, struct wide_integer b, _Out st
     }
 
     if (a_negative != b_negative)
-        *quotient = wide_integer_neg(*quotient);
+        *quotient = integer128_neg(*quotient);
 
     if (a_negative)
-        *remainder = wide_integer_neg(*remainder);
+        *remainder = integer128_neg(*remainder);
 
     return true;
 }
 
-struct wide_integer wide_integer_wrap_u(struct wide_integer a, int width)
+struct integer128 integer128_wrap_u(struct integer128 a, int width)
 {
-    assert(width >= 1 && width <= WIDE_INTEGER_BITS);
+    assert(width >= 1 && width <= INTEGER128_BITS);
 
-    struct wide_integer r = a;
-    if (width < WIDE_INTEGER_HALF_BITS)
+    struct integer128 r = a;
+    for (int i = 0; i < INTEGER128_WORDS; i++)
     {
-        r.lo &= (1ULL << width) - 1;
-        r.hi = 0;
-    }
-    else if (width == WIDE_INTEGER_HALF_BITS)
-    {
-        r.hi = 0;
-    }
-    else if (width < WIDE_INTEGER_BITS)
-    {
-        r.hi &= (1ULL << (width - WIDE_INTEGER_HALF_BITS)) - 1;
+        const int first = i * INTEGER128_WORD_BITS;
+        if (first >= width)
+            r.w[i] = 0;
+        else if (width - first < INTEGER128_WORD_BITS)
+            r.w[i] &= (1ULL << (width - first)) - 1;
     }
     return r;
 }
 
-struct wide_integer wide_integer_wrap_s(struct wide_integer a, int width)
+struct integer128 integer128_wrap_s(struct integer128 a, int width)
 {
-    assert(width >= 1 && width <= WIDE_INTEGER_BITS);
+    assert(width >= 1 && width <= INTEGER128_BITS);
 
-    if (width == WIDE_INTEGER_BITS)
+    if (width == INTEGER128_BITS)
         return a;
 
-    struct wide_integer r = wide_integer_wrap_u(a, width);
+    struct integer128 r = integer128_wrap_u(a, width);
 
     /* bit width - 1 is the sign, copy it into the bits above */
-    const bool negative = wide_integer_shr_u(r, width - 1).lo & 1;
-    if (negative)
+    if (integer128_get_bit(r, width - 1))
     {
-        r = wide_integer_or(r, wide_integer_not(wide_integer_wrap_u(wide_integer_not(wide_integer_zero), width)));
+        r = integer128_or(r, integer128_not(integer128_wrap_u(integer128_not(integer128_zero), width)));
     }
     return r;
 }
 
 /* the digits of a; buffer has room for them */
-static int wide_integer_write_digits(struct wide_integer a, char* buffer)
+static int integer128_write_digits(struct integer128 a, char* buffer)
 {
     /* digits come out from the last one */
-    char digits[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+    char digits[INTEGER128_TO_STRING_MIN_SIZE] = { 0 };
     int count = 0;
-    const struct wide_integer ten = { 10, 0 };
+    const struct integer128 ten = integer128_from_unsigned(10);
     do
     {
-        struct wide_integer q = { 0 };
-        struct wide_integer r = { 0 };
-        wide_integer_divmod_u(a, ten, &q, &r);
-        digits[count++] = (char)('0' + r.lo);
+        struct integer128 q = { 0 };
+        struct integer128 r = { 0 };
+        integer128_divmod_u(a, ten, &q, &r);
+        digits[count++] = (char)('0' + r.w[0]);
         a = q;
     }
-    while (!wide_integer_is_zero(a));
+    while (!integer128_is_zero(a));
 
     for (int i = 0; i < count; i++)
         buffer[i] = digits[count - 1 - i];
@@ -24105,36 +24224,66 @@ static int wide_integer_write_digits(struct wide_integer a, char* buffer)
     return count;
 }
 
-int wide_integer_to_string_u(struct wide_integer a, char* buffer, int size)
+int integer128_to_string_u(struct integer128 a, char* buffer, int size)
 {
-    if (size < WIDE_INTEGER_TO_STRING_MIN_SIZE)
+    if (size < INTEGER128_TO_STRING_MIN_SIZE)
     {
         if (size > 0)
             buffer[0] = '\0';
         return 0;
     }
-    return wide_integer_write_digits(a, buffer);
+    return integer128_write_digits(a, buffer);
 }
 
-int wide_integer_to_string_s(struct wide_integer a, char* buffer, int size)
+int integer128_to_string_s(struct integer128 a, char* buffer, int size)
 {
-    if (size < WIDE_INTEGER_TO_STRING_MIN_SIZE)
+    if (size < INTEGER128_TO_STRING_MIN_SIZE)
     {
         if (size > 0)
             buffer[0] = '\0';
         return 0;
     }
 
-    if (wide_integer_is_negative(a))
+    if (integer128_is_negative(a))
     {
         /* MIN negates to itself, and as unsigned it prints right */
         buffer[0] = '-';
-        return 1 + wide_integer_write_digits(wide_integer_neg(a), buffer + 1);
+        return 1 + integer128_write_digits(integer128_neg(a), buffer + 1);
     }
-    return wide_integer_write_digits(a, buffer);
+    return integer128_write_digits(a, buffer);
 }
 
-static int wide_integer_digit_value(char c)
+/* the hex digits of the 64 bits of a starting at bit 'first', without leading zeros */
+static void integer128_hex64(struct integer128 a, int first, char* buffer)
+{
+    int n = 0;
+    for (int k = 15; k >= 0; k--)
+    {
+        const int digit = (int)(integer128_to_ull(integer128_shr_u(a, first + 4 * k)) & 0xF);
+        if (digit != 0 || n > 0 || k == 0)
+            buffer[n++] = "0123456789abcdef"[digit];
+    }
+    buffer[n] = '\0';
+}
+
+int integer128_to_c_text(struct integer128 a, char* buffer, int size)
+{
+    if (size < INTEGER128_TO_C_TEXT_MIN_SIZE)
+    {
+        if (size > 0)
+            buffer[0] = '\0';
+        return 0;
+    }
+
+    /* the targets that have __int128 have a 64-bit unsigned long long, whatever the host has */
+    char hi[17] = { 0 };
+    char lo[17] = { 0 };
+    integer128_hex64(a, 64, hi);
+    integer128_hex64(a, 0, lo);
+    return snprintf(buffer, (size_t)size, "((unsigned __int128)0x%sULL << 64 | 0x%sULL)", hi, lo);
+}
+
+static int integer128_digit_value(char c)
 {
     if (c >= '0' && c <= '9')
         return c - '0';
@@ -24145,29 +24294,29 @@ static int wide_integer_digit_value(char c)
     return -1;
 }
 
-struct wide_integer wide_integer_from_digits(const char* text, int base, _Out bool* overflow)
+struct integer128 integer128_from_digits(const char* text, int base, _Out bool* overflow)
 {
     assert(base == 2 || base == 8 || base == 10 || base == 16);
 
     *overflow = false;
 
-    const struct wide_integer wide_base = wide_integer_from_unsigned((unsigned long long)base);
-    struct wide_integer r = wide_integer_zero;
+    const struct integer128 wide_base = integer128_from_unsigned((unsigned long long)base);
+    struct integer128 r = integer128_zero;
 
     for (const char* p = text; *p; p++)
     {
-        const int digit = wide_integer_digit_value(*p);
+        const int digit = integer128_digit_value(*p);
         if (digit < 0 || digit >= base)
             break;
 
         /* r * base + digit did not fit when going back does not give r */
-        const struct wide_integer next =
-            wide_integer_add(wide_integer_mul(r, wide_base), wide_integer_from_unsigned((unsigned long long)digit));
+        const struct integer128 next =
+            integer128_add(integer128_mul(r, wide_base), integer128_from_unsigned((unsigned long long)digit));
 
-        struct wide_integer quotient = { 0 };
-        struct wide_integer remainder = { 0 };
-        wide_integer_divmod_u(next, wide_base, &quotient, &remainder);
-        if (!wide_integer_equal(quotient, r) || remainder.lo != (unsigned long long)digit)
+        struct integer128 quotient = { 0 };
+        struct integer128 remainder = { 0 };
+        integer128_divmod_u(next, wide_base, &quotient, &remainder);
+        if (!integer128_equal(quotient, r) || remainder.w[0] != (unsigned long long)digit)
             *overflow = true;
 
         r = next;
@@ -24179,173 +24328,183 @@ struct wide_integer wide_integer_from_digits(const char* text, int base, _Out bo
 #include <stdio.h>
 
 
-static struct wide_integer wide_integer_make(unsigned long long hi, unsigned long long lo)
+/* the tests are written for 64-bit halves */
+#define INTEGER128_HALF_BITS 64
+#define INTEGER128_HI_WEIGHT ((long double)ULLONG_MAX + 1.0L)
+
+static struct integer128 integer128_make(unsigned long long hi, unsigned long long lo)
 {
-    struct wide_integer r;
-    r.hi = hi;
-    r.lo = lo;
-    return r;
+    return integer128_or(integer128_shl(integer128_from_unsigned(hi), INTEGER128_HALF_BITS), integer128_from_unsigned(lo));
 }
 
 /* the most negative value, only the sign bit */
-static struct wide_integer wide_integer_min(void)
+static struct integer128 integer128_min(void)
 {
-    return wide_integer_make(1ULL << (WIDE_INTEGER_HALF_BITS - 1), 0);
+    return integer128_make(1ULL << (INTEGER128_HALF_BITS - 1), 0);
 }
 
-void wide_integer_arithmetic_test(void)
+void integer128_arithmetic_test(void)
 {
-    const struct wide_integer one = wide_integer_from_unsigned(1);
-    const struct wide_integer minus_one = wide_integer_from_signed(-1);
-    const struct wide_integer max_half = wide_integer_from_unsigned(ULLONG_MAX);
+    const struct integer128 one = integer128_from_unsigned(1);
+    const struct integer128 minus_one = integer128_from_signed(-1);
+    const struct integer128 max_half = integer128_from_unsigned(ULLONG_MAX);
 
-    assert(wide_integer_equal(minus_one, wide_integer_make(ULLONG_MAX, ULLONG_MAX)));
-    assert(wide_integer_equal(wide_integer_add(max_half, one), wide_integer_make(1, 0)));
-    assert(wide_integer_equal(wide_integer_sub(wide_integer_make(1, 0), one), max_half));
-    assert(wide_integer_equal(wide_integer_add(minus_one, one), wide_integer_from_unsigned(0)));
-    assert(wide_integer_equal(wide_integer_neg(one), minus_one));
+    assert(integer128_equal(minus_one, integer128_make(ULLONG_MAX, ULLONG_MAX)));
+    assert(integer128_equal(integer128_add(max_half, one), integer128_make(1, 0)));
+    assert(integer128_equal(integer128_sub(integer128_make(1, 0), one), max_half));
+    assert(integer128_equal(integer128_add(minus_one, one), integer128_from_unsigned(0)));
+    assert(integer128_equal(integer128_neg(one), minus_one));
 
     /* (2^h - 1)^2 = (2^h - 2) * 2^h + 1 */
-    assert(wide_integer_equal(wide_integer_mul(max_half, max_half), wide_integer_make(ULLONG_MAX - 1, 1)));
-    assert(wide_integer_equal(wide_integer_mul(wide_integer_from_signed(-3), wide_integer_from_signed(7)), wide_integer_from_signed(-21)));
-    assert(wide_integer_equal(wide_integer_mul(wide_integer_make(1, 0), wide_integer_make(1, 0)), wide_integer_from_unsigned(0))); /* 2^WIDE_INTEGER_BITS wraps */
+    assert(integer128_equal(integer128_mul(max_half, max_half), integer128_make(ULLONG_MAX - 1, 1)));
+    assert(integer128_equal(integer128_mul(integer128_from_signed(-3), integer128_from_signed(7)), integer128_from_signed(-21)));
+    assert(integer128_equal(integer128_mul(integer128_make(1, 0), integer128_make(1, 0)), integer128_from_unsigned(0))); /* 2^INTEGER128_BITS wraps */
 }
 
-void wide_integer_shift_test(void)
+void integer128_shift_test(void)
 {
-    const struct wide_integer one = wide_integer_from_unsigned(1);
-    const int n = WIDE_INTEGER_HALF_BITS + WIDE_INTEGER_HALF_BITS / 2;
+    const struct integer128 one = integer128_from_unsigned(1);
+    const int n = INTEGER128_HALF_BITS + INTEGER128_HALF_BITS / 2;
 
-    assert(wide_integer_equal(wide_integer_shl(one, n), wide_integer_make(1ULL << (n - WIDE_INTEGER_HALF_BITS), 0)));
-    assert(wide_integer_equal(wide_integer_shl(one, WIDE_INTEGER_HALF_BITS), wide_integer_make(1, 0)));
-    assert(wide_integer_equal(wide_integer_shl(one, 0), one));
-    assert(wide_integer_equal(wide_integer_shr_u(wide_integer_make(1ULL << (n - WIDE_INTEGER_HALF_BITS), 0), n), one));
-    assert(wide_integer_equal(wide_integer_shr_u(wide_integer_from_signed(-1), WIDE_INTEGER_BITS - 1), one));
-    assert(wide_integer_equal(wide_integer_shr_s(wide_integer_from_signed(-1), WIDE_INTEGER_BITS - 1), wide_integer_from_signed(-1)));
-    assert(wide_integer_equal(wide_integer_shr_s(wide_integer_from_signed(-8), 1), wide_integer_from_signed(-4)));
-    assert(wide_integer_equal(wide_integer_shr_s(wide_integer_from_signed(-7), 1), wide_integer_from_signed(-4)));
+    assert(integer128_equal(integer128_shl(one, n), integer128_make(1ULL << (n - INTEGER128_HALF_BITS), 0)));
+    assert(integer128_equal(integer128_shl(one, INTEGER128_HALF_BITS), integer128_make(1, 0)));
+    assert(integer128_equal(integer128_shl(one, 0), one));
+    assert(integer128_equal(integer128_shr_u(integer128_make(1ULL << (n - INTEGER128_HALF_BITS), 0), n), one));
+    assert(integer128_equal(integer128_shr_u(integer128_from_signed(-1), INTEGER128_BITS - 1), one));
+    assert(integer128_equal(integer128_shr_s(integer128_from_signed(-1), INTEGER128_BITS - 1), integer128_from_signed(-1)));
+    assert(integer128_equal(integer128_shr_s(integer128_from_signed(-8), 1), integer128_from_signed(-4)));
+    assert(integer128_equal(integer128_shr_s(integer128_from_signed(-7), 1), integer128_from_signed(-4)));
 }
 
-void wide_integer_compare_test(void)
+void integer128_compare_test(void)
 {
-    assert(wide_integer_compare_s(wide_integer_from_signed(-1), wide_integer_from_signed(0)) < 0);
-    assert(wide_integer_compare_u(wide_integer_from_signed(-1), wide_integer_from_signed(0)) > 0);
-    assert(wide_integer_compare_s(wide_integer_min(), wide_integer_from_signed(-1)) < 0);
-    assert(wide_integer_compare_u(wide_integer_make(1, 0), wide_integer_make(0, ULLONG_MAX)) > 0);
-    assert(wide_integer_compare_s(wide_integer_from_signed(5), wide_integer_from_signed(5)) == 0);
+    assert(integer128_compare_s(integer128_from_signed(-1), integer128_from_signed(0)) < 0);
+    assert(integer128_compare_u(integer128_from_signed(-1), integer128_from_signed(0)) > 0);
+    assert(integer128_compare_s(integer128_min(), integer128_from_signed(-1)) < 0);
+    assert(integer128_compare_u(integer128_make(1, 0), integer128_make(0, ULLONG_MAX)) > 0);
+    assert(integer128_compare_s(integer128_from_signed(5), integer128_from_signed(5)) == 0);
 }
 
-void wide_integer_divmod_test(void)
+void integer128_divmod_test(void)
 {
-    struct wide_integer q = { 0 };
-    struct wide_integer r = { 0 };
+    struct integer128 q = { 0 };
+    struct integer128 r = { 0 };
 
     /* 2^n = 3 * q + r */
-    const struct wide_integer n = wide_integer_shl(wide_integer_from_unsigned(1), WIDE_INTEGER_BITS - 28);
-    assert(wide_integer_divmod_u(n, wide_integer_from_unsigned(3), &q, &r));
-    assert(wide_integer_compare_u(r, wide_integer_from_unsigned(3)) < 0);
-    assert(wide_integer_equal(wide_integer_add(wide_integer_mul(q, wide_integer_from_unsigned(3)), r), n));
+    const struct integer128 n = integer128_shl(integer128_from_unsigned(1), INTEGER128_BITS - 28);
+    assert(integer128_divmod_u(n, integer128_from_unsigned(3), &q, &r));
+    assert(integer128_compare_u(r, integer128_from_unsigned(3)) < 0);
+    assert(integer128_equal(integer128_add(integer128_mul(q, integer128_from_unsigned(3)), r), n));
 
-    assert(wide_integer_divmod_s(wide_integer_from_signed(-7), wide_integer_from_signed(2), &q, &r));
-    assert(wide_integer_equal(q, wide_integer_from_signed(-3)));
-    assert(wide_integer_equal(r, wide_integer_from_signed(-1)));
+    assert(integer128_divmod_s(integer128_from_signed(-7), integer128_from_signed(2), &q, &r));
+    assert(integer128_equal(q, integer128_from_signed(-3)));
+    assert(integer128_equal(r, integer128_from_signed(-1)));
 
-    assert(wide_integer_divmod_s(wide_integer_from_signed(7), wide_integer_from_signed(-2), &q, &r));
-    assert(wide_integer_equal(q, wide_integer_from_signed(-3)));
-    assert(wide_integer_equal(r, wide_integer_from_signed(1)));
+    assert(integer128_divmod_s(integer128_from_signed(7), integer128_from_signed(-2), &q, &r));
+    assert(integer128_equal(q, integer128_from_signed(-3)));
+    assert(integer128_equal(r, integer128_from_signed(1)));
 
     /* MIN / -1 wraps to MIN */
-    assert(wide_integer_divmod_s(wide_integer_min(), wide_integer_from_signed(-1), &q, &r));
-    assert(wide_integer_equal(q, wide_integer_min()));
-    assert(wide_integer_is_zero(r));
+    assert(integer128_divmod_s(integer128_min(), integer128_from_signed(-1), &q, &r));
+    assert(integer128_equal(q, integer128_min()));
+    assert(integer128_is_zero(r));
 
-    assert(!wide_integer_divmod_u(n, wide_integer_from_unsigned(0), &q, &r));
-    assert(wide_integer_is_zero(q) && wide_integer_is_zero(r));
+    assert(!integer128_divmod_u(n, integer128_from_unsigned(0), &q, &r));
+    assert(integer128_is_zero(q) && integer128_is_zero(r));
 }
 
-void wide_integer_wrap_test(void)
+void integer128_wrap_test(void)
 {
-    const int w = WIDE_INTEGER_HALF_BITS + 36;
+    const int w = INTEGER128_HALF_BITS + 36;
 
-    assert(wide_integer_equal(wide_integer_wrap_s(wide_integer_from_unsigned(0xFF), 8), wide_integer_from_signed(-1)));
-    assert(wide_integer_equal(wide_integer_wrap_u(wide_integer_from_signed(-1), 8), wide_integer_from_unsigned(0xFF)));
-    assert(wide_integer_equal(wide_integer_wrap_u(wide_integer_from_signed(-1), w), wide_integer_make((1ULL << 36) - 1, ULLONG_MAX)));
-    assert(wide_integer_equal(wide_integer_wrap_s(wide_integer_make(1ULL << 35, 0), w), wide_integer_make(ULLONG_MAX << 35, 0)));
-    assert(wide_integer_equal(wide_integer_wrap_u(wide_integer_from_signed(-1), WIDE_INTEGER_HALF_BITS), wide_integer_from_unsigned(ULLONG_MAX)));
-    assert(wide_integer_equal(wide_integer_wrap_s(wide_integer_from_unsigned(ULLONG_MAX), WIDE_INTEGER_HALF_BITS), wide_integer_from_signed(-1)));
-    assert(wide_integer_equal(wide_integer_wrap_s(wide_integer_from_signed(-1), WIDE_INTEGER_BITS), wide_integer_from_signed(-1)));
+    assert(integer128_equal(integer128_wrap_s(integer128_from_unsigned(0xFF), 8), integer128_from_signed(-1)));
+    assert(integer128_equal(integer128_wrap_u(integer128_from_signed(-1), 8), integer128_from_unsigned(0xFF)));
+    assert(integer128_equal(integer128_wrap_u(integer128_from_signed(-1), w), integer128_make((1ULL << 36) - 1, ULLONG_MAX)));
+    assert(integer128_equal(integer128_wrap_s(integer128_make(1ULL << 35, 0), w), integer128_make(ULLONG_MAX << 35, 0)));
+    assert(integer128_equal(integer128_wrap_u(integer128_from_signed(-1), INTEGER128_HALF_BITS), integer128_from_unsigned(ULLONG_MAX)));
+    assert(integer128_equal(integer128_wrap_s(integer128_from_unsigned(ULLONG_MAX), INTEGER128_HALF_BITS), integer128_from_signed(-1)));
+    assert(integer128_equal(integer128_wrap_s(integer128_from_signed(-1), INTEGER128_BITS), integer128_from_signed(-1)));
 }
 
-void wide_integer_conversion_test(void)
+void integer128_conversion_test(void)
 {
-    assert(wide_integer_equal(wide_integer_from_long_double(-3.9L), wide_integer_from_signed(-3)));
-    assert(wide_integer_equal(wide_integer_from_long_double(WIDE_INTEGER_HI_WEIGHT), wide_integer_make(1, 0)));
-    assert(wide_integer_to_long_double_u(wide_integer_make(1, 0)) == WIDE_INTEGER_HI_WEIGHT);
-    assert(wide_integer_to_long_double_s(wide_integer_from_signed(-5)) == -5.0L);
+    assert(integer128_equal(integer128_from_long_double(-3.9L), integer128_from_signed(-3)));
+    assert(integer128_equal(integer128_from_long_double(INTEGER128_HI_WEIGHT), integer128_make(1, 0)));
+    assert(integer128_to_long_double_u(integer128_make(1, 0)) == INTEGER128_HI_WEIGHT);
+    assert(integer128_to_long_double_s(integer128_from_signed(-5)) == -5.0L);
 
-    char buffer[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+    char buffer[INTEGER128_TO_STRING_MIN_SIZE] = { 0 };
 
-    wide_integer_to_string_s(wide_integer_from_unsigned(0), buffer, sizeof buffer);
+    integer128_to_string_s(integer128_from_unsigned(0), buffer, sizeof buffer);
     assert(strcmp(buffer, "0") == 0);
 
-    wide_integer_to_string_s(wide_integer_from_signed(-42), buffer, sizeof buffer);
+    integer128_to_string_s(integer128_from_signed(-42), buffer, sizeof buffer);
     assert(strcmp(buffer, "-42") == 0);
 
-    wide_integer_to_string_u(wide_integer_from_unsigned(1234567890), buffer, sizeof buffer);
+    integer128_to_string_u(integer128_from_unsigned(1234567890), buffer, sizeof buffer);
     assert(strcmp(buffer, "1234567890") == 0);
 
 #if ULLONG_MAX == 0xFFFFFFFFFFFFFFFF
-    wide_integer_to_string_u(wide_integer_from_signed(-1), buffer, sizeof buffer);
+    integer128_to_string_u(integer128_from_signed(-1), buffer, sizeof buffer);
     assert(strcmp(buffer, "340282366920938463463374607431768211455") == 0);
 
-    wide_integer_to_string_s(wide_integer_min(), buffer, sizeof buffer);
+    integer128_to_string_s(integer128_min(), buffer, sizeof buffer);
     assert(strcmp(buffer, "-170141183460469231731687303715884105728") == 0);
 #endif
 
     char small[8] = { 0 };
-    assert(wide_integer_to_string_u(wide_integer_from_unsigned(1), small, sizeof small) == 0);
+    assert(integer128_to_string_u(integer128_from_unsigned(1), small, sizeof small) == 0);
     assert(small[0] == '\0');
 }
 
-void wide_integer_from_digits_test(void)
+void integer128_to_c_text_test(void)
+{
+    char buffer[INTEGER128_TO_C_TEXT_MIN_SIZE] = { 0 };
+    integer128_to_c_text(integer128_shl(integer128_from_unsigned(1), 100), buffer, sizeof buffer);
+    assert(strcmp(buffer, "((unsigned __int128)0x1000000000ULL << 64 | 0x0ULL)") == 0);
+    integer128_to_c_text(integer128_from_signed(-1), buffer, sizeof buffer);
+    assert(strcmp(buffer, "((unsigned __int128)0xffffffffffffffffULL << 64 | 0xffffffffffffffffULL)") == 0);
+}
+
+void integer128_from_digits_test(void)
 {
     bool overflow = true;
 
-    assert(wide_integer_equal(wide_integer_from_digits("12345", 10, &overflow), wide_integer_from_unsigned(12345)));
+    assert(integer128_equal(integer128_from_digits("12345", 10, &overflow), integer128_from_unsigned(12345)));
     assert(!overflow);
 
-    assert(wide_integer_equal(wide_integer_from_digits("ff", 16, &overflow), wide_integer_from_unsigned(255)));
-    assert(wide_integer_equal(wide_integer_from_digits("777", 8, &overflow), wide_integer_from_unsigned(511)));
-    assert(wide_integer_equal(wide_integer_from_digits("101", 2, &overflow), wide_integer_from_unsigned(5)));
+    assert(integer128_equal(integer128_from_digits("ff", 16, &overflow), integer128_from_unsigned(255)));
+    assert(integer128_equal(integer128_from_digits("777", 8, &overflow), integer128_from_unsigned(511)));
+    assert(integer128_equal(integer128_from_digits("101", 2, &overflow), integer128_from_unsigned(5)));
 
     /* stops at the first character that is not a digit of the base */
-    assert(wide_integer_equal(wide_integer_from_digits("12uwb", 10, &overflow), wide_integer_from_unsigned(12)));
-    assert(wide_integer_equal(wide_integer_from_digits("129", 8, &overflow), wide_integer_from_unsigned(10)));
+    assert(integer128_equal(integer128_from_digits("12uwb", 10, &overflow), integer128_from_unsigned(12)));
+    assert(integer128_equal(integer128_from_digits("129", 8, &overflow), integer128_from_unsigned(10)));
 
     /* 2^HALF_BITS, one past an unsigned long long */
-    char text[WIDE_INTEGER_BITS + 2] = { 0 };
+    char text[INTEGER128_BITS + 2] = { 0 };
     text[0] = '1';
-    for (int i = 1; i <= WIDE_INTEGER_HALF_BITS; i++)
+    for (int i = 1; i <= INTEGER128_HALF_BITS; i++)
         text[i] = '0';
-    assert(wide_integer_equal(wide_integer_from_digits(text, 2, &overflow), wide_integer_make(1, 0)));
+    assert(integer128_equal(integer128_from_digits(text, 2, &overflow), integer128_make(1, 0)));
     assert(!overflow);
 
-    /* WIDE_INTEGER_BITS ones fit, one more does not */
-    for (int i = 0; i < WIDE_INTEGER_BITS; i++)
+    /* INTEGER128_BITS ones fit, one more does not */
+    for (int i = 0; i < INTEGER128_BITS; i++)
         text[i] = '1';
-    text[WIDE_INTEGER_BITS] = '\0';
-    assert(wide_integer_equal(wide_integer_from_digits(text, 2, &overflow), wide_integer_from_signed(-1)));
+    text[INTEGER128_BITS] = '\0';
+    assert(integer128_equal(integer128_from_digits(text, 2, &overflow), integer128_from_signed(-1)));
     assert(!overflow);
 
-    text[WIDE_INTEGER_BITS] = '1';
-    text[WIDE_INTEGER_BITS + 1] = '\0';
-    wide_integer_from_digits(text, 2, &overflow);
+    text[INTEGER128_BITS] = '1';
+    text[INTEGER128_BITS + 1] = '\0';
+    integer128_from_digits(text, 2, &overflow);
     assert(overflow);
 
 #if ULLONG_MAX == 0xFFFFFFFFFFFFFFFF
-    assert(wide_integer_equal(wide_integer_from_digits("340282366920938463463374607431768211455", 10, &overflow), wide_integer_from_signed(-1)));
+    assert(integer128_equal(integer128_from_digits("340282366920938463463374607431768211455", 10, &overflow), integer128_from_signed(-1)));
     assert(!overflow);
-    wide_integer_from_digits("340282366920938463463374607431768211456", 10, &overflow);
+    integer128_from_digits("340282366920938463463374607431768211456", 10, &overflow);
     assert(overflow);
 #endif
 }
@@ -24478,8 +24637,8 @@ enum type_specifier_flags
     /* C23 _BitInt(N). The width N lives in type::bitint_width */
     TYPE_SPECIFIER_BITINT = 1 << 18,
 
-    /* long long long, the rank above long long (cake extension, __int128 is an alias) */
-    TYPE_SPECIFIER_LONG_LONG_LONG = 1 << 19,
+    /* __int128, the rank above long long */
+    TYPE_SPECIFIER_INT128 = 1 << 19,
 
 
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,
@@ -24890,10 +25049,6 @@ void print_msvc_declspec(struct osstream* ss, bool* first, enum msvc_declspec_fl
 struct parser_ctx;
 
 
-long long target_signed_max(const struct platform* target, enum object_type type);
-unsigned long long target_unsigned_max(const struct platform* target, enum object_type type);
-
-
 enum object_value_state
 {
     CONSTANT_VALUE_STATE_UNINITIALIZED = 0,
@@ -24930,7 +25085,7 @@ struct object
 
     union
     {
-        struct wide_integer host_wide_integer; /* 2x long long */        
+        struct integer128 host_integer128; /* 2x long long */        
         long double host_long_double; /* */
     } value;
 
@@ -24967,7 +25122,7 @@ struct object        object_make_signed_long(const struct platform* target, sign
 struct object      object_make_unsigned_long(const struct platform* target, unsigned long long value);
 
 struct object   object_make_signed_long_long(const struct platform* target, signed long long value);
-struct object object_make_unsigned_long_long( unsigned long long value);
+struct object object_make_unsigned_long_long(const struct platform* target, unsigned long long value);
 struct object              object_make_float(const struct platform* target, long double value);
 struct object             object_make_double(const struct platform* target, long double value);
 struct object        object_make_long_double(const struct platform* target, long double value);
@@ -25612,6 +25767,7 @@ void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _O
 void diagnostic_queue_flush(struct diagnostic_queue* q, struct parser_ctx* ctx);
 bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id);
 void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
+void diagnostic_queue_swap(struct diagnostic_queue* a, struct diagnostic_queue* b);
 
 
 int parse_diagnostic_suppression(const char* p, int ids[], int ids_max);
@@ -27400,7 +27556,7 @@ struct enumerator
     struct object value;
 };
 
-struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct enum_specifier* _Opt prev_decl_same_scope, struct object* p_enumerator_value, long long lo_limit, unsigned long long hi_limit, long long *min_value, unsigned long long *max_value, bool* next_ovf);
+struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct enum_specifier* _Opt prev_decl_same_scope, struct object* p_enumerator_value, struct integer128* min_value, struct integer128* max_value, bool* next_ovf);
 struct enumerator* _Owner enumerator_add_ref(struct enumerator* p);
 void enumerator_delete(_Dtor struct enumerator* _Owner _Opt  p);
 
@@ -27434,7 +27590,7 @@ struct balanced_token_sequence
 struct balanced_token_sequence* _Owner _Opt balanced_token_sequence_opt(struct parser_ctx* ctx);
 void balanced_token_sequence_delete(_Dtor struct balanced_token_sequence* _Owner _Opt  p);
 
-bool first_of_type_name(struct parser_ctx* ctx);
+bool first_of_type_name(const struct parser_ctx* ctx);
 bool first_of_type_name_ahead(const struct parser_ctx* ctx);
 bool first_of_type_name_token(const struct parser_ctx* ctx /*only to typedef*/, struct token* p_token);
 
@@ -27571,30 +27727,30 @@ int object_type_bitint_width(enum object_type t)
 }
 
 /*
-  "bitsized" = bitfield, bit-precise integer or long long long. All keep an
+  "bitsized" = bitfield, bit-precise integer or __int128. All keep an
   N-bit value in the host long long, so every value-level operation treats
   them alike; only promotion and rank tell them apart. The width of
-  long long long comes from the target (target_get_num_of_bits).
+  __int128 comes from the target (target_get_num_of_bits).
 */
 static bool object_type_is_signed_bitsized(enum object_type t)
 {
     return object_type_is_signed_bitfield(t) ||
         object_type_is_signed_bitint(t) ||
-        t == TYPE_SIGNED_LONG_LONG_LONG;
+        t == TYPE_SIGNED_INT128;
 }
 
 static bool object_type_is_unsigned_bitsized(enum object_type t)
 {
     return object_type_is_unsigned_bitfield(t) ||
         object_type_is_unsigned_bitint(t) ||
-        t == TYPE_UNSIGNED_LONG_LONG_LONG;
+        t == TYPE_UNSIGNED_INT128;
 }
 
 static enum object_type bitfield_to_unsigned(enum object_type t)
 {
-    if (t == TYPE_SIGNED_LONG_LONG_LONG)
+    if (t == TYPE_SIGNED_INT128)
     {
-        return TYPE_UNSIGNED_LONG_LONG_LONG;
+        return TYPE_UNSIGNED_INT128;
     }
     if (object_type_is_signed_bitfield(t))
     {
@@ -27639,7 +27795,7 @@ static enum object_type to_unsigned(enum object_type t)
     case TYPE_SIGNED_INT: return TYPE_UNSIGNED_INT;
     case TYPE_SIGNED_LONG:return TYPE_UNSIGNED_LONG;
     case TYPE_SIGNED_LONG_LONG: return TYPE_UNSIGNED_LONG_LONG;
-    case TYPE_SIGNED_LONG_LONG_LONG: return TYPE_UNSIGNED_LONG_LONG_LONG;
+    case TYPE_SIGNED_INT128: return TYPE_UNSIGNED_INT128;
 
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
@@ -27716,10 +27872,10 @@ bool object_type_is_unsigned_integer(enum object_type type)
 }
 
 /*
-  Every integer keeps its value in value.host_wide_integer, wrapped to the width of
+  Every integer keeps its value in value.host_integer128, wrapped to the width of
   its type (target_get_num_of_bits): sign extended when the type is signed,
-  zero extended when it is unsigned. So one wide_integer computation followed by a
-  wrap gives the result of any integer type, up to long long long.
+  zero extended when it is unsigned. So one integer128 computation followed by a
+  wrap gives the result of any integer type, up to __int128.
 */
 static bool object_type_is_integer(enum object_type t)
 {
@@ -27731,52 +27887,52 @@ static bool object_type_is_integer(enum object_type t)
   v as an integer of 'width' bits. A width of 0 (a zeroed platform, as some
   self tests use) keeps the value as it is.
 */
-static struct wide_integer object_wrap_s(struct wide_integer v, int width)
+static struct integer128 object_wrap_s(struct integer128 v, int width)
 {
-    return width >= 1 && width <= WIDE_INTEGER_BITS ? wide_integer_wrap_s(v, width) : v;
+    return width >= 1 && width <= INTEGER128_BITS ? integer128_wrap_s(v, width) : v;
 }
 
-static struct wide_integer object_wrap_u(struct wide_integer v, int width)
+static struct integer128 object_wrap_u(struct integer128 v, int width)
 {
-    return width >= 1 && width <= WIDE_INTEGER_BITS ? wide_integer_wrap_u(v, width) : v;
+    return width >= 1 && width <= INTEGER128_BITS ? integer128_wrap_u(v, width) : v;
 }
 
-static void object_set_wide_integer(const struct platform* target, struct object* r, struct wide_integer v)
+static void object_set_integer128(const struct platform* target, struct object* r, struct integer128 v)
 {
     const int width = (int)target_get_num_of_bits(target, r->value_type);
-    r->value.host_wide_integer = object_type_is_signed_integer(r->value_type) ? object_wrap_s(v, width) : object_wrap_u(v, width);
+    r->value.host_integer128 = object_type_is_signed_integer(r->value_type) ? object_wrap_s(v, width) : object_wrap_u(v, width);
 }
 
-/* the value of a, any arithmetic type, as a wide_integer; a floating value is truncated */
-static struct wide_integer object_get_wide_integer(const struct object* a)
+/* the value of a, any arithmetic type, as a integer128; a floating value is truncated */
+static struct integer128 object_get_integer128(const struct object* a)
 {
     if (object_type_is_integer(a->value_type))
-        return a->value.host_wide_integer;
+        return a->value.host_integer128;
 
-    return wide_integer_from_long_double(a->value.host_long_double);
+    return integer128_from_long_double(a->value.host_long_double);
 }
 
 /* the value of a, any arithmetic type, as a long double */
 static long double object_get_long_double(const struct object* a)
 {
     if (object_type_is_signed_integer(a->value_type))
-        return wide_integer_to_long_double_s(a->value.host_wide_integer);
+        return integer128_to_long_double_s(a->value.host_integer128);
 
     if (object_type_is_unsigned_integer(a->value_type))
-        return wide_integer_to_long_double_u(a->value.host_wide_integer);
+        return integer128_to_long_double_u(a->value.host_integer128);
 
     return a->value.host_long_double;
 }
 
 /* the integer of the given width that has value */
-static struct wide_integer wide_integer_signed_of_width(long long value, int width)
+static struct integer128 integer128_signed_of_width(long long value, int width)
 {
-    return object_wrap_s(wide_integer_from_signed(value), width);
+    return object_wrap_s(integer128_from_signed(value), width);
 }
 
-static struct wide_integer wide_integer_unsigned_of_width(unsigned long long value, int width)
+static struct integer128 integer128_unsigned_of_width(unsigned long long value, int width)
 {
-    return object_wrap_u(wide_integer_from_unsigned(value), width);
+    return object_wrap_u(integer128_from_unsigned(value), width);
 }
 
 NODISCARD
@@ -27893,7 +28049,7 @@ struct object object_make_size_t(const struct platform* target, unsigned long lo
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = target->size_t_type;
     const int bits = target_get_num_of_bits(target, r.value_type);
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, bits);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, bits);
     return r;
 }
 
@@ -27903,7 +28059,7 @@ struct object object_make_nullptr(const struct platform* target)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = target->size_t_type;
     const int bits = target_get_num_of_bits(target, r.value_type);
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(0, bits);
+    r.value.host_integer128 = integer128_unsigned_of_width(0, bits);
     return r;
 }
 
@@ -27915,11 +28071,11 @@ struct object object_make_char(const struct platform* target, int value)
 
     if (object_type_is_signed_integer(r.value_type))
     {
-        r.value.host_wide_integer = wide_integer_signed_of_width(value, target->char_n_bits);
+        r.value.host_integer128 = integer128_signed_of_width(value, target->char_n_bits);
     }
     else
     {
-        r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->char_n_bits);
+        r.value.host_integer128 = integer128_unsigned_of_width(value, target->char_n_bits);
     }
 
     return r;
@@ -27931,7 +28087,7 @@ struct object object_make_wchar_t(const struct platform* target, int value)
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = target->wchar_t_type;
     const int bits = target_get_num_of_bits(target, r.value_type);
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, bits);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, bits);
     return r;
 }
 
@@ -27942,11 +28098,11 @@ struct object object_make_bool(const struct platform* target, bool value)
     r.value_type = target->bool_type;
     if (object_type_is_signed_integer(r.value_type))
     {
-        r.value.host_wide_integer = wide_integer_signed_of_width(value, target->bool_n_bits);
+        r.value.host_integer128 = integer128_signed_of_width(value, target->bool_n_bits);
     }
     else
     {
-        r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->bool_n_bits);
+        r.value.host_integer128 = integer128_unsigned_of_width(value, target->bool_n_bits);
     }
     return r;
 }
@@ -27959,25 +28115,25 @@ int object_to_str(const struct object* a, int n, char str[ /*n*/])
 
     if (object_type_is_integer(a->value_type))
     {
-        char digits[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+        char digits[INTEGER128_TO_STRING_MIN_SIZE] = { 0 };
         if (object_type_is_signed_integer(a->value_type))
-            wide_integer_to_string_s(a->value.host_wide_integer, digits, sizeof digits);
+            integer128_to_string_s(a->value.host_integer128, digits, sizeof digits);
         else
-            wide_integer_to_string_u(a->value.host_wide_integer, digits, sizeof digits);
+            integer128_to_string_u(a->value.host_integer128, digits, sizeof digits);
 
-        /* the suffix of the standard types; long long long is written like long long */
+        /* the suffix of the standard types; __int128 has none, it is written like long long */
         const char* suffix = "";
         switch (a->value_type)
         {
         case TYPE_SIGNED_LONG: suffix = "L"; break;
         case TYPE_SIGNED_LONG_LONG: suffix = "LL"; break;
-        case TYPE_SIGNED_LONG_LONG_LONG: suffix = "LL"; break;
+        case TYPE_SIGNED_INT128: suffix = "LL"; break;
         case TYPE_UNSIGNED_CHAR: suffix = "U"; break;
         case TYPE_UNSIGNED_SHORT: suffix = "U"; break;
         case TYPE_UNSIGNED_INT: suffix = "U"; break;
         case TYPE_UNSIGNED_LONG: suffix = "UL"; break;
         case TYPE_UNSIGNED_LONG_LONG: suffix = "ULL"; break;
-        case TYPE_UNSIGNED_LONG_LONG_LONG: suffix = "ULL"; break;
+        case TYPE_UNSIGNED_INT128: suffix = "ULL"; break;
         default:
             break;
         }
@@ -28011,7 +28167,7 @@ bool object_is_true(const struct object* a)
     a = object_get_referenced(a);
 
     if (object_type_is_integer(a->value_type))
-        return !wide_integer_is_zero(a->value.host_wide_integer);
+        return !integer128_is_zero(a->value.host_integer128);
 
     return a->value.host_long_double != 0;
 }
@@ -28021,7 +28177,7 @@ struct object object_make_signed_char(signed char value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_CHAR;
-    r.value.host_wide_integer = wide_integer_signed_of_width(value, 8);
+    r.value.host_integer128 = integer128_signed_of_width(value, 8);
     return r;
 }
 
@@ -28029,13 +28185,13 @@ bool object_increment_value(const struct platform* target, struct object* a)
 {
     if (object_type_is_integer(a->value_type))
     {
-        const struct wide_integer prev = a->value.host_wide_integer;
-        object_set_wide_integer(target, a, wide_integer_add(prev, wide_integer_from_unsigned(1)));
+        const struct integer128 prev = a->value.host_integer128;
+        object_set_integer128(target, a, integer128_add(prev, integer128_from_unsigned(1)));
 
         /* true when it wrapped around */
         return object_type_is_signed_integer(a->value_type) ?
-            wide_integer_compare_s(prev, a->value.host_wide_integer) > 0 :
-            wide_integer_compare_u(prev, a->value.host_wide_integer) > 0;
+            integer128_compare_s(prev, a->value.host_integer128) > 0 :
+            integer128_compare_u(prev, a->value.host_integer128) > 0;
     }
 
     a->value.host_long_double++;
@@ -28048,7 +28204,7 @@ struct object object_make_unsigned_char(const struct platform* target, unsigned 
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_CHAR;
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->char_n_bits);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, target->char_n_bits);
 
     return r;
 }
@@ -28058,7 +28214,7 @@ struct object object_make_signed_short(signed short value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_SHORT;
-    r.value.host_wide_integer = wide_integer_signed_of_width(value, 16);
+    r.value.host_integer128 = integer128_signed_of_width(value, 16);
 
     return r;
 }
@@ -28068,7 +28224,7 @@ struct object object_make_uint8(const struct platform* target, uint8_t value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = to_unsigned(target->int8_type);
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, 8);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, 8);
     return r;
 }
 struct object object_make_uint16(const struct platform* target, uint16_t value)
@@ -28076,7 +28232,7 @@ struct object object_make_uint16(const struct platform* target, uint16_t value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = to_unsigned(target->int16_type);
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, 16);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, 16);
     return r;
 }
 struct object object_make_uint32(const struct platform* target, uint32_t value)
@@ -28084,7 +28240,7 @@ struct object object_make_uint32(const struct platform* target, uint32_t value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = to_unsigned(target->int32_type);
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, 32);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, 32);
     return r;
 }
 
@@ -28093,7 +28249,7 @@ struct object object_make_signed_int(const struct platform* target, long long va
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_INT;
-    r.value.host_wide_integer = wide_integer_signed_of_width(value, target->int_n_bits);
+    r.value.host_integer128 = integer128_signed_of_width(value, target->int_n_bits);
     return r;
 }
 
@@ -28102,7 +28258,7 @@ struct object object_make_unsigned_int(const struct platform* target, unsigned l
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_INT;
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->int_n_bits);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, target->int_n_bits);
     return r;
 }
 
@@ -28111,7 +28267,7 @@ struct object object_make_signed_long(const struct platform* target, signed long
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG;
-    r.value.host_wide_integer = wide_integer_signed_of_width(value, target->long_n_bits);
+    r.value.host_integer128 = integer128_signed_of_width(value, target->long_n_bits);
     return r;
 }
 
@@ -28120,7 +28276,7 @@ struct object object_make_unsigned_long(const struct platform* target, unsigned 
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG;
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, target->long_n_bits);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, target->long_n_bits);
     return r;
 }
 
@@ -28130,7 +28286,7 @@ struct object object_make_signed_long_long(const struct platform* target, signed
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_SIGNED_LONG_LONG;
 
-    r.value.host_wide_integer = wide_integer_signed_of_width(value, target->long_long_n_bits);
+    r.value.host_integer128 = integer128_signed_of_width(value, target->long_long_n_bits);
     return r;
 }
 
@@ -28140,16 +28296,16 @@ signed long long object_to_signed_long_long(const struct object* a)
 
     /* the low half; a value wider than a long long is truncated */
     if (object_type_is_integer(a->value_type))
-        return (signed long long)a->value.host_wide_integer.lo;
+        return integer128_to_ll(a->value.host_integer128);
 
     return (long long)a->value.host_long_double;
 }
-struct object object_make_unsigned_long_long( unsigned long long value)
+struct object object_make_unsigned_long_long(const struct platform* target, unsigned long long value)
 {
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
-    r.value.host_wide_integer = wide_integer_from_unsigned(value);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, target->long_long_n_bits);
     return r;
 }
 
@@ -28159,7 +28315,7 @@ unsigned long long object_to_unsigned_long_long(const struct object* a)
 
     /* the low half; a value wider than a long long is truncated */
     if (object_type_is_integer(a->value_type))
-        return a->value.host_wide_integer.lo;
+        return integer128_to_ull(a->value.host_integer128);
 
     return (unsigned long long) a->value.host_long_double;
 }
@@ -28197,7 +28353,7 @@ struct object object_make_signed_bitfield(int width, long long value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_SIGNED_BITFIELD_1 + width - 1);
-    r.value.host_wide_integer = wide_integer_signed_of_width(value, width);
+    r.value.host_integer128 = integer128_signed_of_width(value, width);
     return r;
 }
 
@@ -28207,27 +28363,27 @@ struct object object_make_unsigned_bitfield(int width, unsigned long long value)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_UNSIGNED_BITFIELD_1 + width - 1);
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, width);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, width);
     return r;
 }
 
 struct object object_make_signed_bitint(int width, long long value)
 {
-    assert(width >= 2 && width <= WIDE_INTEGER_BITS);
+    assert(width >= 2 && width <= INTEGER128_BITS);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_SIGNED_BITINT_1 + width - 1);
-    r.value.host_wide_integer = wide_integer_signed_of_width(value, width);
+    r.value.host_integer128 = integer128_signed_of_width(value, width);
     return r;
 }
 
 struct object object_make_unsigned_bitint(int width, unsigned long long value)
 {
-    assert(width >= 1 && width <= WIDE_INTEGER_BITS);
+    assert(width >= 1 && width <= INTEGER128_BITS);
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
     r.value_type = (enum object_type)(TYPE_UNSIGNED_BITINT_1 + width - 1);
-    r.value.host_wide_integer = wide_integer_unsigned_of_width(value, width);
+    r.value.host_integer128 = integer128_unsigned_of_width(value, width);
     return r;
 }
 
@@ -28238,7 +28394,7 @@ struct object object_make_pointer(struct object* object)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_EQUAL;
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
-    r.value.host_wide_integer = wide_integer_from_unsigned((uint64_t)object);
+    r.value.host_integer128 = integer128_from_unsigned((uint64_t)object);
 
     return r;
 }
@@ -28250,7 +28406,7 @@ struct object object_make_reference(struct object* object)
     struct object r = { 0 };
     r.state = CONSTANT_VALUE_EQUAL;
     r.value_type = TYPE_UNSIGNED_LONG_LONG;
-    r.value.host_wide_integer = wide_integer_from_unsigned((uint64_t)object);
+    r.value.host_integer128 = integer128_from_unsigned((uint64_t)object);
     r.p_ref = object;
     return r;
 }
@@ -28270,7 +28426,7 @@ struct object object_cast(const struct platform* target, enum object_type dest_t
     if (object_type_is_integer(dest_type))
     {
         /* the value wrapped to the destination; a floating one is truncated first */
-        object_set_wide_integer(target, &r, object_get_wide_integer(v));
+        object_set_integer128(target, &r, object_get_integer128(v));
     }
     else
     {
@@ -28287,8 +28443,7 @@ void object_default_initialization(struct object* p_object, bool is_constant)
             p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
         else
             p_object->state = CONSTANT_VALUE_EQUAL;
-        p_object->value.host_wide_integer.lo = 0;
-        p_object->value.host_wide_integer.hi = 0;
+        p_object->value.host_integer128 = integer128_from_unsigned(0);
     }
 
     if (type_is_union(&p_object->type))
@@ -28353,7 +28508,7 @@ static int get_rank(enum object_type t)
         const int width = object_type_bitint_width(t);
         if (width > 64)
         {
-            return 90 - 10 + width / 16; /* between long long and long long long */
+            return 90 - 10 + width / 16; /* between long long and __int128 */
         }
         if (width > 32)
         {
@@ -28370,8 +28525,8 @@ static int get_rank(enum object_type t)
         return 20 - 10 + width / 16; /* below char */
     }
 
-    if (t == TYPE_SIGNED_LONG_LONG_LONG ||
-        t == TYPE_UNSIGNED_LONG_LONG_LONG)
+    if (t == TYPE_SIGNED_INT128 ||
+        t == TYPE_UNSIGNED_INT128)
     {
         return 90;
     }
@@ -28473,7 +28628,7 @@ bool object_is_zero(const struct object* p_object)
         return false;
 
     if (object_type_is_integer(p_object->value_type))
-        return wide_integer_is_zero(p_object->value.host_wide_integer);
+        return integer128_is_zero(p_object->value.host_integer128);
 
     return p_object->value.host_long_double == 0.0;
 }
@@ -28486,7 +28641,7 @@ bool object_is_one(const struct object* p_object)
         return false;
 
     if (object_type_is_integer(p_object->value_type))
-        return wide_integer_equal(p_object->value.host_wide_integer, wide_integer_from_unsigned(1));
+        return integer128_equal(p_object->value.host_integer128, integer128_from_unsigned(1));
 
     return p_object->value.host_long_double == 1.0;
 }
@@ -28594,21 +28749,21 @@ int object_set(
                 */
                 const int dest_n_bits = target_get_num_of_bits(&ctx->options.platform, to->value_type);
                 const bool dest_is_signed = object_type_is_signed_integer(to->value_type);
-                const struct wide_integer v = from->value.host_wide_integer;
+                const struct integer128 v = from->value.host_integer128;
 
-                /* the top bit of an unsigned value of the full wide_integer width is not a sign */
-                const bool v_is_negative = object_type_is_signed_integer(from->value_type) && wide_integer_is_negative(v);
-                const bool v_uses_top_bit = !object_type_is_signed_integer(from->value_type) && wide_integer_is_negative(v);
+                /* the top bit of an unsigned value of the full integer128 width is not a sign */
+                const bool v_is_negative = object_type_is_signed_integer(from->value_type) && integer128_is_negative(v);
+                const bool v_uses_top_bit = !object_type_is_signed_integer(from->value_type) && integer128_is_negative(v);
 
                 if (type_is_bool(&to->type))
-                    representable = !v_is_negative && wide_integer_compare_u(v, wide_integer_from_unsigned(1)) <= 0;
+                    representable = !v_is_negative && integer128_compare_u(v, integer128_from_unsigned(1)) <= 0;
                 else if (v_is_negative)
-                    representable = dest_is_signed && wide_integer_equal(object_wrap_s(v, dest_n_bits), v);
+                    representable = dest_is_signed && integer128_equal(object_wrap_s(v, dest_n_bits), v);
                 else if (v_uses_top_bit)
-                    representable = !dest_is_signed && dest_n_bits == WIDE_INTEGER_BITS;
+                    representable = !dest_is_signed && dest_n_bits == INTEGER128_BITS;
                 else
                     /* v is in the range when wrapping it to the destination keeps it */
-                    representable = wide_integer_equal(dest_is_signed ? object_wrap_s(v, dest_n_bits) : object_wrap_u(v, dest_n_bits), v);
+                    representable = integer128_equal(dest_is_signed ? object_wrap_s(v, dest_n_bits) : object_wrap_u(v, dest_n_bits), v);
 
                 if (!representable && p_init_expression)
                 {
@@ -28709,8 +28864,8 @@ int object_set(
                    it truncates toward zero (avoids truncl/libm, not C89) */
                 if (isnan(v) || !in_range ||
                     (dest_is_signed ?
-                        wide_integer_to_long_double_s(wide_integer_from_long_double(v)) :
-                        wide_integer_to_long_double_u(wide_integer_from_long_double(v))) != v)
+                        integer128_to_long_double_s(integer128_from_long_double(v)) :
+                        integer128_to_long_double_u(integer128_from_long_double(v))) != v)
                 {
                     char value_buf[64] = { 0 };
                     snprintf(value_buf, sizeof value_buf, "%.17g", (double)v);
@@ -28935,22 +29090,22 @@ struct object* _Owner _Opt make_object_ptr_core(const struct type* p_type,
             {
             case MAKE_STATE_ZERO_CONSTANT:
                 p_object->state = CONSTANT_VALUE_STATE_CONSTANT;
-                p_object->value.host_wide_integer = wide_integer_from_signed(0);
+                p_object->value.host_integer128 = integer128_from_signed(0);
                 break;
 
             case MAKE_STATE_ZERO:
                 p_object->state = CONSTANT_VALUE_EQUAL;
-                p_object->value.host_wide_integer = wide_integer_from_signed(0);
+                p_object->value.host_integer128 = integer128_from_signed(0);
                 break;
 
             case MAKE_STATE_UNITIALIZED:
                 p_object->state = CONSTANT_VALUE_STATE_UNINITIALIZED;
-                p_object->value.host_wide_integer = wide_integer_from_signed(-1);
+                p_object->value.host_integer128 = integer128_from_signed(-1);
                 break;
             case MAKE_STATE_ANY:
             case MAKE_STATE_ANY_LAZY_ARRAYS:
                 p_object->state = CONSTANT_VALUE_STATE_ANY;
-                p_object->value.host_wide_integer = wide_integer_from_signed(-1);
+                p_object->value.host_integer128 = integer128_from_signed(-1);
                 break;
             }
 
@@ -29181,8 +29336,8 @@ enum type_specifier_flags object_type_to_type_specifier(enum object_type type)
     case TYPE_SIGNED_LONG_LONG: return TYPE_SPECIFIER_LONG_LONG;
     case TYPE_UNSIGNED_LONG_LONG: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
 
-    case TYPE_SIGNED_LONG_LONG_LONG: return TYPE_SPECIFIER_LONG_LONG_LONG;
-    case TYPE_UNSIGNED_LONG_LONG_LONG: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG;
+    case TYPE_SIGNED_INT128: return TYPE_SPECIFIER_INT128;
+    case TYPE_UNSIGNED_INT128: return TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT128;
 
     case TYPE_FLOAT: return TYPE_SPECIFIER_FLOAT;
     case TYPE_DOUBLE: return TYPE_SPECIFIER_DOUBLE;
@@ -29227,8 +29382,8 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
             return TYPE_UNSIGNED_SHORT;
 
-        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
-            return TYPE_UNSIGNED_LONG_LONG_LONG;
+        if (type_specifier_flags & TYPE_SPECIFIER_INT128)
+            return TYPE_UNSIGNED_INT128;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
             return TYPE_UNSIGNED_LONG_LONG;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
@@ -29249,8 +29404,8 @@ enum object_type type_specifier_to_object_type(const enum type_specifier_flags t
         if (type_specifier_flags & TYPE_SPECIFIER_SHORT)
             return TYPE_SIGNED_SHORT;
 
-        if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
-            return TYPE_SIGNED_LONG_LONG_LONG;
+        if (type_specifier_flags & TYPE_SPECIFIER_INT128)
+            return TYPE_SIGNED_INT128;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
             return TYPE_SIGNED_LONG_LONG;
         if (type_specifier_flags & TYPE_SPECIFIER_LONG)
@@ -29297,7 +29452,7 @@ enum object_type type_to_object_type(const struct type* type, const struct platf
     {
         int width = type->bitint_width;
         if (width < 1) width = 1;
-        if (width > WIDE_INTEGER_BITS) width = WIDE_INTEGER_BITS;
+        if (width > INTEGER128_BITS) width = INTEGER128_BITS;
 
         if (type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
             return (enum object_type)(TYPE_UNSIGNED_BITINT_1 + (width - 1));
@@ -29314,11 +29469,11 @@ void object_print_value_debug(const struct object* a)
 
     if (object_type_is_integer(a->value_type))
     {
-        char digits[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+        char digits[INTEGER128_TO_STRING_MIN_SIZE] = { 0 };
         if (object_type_is_signed_integer(a->value_type))
-            wide_integer_to_string_s(a->value.host_wide_integer, digits, sizeof digits);
+            integer128_to_string_s(a->value.host_integer128, digits, sizeof digits);
         else
-            wide_integer_to_string_u(a->value.host_wide_integer, digits, sizeof digits);
+            integer128_to_string_u(a->value.host_integer128, digits, sizeof digits);
 
         if (object_type_is_signed_bitint(a->value_type))
         {
@@ -29351,8 +29506,8 @@ void object_print_value_debug(const struct object* a)
             case TYPE_UNSIGNED_LONG: name = "unsigned long"; break;
             case TYPE_SIGNED_LONG_LONG: name = "long long"; break;
             case TYPE_UNSIGNED_LONG_LONG: name = "unsigned long long"; break;
-            case TYPE_SIGNED_LONG_LONG_LONG: name = "long long long"; break;
-            case TYPE_UNSIGNED_LONG_LONG_LONG: name = "unsigned long long long"; break;
+            case TYPE_SIGNED_INT128: name = "__int128"; break;
+            case TYPE_UNSIGNED_INT128: name = "unsigned __int128"; break;
             default:
                 break;
             }
@@ -29632,11 +29787,11 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
 {
     a = object_get_referenced(a);
 
-    /* long long long holds its value like long long, so it is written like one */
+    /* an __int128 value that fits a long long is written like one; a wider one from its halves below */
     enum object_type value_type = a->value_type;
-    if (value_type == TYPE_SIGNED_LONG_LONG_LONG)
+    if (value_type == TYPE_SIGNED_INT128)
         value_type = TYPE_SIGNED_LONG_LONG;
-    else if (value_type == TYPE_UNSIGNED_LONG_LONG_LONG)
+    else if (value_type == TYPE_UNSIGNED_INT128)
         value_type = TYPE_UNSIGNED_LONG_LONG;
 
     if (object_type_is_integer(a->value_type))
@@ -29645,23 +29800,25 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
           A value that does not fit in a long long has no literal. It is built
           from its halves, as the 128-bit type of the targets that have one.
         */
-        const struct wide_integer v = a->value.host_wide_integer;
+        const struct integer128 v = a->value.host_integer128;
         const bool fits = object_type_is_signed_integer(a->value_type) ?
-            wide_integer_equal(v, wide_integer_from_signed((long long)v.lo)) :
-            v.hi == 0;
+            integer128_fits_ll(v) :
+            integer128_fits_ull(v);
         if (!fits)
         {
+            char text[INTEGER128_TO_C_TEXT_MIN_SIZE] = { 0 };
+            integer128_to_c_text(v, text, sizeof text);
             if (object_type_is_signed_integer(a->value_type))
-                ss_fprintf(ss, "((__int128)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", v.hi, WIDE_INTEGER_HALF_BITS, v.lo);
+                ss_fprintf(ss, "((__int128)%s)", text);
             else
-                ss_fprintf(ss, "((unsigned __int128)0x%llxULL << %d | 0x%llxULL)", v.hi, WIDE_INTEGER_HALF_BITS, v.lo);
+                ss_fprintf(ss, "%s", text);
             return;
         }
     }
 
     /* the value fits in a long long */
-    const long long sv = (long long)a->value.host_wide_integer.lo;
-    const unsigned long long uv = a->value.host_wide_integer.lo;
+    const long long sv = integer128_to_ll(a->value.host_integer128);
+    const unsigned long long uv = integer128_to_ull(a->value.host_integer128);
 
     if (object_type_is_signed_bitsized(value_type))
     {
@@ -29671,7 +29828,7 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
     if (object_type_is_unsigned_bitint(a->value_type))
     {
         /* an unsigned _BitInt(64) value may not fit any signed type, so keep it unsigned */
-        if (uv > target_unsigned_max(target, TYPE_UNSIGNED_INT))
+        if (uv > integer128_to_ull(target_unsigned_max(target, TYPE_UNSIGNED_INT)))
         {
             ss_fprintf(ss, "%lluULL", uv);
         }
@@ -29711,9 +29868,9 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
       <limits.h> does, (-MAX - 1), so the literal keeps the intended type.
     */
     case TYPE_SIGNED_INT:
-        if (sv == target_signed_min(target, TYPE_SIGNED_INT))
+        if (sv == integer128_to_ll(target_signed_min(target, TYPE_SIGNED_INT)))
         {
-            ss_fprintf(ss, "(-%lld - 1)", target_signed_max(target, TYPE_SIGNED_INT));
+            ss_fprintf(ss, "(-%lld - 1)", integer128_to_ll(target_signed_max(target, TYPE_SIGNED_INT)));
         }
         else
         {
@@ -29722,9 +29879,9 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
         break;
 
     case TYPE_SIGNED_LONG:
-        if (sv == target_signed_min(target, TYPE_SIGNED_LONG))
+        if (sv == integer128_to_ll(target_signed_min(target, TYPE_SIGNED_LONG)))
         {
-            ss_fprintf(ss, "(-%lldL - 1)", target_signed_max(target, TYPE_SIGNED_LONG));
+            ss_fprintf(ss, "(-%lldL - 1)", integer128_to_ll(target_signed_max(target, TYPE_SIGNED_LONG)));
         }
         else
         {
@@ -29741,9 +29898,9 @@ void object_print_value(const struct platform* target, struct osstream* ss, cons
         break;
 
     case TYPE_SIGNED_LONG_LONG:
-        if (sv == target_signed_min(target, TYPE_SIGNED_LONG_LONG))
+        if (sv == integer128_to_ll(target_signed_min(target, TYPE_SIGNED_LONG_LONG)))
         {
-            ss_fprintf(ss, "(-%lldLL - 1)", target_signed_max(target, TYPE_SIGNED_LONG_LONG));
+            ss_fprintf(ss, "(-%lldLL - 1)", integer128_to_ll(target_signed_max(target, TYPE_SIGNED_LONG_LONG)));
         }
         else
         {
@@ -29914,8 +30071,8 @@ static bool object_comparison_result(enum object_operator op, int compare)
 */
 static void object_binary_integer(const struct platform* target,
     enum object_operator op,
-    struct wide_integer x,
-    struct wide_integer y,
+    struct integer128 x,
+    struct integer128 y,
     enum object_type type,
     struct object* r,
     char warning_message[200])
@@ -29925,33 +30082,33 @@ static void object_binary_integer(const struct platform* target,
 
     if (object_operator_is_comparison(op))
     {
-        const int compare = is_signed ? wide_integer_compare_s(x, y) : wide_integer_compare_u(x, y);
-        object_set_wide_integer(target, r, wide_integer_from_signed(object_comparison_result(op, compare)));
+        const int compare = is_signed ? integer128_compare_s(x, y) : integer128_compare_u(x, y);
+        object_set_integer128(target, r, integer128_from_signed(object_comparison_result(op, compare)));
         return;
     }
 
-    struct wide_integer v = { 0 };
+    struct integer128 v = { 0 };
 
     switch (op)
     {
     case OBJECT_OPERATOR_ADD:
-        v = wide_integer_add(x, y);
+        v = integer128_add(x, y);
         break;
     case OBJECT_OPERATOR_SUB:
-        v = wide_integer_sub(x, y);
+        v = integer128_sub(x, y);
         break;
     case OBJECT_OPERATOR_MUL:
-        v = wide_integer_mul(x, y);
+        v = integer128_mul(x, y);
         break;
 
     case OBJECT_OPERATOR_DIV:
     case OBJECT_OPERATOR_MOD:
     {
-        struct wide_integer quotient = { 0 };
-        struct wide_integer remainder = { 0 };
+        struct integer128 quotient = { 0 };
+        struct integer128 remainder = { 0 };
         const bool divided = is_signed ?
-            wide_integer_divmod_s(x, y, &quotient, &remainder) :
-            wide_integer_divmod_u(x, y, &quotient, &remainder);
+            integer128_divmod_s(x, y, &quotient, &remainder) :
+            integer128_divmod_u(x, y, &quotient, &remainder);
         if (!divided)
         {
             snprintf(warning_message, 200, "division by zero");
@@ -29962,26 +30119,26 @@ static void object_binary_integer(const struct platform* target,
     break;
 
     case OBJECT_OPERATOR_BITWISE_AND:
-        v = wide_integer_and(x, y);
+        v = integer128_and(x, y);
         break;
     case OBJECT_OPERATOR_BITWISE_OR:
-        v = wide_integer_or(x, y);
+        v = integer128_or(x, y);
         break;
     case OBJECT_OPERATOR_BITWISE_XOR:
-        v = wide_integer_xor(x, y);
+        v = integer128_xor(x, y);
         break;
 
     case OBJECT_OPERATOR_SHIFT_LEFT:
     case OBJECT_OPERATOR_SHIFT_RIGHT:
     {
         /* a count out of the width of the type is undefined, 0 is used */
-        const long long count = (long long)y.lo;
-        if (wide_integer_compare_s(y, wide_integer_from_signed(0)) >= 0 && wide_integer_compare_s(y, wide_integer_from_signed(width)) < 0)
+        const long long count = integer128_to_ll(y);
+        if (integer128_compare_s(y, integer128_from_signed(0)) >= 0 && integer128_compare_s(y, integer128_from_signed(width)) < 0)
         {
             if (op == OBJECT_OPERATOR_SHIFT_LEFT)
-                v = wide_integer_shl(x, (int)count);
+                v = integer128_shl(x, (int)count);
             else
-                v = is_signed ? wide_integer_shr_s(x, (int)count) : wide_integer_shr_u(x, (int)count);
+                v = is_signed ? integer128_shr_s(x, (int)count) : integer128_shr_u(x, (int)count);
         }
     }
     break;
@@ -29991,68 +30148,68 @@ static void object_binary_integer(const struct platform* target,
         break;
     }
 
-    /* x and y are in the range of width, so the exact v of + - fits in a wide_integer */
-    const struct wide_integer wrapped = is_signed ? object_wrap_s(v, width) : object_wrap_u(v, width);
+    /* x and y are in the range of width, so the exact v of + - fits in a integer128 */
+    const struct integer128 wrapped = is_signed ? object_wrap_s(v, width) : object_wrap_u(v, width);
 
     bool overflow = false;
     if (op == OBJECT_OPERATOR_ADD)
     {
         overflow = is_signed ?
-            (wide_integer_is_negative(x) == wide_integer_is_negative(y) && wide_integer_is_negative(wrapped) != wide_integer_is_negative(x)) :
-            wide_integer_compare_u(wrapped, x) < 0;
+            (integer128_is_negative(x) == integer128_is_negative(y) && integer128_is_negative(wrapped) != integer128_is_negative(x)) :
+            integer128_compare_u(wrapped, x) < 0;
     }
     else if (op == OBJECT_OPERATOR_SUB)
     {
         overflow = is_signed ?
-            (wide_integer_is_negative(x) != wide_integer_is_negative(y) && wide_integer_is_negative(wrapped) != wide_integer_is_negative(x)) :
-            wide_integer_compare_u(x, y) < 0;
+            (integer128_is_negative(x) != integer128_is_negative(y) && integer128_is_negative(wrapped) != integer128_is_negative(x)) :
+            integer128_compare_u(x, y) < 0;
     }
-    else if (op == OBJECT_OPERATOR_MUL && !wide_integer_is_zero(x))
+    else if (op == OBJECT_OPERATOR_MUL && !integer128_is_zero(x))
     {
         /* the product wrapped when dividing it back does not give y */
-        struct wide_integer quotient = { 0 };
-        struct wide_integer remainder = { 0 };
+        struct integer128 quotient = { 0 };
+        struct integer128 remainder = { 0 };
         if (is_signed)
         {
-            wide_integer_divmod_s(wrapped, x, &quotient, &remainder);
-            overflow = !wide_integer_equal(quotient, y) ||
+            integer128_divmod_s(wrapped, x, &quotient, &remainder);
+            overflow = !integer128_equal(quotient, y) ||
                 /* -1 * MIN gives MIN back, and MIN / -1 gives MIN again */
-                (wide_integer_equal(x, wide_integer_from_signed(-1)) && wide_integer_is_negative(y) && wide_integer_equal(wrapped, y));
+                (integer128_equal(x, integer128_from_signed(-1)) && integer128_is_negative(y) && integer128_equal(wrapped, y));
         }
         else
         {
-            wide_integer_divmod_u(wrapped, x, &quotient, &remainder);
-            overflow = !wide_integer_equal(quotient, y);
+            integer128_divmod_u(wrapped, x, &quotient, &remainder);
+            overflow = !integer128_equal(quotient, y);
         }
     }
     else if (op == OBJECT_OPERATOR_DIV && is_signed)
     {
         /* MIN / -1 */
-        overflow = wide_integer_equal(y, wide_integer_from_signed(-1)) && wide_integer_is_negative(x) && wide_integer_equal(wrapped, x);
+        overflow = integer128_equal(y, integer128_from_signed(-1)) && integer128_is_negative(x) && integer128_equal(wrapped, x);
     }
 
     if (overflow)
     {
         /*
-          v is the exact result while it fits in a wide_integer: always for
+          v is the exact result while it fits in a integer128: always for
           + - and /, and for * up to the half of its width (two long long).
         */
         const bool exact_is_known =
-            op == OBJECT_OPERATOR_MUL ? 2 * width <= WIDE_INTEGER_BITS : width < WIDE_INTEGER_BITS;
+            op == OBJECT_OPERATOR_MUL ? 2 * width <= INTEGER128_BITS : width < INTEGER128_BITS;
 
-        char text[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
-        char exact[WIDE_INTEGER_TO_STRING_MIN_SIZE] = { 0 };
+        char text[INTEGER128_TO_STRING_MIN_SIZE] = { 0 };
+        char exact[INTEGER128_TO_STRING_MIN_SIZE] = { 0 };
 
         if (is_signed)
-            wide_integer_to_string_s(wrapped, text, sizeof text);
+            integer128_to_string_s(wrapped, text, sizeof text);
         else
-            wide_integer_to_string_u(wrapped, text, sizeof text);
+            integer128_to_string_u(wrapped, text, sizeof text);
 
         /* the exact result of an unsigned subtraction is negative */
         if (is_signed || op == OBJECT_OPERATOR_SUB)
-            wide_integer_to_string_s(v, exact, sizeof exact);
+            integer128_to_string_s(v, exact, sizeof exact);
         else
-            wide_integer_to_string_u(v, exact, sizeof exact);
+            integer128_to_string_u(v, exact, sizeof exact);
 
         if (exact_is_known)
             snprintf(warning_message, 200, "integer %s results in '%s'; the exact result is '%s'",
@@ -30062,7 +30219,7 @@ static void object_binary_integer(const struct platform* target,
                 is_signed ? "overflow" : "wrap-around", text);
     }
 
-    object_set_wide_integer(target, r, wrapped);
+    object_set_integer128(target, r, wrapped);
 }
 
 /* x op y in the floating type 'type' */
@@ -30080,7 +30237,7 @@ static void object_binary_floating(const struct platform* target,
         /* a NaN compares unequal and unordered */
         const bool unordered = isnan(x) || isnan(y);
         const bool result = unordered ? op == OBJECT_OPERATOR_NOT_EQUAL : object_comparison_result(op, compare);
-        object_set_wide_integer(target, r, wide_integer_from_signed(result));
+        object_set_integer128(target, r, integer128_from_signed(result));
         return;
     }
 
@@ -30136,7 +30293,7 @@ static struct object object_binary(const struct platform* target,
 
     if (object_type_is_integer(common_type))
     {
-        object_binary_integer(target, op, a0.value.host_wide_integer, b0.value.host_wide_integer, common_type, &r, warning_message);
+        object_binary_integer(target, op, a0.value.host_integer128, b0.value.host_integer128, common_type, &r, warning_message);
     }
     else
     {
@@ -30240,7 +30397,7 @@ int object_is_equal(const struct platform* target, const struct object* a, const
 {
     char message[200] = { 0 };
     struct object r = object_equal(target, a, b, message);
-    int i = !wide_integer_is_zero(r.value.host_wide_integer);
+    int i = !integer128_is_zero(r.value.host_integer128);
     object_destroy(&r);
     return i;
 }
@@ -30249,7 +30406,7 @@ int object_is_not_equal(const struct platform* target, const struct object* a, c
 {
     char message[200] = { 0 };
     struct object r = object_not_equal(target, a, b, message);
-    int i = !wide_integer_is_zero(r.value.host_wide_integer);
+    int i = !integer128_is_zero(r.value.host_integer128);
     object_destroy(&r);
 
     return i;
@@ -30259,7 +30416,7 @@ int object_is_greater_than_or_equal(const struct platform* target, const struct 
 {
     char message[200] = { 0 };
     struct object r = object_greater_than_or_equal(target, a, b, message);
-    int i = !wide_integer_is_zero(r.value.host_wide_integer);
+    int i = !integer128_is_zero(r.value.host_integer128);
     object_destroy(&r);
     return i;
 }
@@ -30268,7 +30425,7 @@ int object_is_smaller_than_or_equal(const struct platform* target, const struct 
 {
     char message[200] = { 0 };
     struct object r = object_smaller_than_or_equal(target, a, b, message);
-    int i = !wide_integer_is_zero(r.value.host_wide_integer);
+    int i = !integer128_is_zero(r.value.host_integer128);
     object_destroy(&r);
     return i;
 }
@@ -30283,10 +30440,10 @@ struct object object_logical_not(const struct platform* target, const struct obj
     r.state = CONSTANT_VALUE_STATE_CONSTANT;
 
     const bool is_zero = object_type_is_integer(a->value_type) ?
-        wide_integer_is_zero(a->value.host_wide_integer) :
+        integer128_is_zero(a->value.host_integer128) :
         a->value.host_long_double == 0;
 
-    object_set_wide_integer(target, &r, wide_integer_from_signed(is_zero));
+    object_set_integer128(target, &r, integer128_from_signed(is_zero));
     return r;
 }
 
@@ -30315,17 +30472,17 @@ static struct object object_unary(const struct platform* target,
 
     if (object_type_is_integer(common_type))
     {
-        const struct wide_integer x = a0.value.host_wide_integer;
+        const struct integer128 x = a0.value.host_integer128;
         switch (op)
         {
         case OBJECT_UNARY_OPERATOR_MINUS:
-            object_set_wide_integer(target, &r, wide_integer_neg(x));
+            object_set_integer128(target, &r, integer128_neg(x));
             break;
         case OBJECT_UNARY_OPERATOR_PLUS:
-            object_set_wide_integer(target, &r, x);
+            object_set_integer128(target, &r, x);
             break;
         case OBJECT_UNARY_OPERATOR_BITWISE_NOT:
-            object_set_wide_integer(target, &r, wide_integer_not(x));
+            object_set_integer128(target, &r, integer128_not(x));
             break;
         }
     }
@@ -31085,7 +31242,7 @@ static struct osstream build_printf_format_text(const struct expression* p_fmt_e
     const struct object* _Opt it = p_fmt_expression->object.members.head;
     while (it != NULL)
     {
-        const unsigned char c = (unsigned char)((long long)it->value.host_wide_integer.lo);
+        const unsigned char c = (unsigned char)integer128_to_ll(it->value.host_integer128);
         if (c == '\0')
             break; // the appended terminator, not part of the format text
 
@@ -31398,8 +31555,8 @@ static const char* object_type_to_name(enum object_type t)
         case TYPE_UNSIGNED_LONG: return "unsigned long";
         case TYPE_SIGNED_LONG_LONG: return "long long";
         case TYPE_UNSIGNED_LONG_LONG: return "unsigned long long";
-        case TYPE_SIGNED_LONG_LONG_LONG: return "long long long";
-        case TYPE_UNSIGNED_LONG_LONG_LONG: return "unsigned long long long";
+        case TYPE_SIGNED_INT128: return "__int128";
+        case TYPE_UNSIGNED_INT128: return "unsigned __int128";
         case TYPE_FLOAT: return "float";
         case TYPE_DOUBLE: return "double";
         case TYPE_LONG_DOUBLE: return "long double";
@@ -32992,10 +33149,10 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     struct expression* _Owner _Opt p_expression_node = NULL;
 
     const unsigned long long
-        wchar_max_value = target_unsigned_max(&ctx->options.platform, ctx->options.platform.wchar_t_type);
+        wchar_max_value = integer128_to_ull(target_unsigned_max(&ctx->options.platform, ctx->options.platform.wchar_t_type));
 
     const unsigned long long
-        int_max_value = target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT);
+        int_max_value = integer128_to_ull(target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT));
 
     try
     {
@@ -33264,7 +33421,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
                 else
                 {
                     struct object obj = object_make_char(&ctx->options.platform, (int)c);
-                    value = ((long long)obj.value.host_wide_integer.lo);
+                    value = integer128_to_ll(obj.value.host_integer128);
                     object_destroy(&obj);
                 }
 
@@ -33306,22 +33463,22 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
 int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_node, const struct platform* target)
 {
     const unsigned long long unsigned_int_max_value =
-        target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_INT);
+        integer128_to_ull(target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_INT));
 
     const unsigned long long signed_int_max_value =
-        target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT);
+        integer128_to_ull(target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT));
 
     const unsigned long long signed_long_max_value =
-        target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG);
+        integer128_to_ull(target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG));
 
     const unsigned long long unsigned_long_max_value =
-        target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG);
+        integer128_to_ull(target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG));
 
     const unsigned long long signed_long_long_max_value =
-        target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG_LONG);
+        integer128_to_ull(target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG_LONG));
 
     const unsigned long long unsigned_long_long_max_value =
-        target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG_LONG);
+        integer128_to_ull(target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG_LONG));
 
     errno = 0;
 
@@ -33402,7 +33559,8 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             /* a _BitInt literal (wb, uwb) can be wider than an unsigned long long, it is checked below */
             const bool suffix_is_bitint = suffix[0] == 'W' || (suffix[0] == 'U' && suffix[1] == 'W');
 
-            if (value == unsigned_long_long_max_value && errno == ERANGE && !suffix_is_bitint)
+            /* the host strtoull stops at its own unsigned long long; the target one can be narrower */
+            if (((value == ULLONG_MAX && errno == ERANGE) || value > unsigned_long_long_max_value) && !suffix_is_bitint)
             {
                 diagnostic(
                 C_ERROR_LITERAL_OVERFLOW,
@@ -33414,7 +33572,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
 
             // This code follows the table in the standard.
 
-            const bool is_msvc = target->msvc_like_decimal_literal_type;
+            const bool is_msvc = target->dialect_msvc_like_decimal_literal_type;
 
             const bool is_decimal_constant = (token->type == TK_COMPILER_DECIMAL_CONSTANT);
             const bool suffix_none = (suffix[0] == '\0');
@@ -33465,14 +33623,14 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
 
                 bool too_wide = false;
-                const struct wide_integer wide_value = wide_integer_from_digits(digits, base, &too_wide);
+                const struct integer128 value128 = integer128_from_digits(digits, base, &too_wide);
 
                 int width = 0;
-                struct wide_integer v = wide_value;
-                while (!wide_integer_is_zero(v))
+                struct integer128 v = value128;
+                while (!integer128_is_zero(v))
                 {
                     width++;
-                    v = wide_integer_shr_u(v, 1);
+                    v = integer128_shr_u(v, 1);
                 }
 
                 const int maxwidth = target_bitint_maxwidth(&ctx->options.platform);
@@ -33518,9 +33676,9 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
 
                 /* the value fits in width bits (the sign bit is 0 for wb), unless it was reported above */
-                p_expression_node->object.value.host_wide_integer = suffix_uwb ?
-                    wide_integer_wrap_u(wide_value, width) :
-                    wide_integer_wrap_s(wide_value, width);
+                p_expression_node->object.value.host_integer128 = suffix_uwb ?
+                    integer128_wrap_u(value128, width) :
+                    integer128_wrap_s(value128, width);
                 p_expression_node->object.type.bitint_width = width;
             }
             else if (suffix_none)
@@ -33552,7 +33710,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
                 else
@@ -33563,7 +33721,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     NULL,
                                "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
 
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
                 }
             }
@@ -33581,7 +33739,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else // if (value <= unsigned_long_long_max_value)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
             }
@@ -33604,7 +33762,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
                 else
@@ -33615,7 +33773,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     NULL,
                                "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
 
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
                 }
             }
@@ -33628,7 +33786,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else // if (value <= unsigned_long_long_max_value)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
             }
@@ -33641,7 +33799,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                 }
                 else if (value <= unsigned_long_long_max_value && !is_decimal_constant)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
                 else
@@ -33652,7 +33810,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
                     NULL,
                                "integer literal is too large to be represented in a signed integer type, interpreting as unsigned");
 
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_UNSIGNED;
                 }
             }
@@ -33660,7 +33818,7 @@ int convert_to_number(struct parser_ctx* ctx, struct expression* p_expression_no
             {
                 // if (value <= unsigned_long_long_max_value && !is_decimal_constant)
                 {
-                    p_expression_node->object = object_make_unsigned_long_long( value);
+                    p_expression_node->object = object_make_unsigned_long_long(&ctx->options.platform, value);
                     p_expression_node->object.type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG;
                 }
             }
@@ -41669,7 +41827,7 @@ static struct object char_constant_to_value(const char* s, char error_message[ /
 
     const unsigned char* _Opt p = (const unsigned char*)s;
     const unsigned long long
-    wchar_max_value = target_unsigned_max(target, target->wchar_t_type);
+    wchar_max_value = integer128_to_ull(target_unsigned_max(target, target->wchar_t_type));
 
     try
     {
@@ -42965,6 +43123,17 @@ struct flow_deferred_pointee_effect
     int argument_serial;
 };
 
+/* A pointee passed to a call that has a restrict parameter (see flow_check_restrict_arguments). */
+struct flow_restrict_argument
+{
+    const struct object* _Opt pointee;
+    int argument_serial;
+    bool is_restrict; /* the parameter receiving it is restrict */
+    const struct expression* _Opt p_argument;
+};
+
+#define FLOW_MAX_RESTRICT_ARGUMENTS 64
+
 /* Entries in flow_ctx.p_reported_findings. */
 #define FLOW_MAX_REPORTED_FINDINGS 256
 
@@ -43063,6 +43232,11 @@ struct flow_ctx
     bool collect_deferred_effects;
     int argument_serial; /* the argument being checked, see flow_deferred_pointee_effect */
 
+    /* the call whose arguments are checked has a restrict parameter: its arguments' pointees are recorded */
+    bool call_has_restrict;
+    struct flow_restrict_argument restrict_arguments[FLOW_MAX_RESTRICT_ARGUMENTS];
+    int restrict_arguments_count;
+
     struct flow_allocated_object_arena allocated_object_arena;
     struct flow_branch_arena flow_branch_arena;
     struct flow_branch* _Opt p_current_flow_branch;
@@ -43107,6 +43281,10 @@ struct flow_ctx
      */
     const struct expression* _Opt p_subscript_being_written;
     int pending_ended_report_line;
+
+    /* aliasing pass: parameter p_alias_dest starts with the value of p_alias_src (see flow_check_parameter_aliasing) */
+    const struct declarator* _Opt p_alias_src;
+    const struct declarator* _Opt p_alias_dest;
 };
 
 void flow_visit_ctx_destroy(_Dtor struct flow_ctx* p);
@@ -43128,7 +43306,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.16.00"
+#define CAKE_VERSION "0.16.03"
 
 
  
@@ -43262,7 +43440,13 @@ struct codegen_ctx
     struct ast* p_ast;
     
     bool error;
+
+    /* where codegen_error reports; NULL keeps only the ctx->error flag */
+    struct report* _Opt p_report;
 };
+
+/* Reports a construct the target cannot express and sets ctx->error. */
+void codegen_error(struct codegen_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...);
 
 /* Returns 0 on success, non-zero if code generation failed (ctx->error). */
 int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);
@@ -44322,6 +44506,21 @@ void diagnostic_queue_flush(struct diagnostic_queue* db, struct parser_ctx* ctx)
 * recent queued diagnostic with that id, not the oldest: an unsuppressed one
 * far above (same id) must stay reported.
 */
+void diagnostic_queue_swap(struct diagnostic_queue* a, struct diagnostic_queue* b)
+{
+    struct diagnostic_item* _Owner _Opt head = a->head;
+    a->head = b->head;
+    b->head = head;
+
+    struct diagnostic_item* _Opt tail = a->tail;
+    a->tail = b->tail;
+    b->tail = tail;
+
+    const int count = a->count;
+    a->count = b->count;
+    b->count = count;
+}
+
 bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id)
 {
     struct diagnostic_item* _Opt found = NULL;
@@ -45080,7 +45279,7 @@ bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
     return false;
 }
 
-bool first_of_type_specifier(struct parser_ctx* ctx);
+bool first_of_type_specifier(const struct parser_ctx* ctx);
 bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* token);
 
 bool first_of_type_name_ahead(const struct parser_ctx* ctx)
@@ -45105,7 +45304,7 @@ bool first_of_type_name_token(const struct parser_ctx* ctx, struct token* p_toke
     return first_of_type_specifier_token(ctx, p_token) || first_of_type_qualifier_token(p_token);
 }
 
-bool first_of_type_name(struct parser_ctx* ctx)
+bool first_of_type_name(const struct parser_ctx* ctx)
 {
     return first_of_type_specifier(ctx) || first_of_type_qualifier(ctx);
 }
@@ -45144,7 +45343,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         first_of_typedef_name(ctx, p_token);
 }
 
-bool first_of_type_specifier(struct parser_ctx* ctx)
+bool first_of_type_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -45337,7 +45536,7 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if (ctx->options.platform.gcc_like_asm_label &&
+    if (ctx->options.platform.dialect_gcc_like_asm_label &&
         ctx->current->type == TK_KEYWORD__ASM)
     {
         return true;
@@ -45688,9 +45887,8 @@ enum token_type is_keyword(const char* text, const struct platform* target)
                 return TK_KEYWORD__THREAD_LOCAL;
 
             /*
-              __int128 is an alias of long long long, like __int64 is of int64_type.
-              It has the size of long long long, 128 bits only where the target has it
-              (__SIZEOF_INT128__ tells), like long double has the size of double on msvc.
+              __int128, the 128-bit integer of gcc and clang. Like gcc, it is an
+              error on targets without 128-bit integers (__SIZEOF_INT128__ tells).
             */
             if (strcmp("__int128", text) == 0)
                 return TK_KEYWORD_GCC__INT128;
@@ -45716,7 +45914,7 @@ enum token_type is_keyword(const char* text, const struct platform* target)
             if (strcmp("__alignof__", text) == 0)
                 return TK_KEYWORD__ALIGNOF;
 
-            if (target->msvc_like_keywords)
+            if (target->dialect_msvc_like_keywords)
             {
                 if (strcmp("__ptr32", text) == 0)
                     return TK_KEYWORD_MSVC__PTR32;
@@ -46347,7 +46545,7 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
         (flags & TYPE_SPECIFIER_INT) ||
         (flags & TYPE_SPECIFIER_BITINT) ||
         (flags & TYPE_SPECIFIER_LONG_LONG) ||
-        (flags & TYPE_SPECIFIER_LONG_LONG_LONG))
+        (flags & TYPE_SPECIFIER_INT128))
     {
         return true;
     }
@@ -46379,19 +46577,13 @@ int add_specifier(const struct parser_ctx* ctx,
     * transform the sequence of two longs
     * in
     * TYPE_SPECIFIER_LONG_LONG
-    * and three longs in TYPE_SPECIFIER_LONG_LONG_LONG (cake extension)
     */
     if (new_flag & TYPE_SPECIFIER_LONG) /* adding a long */
     {
-        if ((*flags) & TYPE_SPECIFIER_LONG_LONG_LONG) /* already had long long long */
+        if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
         {
-            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long long' declaration specifier");
+            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long' declaration specifier");
             return 1;
-        }
-        else if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
-        {
-            (*flags) = (*flags) & ~TYPE_SPECIFIER_LONG_LONG;
-            (*flags) |= TYPE_SPECIFIER_LONG_LONG_LONG;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) /* already had one long */
         {
@@ -46441,12 +46633,9 @@ int add_specifier(const struct parser_ctx* ctx,
         case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // signed long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG: // unsigned long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // unsigned long long int
-        case TYPE_SPECIFIER_LONG_LONG_LONG: // long long long
-        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG_LONG: // signed long long long
-        case TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // long long long int
-        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // signed long long long int
-        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG: // unsigned long long long
-        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // unsigned long long long int
+        case TYPE_SPECIFIER_INT128: // __int128
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT128: // signed __int128
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT128: // unsigned __int128
         case TYPE_SPECIFIER_BITINT: // _BitInt(N)
         case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_BITINT: // signed _BitInt(N)
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_BITINT: // unsigned _BitInt(N)
@@ -48049,7 +48238,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         assert(p_previous_declarator->declaration_specifiers != NULL);
 
                         /* TCC accepts it, and its mingw headers rely on it (__CRT_INLINE is static __inline__) */
-                        if (!(ctx->options.platform.tcc_like_static_redeclaration && ctx->current->level > 0) &&
+                        if (!(ctx->options.platform.dialect_tcc_like_static_redeclaration && ctx->current->level > 0) &&
                             !(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
                             ) //lint 33 assert
@@ -49719,8 +49908,12 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
                 return p_type_specifier;
 
             case TK_KEYWORD_GCC__INT128:
+                if (ctx->options.platform.int128_n_bits < 128)
+                {
+                    diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "'__int128' is not supported on this target");
+                }
                 p_type_specifier->token = ctx->current;
-                p_type_specifier->flags = TYPE_SPECIFIER_LONG_LONG_LONG;
+                p_type_specifier->flags = TYPE_SPECIFIER_INT128;
                 parser_match(ctx);
                 return p_type_specifier;
 
@@ -51846,21 +52039,35 @@ void enumerator_list_destroy(_Dtor struct enumerator_list* p)
     }
 }
 
-static void update_enumerator_list_range(const struct enumerator* p_enumerator, long long* min_value, unsigned long long* max_value)
+static bool object_value_is_negative(const struct object* p)
 {
-    bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-    bool is_negative = is_signed && ((long long)p_enumerator->value.value.host_wide_integer.lo) < 0;
+    return object_type_is_signed_integer(p->value_type) && integer128_is_negative(p->value.host_integer128);
+}
 
-    if (is_signed && ((long long)p_enumerator->value.value.host_wide_integer.lo) < *min_value)
+/* true when v (negative or not, as told by is_negative) is representable in the integer type vt */
+static bool integer128_fits_type(const struct platform* target, enum object_type vt, struct integer128 v, bool is_negative)
+{
+    if (is_negative)
+        return object_type_is_signed_integer(vt) && integer128_compare_s(v, target_signed_min(target, vt)) >= 0;
+
+    const struct integer128 max = object_type_is_signed_integer(vt) ? target_signed_max(target, vt) : target_unsigned_max(target, vt);
+    return integer128_compare_u(v, max) <= 0;
+}
+
+/* min_value is signed (<= 0) and max_value is unsigned (>= 0), both with 128 bits */
+static void update_enumerator_list_range(const struct enumerator* p_enumerator, struct integer128* min_value, struct integer128* max_value)
+{
+    const struct object* p_value = object_get_referenced(&p_enumerator->value);
+    const struct integer128 v = p_value->value.host_integer128;
+
+    if (object_value_is_negative(p_value))
     {
-        *min_value = ((long long)p_enumerator->value.value.host_wide_integer.lo);
+        if (integer128_compare_s(v, *min_value) < 0)
+            *min_value = v;
     }
-    if (
-        (is_signed && !is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > *max_value) ||
-        (!is_signed && p_enumerator->value.value.host_wide_integer.lo > *max_value)
-        )
+    else if (integer128_compare_u(v, *max_value) > 0)
     {
-        *max_value = p_enumerator->value.value.host_wide_integer.lo;
+        *max_value = v;
     }
 }
 
@@ -51882,25 +52089,8 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
         object_destroy(&casted);
     }
 
-    long long lo_limit = 0;
-    unsigned long long hi_limit = 0;
-
-    if (p_enum_specifier->has_underlying)
-    {
-        if (type_is_signed_integer(&p_enum_specifier->integer_type))
-        {
-            lo_limit = target_signed_min(&ctx->options.platform, next_enumerator_value.value_type);
-            hi_limit = target_signed_max(&ctx->options.platform, next_enumerator_value.value_type);
-        }
-        else
-        {
-            lo_limit = 0;
-            hi_limit = target_unsigned_max(&ctx->options.platform, next_enumerator_value.value_type);
-        }
-    }
-
-    unsigned long long max_value = 0;
-    long long min_value = 0;
+    struct integer128 max_value = { 0 };
+    struct integer128 min_value = { 0 };
 
     struct enumerator_list enumeratorlist = { 0 };
     struct enumerator* _Owner _Opt p_enumerator = NULL;
@@ -51911,7 +52101,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
         if (ctx->current != NULL)
             check_indentation_style(ctx, ctx->current);
 
-        p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, lo_limit, hi_limit, &min_value, &max_value, &next_ovf);
+        p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, &min_value, &max_value, &next_ovf);
         if (p_enumerator == NULL)
             throw;
 
@@ -51927,7 +52117,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             {
                 check_indentation_style(ctx, ctx->current);
 
-                p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, lo_limit, hi_limit, &min_value, &max_value, &next_ovf);
+                p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, &min_value, &max_value, &next_ovf);
                 if (p_enumerator == NULL)
                     throw;
                 enumerator_list_add(&enumeratorlist, p_enumerator);
@@ -51936,56 +52126,38 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
 
         if (!p_enum_specifier->has_underlying)
         {
-            long long int_min = target_signed_min(&ctx->options.platform, TYPE_SIGNED_INT);
-            long long int_max = target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT);
+            /* the first type where all values fit; like gcc and clang, never a 128-bit type */
+            const enum object_type candidates[] = {
+                TYPE_UNSIGNED_INT, TYPE_SIGNED_INT,
+                TYPE_UNSIGNED_LONG, TYPE_SIGNED_LONG,
+                TYPE_UNSIGNED_LONG_LONG, TYPE_SIGNED_LONG_LONG
+            };
+            const int candidates_count = (int)(sizeof candidates / sizeof candidates[0]);
+            const bool has_negative = integer128_is_negative(min_value);
 
-            unsigned long long uint_max = target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_INT);
-
-            unsigned long long ulong_max = target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG);
-
-            long long long_min = target_signed_min(&ctx->options.platform, TYPE_SIGNED_LONG);
-            long long long_max = target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG);
-
-            unsigned long long ullong_max = target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG_LONG);
-
-            long long llong_min = target_signed_min(&ctx->options.platform, TYPE_SIGNED_LONG_LONG);
-            long long llong_max = target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG_LONG);
-
-            enum object_type final_type;
-
-            if (max_value <= uint_max && min_value >= 0)
+            enum object_type final_type = TYPE_SIGNED_INT;
+            bool found = false;
+            for (int i = 0; i < candidates_count; i++)
             {
-                final_type = TYPE_UNSIGNED_INT;
+                if (integer128_fits_type(&ctx->options.platform, candidates[i], max_value, false) &&
+                    integer128_fits_type(&ctx->options.platform, candidates[i], min_value, has_negative))
+                {
+                    final_type = candidates[i];
+                    found = true;
+                    break;
+                }
             }
-            else if (max_value <= (unsigned long long) int_max && min_value >= int_min)
+
+            if (!found)
             {
-                final_type = TYPE_SIGNED_INT;
-            }
-            else if (max_value <= ulong_max && min_value >= 0)
-            {
-                final_type = TYPE_UNSIGNED_LONG;
-            }
-            else if (max_value <= (unsigned long long) long_max && min_value >= long_min)
-            {
-                final_type = TYPE_SIGNED_LONG;
-            }
-            else if (max_value <= ullong_max && min_value >= 0)
-            {
-                final_type = TYPE_UNSIGNED_LONG_LONG;
-            }
-            else if (max_value <= (unsigned long long) llong_max && min_value >= llong_min)
-            {
-                final_type = TYPE_SIGNED_LONG_LONG;
-            }
-            else
-            {
+                /* gcc and clang keep 64 bits */
                 diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "enum value range unsupported");
-                throw;
+                final_type = has_negative ? TYPE_SIGNED_LONG_LONG : TYPE_UNSIGNED_LONG_LONG;
             }
 
             type_destroy(&p_enum_specifier->integer_type);
             p_enum_specifier->integer_type = make_with_type_specifier_flags(object_type_to_type_specifier(final_type));
-            if (final_type == TYPE_UNSIGNED_INT && max_value <= (unsigned long long) int_max)
+            if (final_type == TYPE_UNSIGNED_INT && integer128_fits_type(&ctx->options.platform, TYPE_SIGNED_INT, max_value, false))
                 final_type = TYPE_SIGNED_INT;
 
             struct enumerator* _Opt it = enumeratorlist.head;
@@ -52034,14 +52206,23 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
     }
 }
 
+/* true when the value is representable in the underlying type of the enum */
+static bool enumerator_value_fits_underlying(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* p_value)
+{
+    /* bool is stored in more bits, but only 0 and 1 are values */
+    if (p_enum_specifier->integer_type.type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        return !object_value_is_negative(p_value) && integer128_compare_u(p_value->value.host_integer128, integer128_from_unsigned(1)) <= 0;
+
+    const enum object_type vt = type_specifier_to_object_type(p_enum_specifier->integer_type.type_specifier_flags, &ctx->options.platform);
+    return integer128_fits_type(&ctx->options.platform, vt, p_value->value.host_integer128, object_value_is_negative(p_value));
+}
+
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
     const struct enum_specifier* _Opt prev_decl_same_scope,
     struct object* p_next_enumerator_value,
-    long long lo_limit,
-    unsigned long long hi_limit,
-    long long* min_value,
-    unsigned long long* max_value,
+    struct integer128* min_value,
+    struct integer128* max_value,
     bool* next_ovf)
 {
     struct enumerator* _Owner _Opt p_enumerator = NULL;
@@ -52117,22 +52298,20 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
                 object_swap(&p_enumerator->value, &newvalue);
                 object_destroy(&newvalue);
 
-                bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-                is_negative = is_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < 0);
+                is_negative = object_value_is_negative(object_get_referenced(&p_enumerator->value));
 
-                if (p_enum_specifier->has_underlying)
+                if (p_enum_specifier->has_underlying &&
+                    !enumerator_value_fits_underlying(ctx, p_enum_specifier, object_get_referenced(&p_enumerator->value)))
                 {
-                    bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
-                    bool under_range = underlying_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < lo_limit);
-                    bool over_range = (underlying_signed && (!is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_wide_integer.lo > hi_limit));
-
-                    if (under_range || over_range)
-                    {
-                        diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
-                    }
+                    diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
                 }
 
-                struct object newvalue2 = object_dup(object_get_referenced(&p_enumerator->value));
+                /* with fixed underlying type the next value is computed in that type */
+                struct object newvalue2 = p_enum_specifier->has_underlying ?
+                    object_cast(&ctx->options.platform,
+                                type_specifier_to_object_type(p_enum_specifier->integer_type.type_specifier_flags, &ctx->options.platform),
+                                object_get_referenced(&p_enumerator->value)) :
+                    object_dup(object_get_referenced(&p_enumerator->value));
                 object_swap(p_next_enumerator_value, &newvalue2);
                 object_destroy(&newvalue2);
             }
@@ -52142,25 +52321,18 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             if (*next_ovf)
             {
                 diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator overflow");
-                throw;
             }
 
             struct object newvalue = object_dup(p_next_enumerator_value);
             object_swap(&p_enumerator->value, &newvalue);
             object_destroy(&newvalue);
 
-            is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (((long long)p_enumerator->value.value.host_wide_integer.lo) < 0);
+            is_negative = object_value_is_negative(&p_enumerator->value);
 
-            if (p_enum_specifier->has_underlying)
+            if (p_enum_specifier->has_underlying &&
+                !enumerator_value_fits_underlying(ctx, p_enum_specifier, &p_enumerator->value))
             {
-                bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
-                bool under_range = underlying_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < lo_limit);
-                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_wide_integer.lo > hi_limit));
-
-                if (under_range || over_range)
-                {
-                    diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
-                }
+                diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
             }
         }
 
@@ -54865,7 +55037,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 }
                 else if (ctx->current->type == TK_KEYWORD__ASM)
                 {
-                    if (ctx->options.platform.gcc_like_asm_label)
+                    if (ctx->options.platform.dialect_gcc_like_asm_label)
                     {
                         /* GCC also uses asm as attribute */
                         struct asm_statement* _Owner _Opt p3 = gcc_asm(ctx, false);
@@ -57038,7 +57210,7 @@ static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool st
 
 struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
 {
-    if (ctx->options.platform.msvc_like_asm_statement)
+    if (ctx->options.platform.dialect_msvc_like_asm_statement)
         return msvc_asm_statement(ctx);
 
     // balanced tokens ( ... )
@@ -60892,7 +61064,7 @@ int compile_one_file(const char* file_name,
         if (tctx.n_errors > 0)
             throw;
 
-        const char* _Opt builtin = ctx.options.platform.builtins;
+        const char* _Opt builtin = ctx.options.platform.dialect_builtins;
         if (builtin && builtin[0] != '\0')
         {
             struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 1, TK_FLAG_NONE);
@@ -61000,6 +61172,7 @@ int compile_one_file(const char* file_name,
                 struct codegen_ctx ctx2 = { 0 };
                 ctx2.p_ast = &ast;
                 ctx2.options = ctx.options;
+                ctx2.p_report = report;
                 const int codegen_error = codegen_visit(&ctx2, &ss);
                 p_output_string = ss.c_str; // MOVE
                 codegen_visit_ctx_destroy(&ctx2);
@@ -62049,6 +62222,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             struct codegen_ctx ctx2 = { 0 };
             ctx2.p_ast = &ast;
             ctx2.options = options;
+            ctx2.p_report = report;
             const int codegen_error = codegen_visit(&ctx2, &ss);
             s = ss.c_str; // MOVED
             codegen_visit_ctx_destroy(&ctx2);
@@ -62110,7 +62284,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         if (tctx.n_errors > 0)
             throw;
 
-        const char* _Opt builtin = options.platform.builtins;
+        const char* _Opt builtin = options.platform.dialect_builtins;
         if (builtin && builtin[0] != '\0')
         {
             /* level 1 - see the identical comment in compile_one_file() above. */
@@ -63447,6 +63621,32 @@ void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p)
 */
 #define CAKE_PREFIX_LABEL "__L"
 
+void codegen_error(struct codegen_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...)
+{
+    ctx->error = true;
+    if (ctx->p_report == NULL)
+        return;
+
+    char buffer[200] = { 0 };
+    va_list args = { 0 };
+    va_start(args, fmt);
+    vsnprintf(buffer, sizeof buffer, fmt, args);
+    va_end(args);
+
+    const char* file = (p_token && p_token->token_origin) ? p_token->token_origin->lexeme : "";
+    pos_diagnostic(C_ERROR_CODEGEN_UNSUPPORTED, &ctx->options, ctx->p_report,
+                   file, p_token ? p_token->line : 0, p_token ? p_token->col : 0, "%s", buffer);
+}
+
+static bool codegen_require_int128(struct codegen_ctx* ctx, const struct token* _Opt p_token, const char* what)
+{
+    if (ctx->options.platform.int128_n_bits >= 128)
+        return true;
+
+    codegen_error(ctx, p_token, "%s needs a 128-bit integer, not available on this target", what);
+    return false;
+}
+
 static void emit_line_directive(const struct codegen_ctx* ctx,
                                 struct osstream* oss,
                                 const struct token* _Opt tk)
@@ -64078,30 +64278,6 @@ static const char* _Opt codegen_unsigned_type_of_size(const struct codegen_ctx* 
     if ((size_t)p->int_n_bits / 8 == size) return "unsigned int";
     if ((size_t)p->long_long_n_bits / 8 == size) return "unsigned long long";
     return NULL;
-}
-
-/*
-  long long long is a cake extension. It is emitted as the target type that
-  has its size: long long when both have the same width, otherwise __int128.
-*/
-static void codegen_print_type_specifier_flags(const struct codegen_ctx* ctx,
-                                               struct osstream* ss,
-                                               bool* first,
-                                               enum type_specifier_flags flags)
-{
-    if (flags & TYPE_SPECIFIER_LONG_LONG_LONG)
-    {
-        const struct platform* p = &ctx->options.platform;
-        flags &= ~(TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT);
-        if (p->long_long_long_n_bits != p->long_long_n_bits)
-        {
-            print_type_specifier_flags(ss, first, flags, 0);
-            print_item(ss, first, "__int128");
-            return;
-        }
-        flags |= TYPE_SPECIFIER_LONG_LONG;
-    }
-    print_type_specifier_flags(ss, first, flags, 0);
 }
 
 static size_t codegen_bitfield_tile_size(const struct codegen_ctx* ctx, size_t pos, size_t end, size_t cap)
@@ -64939,7 +65115,7 @@ static bool codegen_emit_bitfield_init_statement(struct codegen_ctx* ctx,
     ss_fprintf(&lvalue, "%s", prefix);
     codegen_print_designator(&lvalue, p_object, NULL);
 
-    struct object zero = object_make_unsigned_long_long(0);
+    struct object zero = object_make_unsigned_long_long(&ctx->options.platform, 0);
     if (p_init)
         codegen_visit_expression(ctx, &value, p_init);
     else
@@ -65542,15 +65718,17 @@ static void codegen_emit_wrap_text(const struct codegen_ctx* ctx,
     const char* const u_type = use_int ? "unsigned" : use_wide ? "unsigned __int128" : "unsigned long long";
     const char* const s_type = use_int ? "int" : use_wide ? "__int128" : "long long";
 
-    char mask_text[100] = { 0 };
-    char sign_text[100] = { 0 };
+    char mask_text[INTEGER128_TO_C_TEXT_MIN_SIZE] = { 0 };
+    char sign_text[INTEGER128_TO_C_TEXT_MIN_SIZE + 16] = { 0 };
     if (use_wide)
     {
-        const struct wide_integer mask = wide_integer_wrap_u(wide_integer_from_signed(-1), width);
-        const struct wide_integer sign = wide_integer_shl(wide_integer_from_unsigned(1), width - 1);
-        snprintf(mask_text, sizeof mask_text, "((unsigned __int128)0x%llxULL << %d | 0x%llxULL)", mask.hi, WIDE_INTEGER_HALF_BITS, mask.lo);
+        const struct integer128 mask = integer128_wrap_u(integer128_from_signed(-1), width);
+        const struct integer128 sign = integer128_shl(integer128_from_unsigned(1), width - 1);
+        integer128_to_c_text(mask, mask_text, sizeof mask_text);
         /* 2^(N - 1) with N below 128 is a positive __int128 */
-        snprintf(sign_text, sizeof sign_text, "((__int128)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", sign.hi, WIDE_INTEGER_HALF_BITS, sign.lo);
+        char sign_value_text[INTEGER128_TO_C_TEXT_MIN_SIZE] = { 0 };
+        integer128_to_c_text(sign, sign_value_text, sizeof sign_value_text);
+        snprintf(sign_text, sizeof sign_text, "((__int128)%s)", sign_value_text);
     }
     else
     {
@@ -65587,6 +65765,12 @@ static void codegen_emit_bitint_wrap_text(struct codegen_ctx* ctx,
                                           const char* text,
                                           bool source_is_floating)
 {
+    if (p_type->bitint_width > ctx->options.platform.long_long_n_bits &&
+        !codegen_require_int128(ctx, NULL, "_BitInt arithmetic"))
+    {
+        return;
+    }
+
     struct osstream lowered = { 0 };
     d_print_type(ctx, &lowered, p_type, NULL, false, false);
     if (lowered.c_str != NULL)
@@ -65619,7 +65803,7 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
     {
         /* the 128-bit value, wrapped by the cast; written from its halves when it has no literal */
         struct object wrapped = object_cast(&ctx->options.platform, type_to_object_type(p_type, &ctx->options.platform), p_source);
-        const struct wide_integer v = wrapped.value.host_wide_integer;
+        const struct integer128 v = wrapped.value.host_integer128;
         object_destroy(&wrapped);
 
         struct osstream lowered = { 0 };
@@ -65627,15 +65811,24 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
 
         const bool is_unsigned = (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED) != 0;
         const bool fits = is_unsigned ?
-            v.hi == 0 :
-            wide_integer_equal(v, wide_integer_from_signed((long long)v.lo)) && (long long)v.lo != LLONG_MIN;
+            integer128_fits_ull(v) :
+            integer128_fits_ll(v) && integer128_to_ll(v) != LLONG_MIN;
 
         if (fits && is_unsigned)
-            ss_fprintf(oss, "((%s)%lluULL)", lowered.c_str, v.lo);
+            ss_fprintf(oss, "((%s)%lluULL)", lowered.c_str, integer128_to_ull(v));
         else if (fits)
-            ss_fprintf(oss, "((%s)%lldLL)", lowered.c_str, (long long)v.lo);
+            ss_fprintf(oss, "((%s)%lldLL)", lowered.c_str, integer128_to_ll(v));
         else
-            ss_fprintf(oss, "((%s)((unsigned __int128)0x%llxULL << %d | 0x%llxULL))", lowered.c_str, v.hi, WIDE_INTEGER_HALF_BITS, v.lo);
+        {
+            char text[INTEGER128_TO_C_TEXT_MIN_SIZE] = { 0 };
+            if (!codegen_require_int128(ctx, NULL, "a 128-bit constant"))
+            {
+                ss_close(&lowered);
+                return true;
+            }
+            integer128_to_c_text(v, text, sizeof text);
+            ss_fprintf(oss, "((%s)%s)", lowered.c_str, text);
+        }
 
         ss_close(&lowered);
         return true;
@@ -65651,13 +65844,13 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
         struct object wrapped = object_make_unsigned_bitint(width, bits);
-        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, wrapped.value.host_wide_integer.lo);
+        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, integer128_to_ull(wrapped.value.host_integer128));
         object_destroy(&wrapped);
     }
     else
     {
         struct object wrapped = object_make_signed_bitint(width, (long long)bits);
-        const long long value = ((long long)wrapped.value.host_wide_integer.lo);
+        const long long value = integer128_to_ll(wrapped.value.host_integer128);
         object_destroy(&wrapped);
         if (value == LLONG_MIN)
             ss_fprintf(oss, "((%s)(-%lld - 1))", lowered.c_str, LLONG_MAX);
@@ -69768,7 +69961,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                 enum type_specifier_flags enum_type_specifier_flags =
                     get_enum_type_specifier_flags(p_type->enum_specifier);
 
-                codegen_print_type_specifier_flags(ctx, &local, &first, enum_type_specifier_flags);
+                print_type_specifier_flags(&local, &first, enum_type_specifier_flags, 0);
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
@@ -69794,14 +69987,14 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                       type_get_sizeof/type_get_alignof report.
                     */
                     const bool is_unsigned = p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED;
-                    codegen_print_type_specifier_flags(ctx,
-                                                       &local,
-                                                       &first,
-                                                       bitint_lowered_type_specifier_flags(p_type->bitint_width, is_unsigned, &ctx->options.platform));
+                    print_type_specifier_flags(&local,
+                                               &first,
+                                               bitint_lowered_type_specifier_flags(p_type->bitint_width, is_unsigned, &ctx->options.platform),
+                                               0);
                 }
                 else
                 {
-                    codegen_print_type_specifier_flags(ctx, &local, &first, p_type->type_specifier_flags);
+                    print_type_specifier_flags(&local, &first, p_type->type_specifier_flags, 0);
                 }
             }
 
@@ -70310,7 +70503,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
 {
     if (object_is_reference(object))
     {
-        object = object_get_referenced(object); //lint 15
+        object = (struct object*)object_get_referenced(object);
     }
 
     if (object->p_init_expression &&
@@ -70434,7 +70627,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
     {
         if (object_is_reference(object))
         {
-            object = object_get_referenced(object); //lint 15
+            object = (struct object*)object_get_referenced(object);
         }
 
         if (object->members.head != NULL)
@@ -74511,6 +74704,8 @@ struct flow_branch* _Opt flow_branch_arena_new_branch(struct flow_branch_arena* 
     if (m)
     {
         m->p_branch_expr = p_expr;
+        /* a condition in dead code (an `if` after a return) has dead arms */
+        m->is_unreachable = parent != NULL && parent->is_unreachable;
     }
     return m;
 }
@@ -75397,17 +75592,17 @@ static void flow_object_init(struct flow_ctx* ctx, struct object* p_object, cons
     if (type_is_pointer(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_PTR;
-        value.value.p = (void*)(uintptr_t)p_object->value.host_wide_integer.lo;
+        value.value.p = (void*)(uintptr_t)integer128_to_ull(p_object->value.host_integer128);
     }
     else if (type_is_signed(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_SIGNED;
-        value.value.i = ((long long)p_object->value.host_wide_integer.lo);
+        value.value.i = integer128_to_ll(p_object->value.host_integer128);
     }
     else
     {
         value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-        value.value.u = p_object->value.host_wide_integer.lo;
+        value.value.u = integer128_to_ull(p_object->value.host_integer128);
     }
 
     switch (p_object->state)
@@ -75501,12 +75696,12 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
         else if (type_is_signed(&p_object->type))
         {
             value.value_kind = FLOW_VALUE_KIND_SIGNED;
-            value.value.i = ((long long)p_object->value.host_wide_integer.lo);
+            value.value.i = integer128_to_ll(p_object->value.host_integer128);
         }
         else
         {
             value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-            value.value.u = p_object->value.host_wide_integer.lo;
+            value.value.u = integer128_to_ull(p_object->value.host_integer128);
         }
 
         switch (p_object->state)
@@ -77119,7 +77314,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                 */
             bool members_check_moved = check_moved;
 
-            if (members_check_uninit)
+            if (members_check_uninit && !(ctx->p_current_flow_branch && ctx->p_current_flow_branch->is_unreachable))
             {
                 int uninit_line = 0;
                 const struct flow_branch* _Opt uninit_origin = NULL;
@@ -77155,7 +77350,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                 `expression_delete(...)` (expressions.c:5667).
             */
             bool members_check_ended = check_ended;
-            if (members_check_ended)
+            if (members_check_ended && !(ctx->p_current_flow_branch && ctx->p_current_flow_branch->is_unreachable))
             {
                 int ended_line = 0;
                 const struct flow_branch* _Opt ended_origin = NULL;
@@ -78231,6 +78426,15 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 {
                     /* Determine write-effect on the pointee (same as above, but for a PTR alternative). */
                     const struct object* pointee = p_src_alternative->value.p;
+
+                    if (ctx->call_has_restrict && ctx->restrict_arguments_count < FLOW_MAX_RESTRICT_ARGUMENTS)
+                    {
+                        struct flow_restrict_argument* r = &ctx->restrict_arguments[ctx->restrict_arguments_count++];
+                        r->pointee = pointee;
+                        r->argument_serial = ctx->argument_serial;
+                        r->is_restrict = (p_object_dest->type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) != 0;
+                        r->p_argument = p_expression;
+                    }
                     const struct token* p_effect_token = p_expression->first_token;
                     enum flow_pointee_effect_kind effect_kind = FLOW_EFFECT_NONE;
 
@@ -78929,6 +79133,44 @@ static const struct flow_key_alternatives* _Opt flow_pointer_pointee_on_demand(s
     return p_left_alternatives;
 }
 
+/*
+    Two arguments of a call that may point to the same object, when one of
+    them goes to a restrict parameter (C23 6.7.4.2). The pointees were recorded
+    by flow_check_object_init_assigment, from index first on.
+*/
+static void flow_check_restrict_arguments(struct flow_ctx* ctx, int first)
+{
+    for (int i = first; i < ctx->restrict_arguments_count; i++)
+    {
+        const struct flow_restrict_argument* a = &ctx->restrict_arguments[i];
+        for (int j = i + 1; j < ctx->restrict_arguments_count; j++)
+        {
+            const struct flow_restrict_argument* b = &ctx->restrict_arguments[j];
+            const struct expression* _Opt p_argument_a = a->p_argument;
+            const struct expression* _Opt p_argument_b = b->p_argument;
+            if (a->pointee == NULL ||
+                    a->pointee != b->pointee ||
+                    a->argument_serial == b->argument_serial ||
+                    !(a->is_restrict || b->is_restrict) ||
+                    p_argument_a == NULL ||
+                    p_argument_b == NULL)
+                continue;
+
+            struct osstream name_a = { 0 };
+            struct osstream name_b = { 0 };
+            flow_expression_to_string(p_argument_a, &name_a);
+            flow_expression_to_string(p_argument_b, &name_b);
+            const struct marker marker = expression_to_marker(p_argument_b);
+            diagnostic(W_FLOW_RESTRICT_ARGUMENTS_ALIAS, ctx->ctx, NULL, &marker,
+                       "'%s' and '%s' may point to the same object, but the parameter is restrict",
+                       name_a.c_str ? name_a.c_str : "", name_b.c_str ? name_b.c_str : "");
+            ss_close(&name_a);
+            ss_close(&name_b);
+            return; /* one report per call */
+        }
+    }
+}
+
 static void flow_visit_function_arguments(struct flow_ctx* ctx,
                                           const struct type* p_type,
                                           struct argument_expression_list* p_argument_expression_list)
@@ -78946,6 +79188,15 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
 
         const struct param* _Opt p_current_parameter_type = p_param_list->head;
         struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
+
+        const bool saved_call_has_restrict = ctx->call_has_restrict;
+        const int saved_restrict_count = ctx->restrict_arguments_count;
+        ctx->call_has_restrict = false;
+        for (const struct param* _Opt p = p_param_list->head; p; p = p->next)
+        {
+            if (type_is_pointer(&p->type) && (p->type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT))
+                ctx->call_has_restrict = true;
+        }
 
         /*
             Collect pointee write-effects and apply them after all arguments:
@@ -78996,6 +79247,10 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
             object_destroy(&param_object);
             type_destroy(&variadic_type);
         }
+
+        flow_check_restrict_arguments(ctx, saved_restrict_count);
+        ctx->restrict_arguments_count = saved_restrict_count;
+        ctx->call_has_restrict = saved_call_has_restrict;
 
         /*
             All arguments evaluated: now apply the deferred write-effects (the
@@ -81449,17 +81704,17 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     if (type_is_pointer(&p_obj->type))
                     {
                         value.value_kind = FLOW_VALUE_KIND_PTR;
-                        value.value.p = (void*)(uintptr_t)p_obj->value.host_wide_integer.lo;
+                        value.value.p = (void*)(uintptr_t)integer128_to_ull(p_obj->value.host_integer128);
                     }
                     else if (type_is_signed(&p_obj->type))
                     {
                         value.value_kind = FLOW_VALUE_KIND_SIGNED;
-                        value.value.i = ((long long)p_obj->value.host_wide_integer.lo);
+                        value.value.i = integer128_to_ll(p_obj->value.host_integer128);
                     }
                     else
                     {
                         value.value_kind = FLOW_VALUE_KIND_UNSIGNED;
-                        value.value.u = p_obj->value.host_wide_integer.lo;
+                        value.value.u = integer128_to_ull(p_obj->value.host_integer128);
                     }
 
                     struct flow_key_alternatives* _Opt e1 = flow_branch_find_add(ctx->p_current_flow_branch, p_obj);
@@ -81509,7 +81764,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_PRIMARY_PARENTHESIS:
             {
                 assert(p_expression->right != NULL);
-                struct expression* p_inner = skip_parenthesis(p_expression->right); //lint 15
+                struct expression* p_inner = (struct expression*)skip_parenthesis(p_expression->right);
                 struct flow_true_false_branches paren_pair = flow_visit_expression(ctx, p_inner);
 
                 /*
@@ -84909,6 +85164,8 @@ static void flow_visit_loop(struct flow_ctx* ctx,
                                                                 p_pass1_body_entry, FLOW_BRANCH_FOR_BODY_PASS1);
         if (p_pass1_body != NULL)
         {
+            /* a condition that never holds: the body never runs, and its assignments must not reach pass 2 */
+            p_pass1_body->is_unreachable = p_pass1_body_entry->is_unreachable;
             ctx->p_current_flow_branch = p_pass1_body;
         }
     }
@@ -86285,10 +86542,12 @@ static void flow_visit_block_item_list(struct flow_ctx* ctx, struct block_item_l
 
     while (p_block_item)
     {
+        /* a block nested in dead code was already reported by the enclosing one */
         if (!warned_unreachable &&
                 p_block_item->label == NULL &&
                 ctx->p_current_flow_branch != NULL &&
-                ctx->p_current_flow_branch->is_unreachable)
+                ctx->p_current_flow_branch->is_unreachable &&
+                !(ctx->p_current_flow_branch->p_parent_map != NULL && ctx->p_current_flow_branch->p_parent_map->is_unreachable))
         {
             const struct marker m =
             {
@@ -86481,6 +86740,40 @@ static void flow_visit_static_assertion(struct flow_ctx* ctx, struct static_asse
     }
 }
 
+/* The object a parameter points to when it is non-null, or NULL. */
+static const struct object* _Opt flow_alias_pointee(const struct flow_key_alternatives* p_entry)
+{
+    if (p_entry->alternatives.data == NULL)
+        return NULL;
+    for (int i = 0; i < p_entry->alternatives.size; i++)
+    {
+        const struct flow_alternative* _Opt a = p_entry->alternatives.data[i];
+        if (a && a->value_kind == FLOW_VALUE_KIND_PTR && a->value_relation == FLOW_RELATION_EQUAL && a->value.p != NULL)
+            return a->value.p;
+    }
+    return NULL;
+}
+
+/* Aliasing pass: when non-null, p_dest points to the object of p_src; p_dest keeps its own nullability. */
+static void flow_alias_retarget(struct flow_ctx* ctx, const struct object* p_src, const struct object* p_dest)
+{
+    struct flow_key_alternatives* _Opt p_src_entry = flow_branch_find_add(ctx->p_current_flow_branch, p_src);
+    struct flow_key_alternatives* _Opt p_dest_entry = flow_branch_find_add(ctx->p_current_flow_branch, p_dest);
+    if (p_src_entry == NULL || p_dest_entry == NULL || p_dest_entry->alternatives.data == NULL)
+        return;
+
+    const struct object* _Opt p_target = flow_alias_pointee(p_src_entry);
+    if (p_target == NULL)
+        return;
+
+    for (int i = 0; i < p_dest_entry->alternatives.size; i++)
+    {
+        struct flow_alternative* _Opt a = p_dest_entry->alternatives.data[i];
+        if (a && a->value_kind == FLOW_VALUE_KIND_PTR && a->value_relation == FLOW_RELATION_EQUAL && a->value.p != NULL)
+            a->value.p = p_target;
+    }
+}
+
 static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
@@ -86502,6 +86795,10 @@ static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_dec
                 flow_visit_declaration_specifiers(ctx, parameter->declaration_specifiers);
                 flow_visit_declarator(ctx, parameter->declarator);
                 flow_parameter_object_init(ctx, &parameter->declarator->object, &parameter->declarator->object.type, parameter->declaration_specifiers->first_token);
+                if (ctx->p_alias_dest == parameter->declarator && ctx->p_alias_src != NULL)
+                {
+                    flow_alias_retarget(ctx, &ctx->p_alias_src->object, &parameter->declarator->object);
+                }
             }
             parameter = parameter->next;
         }
@@ -86988,7 +87285,7 @@ void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declarat
     }
 }
 
-void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
+static void flow_analyze_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
 {
     try
     {
@@ -87030,6 +87327,239 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
     catch
     {
     }
+}
+
+#define FLOW_ALIAS_MAX_PARAMETERS 16
+#define FLOW_ALIAS_MAX_REPORTS 32
+
+/* A W_FLOW_PARAM_MAY_ALIAS, reported after the //lint of its line is checked. */
+struct flow_alias_report
+{
+    int line; /* 0 when suppressed */
+    const struct token* _Opt p_token;
+    char message[200];
+};
+
+static bool flow_alias_item_is_compared(const struct diagnostic_item* p)
+{
+    /* code unreachable or a condition known only because the pointers are equal is not a problem */
+    return (p->is_error || p->is_warning) &&
+           get_diagnostic_phase(p->id) == 2 &&
+           p->id != W_FLOW_NOT_DONE &&
+           p->id != W_FLOW_UNREACHABLE_CODE &&
+           p->id != W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME;
+}
+
+/* The message of a queued diagnostic: its text after "<id>: " up to the end of the line or a color code. */
+static void flow_alias_item_message(const struct diagnostic_item* p, char* out, int out_size)
+{
+    snprintf(out, out_size, "diagnostic %d", (int)p->id);
+    if (p->text == NULL)
+        return;
+
+    char id_text[16] = { 0 };
+    snprintf(id_text, sizeof id_text, "%d: ", (int)p->id);
+    const int id_length = (int)strlen(id_text);
+
+    /* the column of the header is preceded by ':', the id by ' ' or the end of a color code */
+    for (const char* _Opt s = strstr(p->text, id_text); s; s = strstr(s + 1, id_text))
+    {
+        if (s > p->text && (s[-1] == ' ' || s[-1] == 'm'))
+        {
+            const char* begin = s + id_length;
+            int n = 0;
+            while (begin[n] != '\0' && begin[n] != '\n' && begin[n] != '\r' && begin[n] != '\x1b')
+                n++;
+            snprintf(out, out_size, "%.*s", n, begin);
+            return;
+        }
+    }
+}
+
+static bool flow_alias_item_is_in(const struct diagnostic_item* _Opt p_list, int line, enum diagnostic_id id)
+{
+    for (const struct diagnostic_item* _Opt p = p_list; p; p = p->next)
+    {
+        if (p->line == line && p->id == id)
+            return true;
+    }
+    return false;
+}
+
+/* Pointer parameters of the function definition that point to objects (not void, not functions). */
+static int flow_alias_parameters(const struct declaration* p_declaration, const struct declarator* out[], int max)
+{
+    const struct init_declarator* _Opt p_init = p_declaration->init_declarator_list.head;
+    if (p_init == NULL || p_init->p_declarator->direct_declarator == NULL)
+        return 0;
+    const struct function_declarator* _Opt p_function = p_init->p_declarator->direct_declarator->function_declarator;
+    if (p_function == NULL ||
+            p_function->parameter_type_list_opt == NULL ||
+            p_function->parameter_type_list_opt->parameter_list == NULL)
+        return 0;
+
+    int count = 0;
+    for (const struct parameter_declaration* _Opt p = p_function->parameter_type_list_opt->parameter_list->head; p && count < max; p = p->next)
+    {
+        if (p->declarator == NULL || p->declarator->name_opt == NULL || !type_is_pointer(&p->declarator->object.type))
+            continue;
+        struct type pointed = type_remove_pointer(&p->declarator->object.type);
+        const bool is_object = !type_is_void(&pointed) && !type_is_function(&pointed);
+        type_destroy(&pointed);
+        if (is_object)
+            out[count++] = p->declarator;
+    }
+    return count;
+}
+
+static bool flow_alias_same_pointee(const struct declarator* a, const struct declarator* b)
+{
+    struct type ta = type_remove_pointer(&a->object.type);
+    struct type tb = type_remove_pointer(&b->object.type);
+    const bool same = type_is_same(&ta, &tb, false);
+    type_destroy(&ta);
+    type_destroy(&tb);
+    return same;
+}
+
+static bool flow_alias_is_restrict(const struct declarator* p)
+{
+    return (p->object.type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) != 0;
+}
+
+/*
+    Pairs of pointer parameters with the same pointee are analyzed again with
+    both pointing to the same object. A diagnostic that only this pass has is an
+    error of the function when they alias: W_FLOW_PARAM_MAY_ALIAS. restrict on one
+    of them says they never alias, so the pair is not analyzed. p_normal is the
+    queue with the normal pass diagnostics.
+*/
+static void flow_check_parameter_aliasing(struct flow_ctx* ctx, struct declaration* p_declaration, const struct diagnostic_item* _Opt p_normal)
+{
+    const struct declarator* params[FLOW_ALIAS_MAX_PARAMETERS] = { 0 };
+    const int params_count = flow_alias_parameters(p_declaration, params, FLOW_ALIAS_MAX_PARAMETERS);
+
+    struct flow_alias_report reports[FLOW_ALIAS_MAX_REPORTS] = { 0 };
+    int reports_count = 0;
+
+    for (int i = 0; i < params_count; i++)
+    {
+        for (int j = i + 1; j < params_count; j++)
+        {
+            /* two _Owner parameters each own their object: the caller cannot pass the same one twice */
+            const bool both_owner = type_is_owner(&params[i]->object.type) && type_is_owner(&params[j]->object.type);
+            /* two const views only read: the same object changes nothing */
+            const bool both_const_views =
+                flow_dest_pointee_is_const(&params[i]->object.type) && !type_is_owner(&params[i]->object.type) &&
+                flow_dest_pointee_is_const(&params[j]->object.type) && !type_is_owner(&params[j]->object.type);
+            if (flow_alias_is_restrict(params[i]) ||
+                    flow_alias_is_restrict(params[j]) ||
+                    both_owner ||
+                    both_const_views ||
+                    !flow_alias_same_pointee(params[i], params[j]))
+                continue;
+
+            struct diagnostic_queue alias_queue = { 0 };
+            diagnostic_queue_swap(&ctx->ctx->diagnostic_queue, &alias_queue);
+
+            ctx->p_alias_src = params[i];
+            ctx->p_alias_dest = params[j];
+            flow_analyze_declaration(ctx, p_declaration);
+            ctx->p_alias_src = NULL;
+            ctx->p_alias_dest = NULL;
+
+            diagnostic_queue_swap(&ctx->ctx->diagnostic_queue, &alias_queue);
+
+            const struct token* _Opt p_name_i = params[i]->name_opt;
+            const struct token* _Opt p_name_j = params[j]->name_opt;
+            const char* name_i = p_name_i ? p_name_i->lexeme : "";
+            const char* name_j = p_name_j ? p_name_j->lexeme : "";
+
+            if (!ctx->stopped)
+            {
+                for (const struct diagnostic_item* _Opt p = alias_queue.head; p; p = p->next)
+                {
+                    if (!flow_alias_item_is_compared(p) || flow_alias_item_is_in(p_normal, p->line, p->id))
+                        continue;
+
+                    bool line_reported = false;
+                    for (int k = 0; k < reports_count; k++)
+                        line_reported = line_reported || reports[k].line == p->line;
+
+                    if (!line_reported && reports_count < FLOW_ALIAS_MAX_REPORTS)
+                    {
+                        struct flow_alias_report* r = &reports[reports_count++];
+                        r->line = p->line;
+                        char problem[160] = { 0 };
+                        flow_alias_item_message(p, problem, sizeof problem);
+                        snprintf(r->message, sizeof r->message,
+                                 "in case '%s' and '%s' point to the same object: %s",
+                                 name_i, name_j, problem);
+                    }
+                }
+            }
+
+            diagnostic_queue_destroy(&alias_queue);
+        }
+    }
+
+    /* the //lint of W_FLOW_PARAM_MAY_ALIAS is checked here, phase 3 is not checked by the parser */
+    const struct token* _Opt p_last = p_declaration->function_body ? p_declaration->function_body->last_token : p_declaration->last_token;
+    for (const struct token* _Opt p_token = p_declaration->first_token; p_token; p_token = p_token->next)
+    {
+        if (p_token->flags & TK_FLAG_FINAL)
+        {
+            for (int k = 0; k < reports_count; k++)
+            {
+                if (reports[k].p_token == NULL && reports[k].line == p_token->line)
+                    reports[k].p_token = p_token;
+            }
+        }
+        else if (p_token->type == TK_LINE_COMMENT || p_token->type == TK_COMMENT)
+        {
+            int ids[32] = { 0 };
+            const int count = parse_diagnostic_suppression(p_token->lexeme, ids, sizeof ids / sizeof ids[0]);
+            for (int n = 0; n < count; n++)
+            {
+                if (ids[n] != W_FLOW_PARAM_MAY_ALIAS)
+                    continue;
+                bool found = false;
+                for (int k = 0; k < reports_count; k++)
+                {
+                    if (reports[k].line == p_token->line && reports[k].line != 0)
+                    {
+                        reports[k].line = 0; /* suppressed */
+                        found = true;
+                    }
+                }
+                if (!found && diagnostic_can_happen(&ctx->ctx->options, (enum diagnostic_id)ids[n]))
+                {
+                    diagnostic(W_WARNING_DID_NOT_HAPPEN, ctx->ctx, p_token, NULL,
+                               "lint %d expects warning %d on this line, but it is not reported here",
+                               ids[n], ids[n]);
+                }
+            }
+        }
+        if (p_token == p_last)
+            break;
+    }
+
+    for (int k = 0; k < reports_count; k++)
+    {
+        if (reports[k].line != 0 && reports[k].p_token != NULL)
+            diagnostic(W_FLOW_PARAM_MAY_ALIAS, ctx->ctx, reports[k].p_token, NULL, "%s", reports[k].message);
+    }
+}
+
+void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
+{
+    flow_analyze_declaration(ctx, p_declaration);
+
+    if (p_declaration->function_body == NULL || ctx->stopped)
+        return;
+
+    /* the queue still has the normal pass diagnostics: a //lint may remove any item, so it is not split by a saved tail */
+    flow_check_parameter_aliasing(ctx, p_declaration, ctx->ctx->diagnostic_queue.head);
 }
 
 void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)
@@ -87930,376 +88460,376 @@ static char gcc_builtins[] =
 ,101,100,101,102,32,102,108,111,97,116,32,95,70,108,111,97,116,49,54,59,10,35,101,110,100
 ,105,102,32,47,42,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65
 ,67,79,83,32,42,47,10,10,35,105,102,32,95,95,67,65,75,69,95,83,73,90,69,79,70
-,95,76,79,78,71,95,76,79,78,71,95,76,79,78,71,95,95,32,61,61,32,49,54,10,116
-,121,112,101,100,101,102,32,117,110,115,105,103,110,101,100,32,95,95,105,110,116,49,50,56,32
-,95,95,117,105,110,116,49,50,56,95,116,59,10,116,121,112,101,100,101,102,32,95,95,105,110
-,116,49,50,56,32,95,95,105,110,116,49,50,56,95,116,59,10,35,101,108,115,101,10,47,42
-,32,49,50,56,45,98,105,116,32,105,110,116,115,32,111,110,108,121,32,97,112,112,101,97,114
-,32,97,115,32,115,116,114,117,99,116,32,102,105,101,108,100,115,32,105,110,32,115,121,115,116
-,101,109,32,104,101,97,100,101,114,115,32,40,97,114,109,54,52,32,78,69,79,78,32,115,116
-,97,116,101,44,32,103,108,105,98,99,32,108,105,110,107,46,104,41,44,32,109,111,100,101,108
-,101,100,32,97,115,32,97,32,49,54,45,98,121,116,101,32,97,103,103,114,101,103,97,116,101
-,46,32,42,47,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,123,32,117,110,115
-,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,95,95,97,44,32,95,95,98,59
-,32,125,32,95,95,117,105,110,116,49,50,56,95,116,59,10,116,121,112,101,100,101,102,32,115
-,116,114,117,99,116,32,123,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110
-,103,32,95,95,97,44,32,95,95,98,59,32,125,32,95,95,105,110,116,49,50,56,95,116,59
-,10,35,101,110,100,105,102,10,10,108,111,110,103,32,95,95,98,117,105,108,116,105,110,95,101
-,120,112,101,99,116,40,108,111,110,103,32,101,120,112,44,32,108,111,110,103,32,99,41,59,10
-,35,105,102,100,101,102,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77
-,65,67,79,83,10,32,32,32,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,111
-,110,115,116,97,110,116,95,112,40,47,42,97,110,121,32,101,120,112,114,101,115,115,105,111,110
-,42,47,46,46,46,41,59,10,35,101,110,100,105,102,32,47,42,32,95,95,67,65,75,69,95
-,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,32,42,47,10,10,47,42,10,32,32
-,104,116,116,112,115,58,47,47,103,99,99,46,103,110,117,46,111,114,103,47,111,110,108,105,110
-,101,100,111,99,115,47,103,99,99,47,73,110,116,101,103,101,114,45,79,118,101,114,102,108,111
-,119,45,66,117,105,108,116,105,110,115,46,104,116,109,108,10,42,47,10,98,111,111,108,32,95
-,95,98,117,105,108,116,105,110,95,97,100,100,95,111,118,101,114,102,108,111,119,40,47,42,116
-,121,112,101,49,32,97,44,32,116,121,112,101,50,32,98,44,32,116,121,112,101,51,32,42,114
-,101,115,42,47,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110,95,115,97,100
-,100,95,111,118,101,114,102,108,111,119,40,105,110,116,32,97,44,32,105,110,116,32,98,44,32
-,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110
-,95,115,97,100,100,108,95,111,118,101,114,102,108,111,119,40,108,111,110,103,32,105,110,116,32
-,97,44,32,108,111,110,103,32,105,110,116,32,98,44,32,108,111,110,103,32,105,110,116,42,32
-,114,101,115,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110,95,115,97,100,100
-,108,108,95,111,118,101,114,102,108,111,119,40,108,111,110,103,32,108,111,110,103,32,105,110,116
-,32,97,44,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,98,44,32,108,111,110,103
-,32,108,111,110,103,32,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32,95,95,98
-,117,105,108,116,105,110,95,117,97,100,100,95,111,118,101,114,102,108,111,119,40,117,110,115,105
-,103,110,101,100,32,105,110,116,32,97,44,32,117,110,115,105,103,110,101,100,32,105,110,116,32
-,98,44,32,117,110,115,105,103,110,101,100,32,105,110,116,42,32,114,101,115,41,59,10,98,111
-,111,108,32,95,95,98,117,105,108,116,105,110,95,117,97,100,100,108,95,111,118,101,114,102,108
-,111,119,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,97,44,32,117
-,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,98,44,32,117,110,115,105,103
-,110,101,100,32,108,111,110,103,32,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32
-,95,95,98,117,105,108,116,105,110,95,117,97,100,100,108,108,95,111,118,101,114,102,108,111,119
-,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,97
-,44,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32
-,98,44,32,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116
-,42,32,114,101,115,41,59,10,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105
-,110,95,104,117,103,101,95,118,97,108,40,118,111,105,100,41,59,10,102,108,111,97,116,32,95
-,95,98,117,105,108,116,105,110,95,104,117,103,101,95,118,97,108,102,40,118,111,105,100,41,59
-,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,104,117
-,103,101,95,118,97,108,108,40,118,111,105,100,41,59,10,10,10,105,110,116,32,95,95,98,117
-,105,108,116,105,110,95,102,112,99,108,97,115,115,105,102,121,40,105,110,116,44,32,105,110,116
-,44,32,105,110,116,44,32,105,110,116,44,32,105,110,116,44,32,46,46,46,41,59,10,100,111
-,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,105,110,102,40,118,111,105,100,41,59
-,10,10,95,68,101,99,105,109,97,108,51,50,32,95,95,98,117,105,108,116,105,110,95,105,110
-,102,100,51,50,40,118,111,105,100,41,59,10,95,68,101,99,105,109,97,108,54,52,32,95,95
-,98,117,105,108,116,105,110,95,105,110,102,100,54,52,40,118,111,105,100,41,59,10,95,68,101
-,99,105,109,97,108,49,50,56,32,95,95,98,117,105,108,116,105,110,95,105,110,102,100,49,50
-,56,40,118,111,105,100,41,59,10,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110
-,95,105,110,102,102,40,118,111,105,100,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32
-,95,95,98,117,105,108,116,105,110,95,105,110,102,108,40,118,111,105,100,41,59,10,10,105,110
-,116,32,95,95,98,117,105,108,116,105,110,95,105,115,105,110,102,95,115,105,103,110,40,46,46
-,46,41,59,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,40
-,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,10,10,95,68,101,99,105
-,109,97,108,54,52,32,95,95,98,117,105,108,116,105,110,95,110,97,110,100,54,52,40,99,111
-,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,49
-,50,56,32,95,95,98,117,105,108,116,105,110,95,110,97,110,100,49,50,56,40,99,111,110,115
-,116,32,99,104,97,114,42,32,115,116,114,41,59,10,102,108,111,97,116,32,95,95,98,117,105
-,108,116,105,110,95,110,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114
-,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95
-,110,97,110,108,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,10,10
-,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115,40,99,111
-,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,51
-,50,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115,100,51,50,40,99,111,110,115,116
-,32,99,104,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,54,52,32,95
-,95,98,117,105,108,116,105,110,95,110,97,110,115,100,54,52,40,99,111,110,115,116,32,99,104
-,97,114,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,49,50,56,32,95,95,98
-,117,105,108,116,105,110,95,110,97,110,115,100,49,50,56,40,99,111,110,115,116,32,99,104,97
-,114,42,32,115,116,114,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95
-,110,97,110,115,102,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,108
-,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115
-,108,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,10,105,110,116,32
-,95,95,98,117,105,108,116,105,110,95,105,115,115,105,103,110,97,108,105,110,103,40,46,46,46
-,41,59,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112,111,119,105,40
-,100,111,117,98,108,101,44,32,105,110,116,41,59,10,102,108,111,97,116,32,95,95,98,117,105
-,108,116,105,110,95,112,111,119,105,102,40,102,108,111,97,116,44,32,105,110,116,41,59,10,108
-,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112,111,119,105
-,108,40,108,111,110,103,32,100,111,117,98,108,101,44,32,105,110,116,41,59,10,10,10,105,110
-,116,32,95,95,98,117,105,108,116,105,110,95,97,98,115,40,105,110,116,32,120,41,59,10,100
-,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,102,97,98,115,40,100,111,117,98
-,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,102,97
-,98,115,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
-,32,95,95,98,117,105,108,116,105,110,95,102,97,98,115,108,40,108,111,110,103,32,100,111,117
-,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110
-,95,115,105,110,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98
-,117,105,108,116,105,110,95,115,105,110,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110
-,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,105,110,108,40,108
-,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95
-,98,117,105,108,116,105,110,95,99,111,115,40,100,111,117,98,108,101,32,120,41,59,10,102,108
-,111,97,116,32,95,95,98,117,105,108,116,105,110,95,99,111,115,102,40,102,108,111,97,116,32
-,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110
-,95,99,111,115,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111
-,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,116,97,110,40,100,111,117,98,108,101
-,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,116,97,110,102
-,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95
-,98,117,105,108,116,105,110,95,116,97,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32
-,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,113,114
-,116,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108
-,116,105,110,95,115,113,114,116,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32
-,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,113,114,116,108,40,108,111
-,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98
-,117,105,108,116,105,110,95,112,111,119,40,100,111,117,98,108,101,32,120,44,32,100,111,117,98
-,108,101,32,121,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,112,111
-,119,102,40,102,108,111,97,116,32,120,44,32,102,108,111,97,116,32,121,41,59,10,108,111,110
-,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112,111,119,108,40,108
-,111,110,103,32,100,111,117,98,108,101,32,120,44,32,108,111,110,103,32,100,111,117,98,108,101
-,32,121,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,101,120
-,112,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108
-,116,105,110,95,101,120,112,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100
-,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,101,120,112,108,40,108,111,110,103
-,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105
-,108,116,105,110,95,108,111,103,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116
-,32,95,95,98,117,105,108,116,105,110,95,108,111,103,102,40,102,108,111,97,116,32,120,41,59
-,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,108,111
-,103,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108
-,101,32,95,95,98,117,105,108,116,105,110,95,108,111,103,49,48,40,100,111,117,98,108,101,32
-,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,108,111,103,49,48
-,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95
-,95,98,117,105,108,116,105,110,95,108,111,103,49,48,108,40,108,111,110,103,32,100,111,117,98
-,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95
-,102,108,111,111,114,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95
-,98,117,105,108,116,105,110,95,102,108,111,111,114,102,40,102,108,111,97,116,32,120,41,59,10
-,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,102,108,111
-,111,114,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98
-,108,101,32,95,95,98,117,105,108,116,105,110,95,99,101,105,108,40,100,111,117,98,108,101,32
-,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,99,101,105,108,102
-,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95
-,98,117,105,108,116,105,110,95,99,101,105,108,108,40,108,111,110,103,32,100,111,117,98,108,101
-,32,120,41,59,10,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,40,105
-,110,116,32,105,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,108
-,40,108,111,110,103,32,105,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102
-,102,115,108,108,40,108,111,110,103,32,108,111,110,103,32,105,41,59,10,10,118,111,105,100,42
-,32,95,95,98,117,105,108,116,105,110,95,109,101,109,99,112,121,40,118,111,105,100,42,32,100
-,101,115,116,44,32,99,111,110,115,116,32,118,111,105,100,42,32,115,114,99,44,32,115,105,122
-,101,95,116,32,110,41,59,10,118,111,105,100,42,32,95,95,98,117,105,108,116,105,110,95,109
-,101,109,115,101,116,40,118,111,105,100,42,32,115,44,32,105,110,116,32,99,44,32,115,105,122
-,101,95,116,32,110,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,109,101,109
-,99,109,112,40,99,111,110,115,116,32,118,111,105,100,42,32,115,49,44,32,99,111,110,115,116
-,32,118,111,105,100,42,32,115,50,44,32,115,105,122,101,95,116,32,110,41,59,10,10,99,104
-,97,114,42,32,95,95,98,117,105,108,116,105,110,95,115,116,114,99,112,121,40,99,104,97,114
-,42,32,100,101,115,116,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,114,99,41,59
-,10,99,104,97,114,42,32,95,95,98,117,105,108,116,105,110,95,115,116,114,110,99,112,121,40
-,99,104,97,114,42,32,100,101,115,116,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115
-,114,99,44,32,115,105,122,101,95,116,32,110,41,59,10,105,110,116,32,95,95,98,117,105,108
-,116,105,110,95,115,116,114,99,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49
-,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,50,41,59,10,115,105,122,101,95,116
-,32,95,95,98,117,105,108,116,105,110,95,115,116,114,108,101,110,40,99,111,110,115,116,32,99
-,104,97,114,42,32,115,41,59,10,10,95,78,111,114,101,116,117,114,110,32,118,111,105,100,32
-,95,95,98,117,105,108,116,105,110,95,97,98,111,114,116,40,118,111,105,100,41,59,10,95,78
-,111,114,101,116,117,114,110,32,118,111,105,100,32,95,95,98,117,105,108,116,105,110,95,101,120
-,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,10,118,111,105,100,32,95,95,98,117
-,105,108,116,105,110,95,102,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,10,118,111
-,105,100,42,32,95,95,98,117,105,108,116,105,110,95,109,97,108,108,111,99,40,115,105,122,101
-,95,116,32,115,105,122,101,41,59,10,118,111,105,100,42,32,95,95,98,117,105,108,116,105,110
-,95,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44,32,115,105,122,101,95
-,116,32,115,105,122,101,41,59,10,10,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95
-,115,105,103,110,98,105,116,40,100,111,117,98,108,101,32,120,41,59,10,105,110,116,32,95,95
-,98,117,105,108,116,105,110,95,115,105,103,110,98,105,116,102,40,102,108,111,97,116,32,120,41
-,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,105,103,110,98,105,116,108,40
-,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,35,105,102,100,101,102,32,95
+,95,73,78,84,49,50,56,95,95,32,61,61,32,49,54,10,116,121,112,101,100,101,102,32,117
+,110,115,105,103,110,101,100,32,95,95,105,110,116,49,50,56,32,95,95,117,105,110,116,49,50
+,56,95,116,59,10,116,121,112,101,100,101,102,32,95,95,105,110,116,49,50,56,32,95,95,105
+,110,116,49,50,56,95,116,59,10,35,101,108,115,101,10,47,42,32,49,50,56,45,98,105,116
+,32,105,110,116,115,32,111,110,108,121,32,97,112,112,101,97,114,32,97,115,32,115,116,114,117
+,99,116,32,102,105,101,108,100,115,32,105,110,32,115,121,115,116,101,109,32,104,101,97,100,101
+,114,115,32,40,97,114,109,54,52,32,78,69,79,78,32,115,116,97,116,101,44,32,103,108,105
+,98,99,32,108,105,110,107,46,104,41,44,32,109,111,100,101,108,101,100,32,97,115,32,97,32
+,49,54,45,98,121,116,101,32,97,103,103,114,101,103,97,116,101,46,32,42,47,10,116,121,112
+,101,100,101,102,32,115,116,114,117,99,116,32,123,32,117,110,115,105,103,110,101,100,32,108,111
+,110,103,32,108,111,110,103,32,95,95,97,44,32,95,95,98,59,32,125,32,95,95,117,105,110
+,116,49,50,56,95,116,59,10,116,121,112,101,100,101,102,32,115,116,114,117,99,116,32,123,32
+,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,95,95,97,44,32,95
+,95,98,59,32,125,32,95,95,105,110,116,49,50,56,95,116,59,10,35,101,110,100,105,102,10
+,10,108,111,110,103,32,95,95,98,117,105,108,116,105,110,95,101,120,112,101,99,116,40,108,111
+,110,103,32,101,120,112,44,32,108,111,110,103,32,99,41,59,10,35,105,102,100,101,102,32,95
 ,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,10,32,32,32
-,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,108,116,95,114,111,117,110,100,115
-,40,118,111,105,100,41,59,10,10,35,101,110,100,105,102,32,47,42,32,95,95,67,65,75,69
-,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,32,42,47,10,10,10,10,105,110
-,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,40,105,110,116,32,120,41,59,10,105
-,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,122,40,117,110,115,105,103,110,101,100
-,32,105,110,116,32,120,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,116
-,122,40,117,110,115,105,103,110,101,100,32,105,110,116,32,120,41,59,10,105,110,116,32,95,95
-,98,117,105,108,116,105,110,95,99,108,114,115,98,40,105,110,116,32,120,41,59,10,105,110,116
-,32,95,95,98,117,105,108,116,105,110,95,112,111,112,99,111,117,110,116,40,117,110,115,105,103
-,110,101,100,32,105,110,116,32,120,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110
-,95,112,97,114,105,116,121,40,117,110,115,105,103,110,101,100,32,105,110,116,32,120,41,59,10
-,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,108,40,108,111,110,103,41,59
-,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,122,108,40,117,110,115,105,103
-,110,101,100,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95
-,99,116,122,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,41,59,10,105,110,116,32
-,95,95,98,117,105,108,116,105,110,95,99,108,114,115,98,108,40,108,111,110,103,41,59,10,105
-,110,116,32,95,95,98,117,105,108,116,105,110,95,112,111,112,99,111,117,110,116,108,40,117,110
-,115,105,103,110,101,100,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116
-,105,110,95,112,97,114,105,116,121,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,41
+,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,111,110,115,116,97,110,116,95,112
+,40,47,42,97,110,121,32,101,120,112,114,101,115,115,105,111,110,42,47,46,46,46,41,59,10
+,35,101,110,100,105,102,32,47,42,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79
+,83,95,77,65,67,79,83,32,42,47,10,10,47,42,10,32,32,104,116,116,112,115,58,47,47
+,103,99,99,46,103,110,117,46,111,114,103,47,111,110,108,105,110,101,100,111,99,115,47,103,99
+,99,47,73,110,116,101,103,101,114,45,79,118,101,114,102,108,111,119,45,66,117,105,108,116,105
+,110,115,46,104,116,109,108,10,42,47,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110
+,95,97,100,100,95,111,118,101,114,102,108,111,119,40,47,42,116,121,112,101,49,32,97,44,32
+,116,121,112,101,50,32,98,44,32,116,121,112,101,51,32,42,114,101,115,42,47,41,59,10,98
+,111,111,108,32,95,95,98,117,105,108,116,105,110,95,115,97,100,100,95,111,118,101,114,102,108
+,111,119,40,105,110,116,32,97,44,32,105,110,116,32,98,44,32,105,110,116,42,32,114,101,115
+,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110,95,115,97,100,100,108,95,111
+,118,101,114,102,108,111,119,40,108,111,110,103,32,105,110,116,32,97,44,32,108,111,110,103,32
+,105,110,116,32,98,44,32,108,111,110,103,32,105,110,116,42,32,114,101,115,41,59,10,98,111
+,111,108,32,95,95,98,117,105,108,116,105,110,95,115,97,100,100,108,108,95,111,118,101,114,102
+,108,111,119,40,108,111,110,103,32,108,111,110,103,32,105,110,116,32,97,44,32,108,111,110,103
+,32,108,111,110,103,32,105,110,116,32,98,44,32,108,111,110,103,32,108,111,110,103,32,105,110
+,116,42,32,114,101,115,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105,110,95,117
+,97,100,100,95,111,118,101,114,102,108,111,119,40,117,110,115,105,103,110,101,100,32,105,110,116
+,32,97,44,32,117,110,115,105,103,110,101,100,32,105,110,116,32,98,44,32,117,110,115,105,103
+,110,101,100,32,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32,95,95,98,117,105
+,108,116,105,110,95,117,97,100,100,108,95,111,118,101,114,102,108,111,119,40,117,110,115,105,103
+,110,101,100,32,108,111,110,103,32,105,110,116,32,97,44,32,117,110,115,105,103,110,101,100,32
+,108,111,110,103,32,105,110,116,32,98,44,32,117,110,115,105,103,110,101,100,32,108,111,110,103
+,32,105,110,116,42,32,114,101,115,41,59,10,98,111,111,108,32,95,95,98,117,105,108,116,105
+,110,95,117,97,100,100,108,108,95,111,118,101,114,102,108,111,119,40,117,110,115,105,103,110,101
+,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,97,44,32,117,110,115,105,103,110
+,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,98,44,32,117,110,115,105,103
+,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,42,32,114,101,115,41,59,10
+,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,104,117,103,101,95,118
+,97,108,40,118,111,105,100,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110
+,95,104,117,103,101,95,118,97,108,102,40,118,111,105,100,41,59,10,108,111,110,103,32,100,111
+,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,104,117,103,101,95,118,97,108,108,40
+,118,111,105,100,41,59,10,10,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,112
+,99,108,97,115,115,105,102,121,40,105,110,116,44,32,105,110,116,44,32,105,110,116,44,32,105
+,110,116,44,32,105,110,116,44,32,46,46,46,41,59,10,100,111,117,98,108,101,32,95,95,98
+,117,105,108,116,105,110,95,105,110,102,40,118,111,105,100,41,59,10,10,95,68,101,99,105,109
+,97,108,51,50,32,95,95,98,117,105,108,116,105,110,95,105,110,102,100,51,50,40,118,111,105
+,100,41,59,10,95,68,101,99,105,109,97,108,54,52,32,95,95,98,117,105,108,116,105,110,95
+,105,110,102,100,54,52,40,118,111,105,100,41,59,10,95,68,101,99,105,109,97,108,49,50,56
+,32,95,95,98,117,105,108,116,105,110,95,105,110,102,100,49,50,56,40,118,111,105,100,41,59
+,10,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,105,110,102,102,40,118,111
+,105,100,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105
+,110,95,105,110,102,108,40,118,111,105,100,41,59,10,10,105,110,116,32,95,95,98,117,105,108
+,116,105,110,95,105,115,105,110,102,95,115,105,103,110,40,46,46,46,41,59,10,100,111,117,98
+,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,40,99,111,110,115,116,32,99,104
+,97,114,42,32,115,116,114,41,59,10,10,10,95,68,101,99,105,109,97,108,54,52,32,95,95
+,98,117,105,108,116,105,110,95,110,97,110,100,54,52,40,99,111,110,115,116,32,99,104,97,114
+,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,49,50,56,32,95,95,98,117,105
+,108,116,105,110,95,110,97,110,100,49,50,56,40,99,111,110,115,116,32,99,104,97,114,42,32
+,115,116,114,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,110,97,110
+,102,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,108,111,110,103,32
+,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,108,40,99,111,110
+,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,10,10,10,100,111,117,98,108,101,32
+,95,95,98,117,105,108,116,105,110,95,110,97,110,115,40,99,111,110,115,116,32,99,104,97,114
+,42,32,115,116,114,41,59,10,95,68,101,99,105,109,97,108,51,50,32,95,95,98,117,105,108
+,116,105,110,95,110,97,110,115,100,51,50,40,99,111,110,115,116,32,99,104,97,114,42,32,115
+,116,114,41,59,10,95,68,101,99,105,109,97,108,54,52,32,95,95,98,117,105,108,116,105,110
+,95,110,97,110,115,100,54,52,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41
+,59,10,95,68,101,99,105,109,97,108,49,50,56,32,95,95,98,117,105,108,116,105,110,95,110
+,97,110,115,100,49,50,56,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59
+,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115,102,40,99,111
+,110,115,116,32,99,104,97,114,42,32,115,116,114,41,59,10,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,98,117,105,108,116,105,110,95,110,97,110,115,108,40,99,111,110,115,116,32
+,99,104,97,114,42,32,115,116,114,41,59,10,10,105,110,116,32,95,95,98,117,105,108,116,105
+,110,95,105,115,115,105,103,110,97,108,105,110,103,40,46,46,46,41,59,10,100,111,117,98,108
+,101,32,95,95,98,117,105,108,116,105,110,95,112,111,119,105,40,100,111,117,98,108,101,44,32
+,105,110,116,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,112,111,119
+,105,102,40,102,108,111,97,116,44,32,105,110,116,41,59,10,108,111,110,103,32,100,111,117,98
+,108,101,32,95,95,98,117,105,108,116,105,110,95,112,111,119,105,108,40,108,111,110,103,32,100
+,111,117,98,108,101,44,32,105,110,116,41,59,10,10,10,105,110,116,32,95,95,98,117,105,108
+,116,105,110,95,97,98,115,40,105,110,116,32,120,41,59,10,100,111,117,98,108,101,32,95,95
+,98,117,105,108,116,105,110,95,102,97,98,115,40,100,111,117,98,108,101,32,120,41,59,10,102
+,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,102,97,98,115,102,40,102,108,111,97
+,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116
+,105,110,95,102,97,98,115,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10
+,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,105,110,40,100,111,117
+,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,115
+,105,110,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,98,117,105,108,116,105,110,95,115,105,110,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95
+,99,111,115,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117
+,105,108,116,105,110,95,99,111,115,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103
+,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,99,111,115,108,40,108,111
+,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98
+,117,105,108,116,105,110,95,116,97,110,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111
+,97,116,32,95,95,98,117,105,108,116,105,110,95,116,97,110,102,40,102,108,111,97,116,32,120
+,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95
+,116,97,110,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117
+,98,108,101,32,95,95,98,117,105,108,116,105,110,95,115,113,114,116,40,100,111,117,98,108,101
+,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,115,113,114,116
+,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95
+,95,98,117,105,108,116,105,110,95,115,113,114,116,108,40,108,111,110,103,32,100,111,117,98,108
+,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,112
+,111,119,40,100,111,117,98,108,101,32,120,44,32,100,111,117,98,108,101,32,121,41,59,10,102
+,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,112,111,119,102,40,102,108,111,97,116
+,32,120,44,32,102,108,111,97,116,32,121,41,59,10,108,111,110,103,32,100,111,117,98,108,101
+,32,95,95,98,117,105,108,116,105,110,95,112,111,119,108,40,108,111,110,103,32,100,111,117,98
+,108,101,32,120,44,32,108,111,110,103,32,100,111,117,98,108,101,32,121,41,59,10,10,100,111
+,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,101,120,112,40,100,111,117,98,108,101
+,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95,101,120,112,102
+,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95
+,98,117,105,108,116,105,110,95,101,120,112,108,40,108,111,110,103,32,100,111,117,98,108,101,32
+,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,108,111,103
+,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116
+,105,110,95,108,111,103,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111
+,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,108,111,103,108,40,108,111,110,103,32
+,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105,108
+,116,105,110,95,108,111,103,49,48,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97
+,116,32,95,95,98,117,105,108,116,105,110,95,108,111,103,49,48,102,40,102,108,111,97,116,32
+,120,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110
+,95,108,111,103,49,48,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10
+,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95,102,108,111,111,114,40,100,111
+,117,98,108,101,32,120,41,59,10,102,108,111,97,116,32,95,95,98,117,105,108,116,105,110,95
+,102,108,111,111,114,102,40,102,108,111,97,116,32,120,41,59,10,108,111,110,103,32,100,111,117
+,98,108,101,32,95,95,98,117,105,108,116,105,110,95,102,108,111,111,114,108,40,108,111,110,103
+,32,100,111,117,98,108,101,32,120,41,59,10,10,100,111,117,98,108,101,32,95,95,98,117,105
+,108,116,105,110,95,99,101,105,108,40,100,111,117,98,108,101,32,120,41,59,10,102,108,111,97
+,116,32,95,95,98,117,105,108,116,105,110,95,99,101,105,108,102,40,102,108,111,97,116,32,120
+,41,59,10,108,111,110,103,32,100,111,117,98,108,101,32,95,95,98,117,105,108,116,105,110,95
+,99,101,105,108,108,40,108,111,110,103,32,100,111,117,98,108,101,32,120,41,59,10,10,105,110
+,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,40,105,110,116,32,105,41,59,10,105
+,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,108,40,108,111,110,103,32,105,41
 ,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,108,108,40,108,111,110
-,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108
-,122,108,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10
-,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,116,122,108,108,40,117,110,115,105,103
-,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105
-,108,116,105,110,95,99,108,114,115,98,108,108,40,108,111,110,103,32,108,111,110,103,41,59,10
-,105,110,116,32,95,95,98,117,105,108,116,105,110,95,112,111,112,99,111,117,110,116,108,108,40
-,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32
-,95,95,98,117,105,108,116,105,110,95,112,97,114,105,116,121,108,108,40,117,110,115,105,103,110
-,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108
-,116,105,110,95,102,102,115,103,40,46,46,46,41,59,10,10,105,110,116,32,95,95,98,117,105
-,108,116,105,110,95,99,108,114,115,98,103,40,46,46,46,41,59,10,105,110,116,32,95,95,98
-,117,105,108,116,105,110,95,112,97,114,105,116,121,103,40,46,46,46,41,59,10,10,117,110,115
-,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95
-,98,105,116,95,119,105,100,116,104,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10
-,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116
-,100,99,95,99,111,117,110,116,95,111,110,101,115,40,47,42,116,121,112,101,32,97,114,103,42
-,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105
-,110,95,115,116,100,99,95,99,111,117,110,116,95,122,101,114,111,115,40,47,42,116,121,112,101
-,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98
-,117,105,108,116,105,110,95,115,116,100,99,95,102,105,114,115,116,95,108,101,97,100,105,110,103
-,95,111,110,101,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103
-,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,102,105
-,114,115,116,95,108,101,97,100,105,110,103,95,122,101,114,111,40,47,42,116,121,112,101,32,97
-,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105
-,108,116,105,110,95,115,116,100,99,95,102,105,114,115,116,95,116,114,97,105,108,105,110,103,95
-,111,110,101,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110
-,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,102,105,114
-,115,116,95,116,114,97,105,108,105,110,103,95,122,101,114,111,40,47,42,116,121,112,101,32,97
-,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105
-,108,116,105,110,95,115,116,100,99,95,104,97,115,95,115,105,110,103,108,101,95,98,105,116,40
-,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105
-,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,108,101,97,100,105,110,103
+,103,32,108,111,110,103,32,105,41,59,10,10,118,111,105,100,42,32,95,95,98,117,105,108,116
+,105,110,95,109,101,109,99,112,121,40,118,111,105,100,42,32,100,101,115,116,44,32,99,111,110
+,115,116,32,118,111,105,100,42,32,115,114,99,44,32,115,105,122,101,95,116,32,110,41,59,10
+,118,111,105,100,42,32,95,95,98,117,105,108,116,105,110,95,109,101,109,115,101,116,40,118,111
+,105,100,42,32,115,44,32,105,110,116,32,99,44,32,115,105,122,101,95,116,32,110,41,59,10
+,105,110,116,32,95,95,98,117,105,108,116,105,110,95,109,101,109,99,109,112,40,99,111,110,115
+,116,32,118,111,105,100,42,32,115,49,44,32,99,111,110,115,116,32,118,111,105,100,42,32,115
+,50,44,32,115,105,122,101,95,116,32,110,41,59,10,10,99,104,97,114,42,32,95,95,98,117
+,105,108,116,105,110,95,115,116,114,99,112,121,40,99,104,97,114,42,32,100,101,115,116,44,32
+,99,111,110,115,116,32,99,104,97,114,42,32,115,114,99,41,59,10,99,104,97,114,42,32,95
+,95,98,117,105,108,116,105,110,95,115,116,114,110,99,112,121,40,99,104,97,114,42,32,100,101
+,115,116,44,32,99,111,110,115,116,32,99,104,97,114,42,32,115,114,99,44,32,115,105,122,101
+,95,116,32,110,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,114,99
+,109,112,40,99,111,110,115,116,32,99,104,97,114,42,32,115,49,44,32,99,111,110,115,116,32
+,99,104,97,114,42,32,115,50,41,59,10,115,105,122,101,95,116,32,95,95,98,117,105,108,116
+,105,110,95,115,116,114,108,101,110,40,99,111,110,115,116,32,99,104,97,114,42,32,115,41,59
+,10,10,95,78,111,114,101,116,117,114,110,32,118,111,105,100,32,95,95,98,117,105,108,116,105
+,110,95,97,98,111,114,116,40,118,111,105,100,41,59,10,95,78,111,114,101,116,117,114,110,32
+,118,111,105,100,32,95,95,98,117,105,108,116,105,110,95,101,120,105,116,40,105,110,116,32,115
+,116,97,116,117,115,41,59,10,118,111,105,100,32,95,95,98,117,105,108,116,105,110,95,102,114
+,101,101,40,118,111,105,100,42,32,112,116,114,41,59,10,118,111,105,100,42,32,95,95,98,117
+,105,108,116,105,110,95,109,97,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41
+,59,10,118,111,105,100,42,32,95,95,98,117,105,108,116,105,110,95,114,101,97,108,108,111,99
+,40,118,111,105,100,42,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59
+,10,10,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,105,103,110,98,105,116,40
+,100,111,117,98,108,101,32,120,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95
+,115,105,103,110,98,105,116,102,40,102,108,111,97,116,32,120,41,59,10,105,110,116,32,95,95
+,98,117,105,108,116,105,110,95,115,105,103,110,98,105,116,108,40,108,111,110,103,32,100,111,117
+,98,108,101,32,120,41,59,10,10,35,105,102,100,101,102,32,95,95,67,65,75,69,95,84,65
+,82,71,69,84,95,79,83,95,77,65,67,79,83,10,32,32,32,32,105,110,116,32,95,95,98
+,117,105,108,116,105,110,95,102,108,116,95,114,111,117,110,100,115,40,118,111,105,100,41,59,10
+,10,35,101,110,100,105,102,32,47,42,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95
+,79,83,95,77,65,67,79,83,32,42,47,10,10,10,10,105,110,116,32,95,95,98,117,105,108
+,116,105,110,95,102,102,115,40,105,110,116,32,120,41,59,10,105,110,116,32,95,95,98,117,105
+,108,116,105,110,95,99,108,122,40,117,110,115,105,103,110,101,100,32,105,110,116,32,120,41,59
+,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,116,122,40,117,110,115,105,103,110
+,101,100,32,105,110,116,32,120,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95
+,99,108,114,115,98,40,105,110,116,32,120,41,59,10,105,110,116,32,95,95,98,117,105,108,116
+,105,110,95,112,111,112,99,111,117,110,116,40,117,110,115,105,103,110,101,100,32,105,110,116,32
+,120,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,112,97,114,105,116,121,40
+,117,110,115,105,103,110,101,100,32,105,110,116,32,120,41,59,10,105,110,116,32,95,95,98,117
+,105,108,116,105,110,95,102,102,115,108,40,108,111,110,103,41,59,10,105,110,116,32,95,95,98
+,117,105,108,116,105,110,95,99,108,122,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103
+,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,116,122,108,40,117,110,115
+,105,103,110,101,100,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105
+,110,95,99,108,114,115,98,108,40,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105
+,108,116,105,110,95,112,111,112,99,111,117,110,116,108,40,117,110,115,105,103,110,101,100,32,108
+,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,112,97,114,105,116
+,121,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,41,59,10,105,110,116,32,95,95
+,98,117,105,108,116,105,110,95,102,102,115,108,108,40,108,111,110,103,32,108,111,110,103,41,59
+,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,122,108,108,40,117,110,115,105
+,103,110,101,100,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117
+,105,108,116,105,110,95,99,116,122,108,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103
+,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,114
+,115,98,108,108,40,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117
+,105,108,116,105,110,95,112,111,112,99,111,117,110,116,108,108,40,117,110,115,105,103,110,101,100
+,32,108,111,110,103,32,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105
+,110,95,112,97,114,105,116,121,108,108,40,117,110,115,105,103,110,101,100,32,108,111,110,103,32
+,108,111,110,103,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,102,102,115,103
+,40,46,46,46,41,59,10,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,99,108,114
+,115,98,103,40,46,46,46,41,59,10,105,110,116,32,95,95,98,117,105,108,116,105,110,95,112
+,97,114,105,116,121,103,40,46,46,46,41,59,10,10,117,110,115,105,103,110,101,100,32,105,110
+,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,98,105,116,95,119,105,100,116
+,104,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100
+,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,99,111,117,110,116
 ,95,111,110,101,115,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105
-,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,108
-,101,97,100,105,110,103,95,122,101,114,111,115,40,47,42,116,121,112,101,32,97,114,103,42,47
-,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110
-,95,115,116,100,99,95,116,114,97,105,108,105,110,103,95,111,110,101,115,40,47,42,116,121,112
-,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95
-,98,117,105,108,116,105,110,95,115,116,100,99,95,116,114,97,105,108,105,110,103,95,122,101,114
-,111,115,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,10,35,105,102,100,101,102
-,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,10,10
-,32,32,32,32,47,42,10,32,32,32,32,99,108,97,110,103,32,97,116,111,109,105,99,32,98
-,117,105,108,116,105,110,115,32,117,115,101,100,32,98,121,32,60,115,116,100,97,116,111,109,105
-,99,46,104,62,46,10,32,32,32,32,84,121,112,101,45,103,101,110,101,114,105,99,58,32,97
-,114,103,117,109,101,110,116,115,32,97,114,101,32,110,111,116,32,99,104,101,99,107,101,100,32
-,97,110,100,32,108,111,97,100,44,32,101,120,99,104,97,110,103,101,32,97,110,100,32,102,101
-,116,99,104,95,42,10,32,32,32,32,114,101,116,117,114,110,32,116,104,101,32,116,121,112,101
-,32,112,111,105,110,116,101,100,32,98,121,32,116,104,101,32,102,105,114,115,116,32,97,114,103
-,117,109,101,110,116,32,40,115,101,101,32,101,120,112,114,101,115,115,105,111,110,115,46,99,41
-,46,10,32,32,32,32,42,47,10,32,32,32,32,118,111,105,100,32,95,95,99,49,49,95,97
-,116,111,109,105,99,95,105,110,105,116,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32
-,111,98,106,44,32,84,32,118,97,108,117,101,42,47,41,59,10,32,32,32,32,118,111,105,100
-,32,95,95,99,49,49,95,97,116,111,109,105,99,95,116,104,114,101,97,100,95,102,101,110,99
-,101,40,105,110,116,32,111,114,100,101,114,41,59,10,32,32,32,32,118,111,105,100,32,95,95
-,99,49,49,95,97,116,111,109,105,99,95,115,105,103,110,97,108,95,102,101,110,99,101,40,105
-,110,116,32,111,114,100,101,114,41,59,10,32,32,32,32,95,66,111,111,108,32,95,95,99,49
-,49,95,97,116,111,109,105,99,95,105,115,95,108,111,99,107,95,102,114,101,101,40,116,121,112
-,101,111,102,40,115,105,122,101,111,102,40,49,41,41,32,115,105,122,101,41,59,10,32,32,32
-,32,118,111,105,100,32,95,95,99,49,49,95,97,116,111,109,105,99,95,115,116,111,114,101,40
-,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32,84,32,118,97,108,117
-,101,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32
-,95,95,99,49,49,95,97,116,111,109,105,99,95,108,111,97,100,40,47,42,95,65,116,111,109
-,105,99,40,84,41,42,32,111,98,106,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
-,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,101,120,99
-,104,97,110,103,101,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32
-,84,32,118,97,108,117,101,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,32,32
-,32,32,95,66,111,111,108,32,95,95,99,49,49,95,97,116,111,109,105,99,95,99,111,109,112
-,97,114,101,95,101,120,99,104,97,110,103,101,95,115,116,114,111,110,103,40,47,42,95,65,116
-,111,109,105,99,40,84,41,42,32,111,98,106,44,32,84,42,32,101,120,112,101,99,116,101,100
-,44,32,84,32,100,101,115,105,114,101,100,44,32,105,110,116,32,115,117,99,99,101,115,115,44
-,32,105,110,116,32,102,97,105,108,117,114,101,42,47,41,59,10,32,32,32,32,95,66,111,111
-,108,32,95,95,99,49,49,95,97,116,111,109,105,99,95,99,111,109,112,97,114,101,95,101,120
-,99,104,97,110,103,101,95,119,101,97,107,40,47,42,95,65,116,111,109,105,99,40,84,41,42
+,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,99
+,111,117,110,116,95,122,101,114,111,115,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59
+,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115
+,116,100,99,95,102,105,114,115,116,95,108,101,97,100,105,110,103,95,111,110,101,40,47,42,116
+,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32
+,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,102,105,114,115,116,95,108,101,97,100
+,105,110,103,95,122,101,114,111,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117
+,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100
+,99,95,102,105,114,115,116,95,116,114,97,105,108,105,110,103,95,111,110,101,40,47,42,116,121
+,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95
+,95,98,117,105,108,116,105,110,95,115,116,100,99,95,102,105,114,115,116,95,116,114,97,105,108
+,105,110,103,95,122,101,114,111,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117
+,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100
+,99,95,104,97,115,95,115,105,110,103,108,101,95,98,105,116,40,47,42,116,121,112,101,32,97
+,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105
+,108,116,105,110,95,115,116,100,99,95,108,101,97,100,105,110,103,95,111,110,101,115,40,47,42
+,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103,110,101,100,32,105,110,116
+,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,108,101,97,100,105,110,103,95,122
+,101,114,111,115,40,47,42,116,121,112,101,32,97,114,103,42,47,41,59,10,117,110,115,105,103
+,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95,115,116,100,99,95,116,114
+,97,105,108,105,110,103,95,111,110,101,115,40,47,42,116,121,112,101,32,97,114,103,42,47,41
+,59,10,117,110,115,105,103,110,101,100,32,105,110,116,32,95,95,98,117,105,108,116,105,110,95
+,115,116,100,99,95,116,114,97,105,108,105,110,103,95,122,101,114,111,115,40,47,42,116,121,112
+,101,32,97,114,103,42,47,41,59,10,10,35,105,102,100,101,102,32,95,95,67,65,75,69,95
+,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,10,10,32,32,32,32,47,42,10,32
+,32,32,32,99,108,97,110,103,32,97,116,111,109,105,99,32,98,117,105,108,116,105,110,115,32
+,117,115,101,100,32,98,121,32,60,115,116,100,97,116,111,109,105,99,46,104,62,46,10,32,32
+,32,32,84,121,112,101,45,103,101,110,101,114,105,99,58,32,97,114,103,117,109,101,110,116,115
+,32,97,114,101,32,110,111,116,32,99,104,101,99,107,101,100,32,97,110,100,32,108,111,97,100
+,44,32,101,120,99,104,97,110,103,101,32,97,110,100,32,102,101,116,99,104,95,42,10,32,32
+,32,32,114,101,116,117,114,110,32,116,104,101,32,116,121,112,101,32,112,111,105,110,116,101,100
+,32,98,121,32,116,104,101,32,102,105,114,115,116,32,97,114,103,117,109,101,110,116,32,40,115
+,101,101,32,101,120,112,114,101,115,115,105,111,110,115,46,99,41,46,10,32,32,32,32,42,47
+,10,32,32,32,32,118,111,105,100,32,95,95,99,49,49,95,97,116,111,109,105,99,95,105,110
+,105,116,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32,84,32,118
+,97,108,117,101,42,47,41,59,10,32,32,32,32,118,111,105,100,32,95,95,99,49,49,95,97
+,116,111,109,105,99,95,116,104,114,101,97,100,95,102,101,110,99,101,40,105,110,116,32,111,114
+,100,101,114,41,59,10,32,32,32,32,118,111,105,100,32,95,95,99,49,49,95,97,116,111,109
+,105,99,95,115,105,103,110,97,108,95,102,101,110,99,101,40,105,110,116,32,111,114,100,101,114
+,41,59,10,32,32,32,32,95,66,111,111,108,32,95,95,99,49,49,95,97,116,111,109,105,99
+,95,105,115,95,108,111,99,107,95,102,114,101,101,40,116,121,112,101,111,102,40,115,105,122,101
+,111,102,40,49,41,41,32,115,105,122,101,41,59,10,32,32,32,32,118,111,105,100,32,95,95
+,99,49,49,95,97,116,111,109,105,99,95,115,116,111,114,101,40,47,42,95,65,116,111,109,105
+,99,40,84,41,42,32,111,98,106,44,32,84,32,118,97,108,117,101,44,32,105,110,116,32,111
+,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
+,111,109,105,99,95,108,111,97,100,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111
+,98,106,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116
+,32,95,95,99,49,49,95,97,116,111,109,105,99,95,101,120,99,104,97,110,103,101,40,47,42
+,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32,84,32,118,97,108,117,101,44
+,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,32,32,32,32,95,66,111,111,108,32
+,95,95,99,49,49,95,97,116,111,109,105,99,95,99,111,109,112,97,114,101,95,101,120,99,104
+,97,110,103,101,95,115,116,114,111,110,103,40,47,42,95,65,116,111,109,105,99,40,84,41,42
 ,32,111,98,106,44,32,84,42,32,101,120,112,101,99,116,101,100,44,32,84,32,100,101,115,105
 ,114,101,100,44,32,105,110,116,32,115,117,99,99,101,115,115,44,32,105,110,116,32,102,97,105
-,108,117,114,101,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
-,111,109,105,99,95,102,101,116,99,104,95,97,100,100,40,47,42,95,65,116,111,109,105,99,40
-,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
-,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
-,111,109,105,99,95,102,101,116,99,104,95,115,117,98,40,47,42,95,65,116,111,109,105,99,40
-,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
-,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
-,111,109,105,99,95,102,101,116,99,104,95,97,110,100,40,47,42,95,65,116,111,109,105,99,40
-,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
-,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
-,111,109,105,99,95,102,101,116,99,104,95,111,114,40,47,42,95,65,116,111,109,105,99,40,84
-,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114
-,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111
-,109,105,99,95,102,101,116,99,104,95,120,111,114,40,47,42,95,65,116,111,109,105,99,40,84
-,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114
-,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111
-,109,105,99,95,102,101,116,99,104,95,110,97,110,100,40,47,42,95,65,116,111,109,105,99,40
-,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
-,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
-,111,109,105,99,95,102,101,116,99,104,95,109,97,120,40,47,42,95,65,116,111,109,105,99,40
-,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
-,114,100,101,114,42,47,41,59,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116
-,111,109,105,99,95,102,101,116,99,104,95,109,105,110,40,47,42,95,65,116,111,109,105,99,40
-,84,41,42,32,111,98,106,44,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111
-,114,100,101,114,42,47,41,59,10,35,101,110,100,105,102,32,47,42,32,95,95,67,65,75,69
-,95,84,65,82,71,69,84,95,79,83,95,77,65,67,79,83,32,42,47,10,10,47,42,10,32
-,32,104,116,116,112,115,58,47,47,103,99,99,46,103,110,117,46,111,114,103,47,111,110,108,105
-,110,101,100,111,99,115,47,103,99,99,47,95,48,48,53,102,95,48,48,53,102,97,116,111,109
-,105,99,45,66,117,105,108,116,105,110,115,46,104,116,109,108,10,32,32,84,121,112,101,45,103
-,101,110,101,114,105,99,58,32,97,114,103,117,109,101,110,116,115,32,97,114,101,32,110,111,116
-,32,99,104,101,99,107,101,100,32,97,110,100,32,116,104,101,32,95,110,44,32,102,101,116,99
-,104,32,97,110,100,32,111,112,95,102,101,116,99,104,10,32,32,102,111,114,109,115,32,114,101
-,116,117,114,110,32,116,104,101,32,116,121,112,101,32,112,111,105,110,116,101,100,32,98,121,32
-,116,104,101,32,102,105,114,115,116,32,97,114,103,117,109,101,110,116,32,40,115,101,101,32,101
-,120,112,114,101,115,115,105,111,110,115,46,99,41,46,10,42,47,10,105,110,116,32,95,95,97
-,116,111,109,105,99,95,108,111,97,100,95,110,40,47,42,84,42,32,112,116,114,44,32,105,110
-,116,32,111,114,100,101,114,42,47,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99
-,95,108,111,97,100,40,47,42,84,42,32,112,116,114,44,32,84,42,32,114,101,116,44,32,105
-,110,116,32,111,114,100,101,114,42,47,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105
-,99,95,115,116,111,114,101,95,110,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108
-,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,118,111,105,100,32,95,95,97,116
-,111,109,105,99,95,115,116,111,114,101,40,47,42,84,42,32,112,116,114,44,32,84,42,32,118
-,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97
-,116,111,109,105,99,95,101,120,99,104,97,110,103,101,95,110,40,47,42,84,42,32,112,116,114
-,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,118,111
-,105,100,32,95,95,97,116,111,109,105,99,95,101,120,99,104,97,110,103,101,40,47,42,84,42
-,32,112,116,114,44,32,84,42,32,118,97,108,44,32,84,42,32,114,101,116,44,32,105,110,116
-,32,111,114,100,101,114,42,47,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109,105,99
-,95,99,111,109,112,97,114,101,95,101,120,99,104,97,110,103,101,95,110,40,47,42,84,42,32
-,112,116,114,44,32,84,42,32,101,120,112,101,99,116,101,100,44,32,84,32,100,101,115,105,114
-,101,100,44,32,98,111,111,108,32,119,101,97,107,44,32,105,110,116,32,115,117,99,99,101,115
-,115,44,32,105,110,116,32,102,97,105,108,117,114,101,42,47,41,59,10,95,66,111,111,108,32
-,95,95,97,116,111,109,105,99,95,99,111,109,112,97,114,101,95,101,120,99,104,97,110,103,101
-,40,47,42,84,42,32,112,116,114,44,32,84,42,32,101,120,112,101,99,116,101,100,44,32,84
-,42,32,100,101,115,105,114,101,100,44,32,98,111,111,108,32,119,101,97,107,44,32,105,110,116
+,108,117,114,101,42,47,41,59,10,32,32,32,32,95,66,111,111,108,32,95,95,99,49,49,95
+,97,116,111,109,105,99,95,99,111,109,112,97,114,101,95,101,120,99,104,97,110,103,101,95,119
+,101,97,107,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32,84,42
+,32,101,120,112,101,99,116,101,100,44,32,84,32,100,101,115,105,114,101,100,44,32,105,110,116
 ,32,115,117,99,99,101,115,115,44,32,105,110,116,32,102,97,105,108,117,114,101,42,47,41,59
-,10,105,110,116,32,95,95,97,116,111,109,105,99,95,97,100,100,95,102,101,116,99,104,40,47
+,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,102,101,116
+,99,104,95,97,100,100,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44
+,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
+,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,102,101,116
+,99,104,95,115,117,98,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44
+,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
+,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,102,101,116
+,99,104,95,97,110,100,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44
+,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
+,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,102,101,116
+,99,104,95,111,114,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32
+,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10
+,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,102,101,116,99
+,104,95,120,111,114,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44,32
+,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10
+,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,102,101,116,99
+,104,95,110,97,110,100,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44
+,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
+,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,102,101,116
+,99,104,95,109,97,120,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44
+,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
+,10,32,32,32,32,105,110,116,32,95,95,99,49,49,95,97,116,111,109,105,99,95,102,101,116
+,99,104,95,109,105,110,40,47,42,95,65,116,111,109,105,99,40,84,41,42,32,111,98,106,44
+,32,84,32,111,112,101,114,97,110,100,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
+,10,35,101,110,100,105,102,32,47,42,32,95,95,67,65,75,69,95,84,65,82,71,69,84,95
+,79,83,95,77,65,67,79,83,32,42,47,10,10,47,42,10,32,32,104,116,116,112,115,58,47
+,47,103,99,99,46,103,110,117,46,111,114,103,47,111,110,108,105,110,101,100,111,99,115,47,103
+,99,99,47,95,48,48,53,102,95,48,48,53,102,97,116,111,109,105,99,45,66,117,105,108,116
+,105,110,115,46,104,116,109,108,10,32,32,84,121,112,101,45,103,101,110,101,114,105,99,58,32
+,97,114,103,117,109,101,110,116,115,32,97,114,101,32,110,111,116,32,99,104,101,99,107,101,100
+,32,97,110,100,32,116,104,101,32,95,110,44,32,102,101,116,99,104,32,97,110,100,32,111,112
+,95,102,101,116,99,104,10,32,32,102,111,114,109,115,32,114,101,116,117,114,110,32,116,104,101
+,32,116,121,112,101,32,112,111,105,110,116,101,100,32,98,121,32,116,104,101,32,102,105,114,115
+,116,32,97,114,103,117,109,101,110,116,32,40,115,101,101,32,101,120,112,114,101,115,115,105,111
+,110,115,46,99,41,46,10,42,47,10,105,110,116,32,95,95,97,116,111,109,105,99,95,108,111
+,97,100,95,110,40,47,42,84,42,32,112,116,114,44,32,105,110,116,32,111,114,100,101,114,42
+,47,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99,95,108,111,97,100,40,47,42
+,84,42,32,112,116,114,44,32,84,42,32,114,101,116,44,32,105,110,116,32,111,114,100,101,114
+,42,47,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99,95,115,116,111,114,101,95
+,110,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114
+,100,101,114,42,47,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99,95,115,116,111
+,114,101,40,47,42,84,42,32,112,116,114,44,32,84,42,32,118,97,108,44,32,105,110,116,32
+,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,101,120
+,99,104,97,110,103,101,95,110,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44
+,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,118,111,105,100,32,95,95,97,116,111
+,109,105,99,95,101,120,99,104,97,110,103,101,40,47,42,84,42,32,112,116,114,44,32,84,42
+,32,118,97,108,44,32,84,42,32,114,101,116,44,32,105,110,116,32,111,114,100,101,114,42,47
+,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109,105,99,95,99,111,109,112,97,114,101
+,95,101,120,99,104,97,110,103,101,95,110,40,47,42,84,42,32,112,116,114,44,32,84,42,32
+,101,120,112,101,99,116,101,100,44,32,84,32,100,101,115,105,114,101,100,44,32,98,111,111,108
+,32,119,101,97,107,44,32,105,110,116,32,115,117,99,99,101,115,115,44,32,105,110,116,32,102
+,97,105,108,117,114,101,42,47,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109,105,99
+,95,99,111,109,112,97,114,101,95,101,120,99,104,97,110,103,101,40,47,42,84,42,32,112,116
+,114,44,32,84,42,32,101,120,112,101,99,116,101,100,44,32,84,42,32,100,101,115,105,114,101
+,100,44,32,98,111,111,108,32,119,101,97,107,44,32,105,110,116,32,115,117,99,99,101,115,115
+,44,32,105,110,116,32,102,97,105,108,117,114,101,42,47,41,59,10,105,110,116,32,95,95,97
+,116,111,109,105,99,95,97,100,100,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44
+,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116
+,32,95,95,97,116,111,109,105,99,95,115,117,98,95,102,101,116,99,104,40,47,42,84,42,32
+,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59
+,10,105,110,116,32,95,95,97,116,111,109,105,99,95,97,110,100,95,102,101,116,99,104,40,47
 ,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114
-,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,115,117,98,95,102,101,116
+,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,120,111,114,95,102,101,116
 ,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111
-,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,97,110,100
-,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105
-,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99
-,95,120,111,114,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97
-,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116
-,111,109,105,99,95,111,114,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84
-,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95
-,95,97,116,111,109,105,99,95,110,97,110,100,95,102,101,116,99,104,40,47,42,84,42,32,112
-,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10
-,105,110,116,32,95,95,97,116,111,109,105,99,95,109,97,120,95,102,101,116,99,104,40,47,42
-,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42
-,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,109,105,110,95,102,101,116,99
-,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114
-,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99
-,104,95,97,100,100,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110
+,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,111,114,95
+,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110
 ,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95
-,102,101,116,99,104,95,115,117,98,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108
+,110,97,110,100,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97
+,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116
+,111,109,105,99,95,109,97,120,95,102,101,116,99,104,40,47,42,84,42,32,112,116,114,44,32
+,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32
+,95,95,97,116,111,109,105,99,95,109,105,110,95,102,101,116,99,104,40,47,42,84,42,32,112
+,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10
+,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,97,100,100,40,47,42
+,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42
+,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,115,117
+,98,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114
+,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99
+,104,95,97,110,100,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110
+,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95
+,102,101,116,99,104,95,120,111,114,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108
 ,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111
-,109,105,99,95,102,101,116,99,104,95,97,110,100,40,47,42,84,42,32,112,116,114,44,32,84
-,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95
-,95,97,116,111,109,105,99,95,102,101,116,99,104,95,120,111,114,40,47,42,84,42,32,112,116
+,109,105,99,95,102,101,116,99,104,95,111,114,40,47,42,84,42,32,112,116,114,44,32,84,32
+,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95
+,97,116,111,109,105,99,95,102,101,116,99,104,95,110,97,110,100,40,47,42,84,42,32,112,116
 ,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,105
-,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,111,114,40,47,42,84,42
-,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47,41
-,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,110,97,110,100
+,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,109,97,120,40,47,42,84
+,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100,101,114,42,47
+,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104,95,109,105,110
 ,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116,32,111,114,100
-,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102,101,116,99,104
-,95,109,97,120,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44,32,105,110,116
-,32,111,114,100,101,114,42,47,41,59,10,105,110,116,32,95,95,97,116,111,109,105,99,95,102
-,101,116,99,104,95,109,105,110,40,47,42,84,42,32,112,116,114,44,32,84,32,118,97,108,44
-,32,105,110,116,32,111,114,100,101,114,42,47,41,59,10,95,66,111,111,108,32,95,95,97,116
-,111,109,105,99,95,116,101,115,116,95,97,110,100,95,115,101,116,40,118,111,105,100,42,32,112
-,116,114,44,32,105,110,116,32,111,114,100,101,114,41,59,10,118,111,105,100,32,95,95,97,116
-,111,109,105,99,95,99,108,101,97,114,40,95,66,111,111,108,42,32,112,116,114,44,32,105,110
-,116,32,111,114,100,101,114,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99,95,116
-,104,114,101,97,100,95,102,101,110,99,101,40,105,110,116,32,111,114,100,101,114,41,59,10,118
-,111,105,100,32,95,95,97,116,111,109,105,99,95,115,105,103,110,97,108,95,102,101,110,99,101
-,40,105,110,116,32,111,114,100,101,114,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109
-,105,99,95,97,108,119,97,121,115,95,108,111,99,107,95,102,114,101,101,40,116,121,112,101,111
-,102,40,115,105,122,101,111,102,40,49,41,41,32,115,105,122,101,44,32,118,111,105,100,42,32
-,112,116,114,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109,105,99,95,105,115,95,108
-,111,99,107,95,102,114,101,101,40,116,121,112,101,111,102,40,115,105,122,101,111,102,40,49,41
-,41,32,115,105,122,101,44,32,118,111,105,100,42,32,112,116,114,41,59,10,10,35,112,114,97
-,103,109,97,32,99,97,107,101,32,100,105,97,103,110,111,115,116,105,99,32,112,111,112,10
+,101,114,42,47,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109,105,99,95,116,101,115
+,116,95,97,110,100,95,115,101,116,40,118,111,105,100,42,32,112,116,114,44,32,105,110,116,32
+,111,114,100,101,114,41,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99,95,99,108,101
+,97,114,40,95,66,111,111,108,42,32,112,116,114,44,32,105,110,116,32,111,114,100,101,114,41
+,59,10,118,111,105,100,32,95,95,97,116,111,109,105,99,95,116,104,114,101,97,100,95,102,101
+,110,99,101,40,105,110,116,32,111,114,100,101,114,41,59,10,118,111,105,100,32,95,95,97,116
+,111,109,105,99,95,115,105,103,110,97,108,95,102,101,110,99,101,40,105,110,116,32,111,114,100
+,101,114,41,59,10,95,66,111,111,108,32,95,95,97,116,111,109,105,99,95,97,108,119,97,121
+,115,95,108,111,99,107,95,102,114,101,101,40,116,121,112,101,111,102,40,115,105,122,101,111,102
+,40,49,41,41,32,115,105,122,101,44,32,118,111,105,100,42,32,112,116,114,41,59,10,95,66
+,111,111,108,32,95,95,97,116,111,109,105,99,95,105,115,95,108,111,99,107,95,102,114,101,101
+,40,116,121,112,101,111,102,40,115,105,122,101,111,102,40,49,41,41,32,115,105,122,101,44,32
+,118,111,105,100,42,32,112,116,114,41,59,10,10,35,112,114,97,103,109,97,32,99,97,107,101
+,32,100,105,97,103,110,111,115,116,105,99,32,112,111,112,10
 #line 18 "target.c"
  , 0
 };
@@ -89176,37 +89706,37 @@ static char gcc_macros[] =
 ,32,95,95,83,73,90,69,79,70,95,87,73,78,84,95,84,95,95,32,52,10,35,100,101,102
 ,105,110,101,32,95,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95,32
 ,95,95,67,65,75,69,95,83,73,90,69,79,70,95,80,84,82,68,73,70,70,95,84,95,95
-,10,35,105,102,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,76,79,78,71,95,76
-,79,78,71,95,76,79,78,71,95,95,32,61,61,32,49,54,10,35,100,101,102,105,110,101,32
-,95,95,83,73,90,69,79,70,95,73,78,84,49,50,56,95,95,32,49,54,10,35,101,110,100
-,105,102,10,10,10,47,42,32,109,101,109,111,114,121,32,111,114,100,101,114,115,32,117,115,101
-,100,32,98,121,32,60,115,116,100,97,116,111,109,105,99,46,104,62,32,97,110,100,32,116,104
-,101,32,95,95,97,116,111,109,105,99,47,95,95,99,49,49,95,97,116,111,109,105,99,32,98
-,117,105,108,116,105,110,115,32,42,47,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77
-,73,67,95,82,69,76,65,88,69,68,32,48,10,35,100,101,102,105,110,101,32,95,95,65,84
-,79,77,73,67,95,67,79,78,83,85,77,69,32,49,10,35,100,101,102,105,110,101,32,95,95
-,65,84,79,77,73,67,95,65,67,81,85,73,82,69,32,50,10,35,100,101,102,105,110,101,32
-,95,95,65,84,79,77,73,67,95,82,69,76,69,65,83,69,32,51,10,35,100,101,102,105,110
-,101,32,95,95,65,84,79,77,73,67,95,65,67,81,95,82,69,76,32,52,10,35,100,101,102
-,105,110,101,32,95,95,65,84,79,77,73,67,95,83,69,81,95,67,83,84,32,53,10,10,35
-,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,66,79,79,76,95
-,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67
-,95,65,84,79,77,73,67,95,67,72,65,82,95,76,79,67,75,95,70,82,69,69,32,50,10
-,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72,65,82
-,49,54,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32
-,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72,65,82,51,50,95,84,95,76,79,67
+,10,35,105,102,32,95,95,67,65,75,69,95,83,73,90,69,79,70,95,73,78,84,49,50,56
+,95,95,32,61,61,32,49,54,10,35,100,101,102,105,110,101,32,95,95,83,73,90,69,79,70
+,95,73,78,84,49,50,56,95,95,32,49,54,10,35,101,110,100,105,102,10,10,10,47,42,32
+,109,101,109,111,114,121,32,111,114,100,101,114,115,32,117,115,101,100,32,98,121,32,60,115,116
+,100,97,116,111,109,105,99,46,104,62,32,97,110,100,32,116,104,101,32,95,95,97,116,111,109
+,105,99,47,95,95,99,49,49,95,97,116,111,109,105,99,32,98,117,105,108,116,105,110,115,32
+,42,47,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67,95,82,69,76,65,88
+,69,68,32,48,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67,95,67,79,78
+,83,85,77,69,32,49,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67,95,65
+,67,81,85,73,82,69,32,50,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77,73,67
+,95,82,69,76,69,65,83,69,32,51,10,35,100,101,102,105,110,101,32,95,95,65,84,79,77
+,73,67,95,65,67,81,95,82,69,76,32,52,10,35,100,101,102,105,110,101,32,95,95,65,84
+,79,77,73,67,95,83,69,81,95,67,83,84,32,53,10,10,35,100,101,102,105,110,101,32,95
+,95,71,67,67,95,65,84,79,77,73,67,95,66,79,79,76,95,76,79,67,75,95,70,82,69
+,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95
+,67,72,65,82,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32
+,95,95,71,67,67,95,65,84,79,77,73,67,95,67,72,65,82,49,54,95,84,95,76,79,67
 ,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84
-,79,77,73,67,95,87,67,72,65,82,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10
-,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,83,72,79,82
-,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71
-,67,67,95,65,84,79,77,73,67,95,73,78,84,95,76,79,67,75,95,70,82,69,69,32,50
-,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,76,79,78
-,71,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71
-,67,67,95,65,84,79,77,73,67,95,76,76,79,78,71,95,76,79,67,75,95,70,82,69,69
-,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,80
-,79,73,78,84,69,82,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110
-,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,84,69,83,84,95,65,78,68,95,83
-,69,84,95,84,82,85,69,86,65,76,32,49,10
+,79,77,73,67,95,67,72,65,82,51,50,95,84,95,76,79,67,75,95,70,82,69,69,32,50
+,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,87,67,72
+,65,82,95,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32
+,95,95,71,67,67,95,65,84,79,77,73,67,95,83,72,79,82,84,95,76,79,67,75,95,70
+,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73
+,67,95,73,78,84,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101
+,32,95,95,71,67,67,95,65,84,79,77,73,67,95,76,79,78,71,95,76,79,67,75,95,70
+,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95,65,84,79,77,73
+,67,95,76,76,79,78,71,95,76,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105
+,110,101,32,95,95,71,67,67,95,65,84,79,77,73,67,95,80,79,73,78,84,69,82,95,76
+,79,67,75,95,70,82,69,69,32,50,10,35,100,101,102,105,110,101,32,95,95,71,67,67,95
+,65,84,79,77,73,67,95,84,69,83,84,95,65,78,68,95,83,69,84,95,84,82,85,69,86
+,65,76,32,49,10
 #line 36 "target.c"
  , 0
 };
@@ -90142,9 +90672,9 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     p->code_thread_local_spelling = "__thread";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = gcc_macros;
-    p->builtins = gcc_builtins;
+    p->dialect_builtins = gcc_builtins;
     p->code_alloca_spelling = "__builtin_alloca";
-    p->gcc_like_asm_label = true;
+    p->dialect_gcc_like_asm_label = true;
 
     p->bool_n_bits = 8;
     p->bool_type = TYPE_UNSIGNED_CHAR;
@@ -90164,8 +90694,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = p->long_long_n_bits;
-    p->long_long_long_alignment = p->long_long_alignment;
+    p->int128_n_bits = p->long_long_n_bits;
+    p->int128_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -90176,8 +90706,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     {
         p->name = "x86_64-linux-gnu-gcc";
         p->arch = "X64";
-        p->long_long_long_n_bits = 128;
-        p->long_long_long_alignment = 16;
+        p->int128_n_bits = 128;
+        p->int128_alignment = 16;
         p->size_t_type = TYPE_UNSIGNED_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG;
         p->char_t_type = TYPE_SIGNED_CHAR;
@@ -90194,8 +90724,8 @@ static void platform_gcc(_Out struct platform* p, const char* arch)
     {
         p->name = "aarch64-linux-gnu-gcc";
         p->arch = "ARM64";
-        p->long_long_long_n_bits = 128;
-        p->long_long_long_alignment = 16;
+        p->int128_n_bits = 128;
+        p->int128_alignment = 16;
         p->size_t_type = TYPE_UNSIGNED_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG;
         p->char_t_type = TYPE_UNSIGNED_CHAR;
@@ -90237,7 +90767,7 @@ static void platform_clang_macos_arm64(_Out struct platform* p)
     p->code_thread_local_spelling = "__thread";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = clang_macros;
-    p->builtins = gcc_builtins;
+    p->dialect_builtins = gcc_builtins;
     p->code_alloca_spelling = "__builtin_alloca";
 
     p->size_t_type = TYPE_UNSIGNED_LONG;
@@ -90271,8 +90801,8 @@ static void platform_clang_macos_arm64(_Out struct platform* p)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = 128;
-    p->long_long_long_alignment = 16;
+    p->int128_n_bits = 128;
+    p->int128_alignment = 16;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -90299,7 +90829,7 @@ static void platform_clang_macos_x64(_Out struct platform* p)
     p->code_thread_local_spelling = "__thread";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = clang_macros_x64;
-    p->builtins = gcc_builtins;
+    p->dialect_builtins = gcc_builtins;
     p->code_alloca_spelling = "__builtin_alloca";
 
     p->size_t_type = TYPE_UNSIGNED_LONG;
@@ -90333,8 +90863,8 @@ static void platform_clang_macos_x64(_Out struct platform* p)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = 128;
-    p->long_long_long_alignment = 16;
+    p->int128_n_bits = 128;
+    p->int128_alignment = 16;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -90354,13 +90884,13 @@ static void platform_msvc(_Out struct platform* p, const char* arch)
     p->code_thread_local_spelling = "__declspec(thread)";
     p->code_alignas_spelling_fmt = "__declspec(align(%d))";
     p->predefined_macros = msvc_macros;
-    p->builtins = "";
+    p->dialect_builtins = "";
     p->code_alloca_spelling = "_alloca";
     p->msvc_like_bitfield_layout = true;
     p->msvc_like_object_size_limit = true;
-    p->msvc_like_decimal_literal_type = true;
-    p->msvc_like_keywords = true;
-    p->msvc_like_asm_statement = true;
+    p->dialect_msvc_like_decimal_literal_type = true;
+    p->dialect_msvc_like_keywords = true;
+    p->dialect_msvc_like_asm_statement = true;
     p->code_msvc_like_atomics = true;
     p->code_msvc_like_no_member_packed = true;
 
@@ -90389,8 +90919,8 @@ static void platform_msvc(_Out struct platform* p, const char* arch)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = p->long_long_n_bits;
-    p->long_long_long_alignment = p->long_long_alignment;
+    p->int128_n_bits = p->long_long_n_bits;
+    p->int128_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -90434,9 +90964,9 @@ static void platform_tcc(_Out struct platform* p, const char* os)
     p->code_thread_local_spelling = "__thread";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = tcc_macros;
-    p->builtins = tcc_builtins;
+    p->dialect_builtins = tcc_builtins;
     p->code_alloca_spelling = "alloca";
-    p->gcc_like_asm_label = true;
+    p->dialect_gcc_like_asm_label = true;
     p->code_tcc_like_atomics = true;
     p->code_tcc_like_alloca_declaration = true;
 
@@ -90462,8 +90992,8 @@ static void platform_tcc(_Out struct platform* p, const char* os)
 
     p->long_long_n_bits = 64;
     p->long_long_alignment = 8;
-    p->long_long_long_n_bits = p->long_long_n_bits;
-    p->long_long_long_alignment = p->long_long_alignment;
+    p->int128_n_bits = p->long_long_n_bits;
+    p->int128_alignment = p->long_long_alignment;
     p->float_n_bits = 32;
     p->float_alignment = 4;
 
@@ -90475,7 +91005,7 @@ static void platform_tcc(_Out struct platform* p, const char* os)
         p->name = "x86_64-w64-mingw32-tcc";
         p->os = "WINDOWS";
         p->arch = "X64";
-        p->tcc_like_static_redeclaration = true;
+        p->dialect_tcc_like_static_redeclaration = true;
         p->size_t_type = TYPE_UNSIGNED_LONG_LONG;
         p->ptrdiff_type = TYPE_SIGNED_LONG_LONG;
         p->int64_type = TYPE_SIGNED_LONG_LONG;
@@ -90524,7 +91054,7 @@ static void platform_catalina(_Out struct platform* p)
     p->code_thread_local_spelling = "/*thread*/";
     p->code_alignas_spelling_fmt = "__attribute__((aligned(%d)))";
     p->predefined_macros = catalina_macros;
-    p->builtins = catalina_builtins;
+    p->dialect_builtins = catalina_builtins;
     p->code_alloca_spelling = "__builtin_alloca";
 
     p->size_t_type = TYPE_UNSIGNED_INT;
@@ -90557,8 +91087,8 @@ static void platform_catalina(_Out struct platform* p)
 
     p->long_long_n_bits = 32;
     p->long_long_alignment = 4;
-    p->long_long_long_n_bits = p->long_long_n_bits;
-    p->long_long_long_alignment = p->long_long_alignment;
+    p->int128_n_bits = p->long_long_n_bits;
+    p->int128_alignment = p->long_long_alignment;
 
     p->float_n_bits = 32;
     p->float_alignment = 4;
@@ -90634,9 +91164,24 @@ int parse_target(const char* targetstr, struct platform* p_platform)
     return 0;
 }
 
+const char* _Opt target_name(int i)
+{
+    static const char* const names[] = {
+        "default", "x86_64-linux-gnu-gcc", "i686-pc-windows-msvc", "x86_64-pc-windows-msvc",
+        "propeller-catalina", "aarch64-apple-darwin-clang", "x86_64-apple-darwin-clang",
+        "x86_64-w64-mingw32-tcc", "x86_64-linux-gnu-tcc", "aarch64-apple-darwin-tcc",
+        "aarch64-linux-gnu-gcc", "arm-linux-gnueabihf-gcc"
+    };
+    if (i < 0 || i >= (int)(sizeof names / sizeof names[0]))
+        return NULL;
+    return names[i];
+}
+
 void print_target_options()
 {
-    printf("default x86_64-linux-gnu-gcc i686-pc-windows-msvc x86_64-pc-windows-msvc propeller-catalina aarch64-apple-darwin-clang x86_64-apple-darwin-clang x86_64-w64-mingw32-tcc x86_64-linux-gnu-tcc aarch64-apple-darwin-tcc aarch64-linux-gnu-gcc arm-linux-gnueabihf-gcc\n");
+    for (int i = 0; target_name(i); i++)
+        printf(i == 0 ? "%s" : " %s", target_name(i));
+    printf("\n");
 }
 
 static bool str_is(const char* _Opt a, const char* b)
@@ -90654,46 +91199,32 @@ bool platform_arch_is(const struct platform* p_platform, const char* arch)
     return str_is(p_platform->arch, arch);
 }
 
-long long target_signed_max(const struct platform* target, enum object_type type)
+struct integer128 target_unsigned_max(const struct platform* target, enum object_type type)
 {
     const unsigned int bits = target_get_num_of_bits(target, type);
-    assert(bits <= sizeof(long long) * CHAR_BIT);
-
-    if (bits >= sizeof(long long) * CHAR_BIT)
-    {
-        return LLONG_MAX;
-    }
-
-    return (1LL << (bits - 1)) - 1; // 2^(bits-1) - 1    
+    assert(bits >= 1 && bits <= INTEGER128_BITS);
+    return integer128_shr_u(integer128_not(integer128_from_unsigned(0)), INTEGER128_BITS - (int)bits);
 }
 
-long long target_signed_min(const struct platform* target, enum object_type type)
+struct integer128 target_signed_max(const struct platform* target, enum object_type type)
 {
     const unsigned int bits = target_get_num_of_bits(target, type);
-    assert(bits <= sizeof(long long) * CHAR_BIT);
-
-    if (bits >= sizeof(long long) * CHAR_BIT)
-    {
-        return LLONG_MIN;
-    }
-
-    return -(1LL << (bits - 1));
+    assert(bits >= 1 && bits <= INTEGER128_BITS);
+    if (bits == 1)
+        return integer128_from_unsigned(0); /* only the sign bit: 0 and -1 */
+    return integer128_shr_u(integer128_not(integer128_from_unsigned(0)), INTEGER128_BITS - (int)bits + 1);
 }
 
-unsigned long long target_unsigned_max(const struct platform* target, enum object_type type)
+struct integer128 target_signed_min(const struct platform* target, enum object_type type)
 {
-    const unsigned int bits = target_get_num_of_bits(target, type);
-    assert(bits <= sizeof(unsigned long long) * CHAR_BIT);
-
-    if (bits >= sizeof(unsigned long long) * CHAR_BIT)
-        return ULLONG_MAX;
-
-    return (1ULL << bits) - 1;
+    /* two's complement: ~max is -max - 1 */
+    return integer128_not(target_signed_max(target, type));
 }
 
 int target_bitint_maxwidth(const struct platform* target)
 {
-    return target->long_long_long_n_bits > 64 ? target->long_long_long_n_bits : 64;
+    /* the widest integer type of the target, the one wide _BitInt is lowered to */
+    return target->int128_n_bits > target->long_long_n_bits ? target->int128_n_bits : target->long_long_n_bits;
 }
 
 unsigned int target_get_num_of_bits(const struct platform* target, enum object_type type)
@@ -90740,9 +91271,9 @@ unsigned int target_get_num_of_bits(const struct platform* target, enum object_t
     case TYPE_UNSIGNED_LONG_LONG:
         return target->long_long_n_bits;
 
-    case TYPE_SIGNED_LONG_LONG_LONG:
-    case TYPE_UNSIGNED_LONG_LONG_LONG:
-        return target->long_long_long_n_bits;
+    case TYPE_SIGNED_INT128:
+    case TYPE_UNSIGNED_INT128:
+        return target->int128_n_bits;
 
     case TYPE_FLOAT:
         return target->float_n_bits;
@@ -90764,22 +91295,23 @@ unsigned int target_get_num_of_bits(const struct platform* target, enum object_t
 #ifdef TEST
 
 
+
 void target_self_test()
 {
     struct platform host;
     platform_default(&host);
 
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_CHAR) == UCHAR_MAX);
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_SHORT) == USHRT_MAX);
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_INT) == UINT_MAX);
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_LONG) == ULONG_MAX);
-    assert(target_unsigned_max(&host, TYPE_UNSIGNED_LONG_LONG) == ULLONG_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_CHAR)) == UCHAR_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_SHORT)) == USHRT_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_INT)) == UINT_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_LONG)) == ULONG_MAX);
+    assert(integer128_to_ull(target_unsigned_max(&host, TYPE_UNSIGNED_LONG_LONG)) == ULLONG_MAX);
 
-    assert(target_signed_max(&host, TYPE_SIGNED_CHAR) == SCHAR_MAX);
-    assert(target_signed_max(&host, TYPE_SIGNED_SHORT) == SHRT_MAX);
-    assert(target_signed_max(&host, TYPE_SIGNED_INT) == INT_MAX);
-    assert(target_signed_max(&host, TYPE_SIGNED_LONG) == LONG_MAX);
-    assert(target_signed_max(&host, TYPE_SIGNED_LONG_LONG) == LLONG_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_CHAR)) == SCHAR_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_SHORT)) == SHRT_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_INT)) == INT_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_LONG)) == LONG_MAX);
+    assert(integer128_to_ull(target_signed_max(&host, TYPE_SIGNED_LONG_LONG)) == LLONG_MAX);
 
     assert(target_get_num_of_bits(&host, TYPE_SIGNED_CHAR) == sizeof(char) * CHAR_BIT);
     assert(target_get_num_of_bits(&host, TYPE_SIGNED_SHORT) == sizeof(short) * CHAR_BIT);
@@ -90798,6 +91330,21 @@ void target_self_test()
 #else
     assert(host.char_t_type == TYPE_UNSIGNED_CHAR);
 #endif
+
+    /* propeller-catalina: long long has 32 bits and there is no __int128 */
+    struct platform catalina;
+    assert(parse_target("propeller-catalina", &catalina) == 0);
+    assert(target_get_num_of_bits(&catalina, TYPE_SIGNED_LONG_LONG) == 32);
+    assert(integer128_to_ull(target_unsigned_max(&catalina, TYPE_UNSIGNED_LONG_LONG)) == 0xFFFFFFFFULL);
+    assert(integer128_to_ll(target_signed_min(&catalina, TYPE_SIGNED_LONG_LONG)) == -2147483647LL - 1);
+    assert(integer128_equal(target_signed_max(&catalina, TYPE_SIGNED_LONG_LONG), integer128_from_unsigned(0x7FFFFFFF)));
+    assert(catalina.int128_n_bits < 128);
+    assert(target_bitint_maxwidth(&catalina) == 32);
+
+    /* an unsigned long long value is cut to the 32 bits of the target */
+    struct object v = object_make_unsigned_long_long(&catalina, 0x100000001ULL);
+    assert(integer128_equal(v.value.host_integer128, integer128_from_unsigned(1)));
+    object_destroy(&v);
 
 }
 #endif
@@ -90937,8 +91484,8 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
 
-    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
-        print_item(ss, first, "long long long");
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT128)
+        print_item(ss, first, "__int128");
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
         print_item(ss, first, "char");
@@ -92536,7 +93083,7 @@ enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is
     }
     else
     {
-        flags = TYPE_SPECIFIER_LONG_LONG_LONG | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
+        flags = TYPE_SPECIFIER_INT128 | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
     }
 
     return flags;
@@ -92731,7 +93278,7 @@ bool type_is_integer(const struct type* p_type)
             TYPE_SPECIFIER_SIGNED |
             TYPE_SPECIFIER_UNSIGNED |
             TYPE_SPECIFIER_LONG_LONG |
-            TYPE_SPECIFIER_LONG_LONG_LONG |
+            TYPE_SPECIFIER_INT128 |
             TYPE_SPECIFIER_BITINT |
             TYPE_SPECIFIER_BOOL);
 }
@@ -93009,13 +93556,13 @@ int type_get_integer_rank(const struct type* p_type1, const struct platform* tar
         }
         else if (width > target->long_long_n_bits)
         {
-            standard_rank = 90; /* long long long */
+            standard_rank = 90; /* __int128 */
         }
 
         return standard_rank - 10 + width / 16;
     }
 
-    if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+    if (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT128)
     {
         return 90;
     }
@@ -94347,9 +94894,9 @@ size_t type_get_alignof(const struct type* p_type, const struct platform* target
         {
             align = target->long_long_alignment;
         }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT128)
         {
-            align = target->long_long_long_alignment;
+            align = target->int128_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
@@ -94654,9 +95201,9 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, cons
         return SIZEOF_RESULT_OK;
     }
 
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT128)
     {
-        *size = target->long_long_long_n_bits / 8;
+        *size = target->int128_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
@@ -95199,12 +95746,12 @@ static bool type_is_same_impl(const struct type* a,
           'long'/'long int' and 'short'/'short int'). Normalize away the
           redundant TYPE_SPECIFIER_INT before comparing. (issue #164)
         */
-        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
+        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT128))
         {
             a_flags &= ~TYPE_SPECIFIER_INT;
         }
 
-        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
+        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT128))
         {
             b_flags &= ~TYPE_SPECIFIER_INT;
         }
@@ -95355,12 +95902,12 @@ bool type_is_compatible(const struct type* a, const struct type* b)
           'long'/'long int' and 'short'/'short int'). Normalize away the
           redundant TYPE_SPECIFIER_INT before comparing. (issue #164)
         */
-        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
+        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT128))
         {
             a_flags &= ~TYPE_SPECIFIER_INT;
         }
 
-        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
+        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT128))
         {
             b_flags &= ~TYPE_SPECIFIER_INT;
         }

@@ -131,8 +131,8 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
 
-    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
-        print_item(ss, first, "long long long");
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT128)
+        print_item(ss, first, "__int128");
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
         print_item(ss, first, "char");
@@ -1730,7 +1730,7 @@ enum type_specifier_flags bitint_lowered_type_specifier_flags(int width, bool is
     }
     else
     {
-        flags = TYPE_SPECIFIER_LONG_LONG_LONG | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
+        flags = TYPE_SPECIFIER_INT128 | (is_unsigned ? TYPE_SPECIFIER_UNSIGNED : TYPE_SPECIFIER_NONE);
     }
 
     return flags;
@@ -1925,7 +1925,7 @@ bool type_is_integer(const struct type* p_type)
             TYPE_SPECIFIER_SIGNED |
             TYPE_SPECIFIER_UNSIGNED |
             TYPE_SPECIFIER_LONG_LONG |
-            TYPE_SPECIFIER_LONG_LONG_LONG |
+            TYPE_SPECIFIER_INT128 |
             TYPE_SPECIFIER_BITINT |
             TYPE_SPECIFIER_BOOL);
 }
@@ -2203,13 +2203,13 @@ int type_get_integer_rank(const struct type* p_type1, const struct platform* tar
         }
         else if (width > target->long_long_n_bits)
         {
-            standard_rank = 90; /* long long long */
+            standard_rank = 90; /* __int128 */
         }
 
         return standard_rank - 10 + width / 16;
     }
 
-    if (p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+    if (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT128)
     {
         return 90;
     }
@@ -3541,9 +3541,9 @@ size_t type_get_alignof(const struct type* p_type, const struct platform* target
         {
             align = target->long_long_alignment;
         }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT128)
         {
-            align = target->long_long_long_alignment;
+            align = target->int128_alignment;
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT) //must be after long
         {
@@ -3848,9 +3848,9 @@ enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, cons
         return SIZEOF_RESULT_OK;
     }
 
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG_LONG)
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT128)
     {
-        *size = target->long_long_long_n_bits / 8;
+        *size = target->int128_n_bits / 8;
         return SIZEOF_RESULT_OK;
     }
 
@@ -4393,12 +4393,12 @@ static bool type_is_same_impl(const struct type* a,
           'long'/'long int' and 'short'/'short int'). Normalize away the
           redundant TYPE_SPECIFIER_INT before comparing. (issue #164)
         */
-        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
+        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT128))
         {
             a_flags &= ~TYPE_SPECIFIER_INT;
         }
 
-        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
+        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT128))
         {
             b_flags &= ~TYPE_SPECIFIER_INT;
         }
@@ -4549,12 +4549,12 @@ bool type_is_compatible(const struct type* a, const struct type* b)
           'long'/'long int' and 'short'/'short int'). Normalize away the
           redundant TYPE_SPECIFIER_INT before comparing. (issue #164)
         */
-        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
+        if (a_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT128))
         {
             a_flags &= ~TYPE_SPECIFIER_INT;
         }
 
-        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_LONG_LONG_LONG))
+        if (b_flags & (TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT128))
         {
             b_flags &= ~TYPE_SPECIFIER_INT;
         }

@@ -1091,6 +1091,21 @@ void diagnostic_queue_flush(struct diagnostic_queue* db, struct parser_ctx* ctx)
 * recent queued diagnostic with that id, not the oldest: an unsuppressed one
 * far above (same id) must stay reported.
 */
+void diagnostic_queue_swap(struct diagnostic_queue* a, struct diagnostic_queue* b)
+{
+    struct diagnostic_item* _Owner _Opt head = a->head;
+    a->head = b->head;
+    b->head = head;
+
+    struct diagnostic_item* _Opt tail = a->tail;
+    a->tail = b->tail;
+    b->tail = tail;
+
+    const int count = a->count;
+    a->count = b->count;
+    b->count = count;
+}
+
 bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id)
 {
     struct diagnostic_item* _Opt found = NULL;
@@ -1849,7 +1864,7 @@ bool first_of_typedef_name(const struct parser_ctx* ctx, struct token* p_token)
     return false;
 }
 
-bool first_of_type_specifier(struct parser_ctx* ctx);
+bool first_of_type_specifier(const struct parser_ctx* ctx);
 bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* token);
 
 bool first_of_type_name_ahead(const struct parser_ctx* ctx)
@@ -1874,7 +1889,7 @@ bool first_of_type_name_token(const struct parser_ctx* ctx, struct token* p_toke
     return first_of_type_specifier_token(ctx, p_token) || first_of_type_qualifier_token(p_token);
 }
 
-bool first_of_type_name(struct parser_ctx* ctx)
+bool first_of_type_name(const struct parser_ctx* ctx)
 {
     return first_of_type_specifier(ctx) || first_of_type_qualifier(ctx);
 }
@@ -1913,7 +1928,7 @@ bool first_of_type_specifier_token(const struct parser_ctx* ctx, struct token* p
         first_of_typedef_name(ctx, p_token);
 }
 
-bool first_of_type_specifier(struct parser_ctx* ctx)
+bool first_of_type_specifier(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
@@ -2106,7 +2121,7 @@ bool first_of_attribute_specifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if (ctx->options.platform.gcc_like_asm_label &&
+    if (ctx->options.platform.dialect_gcc_like_asm_label &&
         ctx->current->type == TK_KEYWORD__ASM)
     {
         return true;
@@ -2457,9 +2472,8 @@ enum token_type is_keyword(const char* text, const struct platform* target)
                 return TK_KEYWORD__THREAD_LOCAL;
 
             /*
-              __int128 is an alias of long long long, like __int64 is of int64_type.
-              It has the size of long long long, 128 bits only where the target has it
-              (__SIZEOF_INT128__ tells), like long double has the size of double on msvc.
+              __int128, the 128-bit integer of gcc and clang. Like gcc, it is an
+              error on targets without 128-bit integers (__SIZEOF_INT128__ tells).
             */
             if (strcmp("__int128", text) == 0)
                 return TK_KEYWORD_GCC__INT128;
@@ -2485,7 +2499,7 @@ enum token_type is_keyword(const char* text, const struct platform* target)
             if (strcmp("__alignof__", text) == 0)
                 return TK_KEYWORD__ALIGNOF;
 
-            if (target->msvc_like_keywords)
+            if (target->dialect_msvc_like_keywords)
             {
                 if (strcmp("__ptr32", text) == 0)
                     return TK_KEYWORD_MSVC__PTR32;
@@ -3116,7 +3130,7 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
         (flags & TYPE_SPECIFIER_INT) ||
         (flags & TYPE_SPECIFIER_BITINT) ||
         (flags & TYPE_SPECIFIER_LONG_LONG) ||
-        (flags & TYPE_SPECIFIER_LONG_LONG_LONG))
+        (flags & TYPE_SPECIFIER_INT128))
     {
         return true;
     }
@@ -3148,19 +3162,13 @@ int add_specifier(const struct parser_ctx* ctx,
     * transform the sequence of two longs
     * in
     * TYPE_SPECIFIER_LONG_LONG
-    * and three longs in TYPE_SPECIFIER_LONG_LONG_LONG (cake extension)
     */
     if (new_flag & TYPE_SPECIFIER_LONG) /* adding a long */
     {
-        if ((*flags) & TYPE_SPECIFIER_LONG_LONG_LONG) /* already had long long long */
+        if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
         {
-            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long long' declaration specifier");
+            diagnostic(C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, NULL, "cannot combine with previous 'long long' declaration specifier");
             return 1;
-        }
-        else if ((*flags) & TYPE_SPECIFIER_LONG_LONG) /* already had long long */
-        {
-            (*flags) = (*flags) & ~TYPE_SPECIFIER_LONG_LONG;
-            (*flags) |= TYPE_SPECIFIER_LONG_LONG_LONG;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) /* already had one long */
         {
@@ -3210,12 +3218,9 @@ int add_specifier(const struct parser_ctx* ctx,
         case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // signed long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG: // unsigned long long
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT: // unsigned long long int
-        case TYPE_SPECIFIER_LONG_LONG_LONG: // long long long
-        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG_LONG: // signed long long long
-        case TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // long long long int
-        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // signed long long long int
-        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG: // unsigned long long long
-        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG_LONG | TYPE_SPECIFIER_INT: // unsigned long long long int
+        case TYPE_SPECIFIER_INT128: // __int128
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT128: // signed __int128
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT128: // unsigned __int128
         case TYPE_SPECIFIER_BITINT: // _BitInt(N)
         case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_BITINT: // signed _BitInt(N)
         case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_BITINT: // unsigned _BitInt(N)
@@ -4818,7 +4823,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                         assert(p_previous_declarator->declaration_specifiers != NULL);
 
                         /* TCC accepts it, and its mingw headers rely on it (__CRT_INLINE is static __inline__) */
-                        if (!(ctx->options.platform.tcc_like_static_redeclaration && ctx->current->level > 0) &&
+                        if (!(ctx->options.platform.dialect_tcc_like_static_redeclaration && ctx->current->level > 0) &&
                             !(p_previous_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC) &&
                             (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
                             ) //lint 33 assert
@@ -6488,8 +6493,12 @@ struct type_specifier* _Owner _Opt type_specifier(struct parser_ctx* ctx)
                 return p_type_specifier;
 
             case TK_KEYWORD_GCC__INT128:
+                if (ctx->options.platform.int128_n_bits < 128)
+                {
+                    diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "'__int128' is not supported on this target");
+                }
                 p_type_specifier->token = ctx->current;
-                p_type_specifier->flags = TYPE_SPECIFIER_LONG_LONG_LONG;
+                p_type_specifier->flags = TYPE_SPECIFIER_INT128;
                 parser_match(ctx);
                 return p_type_specifier;
 
@@ -8615,21 +8624,35 @@ void enumerator_list_destroy(_Dtor struct enumerator_list* p)
     }
 }
 
-static void update_enumerator_list_range(const struct enumerator* p_enumerator, long long* min_value, unsigned long long* max_value)
+static bool object_value_is_negative(const struct object* p)
 {
-    bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-    bool is_negative = is_signed && ((long long)p_enumerator->value.value.host_wide_integer.lo) < 0;
+    return object_type_is_signed_integer(p->value_type) && integer128_is_negative(p->value.host_integer128);
+}
 
-    if (is_signed && ((long long)p_enumerator->value.value.host_wide_integer.lo) < *min_value)
+/* true when v (negative or not, as told by is_negative) is representable in the integer type vt */
+static bool integer128_fits_type(const struct platform* target, enum object_type vt, struct integer128 v, bool is_negative)
+{
+    if (is_negative)
+        return object_type_is_signed_integer(vt) && integer128_compare_s(v, target_signed_min(target, vt)) >= 0;
+
+    const struct integer128 max = object_type_is_signed_integer(vt) ? target_signed_max(target, vt) : target_unsigned_max(target, vt);
+    return integer128_compare_u(v, max) <= 0;
+}
+
+/* min_value is signed (<= 0) and max_value is unsigned (>= 0), both with 128 bits */
+static void update_enumerator_list_range(const struct enumerator* p_enumerator, struct integer128* min_value, struct integer128* max_value)
+{
+    const struct object* p_value = object_get_referenced(&p_enumerator->value);
+    const struct integer128 v = p_value->value.host_integer128;
+
+    if (object_value_is_negative(p_value))
     {
-        *min_value = ((long long)p_enumerator->value.value.host_wide_integer.lo);
+        if (integer128_compare_s(v, *min_value) < 0)
+            *min_value = v;
     }
-    if (
-        (is_signed && !is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > *max_value) ||
-        (!is_signed && p_enumerator->value.value.host_wide_integer.lo > *max_value)
-        )
+    else if (integer128_compare_u(v, *max_value) > 0)
     {
-        *max_value = p_enumerator->value.value.host_wide_integer.lo;
+        *max_value = v;
     }
 }
 
@@ -8651,25 +8674,8 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
         object_destroy(&casted);
     }
 
-    long long lo_limit = 0;
-    unsigned long long hi_limit = 0;
-
-    if (p_enum_specifier->has_underlying)
-    {
-        if (type_is_signed_integer(&p_enum_specifier->integer_type))
-        {
-            lo_limit = target_signed_min(&ctx->options.platform, next_enumerator_value.value_type);
-            hi_limit = target_signed_max(&ctx->options.platform, next_enumerator_value.value_type);
-        }
-        else
-        {
-            lo_limit = 0;
-            hi_limit = target_unsigned_max(&ctx->options.platform, next_enumerator_value.value_type);
-        }
-    }
-
-    unsigned long long max_value = 0;
-    long long min_value = 0;
+    struct integer128 max_value = { 0 };
+    struct integer128 min_value = { 0 };
 
     struct enumerator_list enumeratorlist = { 0 };
     struct enumerator* _Owner _Opt p_enumerator = NULL;
@@ -8680,7 +8686,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
         if (ctx->current != NULL)
             check_indentation_style(ctx, ctx->current);
 
-        p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, lo_limit, hi_limit, &min_value, &max_value, &next_ovf);
+        p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, &min_value, &max_value, &next_ovf);
         if (p_enumerator == NULL)
             throw;
 
@@ -8696,7 +8702,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             {
                 check_indentation_style(ctx, ctx->current);
 
-                p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, lo_limit, hi_limit, &min_value, &max_value, &next_ovf);
+                p_enumerator = enumerator(ctx, p_enum_specifier, prev_decl_same_scope, &next_enumerator_value, &min_value, &max_value, &next_ovf);
                 if (p_enumerator == NULL)
                     throw;
                 enumerator_list_add(&enumeratorlist, p_enumerator);
@@ -8705,56 +8711,38 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
 
         if (!p_enum_specifier->has_underlying)
         {
-            long long int_min = target_signed_min(&ctx->options.platform, TYPE_SIGNED_INT);
-            long long int_max = target_signed_max(&ctx->options.platform, TYPE_SIGNED_INT);
+            /* the first type where all values fit; like gcc and clang, never a 128-bit type */
+            const enum object_type candidates[] = {
+                TYPE_UNSIGNED_INT, TYPE_SIGNED_INT,
+                TYPE_UNSIGNED_LONG, TYPE_SIGNED_LONG,
+                TYPE_UNSIGNED_LONG_LONG, TYPE_SIGNED_LONG_LONG
+            };
+            const int candidates_count = (int)(sizeof candidates / sizeof candidates[0]);
+            const bool has_negative = integer128_is_negative(min_value);
 
-            unsigned long long uint_max = target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_INT);
-
-            unsigned long long ulong_max = target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG);
-
-            long long long_min = target_signed_min(&ctx->options.platform, TYPE_SIGNED_LONG);
-            long long long_max = target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG);
-
-            unsigned long long ullong_max = target_unsigned_max(&ctx->options.platform, TYPE_UNSIGNED_LONG_LONG);
-
-            long long llong_min = target_signed_min(&ctx->options.platform, TYPE_SIGNED_LONG_LONG);
-            long long llong_max = target_signed_max(&ctx->options.platform, TYPE_SIGNED_LONG_LONG);
-
-            enum object_type final_type;
-
-            if (max_value <= uint_max && min_value >= 0)
+            enum object_type final_type = TYPE_SIGNED_INT;
+            bool found = false;
+            for (int i = 0; i < candidates_count; i++)
             {
-                final_type = TYPE_UNSIGNED_INT;
+                if (integer128_fits_type(&ctx->options.platform, candidates[i], max_value, false) &&
+                    integer128_fits_type(&ctx->options.platform, candidates[i], min_value, has_negative))
+                {
+                    final_type = candidates[i];
+                    found = true;
+                    break;
+                }
             }
-            else if (max_value <= (unsigned long long) int_max && min_value >= int_min)
+
+            if (!found)
             {
-                final_type = TYPE_SIGNED_INT;
-            }
-            else if (max_value <= ulong_max && min_value >= 0)
-            {
-                final_type = TYPE_UNSIGNED_LONG;
-            }
-            else if (max_value <= (unsigned long long) long_max && min_value >= long_min)
-            {
-                final_type = TYPE_SIGNED_LONG;
-            }
-            else if (max_value <= ullong_max && min_value >= 0)
-            {
-                final_type = TYPE_UNSIGNED_LONG_LONG;
-            }
-            else if (max_value <= (unsigned long long) llong_max && min_value >= llong_min)
-            {
-                final_type = TYPE_SIGNED_LONG_LONG;
-            }
-            else
-            {
+                /* gcc and clang keep 64 bits */
                 diagnostic(C_ERROR_INVALID_TYPE, ctx, ctx->current, NULL, "enum value range unsupported");
-                throw;
+                final_type = has_negative ? TYPE_SIGNED_LONG_LONG : TYPE_UNSIGNED_LONG_LONG;
             }
 
             type_destroy(&p_enum_specifier->integer_type);
             p_enum_specifier->integer_type = make_with_type_specifier_flags(object_type_to_type_specifier(final_type));
-            if (final_type == TYPE_UNSIGNED_INT && max_value <= (unsigned long long) int_max)
+            if (final_type == TYPE_UNSIGNED_INT && integer128_fits_type(&ctx->options.platform, TYPE_SIGNED_INT, max_value, false))
                 final_type = TYPE_SIGNED_INT;
 
             struct enumerator* _Opt it = enumeratorlist.head;
@@ -8803,14 +8791,23 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
     }
 }
 
+/* true when the value is representable in the underlying type of the enum */
+static bool enumerator_value_fits_underlying(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* p_value)
+{
+    /* bool is stored in more bits, but only 0 and 1 are values */
+    if (p_enum_specifier->integer_type.type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        return !object_value_is_negative(p_value) && integer128_compare_u(p_value->value.host_integer128, integer128_from_unsigned(1)) <= 0;
+
+    const enum object_type vt = type_specifier_to_object_type(p_enum_specifier->integer_type.type_specifier_flags, &ctx->options.platform);
+    return integer128_fits_type(&ctx->options.platform, vt, p_value->value.host_integer128, object_value_is_negative(p_value));
+}
+
 struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
     const struct enum_specifier* p_enum_specifier,
     const struct enum_specifier* _Opt prev_decl_same_scope,
     struct object* p_next_enumerator_value,
-    long long lo_limit,
-    unsigned long long hi_limit,
-    long long* min_value,
-    unsigned long long* max_value,
+    struct integer128* min_value,
+    struct integer128* max_value,
     bool* next_ovf)
 {
     struct enumerator* _Owner _Opt p_enumerator = NULL;
@@ -8886,22 +8883,20 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
                 object_swap(&p_enumerator->value, &newvalue);
                 object_destroy(&newvalue);
 
-                bool is_signed = object_type_is_signed_integer(p_enumerator->value.value_type);
-                is_negative = is_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < 0);
+                is_negative = object_value_is_negative(object_get_referenced(&p_enumerator->value));
 
-                if (p_enum_specifier->has_underlying)
+                if (p_enum_specifier->has_underlying &&
+                    !enumerator_value_fits_underlying(ctx, p_enum_specifier, object_get_referenced(&p_enumerator->value)))
                 {
-                    bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
-                    bool under_range = underlying_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < lo_limit);
-                    bool over_range = (underlying_signed && (!is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_wide_integer.lo > hi_limit));
-
-                    if (under_range || over_range)
-                    {
-                        diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
-                    }
+                    diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
                 }
 
-                struct object newvalue2 = object_dup(object_get_referenced(&p_enumerator->value));
+                /* with fixed underlying type the next value is computed in that type */
+                struct object newvalue2 = p_enum_specifier->has_underlying ?
+                    object_cast(&ctx->options.platform,
+                                type_specifier_to_object_type(p_enum_specifier->integer_type.type_specifier_flags, &ctx->options.platform),
+                                object_get_referenced(&p_enumerator->value)) :
+                    object_dup(object_get_referenced(&p_enumerator->value));
                 object_swap(p_next_enumerator_value, &newvalue2);
                 object_destroy(&newvalue2);
             }
@@ -8911,25 +8906,18 @@ struct enumerator* _Owner _Opt enumerator(struct parser_ctx* ctx,
             if (*next_ovf)
             {
                 diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator overflow");
-                throw;
             }
 
             struct object newvalue = object_dup(p_next_enumerator_value);
             object_swap(&p_enumerator->value, &newvalue);
             object_destroy(&newvalue);
 
-            is_negative = object_type_is_signed_integer(p_enumerator->value.value_type) && (((long long)p_enumerator->value.value.host_wide_integer.lo) < 0);
+            is_negative = object_value_is_negative(&p_enumerator->value);
 
-            if (p_enum_specifier->has_underlying)
+            if (p_enum_specifier->has_underlying &&
+                !enumerator_value_fits_underlying(ctx, p_enum_specifier, &p_enumerator->value))
             {
-                bool underlying_signed = type_is_signed_integer(&p_enum_specifier->integer_type);
-                bool under_range = underlying_signed && (((long long)p_enumerator->value.value.host_wide_integer.lo) < lo_limit);
-                bool over_range = (underlying_signed && (!is_negative && (unsigned long long)((long long)p_enumerator->value.value.host_wide_integer.lo) > hi_limit)) || (!underlying_signed && (p_enumerator->value.value.host_wide_integer.lo > hi_limit));
-
-                if (under_range || over_range)
-                {
-                    diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
-                }
+                diagnostic(C_ERROR_INVALID_TYPE, ctx, p_enumerator->token, NULL, "enumerator value outside of underlying type range");
             }
         }
 
@@ -11634,7 +11622,7 @@ struct attribute_specifier_sequence* _Owner _Opt attribute_specifier_sequence_op
                 }
                 else if (ctx->current->type == TK_KEYWORD__ASM)
                 {
-                    if (ctx->options.platform.gcc_like_asm_label)
+                    if (ctx->options.platform.dialect_gcc_like_asm_label)
                     {
                         /* GCC also uses asm as attribute */
                         struct asm_statement* _Owner _Opt p3 = gcc_asm(ctx, false);
@@ -13807,7 +13795,7 @@ static struct asm_statement* _Owner _Opt gcc_asm(struct parser_ctx* ctx, bool st
 
 struct asm_statement* _Owner _Opt asm_statement(struct parser_ctx* ctx)
 {
-    if (ctx->options.platform.msvc_like_asm_statement)
+    if (ctx->options.platform.dialect_msvc_like_asm_statement)
         return msvc_asm_statement(ctx);
 
     // balanced tokens ( ... )

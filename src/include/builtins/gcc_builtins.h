@@ -9,7 +9,7 @@ typedef typeof(sizeof(1)) size_t;
     typedef float _Float16;
 #endif /* __CAKE_TARGET_OS_MACOS */
 
-#if __CAKE_SIZEOF_LONG_LONG_LONG__ == 16
+#if __CAKE_SIZEOF_INT128__ == 16
 typedef unsigned __int128 __uint128_t;
 typedef __int128 __int128_t;
 #else

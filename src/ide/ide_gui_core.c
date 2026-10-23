@@ -1599,6 +1599,11 @@ static void reflow_windows(struct gui_app* app, const struct gui_rect* old_deskt
         struct gui_node* win = app->windows.items[i];
         if (win->window->maximized)
             continue;
+        if (win->window->modal)
+        {
+            gui_window_center(app, win);   /* a dialog stays centered */
+            continue;
+        }
         struct gui_rect* r = &win->rect;
         if (r->x + r->w == old_desktop->x + old_desktop->w)
             r->w = d.x + d.w - r->x;

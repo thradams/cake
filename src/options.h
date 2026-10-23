@@ -173,8 +173,8 @@ enum diagnostic_id {
     W_FLOW_NOT_DONE = 97, /* flow analysis of a function was not done, the message says why */
     W_FLOW_RETURN_TYPE = 98, /* non-void function can reach the end without return */
     W_MOVE_FROM_CONST_OWNER = 99, /* const object cannot be moved: someone may be pointing to it */
-    W_UNUSED_WARNING_100 = 100,
-    W_UNUSED_WARNING_101 = 101,
+    W_FLOW_PARAM_MAY_ALIAS = 100, /* the function has an error when two pointer parameters point to the same object */
+    W_FLOW_RESTRICT_ARGUMENTS_ALIAS = 101, /* arguments of a restrict parameter may point to the same object */
     W_UNUSED_WARNING_102 = 102,
     W_UNUSED_WARNING_103 = 103,
     W_UNUSED_WARNING_104 = 104,
@@ -362,6 +362,7 @@ enum diagnostic_id {
     C_ERROR_FLEXIBLE_ARRAY_MEMBER_IN_UNION = 2360,
     C_ERROR_ARRAY_DESIGNATOR_IN_NON_ARRAY = 2370,
     C_ERROR_CONSTEXPR_POINTER_NOT_NULL = 2380,
+    C_ERROR_CODEGEN_UNSUPPORTED = 2390,
 };
 
 
