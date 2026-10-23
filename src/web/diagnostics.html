@@ -2268,8 +2268,23 @@ void f(const struct list* list)
 The function is analyzed again with both pointing to the same object; a
 diagnostic that only appears then is reported as this warning, at its line.
 <code>restrict</code> on one of them says they never alias (C23 6.7.4.2) and removes the
-warning.
+warning.</p>
+
+<p>When the problem is passing both to a <code>restrict</code> parameter (warning 101), the
+message asks to add <code>restrict</code> to one of them or to handle them being equal:
 <!-- runnable --></p>
+
+<pre><code class="language-c">struct X { int i; };
+
+void copy(struct X* restrict dest, const struct X* src);
+
+void f(struct X* a, const struct X* b)
+{
+    copy(a, b); //warning 100: &#39;a&#39; and &#39;b&#39; may reach a restrict parameter as the same object; add restrict to &#39;a&#39; or &#39;b&#39;, or handle a == b
+}
+</code></pre>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 void free(void* _Owner _Opt p);

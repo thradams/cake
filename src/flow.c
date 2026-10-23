@@ -6381,7 +6381,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                             if (base_kind == FLOW_VALUE_KIND_PTR)
                             {
                                 /* Keep the pointer alternative unchanged. */
-                                flow_alternatives_add(&result_alts, base); /* lint 35 BUG in flow */
+                                flow_alternatives_add(&result_alts, base);
                             }
                             else
                             {
@@ -6400,7 +6400,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                                     .imaginary = FLOW_IMAGINARY_NONE,
                                     .p_origin_map = flow_origin_more_specific(lval->p_origin_map, rval->p_origin_map),
                                     .p_origin_token = p_result->first_token
-                                }; /* lint 33 BUG in flow */
+                                };
                                 flow_alternatives_add(&result_alts, &a);
                             }
                             continue;
@@ -12506,11 +12506,34 @@ static void flow_alias_item_message(const struct diagnostic_item* p, char* out, 
     }
 }
 
-static bool flow_alias_item_is_in(const struct diagnostic_item* _Opt p_list, int line, enum diagnostic_id id)
+/* The object a diagnostic names: the first '...' of its message, or "" when there is none. */
+static void flow_alias_item_subject(const struct diagnostic_item* p, char* out, int out_size)
 {
+    char message[200] = { 0 };
+    flow_alias_item_message(p, message, sizeof message);
+    out[0] = '\0';
+    const char* _Opt begin = strchr(message, '\'');
+    if (begin == NULL)
+        return;
+    begin++;
+    const char* _Opt end = strchr(begin, '\'');
+    if (end == NULL)
+        return;
+    snprintf(out, out_size, "%.*s", (int)(end - begin), begin);
+}
+
+/* p_item is in p_list: same line, id and object, so the same problem */
+static bool flow_alias_item_is_in(const struct diagnostic_item* _Opt p_list, const struct diagnostic_item* p_item)
+{
+    char subject[100] = { 0 };
+    flow_alias_item_subject(p_item, subject, sizeof subject);
     for (const struct diagnostic_item* _Opt p = p_list; p; p = p->next)
     {
-        if (p->line == line && p->id == id)
+        if (p->line != p_item->line || p->id != p_item->id)
+            continue;
+        char other[100] = { 0 };
+        flow_alias_item_subject(p, other, sizeof other);
+        if (strcmp(subject, other) == 0)
             return true;
     }
     return false;
@@ -12609,7 +12632,7 @@ static void flow_check_parameter_aliasing(struct flow_ctx* ctx, struct declarati
             {
                 for (const struct diagnostic_item* _Opt p = alias_queue.head; p; p = p->next)
                 {
-                    if (!flow_alias_item_is_compared(p) || flow_alias_item_is_in(p_normal, p->line, p->id))
+                    if (!flow_alias_item_is_compared(p) || flow_alias_item_is_in(p_normal, p))
                         continue;
 
                     bool line_reported = false;
@@ -12620,11 +12643,21 @@ static void flow_check_parameter_aliasing(struct flow_ctx* ctx, struct declarati
                     {
                         struct flow_alias_report* r = &reports[reports_count++];
                         r->line = p->line;
-                        char problem[160] = { 0 };
-                        flow_alias_item_message(p, problem, sizeof problem);
-                        snprintf(r->message, sizeof r->message,
-                                 "in case '%s' and '%s' point to the same object: %s",
-                                 name_i, name_j, problem);
+                        if (p->id == W_FLOW_RESTRICT_ARGUMENTS_ALIAS)
+                        {
+                            /* the restrict of the callee moves up to this function */
+                            snprintf(r->message, sizeof r->message,
+                                     "'%s' and '%s' may reach a restrict parameter as the same object; add restrict to '%s' or '%s', or handle %s == %s",
+                                     name_i, name_j, name_i, name_j, name_i, name_j);
+                        }
+                        else
+                        {
+                            char problem[160] = { 0 };
+                            flow_alias_item_message(p, problem, sizeof problem);
+                            snprintf(r->message, sizeof r->message,
+                                     "in case '%s' and '%s' point to the same object: %s",
+                                     name_i, name_j, problem);
+                        }
                     }
                 }
             }

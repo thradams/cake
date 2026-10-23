@@ -1,5 +1,5 @@
 // https://github.com/thradams/cake/issues/177
-enum Color : char {
+enum Color : signed char {
     red = 0x7e,
     green,
     blue

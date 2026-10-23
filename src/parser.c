@@ -9767,11 +9767,11 @@ struct function_declarator* _Owner _Opt function_declarator(struct direct_declar
                     {
                         struct struct_or_union_specifier* _Owner _Opt p_moved = hashmap_remove(p_parameters_tags, p_entry->key, NULL);
                         assert(p_moved != NULL);
-                        p_moved->p_parameters_scope_opt = &p_function_declarator->parameters_scope; //lint 33 assert line 9718
+                        p_moved->p_parameters_scope_opt = &p_function_declarator->parameters_scope;
 
                         struct hash_item_set item = { 0 };
                         item.p_struct_or_union_specifier = p_moved;
-                        hashmap_set(&ctx->scopes.tail->tags, p_moved->tag_name, &item); //lint 33 assert line 9718
+                        hashmap_set(&ctx->scopes.tail->tags, p_moved->tag_name, &item);
                         hash_item_set_destroy(&item);
                     }
                     p_entry = p_next;
@@ -15780,7 +15780,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror)
             if (declared_enum != NULL &&
                 get_enum_specifier_definition(declared_enum) == NULL)
             {
-                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, declared_enum->first_token, NULL, "enum type is incomplete"); //lint 33 BUG in flow
+                diagnostic(C_ERROR_STRUCT_IS_INCOMPLETE, ctx, declared_enum->first_token, NULL, "enum type is incomplete");
             }
             decl = decl->next;
         }
