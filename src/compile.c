@@ -984,7 +984,7 @@ static int find_definition_counterpart(const char* const* files, int count, cons
 static bool find_definition_sibling(const char* file, char* out, int out_size)
 {
     snprintf(out, out_size, "%s", file);
-    char* dot = strrchr(basename(out), '.');
+    char* _Opt dot = strrchr(basename(out), '.');
     if (dot == NULL || strcmp(dot, ".c") == 0 || (int)(dot - out) + 3 > out_size)
         return false;
     strcpy(dot, ".c");

@@ -255,48 +255,48 @@
 <li>
 <a href="#toc_26">4.7 Parameters That May Be the Same Object: <code>restrict</code></a>
 </li>
-</ul>
-</li>
 <li>
-<a href="#toc_27">Chapter 5 - How the Analysis Sees a Program</a>
-<ul>
-<li>
-<a href="#toc_28">5.1 Paths</a>
-</li>
-<li>
-<a href="#toc_29">5.2 Paths That End</a>
-</li>
-<li>
-<a href="#toc_30">5.3 Loops</a>
-</li>
-<li>
-<a href="#toc_31">5.4 One Report per Fact</a>
+<a href="#toc_27">4.8 The Result May Be an Argument</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_32">Chapter 6 - Limitations</a>
+<a href="#toc_28">Chapter 5 - How the Analysis Sees a Program</a>
 <ul>
 <li>
-<a href="#toc_33">6.1 Contracts That Cannot Be Written</a>
+<a href="#toc_29">5.1 Paths</a>
 </li>
 <li>
-<a href="#toc_34">6.2 Contracts That Are Not Written</a>
+<a href="#toc_30">5.2 Paths That End</a>
 </li>
 <li>
-<a href="#toc_35">6.3 What the Analysis Assumes About <code>const</code></a>
+<a href="#toc_31">5.3 Loops</a>
 </li>
 <li>
-<a href="#toc_36">6.4 Functions That Are Too Large</a>
+<a href="#toc_32">5.4 One Report per Fact</a>
 </li>
 <li>
-<a href="#toc_37">6.5 Backward <code>goto</code></a>
+<a href="#toc_33">5.5 Hypotheses</a>
+</li>
+</ul>
 </li>
 <li>
-<a href="#toc_38">6.6 Comparing Two Pointers</a>
+<a href="#toc_34">Chapter 6 - Limitations</a>
+<ul>
+<li>
+<a href="#toc_35">6.1 Conditional Contracts</a>
 </li>
 <li>
-<a href="#toc_39">6.7 Arrays Whose Size Is Not Known</a>
+<a href="#toc_36">6.2 What the Analysis Assumes About <code>const</code></a>
+</li>
+<li>
+<a href="#toc_37">6.3 Functions That Are Too Large</a>
+</li>
+<li>
+<a href="#toc_38">6.4 Backward <code>goto</code></a>
+</li>
+<li>
+<a href="#toc_39">6.5 Arrays Whose Size Is Not Known</a>
 </li>
 </ul>
 </li>
@@ -350,6 +350,20 @@
 </li>
 <li>
 <a href="#toc_56">A16. <code>restrict</code> and parameters that may alias</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_57">Appendix B - Hypotheses</a>
+<ul>
+<li>
+<a href="#toc_58">B.1 The Result of a Call</a>
+</li>
+<li>
+<a href="#toc_59">B.2 Parameters That May Be the Same Object</a>
+</li>
+<li>
+<a href="#toc_60">B.3 <code>restrict</code></a>
 </li>
 </ul>
 </li>
@@ -644,7 +658,7 @@ void f(struct person* p)
 }
 </code></pre>
 
-<p>With <code>void update(const struct person* p)</code> the test would still hold. The analysis assumes that nothing reachable from <code>*p</code> changes (Section 6.3).</p>
+<p>With <code>void update(const struct person* p)</code> the test would still hold. The analysis assumes that nothing reachable from <code>*p</code> changes (Section 6.2).</p>
 
 <p>Because of this, <code>const</code> improves the static analysis: the caller keeps what it knew. That is why the implementation of a function is warned when a pointer parameter could be <code>const</code>:</p>
 
@@ -856,7 +870,7 @@ void h(struct X* p)
 }
 </code></pre>
 
-<p>A <code>const</code> pointer promises more: nothing reachable from <code>*p</code> changes, so the caller may keep using what it knew before the call (Section 6.3).</p>
+<p>A <code>const</code> pointer promises more: nothing reachable from <code>*p</code> changes, so the caller may keep using what it knew before the call (Section 6.2).</p>
 
 <h3 id="toc_21">4.2 Output Parameters: <code>_Out</code></h3>
 
@@ -1048,8 +1062,11 @@ void f(void)
 <p>Two pointer parameters of the same type may point to the same object: 
 the caller is free to pass <code>f(a, a)</code>. 
 The implementation must work in that case too. 
-The function is analysed a second time with both parameters pointing to the 
-same object, and a problem that only appears then is reported with warning 100.</p>
+Both hypotheses are analysed together: at the entry of the function, the
+second parameter may point to its own object or to the object of the first.
+A problem that only appears when they are the same object is reported with
+warning 100. A test such as <code>p == q</code> is false in one hypothesis and true in
+the other, and both branches are analysed.</p>
 
 <!-- runnable -->
 
@@ -1084,9 +1101,48 @@ void f(struct X* a)
 }
 </code></pre>
 
-<h2 id="toc_27">Chapter 5 - How the Analysis Sees a Program</h2>
+<h3 id="toc_27">4.8 The Result May Be an Argument</h3>
 
-<h3 id="toc_28">5.1 Paths</h3>
+<p>A pointer returned by a call may be a new object or one of its pointer
+arguments with the same pointed type (any argument when the result is
+<code>void*</code> or <code>char*</code>). The declaration of <code>first</code> does not say which, so both
+are hypotheses. A problem that only appears under the hypothesis that they
+are the same object is reported in that case.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner _Opt malloc(unsigned long n);
+void free(void* _Owner _Opt p);
+
+int* first(int* p);
+int* copy_of(int* restrict p);
+
+int f(void)
+{
+    int* _Owner _Opt p = malloc(sizeof(int));
+    if (!p) return 0;
+    *p = 1;
+
+    int* q = first(p);
+    int* r = copy_of(p); /* restrict: r is not p */
+    free(p);
+
+    int v = *r;
+    /* warning 31: in case &#39;first(p)&#39; and &#39;p&#39; point to the same object */
+    return v + *q;
+}
+</code></pre>
+
+<p>A <code>restrict</code> parameter is never returned, and the implementation is checked
+for it: returning a pointer to the object of a <code>restrict</code> parameter is
+warning 102. An argument passed to an <code>_Owner</code> parameter is kept alive by the
+callee, so a pointer returned to it stays valid.</p>
+
+<h2 id="toc_28">Chapter 5 - How the Analysis Sees a Program</h2>
+
+<h3 id="toc_29">5.1 Paths</h3>
 
 <p>The analysis reads a function the way the machine would run it, but it follows every path at once. At each point it knows the set of things each object may be: null or not, which value, owned or moved. A warning is a question asked of that set. &quot;Can <code>p</code> be null here?&quot; If any path says yes, the warning is reported.</p>
 
@@ -1109,7 +1165,7 @@ L:
 
 <p><code>compile_assert</code> fails to compile unless its condition holds on every path. It is the most direct way to ask the analysis what it knows.</p>
 
-<h3 id="toc_29">5.2 Paths That End</h3>
+<h3 id="toc_30">5.2 Paths That End</h3>
 
 <p>A path that returns does not arrive anywhere. Code after it in the same block is never reached, and the analysis says so.</p>
 
@@ -1129,7 +1185,7 @@ void f(int x)
 }
 </code></pre>
 
-<h3 id="toc_30">5.3 Loops</h3>
+<h3 id="toc_31">5.3 Loops</h3>
 
 <p>A loop that may run zero times may leave a variable unset. When the first test of the condition is known to be true, the loop runs at least once, and the analysis knows it.</p>
 
@@ -1154,7 +1210,7 @@ void h(int n)
 }
 </code></pre>
 
-<h3 id="toc_31">5.4 One Report per Fact</h3>
+<h3 id="toc_32">5.4 One Report per Fact</h3>
 
 <p>When the same mistake is reachable from many paths, it is reported once. The message says how many other paths lead to it.</p>
 
@@ -1176,13 +1232,48 @@ void f(int a, int b)
 
 <p><strong>Experiment 5-1.</strong> Three more <code>else if</code> branches set <code>p</code> to null. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIHVzZShpbnQqIHApOwppbnQgZzsKCnZvaWQgZihpbnQgYSwgaW50IGIsIGludCBjLCBpbnQgZCwgaW50IGUpCnsKICAgIGludCogX09wdCBwID0gJmc7CiAgICBpZiAoYSkgcCA9IDA7CiAgICBlbHNlIGlmIChiKSBwID0gMDsKICAgIGVsc2UgaWYgKGMpIHAgPSAwOwogICAgZWxzZSBpZiAoZCkgcCA9IDA7CiAgICBlbHNlIGlmIChlKSBwID0gMDsKICAgIHVzZShwKTsgLyogd2FybmluZyAzNSAqLwp9Cg%3D%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
-<h2 id="toc_32">Chapter 6 - Limitations</h2>
+<h3 id="toc_33">5.5 Hypotheses</h3>
+
+<p>Some things the declarations do not rule out: two pointer parameters may be
+the same object, and a pointer returned by a call may be one of its
+arguments. Each of these is a hypothesis. The analysis does not choose one;
+it follows them all, as it follows the two sides of an <code>if</code>.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int* p, int* q)
+{
+    *p = 1;
+    *q = 2;
+    compile_assert(*p == 1 || *p == 2);
+}
+</code></pre>
+
+<p><code>*p</code> is 1 when <code>p</code> and <code>q</code> are different objects, and 2 when they are the
+same. <code>compile_assert(*p == 1)</code> alone would fail.</p>
+
+<p>The hypotheses are made where they start: at the entry of the function for
+parameters, at the call for a result. Then they are paths like any other, in
+the same pass. A problem that only one hypothesis has is reported with it:
+&quot;in case &#39;p&#39; and &#39;q&#39; point to the same object: ...&quot;. <code>restrict</code> removes a
+hypothesis (sections 4.7 and 4.8); Appendix B has the details.</p>
+
+<h2 id="toc_34">Chapter 6 - Limitations</h2>
 
 <p>The rules describe what a declaration can say today. Some programs are correct but cannot be described, and some bugs cannot be seen. This chapter lists the ones a programmer will meet first.</p>
 
-<h3 id="toc_33">6.1 Contracts That Cannot Be Written</h3>
+<h3 id="toc_35">6.1 Conditional Contracts</h3>
 
-<p>Some contracts cannot be written yet. The best known is <code>realloc</code>: ownership of its argument moves only if the call succeeds. What is missing is only a syntax to state it: the flow analysis already tracks states that depend on the result of a call, and would follow such a contract as it follows the existing ones. Where the analysis cannot follow, the programmer marks the line with <code>/* lint N */</code>, which says &quot;warning N is expected here&quot;, silences it, and complains if it does not happen.</p>
+<p>A conditional contract holds only under a condition, usually the result of
+the call. The best known is <code>realloc</code>: ownership of its argument moves only
+if the call succeeds. Such contracts cannot be written yet. What is missing
+is only a syntax to state them: the flow analysis already tracks states that
+depend on the result of a call, and would follow such a contract as it
+follows the existing ones. Where the analysis cannot follow, the programmer
+marks the line with <code>/* lint N */</code>, which says &quot;warning N is expected here&quot;,
+silences it, and complains if it does not happen.</p>
 
 <!-- runnable -->
 
@@ -1206,34 +1297,7 @@ void f(int* _Owner _Opt p)
 
 <p><strong>Experiment 6-1.</strong> In the example above, the <code>/* lint 26 (realloc) */</code> comment is removed. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkKiBfT3duZXIgX09wdCByZWFsbG9jKHZvaWQqIF9PcHQgcCwgdW5zaWduZWQgbG9uZyBzaXplKTsKdm9pZCBmcmVlKHZvaWQqIF9Pd25lciBfT3B0IHApOwoKdm9pZCBmKGludCogX093bmVyIF9PcHQgcCkKewogICAgaW50KiBfT3duZXIgX09wdCBxID0gcmVhbGxvYyhwLCAxMCAqIHNpemVvZihpbnQpKTsKICAgIGlmIChxID09IDApCiAgICB7CiAgICAgICAgZnJlZShwKTsgLyogZmFpbGVkOiBwIHN0aWxsIG93bnMgdGhlIG1lbW9yeSAqLwogICAgICAgIHJldHVybjsKICAgIH0KICAgIHAgPSBxOwogICAgZnJlZShwKTsKfQo%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
-<h3 id="toc_34">6.2 Contracts That Are Not Written</h3>
-
-<p>The analysis knows only what a declaration says. Here <code>id</code> returns its argument, but its declaration does not say so. The analysis cannot tell that <code>q</code> points to the object released through <code>p</code>, and the use after free is not reported.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void* _Owner _Opt malloc(unsigned long n);
-void free(void* _Owner _Opt p);
-
-int* id(int* q) { return q; }
-
-int f(void)
-{
-    int* _Owner _Opt p = malloc(sizeof(int));
-    if (!p) return 0;
-    int* q = id(p);
-    free(p);
-    return *q;   /* use after free, not reported */
-}
-</code></pre>
-
-<p>A contract saying &quot;the result points to the same object as the argument&quot; would let the analysis follow the pointer through the call. No such annotation exists yet, but nothing new is needed in the analysis: it already follows a pointer to the same object through assignments, and a contract would let it do the same through the call. Only the syntax is missing.</p>
-
-<p><code>realloc</code> and <code>id</code> are two examples of a larger need. The annotations describe a fixed set of contracts, and more of them are still needed, or a more general way to write a contract.</p>
-
-<h3 id="toc_35">6.3 What the Analysis Assumes About <code>const</code></h3>
+<h3 id="toc_36">6.2 What the Analysis Assumes About <code>const</code></h3>
 
 <p>In C a <code>const struct X* p</code> protects only <code>*p</code>: <code>p-&gt;m</code> cannot be written, but <code>p-&gt;m-&gt;x</code> can. The analysis assumes more: after a call through <code>const</code>, the caller keeps what it knew about everything reachable from <code>*p</code>.</p>
 
@@ -1247,11 +1311,11 @@ int f(void)
 
 <p>A function that receives <code>const</code> and hands out something reachable from it as non-<code>const</code> (a lookup, like <code>strchr</code>) breaks the promise for its callers. Provide two versions: <code>T* find(const C*)</code> for callers that change the result, and <code>const T* find_const(const C*)</code> for callers that only read it.</p>
 
-<h3 id="toc_36">6.4 Functions That Are Too Large</h3>
+<h3 id="toc_37">6.3 Functions That Are Too Large</h3>
 
 <p>The analysis follows every path, and in a very large function the number of objects and paths can grow too much. When that happens the analysis stops, reports warning 97 once, and reports nothing else for that function. The next function is analysed normally. Splitting the function brings the analysis back.</p>
 
-<h3 id="toc_37">6.5 Backward <code>goto</code></h3>
+<h3 id="toc_38">6.4 Backward <code>goto</code></h3>
 
 <p>A <code>while</code> or <code>for</code> loop is analysed as a loop: what one iteration does reaches the next. A label is not. A <code>goto</code> that jumps back to a label above it has no effect on what the analysis knows, so the result is too optimistic:</p>
 
@@ -1275,26 +1339,7 @@ L:
 
 <p>Write the loop with <code>while</code> or <code>for</code> instead.</p>
 
-<h3 id="toc_38">6.6 Comparing Two Pointers</h3>
-
-<p>Two pointers to different objects are taken to be always different, so <code>p == q</code> is seen as false and its branch as unreachable. At run time the two pointers may be equal, for example when both are null.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-void f(int* _Opt p, int* _Opt q)
-{
-    if (p == q)
-    {
-        /* reachable at run time, but not analysed */
-    }
-}
-</code></pre>
-
-<p>Comparisons with <code>0</code> or <code>nullptr</code> are not affected.</p>
-
-<h3 id="toc_39">6.7 Arrays Whose Size Is Not Known</h3>
+<h3 id="toc_39">6.5 Arrays Whose Size Is Not Known</h3>
 
 <p>Indexes are checked only against arrays whose size is a constant. A variable length array, or a pointer to <code>n</code> items, has a size known only at run time, and an index past its end is not reported.</p>
 
@@ -1329,7 +1374,7 @@ void f(int n, int* p)
 <li>A2.1 The implementation assumes <code>p</code> is not null, <code>*p</code> is valid, and <code>p</code> does not own <code>*p</code>.</li>
 <li>A2.2 At every exit <code>*p</code> is valid.</li>
 <li>A2.3 The caller must pass a non-null pointer to a valid object. After the call it must assume every object reachable from <code>*p</code> may have changed, and that its pointers into them are no longer valid.</li>
-<li>A2.4 With <code>const</code>, the analysis assumes that nothing reachable from <code>*p</code> is written or moved, so what the caller knew still holds (6.3). C protects only <code>*p</code>, so the implementation is checked for writes that break this assumption, and for pointers reachable from <code>*p</code> that leave as non-<code>const</code> (passed, <code>void*</code> included; copied, also as <code>&amp;p-&gt;m-&gt;x</code>; returned; or inside a struct copied by value) (warning 120).</li>
+<li>A2.4 With <code>const</code>, the analysis assumes that nothing reachable from <code>*p</code> is written or moved, so what the caller knew still holds (6.2). C protects only <code>*p</code>, so the implementation is checked for writes that break this assumption, and for pointers reachable from <code>*p</code> that leave as non-<code>const</code> (passed, <code>void*</code> included; copied, also as <code>&amp;p-&gt;m-&gt;x</code>; returned; or inside a struct copied by value) (warning 120).</li>
 </ul>
 
 <h3 id="toc_43">A3. Results: <code>struct X* F(void)</code></h3>
@@ -1404,7 +1449,7 @@ void f(int n, int* p)
 <li>A11.2 An <code>_Owner</code> result must be moved by the caller.</li>
 <li>A11.3 An object owns what its <code>_Owner</code> members point to; they must be moved before the object is destroyed.</li>
 <li>A11.4 <code>_Owner</code> may be used wherever an object is declared: local and file-scope variables, members, parameters and results. It is not limited to pointers (<code>_Owner int</code> for a file descriptor).</li>
-<li>A11.5 A move changes the owner&#39;s state, so it is a write: an owner that is <code>const</code> through a pointer cannot be moved (warning 99), nor an owner reachable from a <code>const</code> object (warning 120, 6.3). A <code>const</code> object of our own (local, parameter by value) still moves its owners at the end of its lifetime.</li>
+<li>A11.5 A move changes the owner&#39;s state, so it is a write: an owner that is <code>const</code> through a pointer cannot be moved (warning 99), nor an owner reachable from a <code>const</code> object (warning 120, 6.2). A <code>const</code> object of our own (local, parameter by value) still moves its owners at the end of its lifetime.</li>
 </ul>
 
 <h3 id="toc_52">A12. Combination</h3>
@@ -1513,8 +1558,83 @@ void attributes(void)
 
 <ul>
 <li>A16.1 Two pointer parameters with the same pointed type, neither <code>restrict</code>, may point to the same object. The implementation must be correct in that case.</li>
-<li>A16.2 For each such pair the function is analysed again with both pointing to the same object; each keeps its own nullability. A diagnostic that only this analysis has is reported as warning 100, with its message. When that diagnostic is warning 101 (the two parameters reach a <code>restrict</code> parameter of a call), warning 100 asks to add <code>restrict</code> to one of them or to handle them being equal. Unreachable code (68) and conditions known at compile time (85) that follow from the two pointers being equal are not reported.</li>
-<li>A16.3 <code>restrict</code> on either parameter of a pair says they never point to the same object: the pair is not analysed again. Two <code>_Owner</code> parameters never point to the same object either: each owns its object, and the caller cannot pass one owner twice. Two parameters that only read through <code>const</code> (neither <code>_Owner</code>) are not analysed again either: the same object changes nothing for them.</li>
-<li>A16.4 The caller may pass the same object to two parameters, unless one of them is <code>restrict</code>. With <code>restrict</code> the caller is checked: two arguments of the call that may point to the same object, by the values the analysis knows for them, must be reported with warning 101.</li>
+<li>A16.2 For each such pair, at the entry of the function, the second
+parameter may also point to the object of the first: the hypothesis that
+they are the same object. Each keeps its own nullability. A diagnostic that
+only this hypothesis supports is reported as warning 100, with its message.
+When that diagnostic is warning 101 (the two parameters reach a <code>restrict</code>
+parameter of a call), warning 100 asks to add <code>restrict</code> to one of them or
+to handle them being equal.</li>
+<li>A16.3 <code>restrict</code> on either parameter of a pair says they never point to the same object: there is no hypothesis for the pair. Two <code>_Owner</code> parameters never point to the same object either: each owns its object, and the caller cannot pass one owner twice. Two parameters that only read through <code>const</code> (neither <code>_Owner</code>) have no hypothesis either: the same object changes nothing for them.</li>
+<li>A16.4 The caller may pass the same object to two parameters, unless one of them is <code>restrict</code>. With <code>restrict</code> the caller is checked: two arguments of the call that may point to the same object, or one into the object of the other (<code>&amp;x-&gt;y</code> and <code>x</code>), by the values the analysis knows for them, must be reported with warning 101.</li>
+<li>A16.5 A pointer parameter may also point to a file scope object the function uses (<code>f(&amp;g)</code>), when the object has the pointed type. For each such parameter and object there is a hypothesis that the parameter points to the object, as in A16.2. The parser records the file scope objects each function uses. <code>restrict</code> and <code>_Owner</code> parameters have no such hypothesis: an <code>_Owner</code> cannot own a file scope object.</li>
+<li>A16.6 A non-owner pointer returned by a call may be a new object or one of
+the objects the call&#39;s pointer arguments point to, when the pointed type
+is the same as the result&#39;s (any argument when the result points to <code>void</code>
+or <code>char</code>). Each is a hypothesis, exclusive with the others. A diagnostic
+that follows only from one says so: &quot;in case &#39;first(p)&#39; and &#39;p&#39; point to
+the same object: ...&quot;. An argument passed to a <code>restrict</code> parameter is
+never returned. An argument passed to an <code>_Owner</code> parameter is kept alive
+by the callee and is not considered.</li>
+<li>A16.7 A function must not return a pointer to the object of a <code>restrict</code>
+parameter, or into it: warning 102.</li>
+</ul>
+
+<h2 id="toc_57">Appendix B - Hypotheses</h2>
+
+<p>A hypothesis is a possibility the declarations do not rule out, such as two
+pointers being the same object. Each hypothesis is a branch, like a side of
+an <code>if</code>, and its values are alternatives of the same pass. A diagnostic that
+only a hypothesis supports names it: &quot;in case &#39;a&#39; and &#39;b&#39; point to the same
+object: ...&quot;.</p>
+
+<h3 id="toc_58">B.1 The Result of a Call</h3>
+
+<p>At the caller, a pointer returned by a call is a new object or one of the
+arguments:</p>
+
+<ol>
+<li>The result gets a new pointee, as for any call.</li>
+<li>For each object a pointer argument points to at the call, with the same
+pointed type (any argument for a <code>void*</code> or <code>char*</code> result), there is a
+hypothesis that the result points to it. Arguments of <code>restrict</code> and
+<code>_Owner</code> parameters are skipped.</li>
+<li>The new pointee and each argument&#39;s object are exclusive sides, as in
+B.2: a write through the result changes one object per path.</li>
+<li>A problem found only under a hypothesis is reported in that case:
+&quot;in case &#39;first(p)&#39; and &#39;p&#39; point to the same object: ...&quot;.</li>
+</ol>
+
+<p>All hypotheses are alternatives of one pass: nothing is analysed again.</p>
+
+<h3 id="toc_59">B.2 Parameters That May Be the Same Object</h3>
+
+<p>In the callee, all hypotheses are made at the entry of the function:</p>
+
+<ol>
+<li>For each pair of pointer parameters with the same pointed type, the
+second parameter gets the object of the first as another value. Pairs
+with <code>restrict</code>, two <code>_Owner</code> or two <code>const</code> views are skipped.</li>
+<li>The same for a parameter and each file scope object of the pointed type
+the function uses (the parser records them).</li>
+<li>The parameter&#39;s own value and the new one are the two sides of the
+hypothesis, as the two sides of an <code>if</code>: they are never on the same path.</li>
+<li>A problem found only through the new value is reported as warning 100,
+&quot;in case &#39;a&#39; and &#39;b&#39; point to the same object: ...&quot;.</li>
+</ol>
+
+<p><code>a == b</code> is false on one side and true on the other: both branches are
+analysed. As in B.1, everything is one pass.</p>
+
+<h3 id="toc_60">B.3 <code>restrict</code></h3>
+
+<p><code>restrict</code> removes a hypothesis, and the check moves to the other side:</p>
+
+<ul>
+<li>A <code>restrict</code> parameter is not paired in B.2. The caller is checked
+instead: two arguments that may point to the same object, one of them to a
+<code>restrict</code> parameter, are warning 101.</li>
+<li>A <code>restrict</code> parameter is not a possible result in B.1. The callee is
+checked instead: returning a pointer to its object is warning 102.</li>
 </ul>
 </article></body></html>

@@ -490,6 +490,24 @@ struct flow_key_alternatives* _Opt flow_branch_find_add(struct flow_branch* _Opt
     }
 }
 
+/* p_map, or an ancestor, is a side of a hypothesis (FLOW_BRANCH_HYPOTHESIS / _NOT), or implies one */
+bool flow_branch_is_under_hypothesis(const struct flow_branch* _Opt p_map)
+{
+    bool under_hypothesis = false;
+    for (const struct flow_branch* _Opt p_branch = p_map; p_branch != NULL && !under_hypothesis; p_branch = p_branch->p_parent_map)
+    {
+        for (int fact_index = -1; fact_index < p_branch->implied_facts.count; fact_index++)
+        {
+            const enum flow_branch_kind kind = fact_index < 0 ? p_branch->kind : p_branch->implied_facts.data[fact_index].kind;
+            if (kind == FLOW_BRANCH_HYPOTHESIS || kind == FLOW_BRANCH_HYPOTHESIS_NOT)
+            {
+                under_hypothesis = true;
+            }
+        }
+    }
+    return under_hypothesis;
+}
+
 void flow_branch_set_object_moved(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token)
 {
     if (m == NULL)
@@ -840,8 +858,11 @@ void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const str
                 an unrelated line.
             */
             e->alternatives.data[i]->p_origin_token = p_token; //lint 33
-            /* the lifetime ends on this path, not on the arm that wrote the value */
-            e->alternatives.data[i]->p_origin_map = m; //lint 33
+            /* the lifetime ends on this path, not on the arm that wrote the value; a hypothesis is kept */
+            if (!flow_branch_is_under_hypothesis(e->alternatives.data[i]->p_origin_map)) //lint 33
+            {
+                e->alternatives.data[i]->p_origin_map = m; //lint 33
+            }
         }
     }
 }
@@ -1396,8 +1417,12 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
                     continue;
                 }
 
+                /* a hypothesis holds in the whole function: the value keeps it */
                 struct flow_alternative tagged = *a;
-                tagged.p_origin_map = p_retag_origin;
+                if (!flow_branch_is_under_hypothesis(a->p_origin_map))
+                {
+                    tagged.p_origin_map = p_retag_origin;
+                }
                 flow_alternatives_add(&p_join_entry->alternatives, &tagged);
             }
         }
@@ -1792,6 +1817,12 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
             return;
         case FLOW_BRANCH_CALL_OPT_NONNULL:
             ss_fprintf(ss, "call-opt-nonnull");
+            return;
+        case FLOW_BRANCH_HYPOTHESIS:
+            ss_fprintf(ss, "hypothesis");
+            return;
+        case FLOW_BRANCH_HYPOTHESIS_NOT:
+            ss_fprintf(ss, "hypothesis-not");
             return;
         case FLOW_BRANCH_FOR_BODY_DIAG:
             ss_fprintf(ss, "for body (diagnostics only)");

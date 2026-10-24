@@ -175,7 +175,7 @@ enum diagnostic_id {
     W_MOVE_FROM_CONST_OWNER = 99, /* const object cannot be moved: someone may be pointing to it */
     W_FLOW_PARAM_MAY_ALIAS = 100, /* the function has an error when two pointer parameters point to the same object */
     W_FLOW_RESTRICT_ARGUMENTS_ALIAS = 101, /* arguments of a restrict parameter may point to the same object */
-    W_UNUSED_WARNING_102 = 102,
+    W_FLOW_RESTRICT_PARAMETER_RETURNED = 102, /* the function returns a pointer into the object of a restrict parameter */
     W_UNUSED_WARNING_103 = 103,
     W_UNUSED_WARNING_104 = 104,
     W_UNUSED_WARNING_105 = 105,

@@ -125,7 +125,6 @@ void diagnostic_queue_add(struct diagnostic_queue* q, struct diagnostic_item* _O
 void diagnostic_queue_flush(struct diagnostic_queue* q, struct parser_ctx* ctx);
 bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id);
 void diagnostic_queue_destroy(_Dtor struct diagnostic_queue* q);
-void diagnostic_queue_swap(struct diagnostic_queue* a, struct diagnostic_queue* b);
 
 
 int parse_diagnostic_suppression(const char* p, int ids[], int ids_max);
@@ -994,6 +993,11 @@ struct declarator
     int gcc_aligned;
 
     struct compound_statement* _Opt function_body;
+
+    /* file scope objects the function body uses: flow may assume a parameter points to one */
+    const struct declarator* _Opt* _Owner _Opt used_globals;
+    int used_globals_count;
+    int used_globals_capacity;
 
     /*
         points to someone that has the function_body or

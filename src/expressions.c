@@ -3440,6 +3440,39 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx, bool i
                     {
                         /* it is from file scope */
                         declarator_is_from_enclosing_function = false;
+
+                        struct declarator* _Opt p_function = ctx->p_current_function_opt;
+                        if (p_function != NULL && !b_type_is_function)
+                        {
+                            bool already_used = false;
+                            for (int i = 0; i < p_function->used_globals_count; i++)
+                            {
+                                if (p_function->used_globals[i] == p_declarator) //lint 33
+                                {
+                                    already_used = true;
+                                    break;
+                                }
+                            }
+                            if (!already_used)
+                            {
+                                if (p_function->used_globals_count == p_function->used_globals_capacity)
+                                {
+                                    const int new_capacity = p_function->used_globals_capacity == 0 ? 4 : p_function->used_globals_capacity * 2;
+                                    const struct declarator* _Opt* _Owner _Opt p_new =
+                                        realloc(p_function->used_globals, (size_t)new_capacity * sizeof(p_function->used_globals[0]));
+                                    if (p_new != NULL)
+                                    {
+                                        p_function->used_globals = p_new; //lint 26  (realloc semantics)
+                                        p_function->used_globals_capacity = new_capacity;
+                                    }
+                                }
+                                if (p_function->used_globals_count < p_function->used_globals_capacity)
+                                {
+                                    p_function->used_globals[p_function->used_globals_count] = p_declarator; //lint 33
+                                    p_function->used_globals_count++;
+                                }
+                            }
+                        }
                     }
                     else
                     {
@@ -4146,7 +4179,6 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
-                p_expression_node->last_token = ctx->current;
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = EXPR_POSTFIX_ARRAY;
                 /* result of the subscript operator [] */

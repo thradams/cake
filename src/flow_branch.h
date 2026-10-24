@@ -47,6 +47,8 @@ enum flow_branch_kind
     FLOW_BRANCH_AND_DEAD_FALSE,
     FLOW_BRANCH_MERGE_TEMP, /* short-lived local scratch map used only inside flow_branch_merge_arms; never printed */
     FLOW_BRANCH_POINTER_TARGET, /* the paths where a pointer with several targets points to one of them */
+    FLOW_BRANCH_HYPOTHESIS, /* the paths of a hypothesis: two pointers are the same object (struct flow_hypothesis) */
+    FLOW_BRANCH_HYPOTHESIS_NOT, /* the other side of a hypothesis */
 };
 
 /* A branch side known to hold: the map is on side `kind` of the pair tagged branch_id. */
@@ -152,6 +154,7 @@ struct osstream flow_explain_origin(const struct flow_branch* _Opt map);
 struct flow_branch* _Opt flow_branch_arena_new_branch(struct flow_branch_arena* a, struct flow_branch* _Opt parent, bool is_true, const struct expression* _Opt p_expr);
 const struct flow_branch* _Opt flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Opt new_origin);
 void flow_tag_branch_pair(struct flow_branch* _Opt p_true, struct flow_branch* _Opt p_false);
+bool flow_branch_is_under_hypothesis(const struct flow_branch* _Opt p_map);
 
 
 struct object_set

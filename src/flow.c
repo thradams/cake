@@ -2112,7 +2112,16 @@ static bool flow_object_leaves_in_state(struct flow_ctx* ctx,
             Same branch scoping as the per-alternative loop: a fact from one arm
             must not reach another (self-consuming-reassignment.c).
         */
-        if (!flow_branch_is_ancestor_or_self(a->p_origin_map, p_origin_filter) &&
+        /* a fact set in one target arm of a write through the pointer: the paths of that target */
+        const bool from_target_arm =
+            a->p_origin_map != NULL &&
+            a->p_origin_map->kind == FLOW_BRANCH_POINTER_TARGET &&
+            ctx->p_current_flow_branch != NULL &&
+            flow_branch_is_ancestor_or_self(a->p_origin_map->p_parent_map, ctx->p_current_flow_branch) &&
+            flow_origins_compatible(a->p_origin_map, p_origin_filter);
+
+        if (!from_target_arm &&
+                !flow_branch_is_ancestor_or_self(a->p_origin_map, p_origin_filter) &&
                 !(include_current_branch && ctx->p_current_flow_branch != NULL &&
                   flow_branch_is_ancestor_or_self(a->p_origin_map, ctx->p_current_flow_branch)))
             continue;
@@ -2137,6 +2146,117 @@ static bool flow_object_leaves_in_state(struct flow_ctx* ctx,
         }
     }
     return false;
+}
+
+/* the hypothesis that p_map, or an ancestor, belongs to */
+static const struct flow_hypothesis* _Opt flow_hypothesis_of(const struct flow_ctx* ctx, const struct flow_branch* _Opt p_map)
+{
+    const struct flow_hypothesis* _Opt p_found = NULL;
+    for (const struct flow_branch* _Opt p_branch = p_map; p_branch != NULL && p_found == NULL; p_branch = p_branch->p_parent_map)
+    {
+        /* index -1 is the map's own side, the others its implied facts (a target arm of a write) */
+        for (int fact_index = -1; fact_index < p_branch->implied_facts.count && p_found == NULL; fact_index++)
+        {
+            const int branch_id = fact_index < 0 ? p_branch->branch_id : p_branch->implied_facts.data[fact_index].branch_id;
+            const enum flow_branch_kind kind = fact_index < 0 ? p_branch->kind : p_branch->implied_facts.data[fact_index].kind;
+            for (int i = 0; kind == FLOW_BRANCH_HYPOTHESIS && i < ctx->hypotheses_count; i++)
+            {
+                const struct flow_branch* _Opt p_hypothesis_branch = ctx->hypotheses[i].p_branch;
+                if (p_hypothesis_branch != NULL &&
+                    (p_hypothesis_branch == p_branch || (branch_id != 0 && p_hypothesis_branch->branch_id == branch_id)))
+                {
+                    p_found = &ctx->hypotheses[i];
+                    break;
+                }
+            }
+        }
+    }
+    return p_found;
+}
+
+static void flow_hypothesis_add(struct flow_ctx* ctx, const struct flow_branch* p_branch, bool is_parameter, const char* text)
+{
+    if (ctx->hypotheses_count < FLOW_MAX_HYPOTHESES)
+    {
+        struct flow_hypothesis* p = &ctx->hypotheses[ctx->hypotheses_count];
+        p->p_branch = p_branch;
+        p->is_parameter = is_parameter;
+        snprintf(p->text, sizeof p->text, "%s", text);
+        ctx->hypotheses_count++;
+    }
+}
+
+/*
+    A new hypothesis: p_dest_entry, a pointer, may point to p_target. Its own
+    non-null value moves to the other side of the hypothesis, so the two are
+    never on the same path; several hypotheses nest on that side.
+*/
+static void flow_hypothesis_add_target(struct flow_ctx* ctx,
+                                       struct flow_key_alternatives* p_dest_entry,
+                                       const struct object* p_target,
+                                       const struct token* _Opt p_token,
+                                       bool is_parameter,
+                                       const char* text)
+{
+    struct flow_alternative* _Opt p_own = NULL;
+    for (int i = 0; i < p_dest_entry->alternatives.size; i++)
+    {
+        struct flow_alternative* p_alternative = p_dest_entry->alternatives.data[i]; //lint 33
+        if (p_alternative->value_kind == FLOW_VALUE_KIND_PTR &&
+            p_alternative->value_relation == FLOW_RELATION_EQUAL &&
+            p_alternative->value.p != NULL &&
+            flow_hypothesis_of(ctx, p_alternative->p_origin_map) == NULL)
+        {
+            p_own = p_alternative;
+        }
+    }
+
+    if (p_own != NULL)
+    {
+        struct flow_branch* _Opt p_parent = p_own->p_origin_map != NULL ? (struct flow_branch*)p_own->p_origin_map : ctx->p_current_flow_branch;
+        struct flow_branch* _Opt p_same = flow_branch_arena_new(&ctx->flow_branch_arena, p_parent, FLOW_BRANCH_HYPOTHESIS);
+        struct flow_branch* _Opt p_not_same = flow_branch_arena_new(&ctx->flow_branch_arena, p_parent, FLOW_BRANCH_HYPOTHESIS_NOT);
+        if (p_same != NULL && p_not_same != NULL)
+        {
+            flow_tag_branch_pair(p_same, p_not_same);
+            p_own->p_origin_map = p_not_same;
+            struct flow_alternative a =
+            {
+                .value_kind = FLOW_VALUE_KIND_PTR,
+                .value = {.p = p_target},
+                .value_relation = FLOW_RELATION_EQUAL,
+                .imaginary = FLOW_IMAGINARY_NONE,
+                .p_origin_map = p_same,
+                .p_origin_token = p_token
+            };
+            flow_alternatives_add(&p_dest_entry->alternatives, &a);
+            flow_hypothesis_add(ctx, p_same, is_parameter, text);
+        }
+    }
+}
+
+static const struct flow_branch* _Opt flow_origin_more_specific(const struct flow_branch* _Opt o1, const struct flow_branch* _Opt o2);
+static bool flow_objects_overlap(const struct object* a, const struct object* b);
+
+/* flow_origin_more_specific that keeps the hypothesis of o2: a child of the result on the same side */
+static const struct flow_branch* _Opt flow_origin_more_specific_keep_hypothesis(struct flow_ctx* ctx,
+                                                                              const struct flow_branch* _Opt o1,
+                                                                              const struct flow_branch* _Opt o2)
+{
+    const struct flow_branch* _Opt p_result = flow_origin_more_specific(o1, o2);
+    const struct flow_hypothesis* _Opt p_hypothesis = flow_hypothesis_of(ctx, o2);
+    if (p_hypothesis != NULL && p_hypothesis->p_branch != NULL && p_result != NULL &&
+        flow_hypothesis_of(ctx, p_result) == NULL)
+    {
+        struct flow_branch* _Opt p_same = flow_branch_arena_new(&ctx->flow_branch_arena, (struct flow_branch*)p_result, FLOW_BRANCH_HYPOTHESIS);
+        if (p_same != NULL)
+        {
+            p_same->branch_id = p_hypothesis->p_branch->branch_id;
+            flow_hypothesis_add(ctx, p_same, p_hypothesis->is_parameter, p_hypothesis->text);
+            p_result = p_same;
+        }
+    }
+    return p_result;
 }
 
 /*
@@ -2189,6 +2309,8 @@ static struct flow_reported_finding* _Opt flow_finding_find_add(struct flow_ctx*
     p->message_offset = -1;
     p->count = 0;
     p->sample_count = 0;
+    p->p_hypothesis = NULL;
+    p->has_plain = false;
     findings[i + 1].p_object = NULL;
     return p;
 }
@@ -2249,6 +2371,20 @@ static void flow_finding_record(struct flow_ctx* ctx,
         return; /* already reported */
     }
 
+    const struct flow_hypothesis* _Opt p_hypothesis = flow_hypothesis_of(ctx, p_alternative->p_origin_map);
+    if (p_hypothesis == NULL)
+    {
+        p_hypothesis = flow_hypothesis_of(ctx, p_path_map);
+    }
+    if (p_hypothesis == NULL)
+    {
+        p->has_plain = true;
+    }
+    else if (p->p_hypothesis == NULL)
+    {
+        p->p_hypothesis = p_hypothesis;
+    }
+
     p->count++;
     if (p->sample_count < FLOW_FINDING_MAX_SAMPLES)
     {
@@ -2276,10 +2412,22 @@ static void flow_findings_flush(struct flow_ctx* ctx)
             continue;
         const char* message = ctx->findings_text.c_str + p->message_offset;
 
-        const enum diagnostic_id id = (enum diagnostic_id)p->diagnostic_id;
+        enum diagnostic_id id = (enum diagnostic_id)p->diagnostic_id;
+        /* only a hypothesis supports it: say so */
+        const char* hypothesis = "";
+        const char* separator = "";
+        if (!p->has_plain && p->p_hypothesis != NULL)
+        {
+            hypothesis = p->p_hypothesis->text;
+            separator = ": ";
+            if (p->p_hypothesis->is_parameter)
+            {
+                id = W_FLOW_PARAM_MAY_ALIAS;
+            }
+        }
         const bool reported = p->count > 1 ?
-            diagnostic(id, ctx->ctx, NULL, &p->marker, "%s (also on %d other %s)", message, p->count - 1, p->count == 2 ? "path" : "paths") :
-            diagnostic(id, ctx->ctx, NULL, &p->marker, "%s", message);
+            diagnostic(id, ctx->ctx, NULL, &p->marker, "%s%s%s (also on %d other %s)", hypothesis, separator, message, p->count - 1, p->count == 2 ? "path" : "paths") :
+            diagnostic(id, ctx->ctx, NULL, &p->marker, "%s%s%s", hypothesis, separator, message);
 
         for (int k = 0; reported && k < p->sample_count; k++)
         {
@@ -3156,8 +3304,11 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 if ((uintptr_t)a->value.p < 0x100000) continue; /* defensive, as elsewhere */
                 if (!a->value.p->members.head) continue;
 
+                const struct flow_branch* _Opt p_old_source_ref_origin = ctx->p_source_ref_origin;
+                ctx->p_source_ref_origin = a->p_origin_map;
                 flow_check_object_init_assigment(ctx, p_expression, p_object_dest,
                                                  a->value.p, init_type, dtor_here, view_here);
+                ctx->p_source_ref_origin = p_old_source_ref_origin;
                 handled_by_reference = true;
             }
             if (handled_by_reference)
@@ -3420,7 +3571,11 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                                                      view_here);
                     ctx->p_source_ref_origin = p_old_source_ref_origin;
 
-                    if (type_is_owner(&p_object_dest->type) && !view_here)
+                    /* under a hypothesis the source may be the destination: moving it into itself is not a move */
+                    const bool self_move =
+                        flow_hypothesis_of(ctx, p_src_alternative->p_origin_map) != NULL &&
+                        flow_objects_overlap(p_src_alternative->value.p, p_object_dest);
+                    if (type_is_owner(&p_object_dest->type) && !view_here && !self_move)
                     {
                         flow_branch_set_object_moved(ctx->p_current_flow_branch,
                                                   p_src_alternative->value.p,
@@ -3459,6 +3614,14 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     null_pointer.value.p = NULL;
                     flow_alternatives_add(&p_dest_key_alternatives->alternatives, &null_pointer);
                 }
+                else if (flow_hypothesis_of(ctx, ctx->p_source_ref_origin) != NULL &&
+                         flow_hypothesis_of(ctx, p_src_alternative->p_origin_map) == NULL)
+                {
+                    /* the value reached through a REF under a hypothesis keeps the hypothesis */
+                    struct flow_alternative copied = *p_src_alternative;
+                    copied.p_origin_map = flow_origin_more_specific_keep_hypothesis(ctx, copied.p_origin_map, ctx->p_source_ref_origin);
+                    flow_alternatives_add(&p_dest_key_alternatives->alternatives, &copied);
+                }
                 else if (ctx->p_current_flow_branch != NULL &&
                          p_src_alternative->p_origin_map != ctx->p_current_flow_branch &&
                          flow_branch_is_ancestor_or_self(p_src_alternative->p_origin_map, ctx->p_current_flow_branch))
@@ -3472,6 +3635,28 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 else
                 {
                     flow_alternatives_add(&p_dest_key_alternatives->alternatives, p_src_alternative);
+                }
+            }
+
+            if (init_type == INIT_RETURN &&
+                    p_src_alternative->value_kind == FLOW_VALUE_KIND_PTR &&
+                    p_src_alternative->value.p != NULL)
+            {
+                /* a pointer into the object of a restrict parameter is not returned */
+                for (const struct object* _Opt p_target = p_src_alternative->value.p; p_target != NULL; p_target = p_target->parent)
+                {
+                    for (int k = 0; k < ctx->restrict_pointees_count; k++)
+                    {
+                        if (ctx->restrict_pointees[k] == p_target && ctx->restrict_parameters[k] != NULL)
+                        {
+                            const struct token* _Opt p_name = ctx->restrict_parameters[k]->name_opt;
+                            struct osstream ss = { 0 };
+                            ss_fprintf(&ss, "returning a pointer to the object of the restrict parameter '%s'", p_name ? p_name->lexeme : "");
+                            flow_finding_record(ctx, p_object_src, W_FLOW_RESTRICT_PARAMETER_RETURNED, &marker,
+                                                p_src_alternative, p_src_alternative->p_origin_map, ss.c_str ? ss.c_str : "");
+                            ss_close(&ss);
+                        }
+                    }
                 }
             }
 
@@ -3557,13 +3742,20 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     /* Determine write-effect on the pointee (same as above, but for a PTR alternative). */
                     const struct object* pointee = p_src_alternative->value.p;
 
-                    if (ctx->call_has_restrict && ctx->restrict_arguments_count < FLOW_MAX_RESTRICT_ARGUMENTS)
+                    /* read by the restrict check and by the call result (it may be this pointee) */
+                    if (ctx->restrict_arguments_count < FLOW_MAX_RESTRICT_ARGUMENTS)
                     {
                         struct flow_restrict_argument* r = &ctx->restrict_arguments[ctx->restrict_arguments_count++];
                         r->pointee = pointee;
                         r->argument_serial = ctx->argument_serial;
                         r->is_restrict = (p_object_dest->type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) != 0;
+                        r->is_owner = type_is_owner(&p_object_dest->type);
                         r->p_argument = p_expression;
+                        r->p_hypothesis = flow_hypothesis_of(ctx, p_src_alternative->p_origin_map);
+                        if (r->p_hypothesis == NULL)
+                        {
+                            r->p_hypothesis = flow_hypothesis_of(ctx, ctx->p_source_ref_origin);
+                        }
                     }
                     const struct token* p_effect_token = p_expression->first_token;
                     enum flow_pointee_effect_kind effect_kind = FLOW_EFFECT_NONE;
@@ -3796,7 +3988,12 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
             reach here once per member (`struct S t = *p;`)
             (swap-through-pointers.c).
         */
+        /* under a hypothesis the source may be the destination: moving it into itself is not a move */
+        const bool self_move =
+            flow_hypothesis_of(ctx, ctx->p_source_ref_origin) != NULL &&
+            flow_objects_overlap(p_object_src, p_object_dest);
         if (!view_here &&
+                !self_move &&
                 type_is_owner(&p_object_src->type) &&
                 type_is_owner(&p_object_dest->type) &&
                 !p_object_src->members.head)
@@ -4050,6 +4247,7 @@ static void flow_check_assigment(struct flow_ctx* ctx,
         in its own arm and the arms merged. One target: plain overwrite.
     */
     const struct flow_branch* _Opt target_origins[16] = { 0 };
+    const struct object* _Opt target_objects[16] = { 0 };
     int target_count = 0;
     for (int i = 0;
             p_expression_dest_key_alternatives != NULL &&
@@ -4063,6 +4261,7 @@ static void flow_check_assigment(struct flow_ctx* ctx,
             if (target_count < (int)(sizeof target_origins / sizeof target_origins[0]))
             {
                 target_origins[target_count] = p_alternative->p_origin_map;
+                target_objects[target_count] = p_alternative->value.p;
             }
             target_count++;
         }
@@ -4155,8 +4354,23 @@ static void flow_check_assigment(struct flow_ctx* ctx,
         for (int i = 0; p_src != NULL && i < p_src->alternatives.size; i++)
         {
             const struct flow_alternative* a = p_src->alternatives.data[i]; //lint 33
-            if (a->value_kind == FLOW_VALUE_KIND_REF && a->value.p != NULL)
+            /* under a hypothesis the source may be the destination: moving it into itself is not a move */
+            bool self_move = false;
+            if (a->value_kind == FLOW_VALUE_KIND_REF && a->value.p != NULL && flow_hypothesis_of(ctx, a->p_origin_map) != NULL)
+            {
+                for (int k = 0; k < target_count && k < (int)(sizeof target_objects / sizeof target_objects[0]); k++)
+                {
+                    const struct object* _Opt p_target = target_objects[k];
+                    if (p_target != NULL && flow_objects_overlap(a->value.p, p_target))
+                    {
+                        self_move = true;
+                    }
+                }
+            }
+            if (a->value_kind == FLOW_VALUE_KIND_REF && a->value.p != NULL && !self_move)
+            {
                 flow_branch_set_object_moved(ctx->p_current_flow_branch, a->value.p, p_expression_dest->first_token);
+            }
         }
     }
 }
@@ -4263,6 +4477,22 @@ static const struct flow_key_alternatives* _Opt flow_pointer_pointee_on_demand(s
     return p_left_alternatives;
 }
 
+/* a is b, or one is a member (at any depth) of the other: `&x->y` and `x` overlap */
+static bool flow_objects_overlap(const struct object* a, const struct object* b)
+{
+    for (const struct object* _Opt p = a; p; p = p->parent)
+    {
+        if (p == b)
+            return true;
+    }
+    for (const struct object* _Opt p = b; p; p = p->parent)
+    {
+        if (p == a)
+            return true;
+    }
+    return false;
+}
+
 /*
     Two arguments of a call that may point to the same object, when one of
     them goes to a restrict parameter (C23 6.7.4.2). The pointees were recorded
@@ -4270,21 +4500,39 @@ static const struct flow_key_alternatives* _Opt flow_pointer_pointee_on_demand(s
 */
 static void flow_check_restrict_arguments(struct flow_ctx* ctx, int first)
 {
-    for (int i = first; i < ctx->restrict_arguments_count; i++)
+    /* an overlap that exists only under a hypothesis is reported in that case, after the plain ones */
+    const struct flow_restrict_argument* _Opt p_hypothesis_a = NULL;
+    const struct flow_restrict_argument* _Opt p_hypothesis_b = NULL;
+    bool reported = false;
+
+    for (int i = first; i < ctx->restrict_arguments_count && !reported; i++)
     {
         const struct flow_restrict_argument* a = &ctx->restrict_arguments[i];
-        for (int j = i + 1; j < ctx->restrict_arguments_count; j++)
+        for (int j = i + 1; j < ctx->restrict_arguments_count && !reported; j++)
         {
             const struct flow_restrict_argument* b = &ctx->restrict_arguments[j];
             const struct expression* _Opt p_argument_a = a->p_argument;
             const struct expression* _Opt p_argument_b = b->p_argument;
-            if (a->pointee == NULL ||
-                    a->pointee != b->pointee ||
+            const struct object* _Opt p_pointee_a = a->pointee;
+            const struct object* _Opt p_pointee_b = b->pointee;
+            if (p_pointee_a == NULL ||
+                    p_pointee_b == NULL ||
+                    !flow_objects_overlap(p_pointee_a, p_pointee_b) ||
                     a->argument_serial == b->argument_serial ||
                     !(a->is_restrict || b->is_restrict) ||
                     p_argument_a == NULL ||
                     p_argument_b == NULL)
                 continue;
+
+            if (a->p_hypothesis != NULL || b->p_hypothesis != NULL)
+            {
+                if (p_hypothesis_a == NULL)
+                {
+                    p_hypothesis_a = a;
+                    p_hypothesis_b = b;
+                }
+                continue;
+            }
 
             struct osstream name_a = { 0 };
             struct osstream name_b = { 0 };
@@ -4296,8 +4544,37 @@ static void flow_check_restrict_arguments(struct flow_ctx* ctx, int first)
                        name_a.c_str ? name_a.c_str : "", name_b.c_str ? name_b.c_str : "");
             ss_close(&name_a);
             ss_close(&name_b);
-            return; /* one report per call */
+            reported = true; /* one report per call */
         }
+    }
+
+    if (!reported && p_hypothesis_a != NULL && p_hypothesis_b != NULL &&
+        p_hypothesis_a->p_argument != NULL && p_hypothesis_b->p_argument != NULL)
+    {
+        const struct flow_hypothesis* _Opt p_hypothesis =
+            p_hypothesis_a->p_hypothesis != NULL ? p_hypothesis_a->p_hypothesis : p_hypothesis_b->p_hypothesis;
+        struct osstream name_a = { 0 };
+        struct osstream name_b = { 0 };
+        flow_expression_to_string(p_hypothesis_a->p_argument, &name_a);
+        flow_expression_to_string(p_hypothesis_b->p_argument, &name_b);
+        const char* a_text = name_a.c_str ? name_a.c_str : "";
+        const char* b_text = name_b.c_str ? name_b.c_str : "";
+        const struct marker marker = expression_to_marker(p_hypothesis_b->p_argument);
+        if (p_hypothesis != NULL && p_hypothesis->is_parameter)
+        {
+            /* the restrict of the callee moves up to this function */
+            diagnostic(W_FLOW_PARAM_MAY_ALIAS, ctx->ctx, NULL, &marker,
+                       "'%s' and '%s' may reach a restrict parameter as the same object; add restrict to '%s' or '%s', or handle %s == %s",
+                       a_text, b_text, a_text, b_text, a_text, b_text);
+        }
+        else
+        {
+            diagnostic(W_FLOW_RESTRICT_ARGUMENTS_ALIAS, ctx->ctx, NULL, &marker,
+                       "%s: '%s' and '%s' may point to the same object, but the parameter is restrict",
+                       p_hypothesis != NULL ? p_hypothesis->text : "", a_text, b_text);
+        }
+        ss_close(&name_a);
+        ss_close(&name_b);
     }
 }
 
@@ -4378,8 +4655,11 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
             type_destroy(&variadic_type);
         }
 
-        flow_check_restrict_arguments(ctx, saved_restrict_count);
-        ctx->restrict_arguments_count = saved_restrict_count;
+        if (ctx->call_has_restrict)
+        {
+            flow_check_restrict_arguments(ctx, saved_restrict_count);
+        }
+        /* the records stay for the call result; the call removes them */
         ctx->call_has_restrict = saved_call_has_restrict;
 
         /*
@@ -6686,7 +6966,8 @@ static void flow_record_ended_pointee(struct flow_ctx* ctx,
                                       const struct object* p_pointee,
                                       const struct marker* p_marker,
                                       int ended_line,
-                                      const struct flow_branch* _Opt ended_origin)
+                                      const struct flow_branch* _Opt ended_origin,
+                                      const struct flow_branch* _Opt p_pointer_origin)
 {
     const struct flow_alternative ended = { .p_origin_map = ended_origin };
     struct osstream name_ss = { 0 };
@@ -6694,8 +6975,10 @@ static void flow_record_ended_pointee(struct flow_ctx* ctx,
     struct osstream ss = { 0 };
     ss_fprintf(&ss, "lifetime of the object pointed to by '%s' has ended (see line %d)",
                name_ss.c_str ? name_ss.c_str : "", ended_line);
+    /* a pointer that is this object only under a hypothesis: the path is the hypothesis */
+    const struct flow_branch* _Opt p_path = flow_hypothesis_of(ctx, p_pointer_origin) != NULL ? p_pointer_origin : ended_origin;
     flow_finding_record(ctx, &p_expression->object, W_FLOW_LIFETIME_ENDED, p_marker,
-                        &ended, ended_origin, ss.c_str ? ss.c_str : "");
+                        &ended, p_path, ss.c_str ? ss.c_str : "");
     ss_close(&ss);
     ss_close(&name_ss);
 
@@ -6708,6 +6991,7 @@ static void flow_record_ended_pointee(struct flow_ctx* ctx,
 static void flow_check_dereferenced_value(struct flow_ctx* ctx,
                                           const struct expression* p_expression,
                                           const struct flow_alternative* p_value,
+                                          const struct flow_branch* _Opt p_ref_origin,
                                           const struct marker* p_marker)
 {
     int ended_line = 0;
@@ -6723,8 +7007,13 @@ static void flow_check_dereferenced_value(struct flow_ctx* ctx,
         struct osstream ss = { 0 };
         ss_fprintf(&ss, "lifetime of the object pointed to by '%s' has ended (see line %d)",
                    name_ss.c_str ? name_ss.c_str : "", ended_line);
+        /* a pointer that is this object only under a hypothesis: the path is the hypothesis */
+        /* the REF to the pointer, or its value, may be under a hypothesis */
+        const struct flow_branch* _Opt p_path =
+            flow_hypothesis_of(ctx, p_value->p_origin_map) != NULL ? p_value->p_origin_map :
+            flow_hypothesis_of(ctx, p_ref_origin) != NULL ? p_ref_origin : ended_origin;
         flow_finding_record(ctx, &p_expression->object, W_FLOW_LIFETIME_ENDED, p_marker,
-                            &ended, ended_origin, ss.c_str ? ss.c_str : "");
+                            &ended, p_path, ss.c_str ? ss.c_str : "");
         ss_close(&ss);
         ss_close(&name_ss);
 
@@ -6821,6 +7110,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
 
                         flow_alternatives_add(&e->alternatives, &a);
                     }
+
                 }
                 else if (!type_is_function(&p_expression->object.type) &&
                  p_obj->state == CONSTANT_VALUE_STATE_CONSTANT &&
@@ -7123,7 +7413,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                                                 p_pointer_alt->p_origin_map, true, false, &ended_line, &ended_origin))
                                 {
                                     /* Include the expression, so it is clear which `->` is meant. */
-                                    flow_record_ended_pointee(ctx, p_expression, member_obj, &marker, ended_line, ended_origin);
+                                    flow_record_ended_pointee(ctx, p_expression, member_obj, &marker, ended_line, ended_origin, p_pointer_alt->p_origin_map);
                                 }
 
                                 flow_seed_member_default(ctx, member_obj, p_expression->first_token);
@@ -7135,7 +7425,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 .value = {.p = member_obj},
                                 .value_relation = FLOW_RELATION_EQUAL,
                                 .imaginary = FLOW_IMAGINARY_NONE,
-                                .p_origin_map = flow_origin_more_specific(ctx->p_current_flow_branch, p_pointer_alt->p_origin_map),
+                                .p_origin_map = flow_origin_more_specific_keep_hypothesis(ctx, ctx->p_current_flow_branch, p_pointer_alt->p_origin_map),
                                 .p_origin_token = p_expression->first_token
                                     };
                                     flow_alternatives_add(&result_entry->alternatives, &a);
@@ -7196,7 +7486,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                     Include the expression itself -- see the identical fix and
                                     rationale at the REF-alternative site above.
                                 */
-                                flow_record_ended_pointee(ctx, p_expression, member_obj, &marker, ended_line, ended_origin);
+                                flow_record_ended_pointee(ctx, p_expression, member_obj, &marker, ended_line, ended_origin, ptr_alt->p_origin_map);
                             }
 
                             flow_seed_member_default(ctx, member_obj, p_expression->first_token);
@@ -7208,7 +7498,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                     .value = {.p = member_obj},
                                     .value_relation = FLOW_RELATION_EQUAL,
                                     .imaginary = FLOW_IMAGINARY_NONE,
-                                    .p_origin_map = flow_origin_more_specific(ctx->p_current_flow_branch, ptr_alt->p_origin_map),
+                                    .p_origin_map = flow_origin_more_specific_keep_hypothesis(ctx, ctx->p_current_flow_branch, ptr_alt->p_origin_map),
                                     .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&result_entry->alternatives, &a);
@@ -7303,7 +7593,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             flow_branch_search_up(ctx->p_current_flow_branch, p_left_alt->value.p);
                         for (int j = 0; p_values != NULL && j < p_values->alternatives.size; j++)
                         {
-                            flow_check_dereferenced_value(ctx, p_expression, p_values->alternatives.data[j], &marker); //lint 33
+                            flow_check_dereferenced_value(ctx, p_expression, p_values->alternatives.data[j], p_left_alt->p_origin_map, &marker); //lint 33
                         }
                     }
                     flow_findings_end(ctx);
@@ -7419,7 +7709,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 .value = {.p = p_element},
                                 .value_relation = FLOW_RELATION_EQUAL,
                                 .imaginary = FLOW_IMAGINARY_NONE,
-                                .p_origin_map = flow_origin_more_specific(ctx->p_current_flow_branch, p_left_alternative->p_origin_map),
+                                .p_origin_map = flow_origin_more_specific_keep_hypothesis(ctx, ctx->p_current_flow_branch, p_left_alternative->p_origin_map),
                                 .p_origin_token = p_expression->first_token
                             };
                             flow_alternatives_add(&result_entry->alternatives, &a);
@@ -7554,6 +7844,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     flow_findings_end(ctx);
                 }
 
+                const int first_argument_record = ctx->restrict_arguments_count;
                 flow_visit_function_arguments(ctx, &p_expression->left->object.type, &p_expression->argument_expression_list); //lint 33 assert line 7437
 
                 const bool nullable_enabled = options_default_nonnull(&ctx->ctx->options);
@@ -7687,6 +7978,38 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             .p_origin_token = p_call_token
                         };
                         flow_alternatives_add(&e->alternatives, &a);
+
+                        /* a hypothesis per argument pointee the result may be: same pointed type, not a restrict or _Owner parameter */
+                        for (int k = first_argument_record; !type_is_owner(p_ret_type) && k < ctx->restrict_arguments_count; k++)
+                        {
+                            const struct flow_restrict_argument* p_record = &ctx->restrict_arguments[k];
+                            const struct expression* _Opt p_argument = p_record->p_argument;
+                            const struct object* _Opt p_pointee = p_record->pointee;
+                            if (p_argument == NULL || p_pointee == NULL || p_record->is_restrict || p_record->is_owner ||
+                                !type_is_pointer(&p_argument->object.type))
+                            {
+                                continue;
+                            }
+                            struct type ret_pointee = type_remove_pointer(p_ret_type);
+                            struct type arg_pointee = type_remove_pointer(&p_argument->object.type);
+                            const bool compatible = type_is_void(&ret_pointee) || type_is_char(&ret_pointee) ||
+                                type_is_same(&ret_pointee, &arg_pointee, false);
+                            type_destroy(&arg_pointee);
+                            type_destroy(&ret_pointee);
+                            if (compatible)
+                            {
+                                struct osstream call_ss = { 0 };
+                                struct osstream arg_ss = { 0 };
+                                flow_expression_to_string(p_expression, &call_ss);
+                                flow_expression_to_string(p_argument, &arg_ss);
+                                char text[160] = { 0 };
+                                snprintf(text, sizeof text, "in case '%s' and '%s' point to the same object",
+                                         call_ss.c_str ? call_ss.c_str : "", arg_ss.c_str ? arg_ss.c_str : "");
+                                flow_hypothesis_add_target(ctx, e, p_pointee, p_call_token, false, text);
+                                ss_close(&arg_ss);
+                                ss_close(&call_ss);
+                            }
+                        }
                     }
                 }
                 else if (!type_is_void(p_ret_type))
@@ -7701,6 +8024,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     */
                     flow_parameter_object_init(ctx, (struct object*)&p_expression->object, p_ret_type, p_call_token);
                 }
+                ctx->restrict_arguments_count = first_argument_record;
                 flow_branch_remove(ctx->p_current_flow_branch, &p_expression->left->object); //lint 33 assert line 7437
             }
             break;
@@ -8350,7 +8674,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
 
                             flow_record_uninitialized_operand_value(ctx, p_expression->right, p_right_alt2, &marker); //lint 35 assert line 8220
 
-                            flow_check_dereferenced_value(ctx, p_expression, p_right_alt2, &marker);
+                            flow_check_dereferenced_value(ctx, p_expression, p_right_alt2, p_right_alt->p_origin_map, &marker);
 
                             /*
                                 Only a PTR alternative with a known target gives a REF; otherwise the
@@ -10730,7 +11054,8 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_ctx
                                                                  const struct token* p_exit_token,
                                                                  bool in_view,
                                                                  bool top_level,
-                                                                 bool root_is_pointer)
+                                                                 bool root_is_pointer,
+                                                                 const struct flow_branch* _Opt p_pointer_origin)
 {
     const bool view = in_view || type_is_view(p_type);
 
@@ -10746,7 +11071,8 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_ctx
                                                                  p_exit_token,
                                                                  view,
                                                                  false,
-                                                                 root_is_pointer);
+                                                                 root_is_pointer,
+                                                                 p_pointer_origin);
         }
         return;
     }
@@ -10782,6 +11108,12 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_ctx
     for (int i = 0; i < e->alternatives.size; i++)
     {
         const struct flow_alternative* p_alternative = e->alternatives.data[i]; //lint 33
+
+        /* a value the pointer cannot see: it points here only on other paths (another hypothesis) */
+        if (p_pointer_origin != NULL && !flow_origins_compatible(p_alternative->p_origin_map, p_pointer_origin))
+        {
+            continue;
+        }
 
         if (p_alternative->imaginary == FLOW_IMAGINARY_MOVED ||
                 p_alternative->imaginary == FLOW_IMAGINARY_ENDED)
@@ -10915,7 +11247,8 @@ static void flow_check_write_qualified_params_at_exit(struct flow_ctx* ctx, cons
                                                                      p_exit_token,
                                                                      false,
                                                                      true,
-                                                                     true);
+                                                                     true,
+                                                                     p_alternative->p_origin_map);
             }
         }
     }
@@ -11099,7 +11432,8 @@ static void flow_check_exiting_objects(struct flow_ctx* ctx,
                                                                  marker->p_token_begin,
                                                                  false,
                                                                  false,
-                                                                 false);
+                                                                 false,
+                                                                 NULL);
         }
     }
 
@@ -11884,23 +12218,99 @@ static const struct object* _Opt flow_alias_pointee(const struct flow_key_altern
     return NULL;
 }
 
-/* Aliasing pass: when non-null, p_dest points to the object of p_src; p_dest keeps its own nullability. */
-static void flow_alias_retarget(struct flow_ctx* ctx, const struct object* p_src, const struct object* p_dest)
+#define FLOW_ALIAS_MAX_PARAMETERS 16
+static int flow_alias_parameters(const struct declaration* p_declaration, const struct declarator* out[], int max);
+static bool flow_alias_same_pointee(const struct declarator* a, const struct declarator* b);
+static bool flow_alias_is_restrict(const struct declarator* p);
+
+/*
+    All the hypotheses of the function, made at its entry: two pointer
+    parameters, or a parameter and a file scope object the function uses, may
+    be the same object. restrict says they are not; two _Owner own different
+    objects; two const views only read.
+*/
+static void flow_create_parameter_hypotheses(struct flow_ctx* ctx, const struct declaration* p_declaration)
 {
-    struct flow_key_alternatives* _Opt p_src_entry = flow_branch_find_add(ctx->p_current_flow_branch, p_src);
-    struct flow_key_alternatives* _Opt p_dest_entry = flow_branch_find_add(ctx->p_current_flow_branch, p_dest);
-    if (p_src_entry == NULL || p_dest_entry == NULL || p_dest_entry->alternatives.data == NULL)
-        return;
+    const struct declarator* params[FLOW_ALIAS_MAX_PARAMETERS] = { 0 };
+    const int params_count = flow_alias_parameters(p_declaration, params, FLOW_ALIAS_MAX_PARAMETERS);
 
-    const struct object* _Opt p_target = flow_alias_pointee(p_src_entry);
-    if (p_target == NULL)
-        return;
-
-    for (int i = 0; i < p_dest_entry->alternatives.size; i++)
+    for (int i = 0; i < params_count; i++)
     {
-        struct flow_alternative* _Opt a = p_dest_entry->alternatives.data[i];
-        if (a && a->value_kind == FLOW_VALUE_KIND_PTR && a->value_relation == FLOW_RELATION_EQUAL && a->value.p != NULL)
-            a->value.p = p_target;
+        for (int j = i + 1; j < params_count; j++)
+        {
+            const bool both_owner = type_is_owner(&params[i]->object.type) && type_is_owner(&params[j]->object.type);
+            const bool both_const_views =
+                flow_dest_pointee_is_const(&params[i]->object.type) && !type_is_owner(&params[i]->object.type) &&
+                flow_dest_pointee_is_const(&params[j]->object.type) && !type_is_owner(&params[j]->object.type);
+            if (!flow_alias_is_restrict(params[i]) &&
+                !flow_alias_is_restrict(params[j]) &&
+                !both_owner &&
+                !both_const_views &&
+                flow_alias_same_pointee(params[i], params[j]))
+            {
+                const struct flow_key_alternatives* _Opt p_src_entry = flow_branch_search_up(ctx->p_current_flow_branch, &params[i]->object);
+                struct flow_key_alternatives* _Opt p_dest_entry = flow_branch_find_add(ctx->p_current_flow_branch, &params[j]->object);
+                const struct object* _Opt p_target = p_src_entry != NULL ? flow_alias_pointee(p_src_entry) : NULL;
+                if (p_dest_entry != NULL && p_target != NULL)
+                {
+                    char text[160] = { 0 };
+                    snprintf(text, sizeof text, "in case '%s' and '%s' point to the same object",
+                             params[i]->name_opt ? params[i]->name_opt->lexeme : "",
+                             params[j]->name_opt ? params[j]->name_opt->lexeme : "");
+                    flow_hypothesis_add_target(ctx, p_dest_entry, p_target, params[j]->name_opt, true, text);
+                }
+            }
+        }
+    }
+
+    /* a parameter may point to a file scope object the function uses: f(&g); an _Owner cannot own one */
+    const struct init_declarator* _Opt p_init = p_declaration->init_declarator_list.head;
+    const struct declarator* _Opt p_function = p_init != NULL ? p_init->p_declarator : NULL;
+    for (int i = 0; p_function != NULL && i < params_count; i++)
+    {
+        if (flow_alias_is_restrict(params[i]) || type_is_owner(&params[i]->object.type))
+        {
+            continue;
+        }
+
+        struct type pointed = type_remove_pointer(&params[i]->object.type);
+        for (int g = 0; g < p_function->used_globals_count; g++)
+        {
+            const struct declarator* _Opt p_global = p_function->used_globals[g]; //lint 33
+            if (p_global == NULL ||
+                type_is_pointer(&p_global->object.type) ||
+                !type_is_same(&pointed, &p_global->object.type, false))
+            {
+                continue;
+            }
+
+            /* seeded as on its first use */
+            struct flow_key_alternatives* _Opt p_global_entry = flow_branch_find_add(ctx->p_current_flow_branch, &p_global->object);
+            if (p_global_entry != NULL && p_global_entry->alternatives.size == 0)
+            {
+                struct flow_alternative a =
+                {
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = ANY_VALUE},
+                    .value_relation = FLOW_RELATION_ANY,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_global->name_opt
+                };
+                flow_alternatives_add(&p_global_entry->alternatives, &a);
+            }
+
+            struct flow_key_alternatives* _Opt p_dest_entry = flow_branch_find_add(ctx->p_current_flow_branch, &params[i]->object);
+            if (p_dest_entry != NULL)
+            {
+                char text[160] = { 0 };
+                snprintf(text, sizeof text, "in case '%s' and '&%s' point to the same object",
+                         params[i]->name_opt ? params[i]->name_opt->lexeme : "",
+                         p_global->name_opt ? p_global->name_opt->lexeme : "");
+                flow_hypothesis_add_target(ctx, p_dest_entry, &p_global->object, params[i]->name_opt, true, text);
+            }
+        }
+        type_destroy(&pointed);
     }
 }
 
@@ -11917,6 +12327,8 @@ static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_dec
         }
 
         ctx->parameter_list++;
+        ctx->restrict_pointees_count = 0;
+        ctx->hypotheses_count = 0;
 
         while (parameter)
         {
@@ -11925,9 +12337,26 @@ static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_dec
                 flow_visit_declaration_specifiers(ctx, parameter->declaration_specifiers);
                 flow_visit_declarator(ctx, parameter->declarator);
                 flow_parameter_object_init(ctx, &parameter->declarator->object, &parameter->declarator->object.type, parameter->declaration_specifiers->first_token);
-                if (ctx->p_alias_dest == parameter->declarator && ctx->p_alias_src != NULL)
+
+                const struct type* p_parameter_type = &parameter->declarator->object.type;
+                if (type_is_pointer(p_parameter_type) &&
+                    (p_parameter_type->type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) &&
+                    ctx->restrict_pointees_count < (int)(sizeof ctx->restrict_pointees / sizeof ctx->restrict_pointees[0]))
                 {
-                    flow_alias_retarget(ctx, &ctx->p_alias_src->object, &parameter->declarator->object);
+                    /* the pointee made by flow_parameter_object_init: one PTR alternative */
+                    const struct flow_key_alternatives* _Opt p_parameter_alternatives =
+                        flow_branch_search_up(ctx->p_current_flow_branch, &parameter->declarator->object);
+                    const struct flow_alternative* _Opt p_parameter_value =
+                        p_parameter_alternatives != NULL && p_parameter_alternatives->alternatives.size == 1 ?
+                        p_parameter_alternatives->alternatives.data[0] : NULL; //lint 33
+                    if (p_parameter_value != NULL &&
+                        p_parameter_value->value_kind == FLOW_VALUE_KIND_PTR &&
+                        p_parameter_value->value.p != NULL)
+                    {
+                        ctx->restrict_pointees[ctx->restrict_pointees_count] = p_parameter_value->value.p;
+                        ctx->restrict_parameters[ctx->restrict_pointees_count] = parameter->declarator;
+                        ctx->restrict_pointees_count++;
+                    }
                 }
             }
             parameter = parameter->next;
@@ -12356,6 +12785,7 @@ void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declarat
             ctx->p_return_type = &type;
 
             ctx->p_current_function_declaration = p_declaration;
+            flow_create_parameter_hypotheses(ctx, p_declaration);
 
             /*
                 _core: the body's trailing `//lint N` is checked below instead,
@@ -12459,86 +12889,6 @@ static void flow_analyze_declaration(struct flow_ctx* ctx, struct declaration* p
     }
 }
 
-#define FLOW_ALIAS_MAX_PARAMETERS 16
-#define FLOW_ALIAS_MAX_REPORTS 32
-
-/* A W_FLOW_PARAM_MAY_ALIAS, reported after the //lint of its line is checked. */
-struct flow_alias_report
-{
-    int line; /* 0 when suppressed */
-    const struct token* _Opt p_token;
-    char message[200];
-};
-
-static bool flow_alias_item_is_compared(const struct diagnostic_item* p)
-{
-    /* code unreachable or a condition known only because the pointers are equal is not a problem */
-    return (p->is_error || p->is_warning) &&
-           get_diagnostic_phase(p->id) == 2 &&
-           p->id != W_FLOW_NOT_DONE &&
-           p->id != W_FLOW_UNREACHABLE_CODE &&
-           p->id != W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME;
-}
-
-/* The message of a queued diagnostic: its text after "<id>: " up to the end of the line or a color code. */
-static void flow_alias_item_message(const struct diagnostic_item* p, char* out, int out_size)
-{
-    snprintf(out, out_size, "diagnostic %d", (int)p->id);
-    if (p->text == NULL)
-        return;
-
-    char id_text[16] = { 0 };
-    snprintf(id_text, sizeof id_text, "%d: ", (int)p->id);
-    const int id_length = (int)strlen(id_text);
-
-    /* the column of the header is preceded by ':', the id by ' ' or the end of a color code */
-    for (const char* _Opt s = strstr(p->text, id_text); s; s = strstr(s + 1, id_text))
-    {
-        if (s > p->text && (s[-1] == ' ' || s[-1] == 'm'))
-        {
-            const char* begin = s + id_length;
-            int n = 0;
-            while (begin[n] != '\0' && begin[n] != '\n' && begin[n] != '\r' && begin[n] != '\x1b')
-                n++;
-            snprintf(out, out_size, "%.*s", n, begin);
-            return;
-        }
-    }
-}
-
-/* The object a diagnostic names: the first '...' of its message, or "" when there is none. */
-static void flow_alias_item_subject(const struct diagnostic_item* p, char* out, int out_size)
-{
-    char message[200] = { 0 };
-    flow_alias_item_message(p, message, sizeof message);
-    out[0] = '\0';
-    const char* _Opt begin = strchr(message, '\'');
-    if (begin == NULL)
-        return;
-    begin++;
-    const char* _Opt end = strchr(begin, '\'');
-    if (end == NULL)
-        return;
-    snprintf(out, out_size, "%.*s", (int)(end - begin), begin);
-}
-
-/* p_item is in p_list: same line, id and object, so the same problem */
-static bool flow_alias_item_is_in(const struct diagnostic_item* _Opt p_list, const struct diagnostic_item* p_item)
-{
-    char subject[100] = { 0 };
-    flow_alias_item_subject(p_item, subject, sizeof subject);
-    for (const struct diagnostic_item* _Opt p = p_list; p; p = p->next)
-    {
-        if (p->line != p_item->line || p->id != p_item->id)
-            continue;
-        char other[100] = { 0 };
-        flow_alias_item_subject(p, other, sizeof other);
-        if (strcmp(subject, other) == 0)
-            return true;
-    }
-    return false;
-}
-
 /* Pointer parameters of the function definition that point to objects (not void, not functions). */
 static int flow_alias_parameters(const struct declaration* p_declaration, const struct declarator* out[], int max)
 {
@@ -12580,149 +12930,9 @@ static bool flow_alias_is_restrict(const struct declarator* p)
     return (p->object.type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) != 0;
 }
 
-/*
-    Pairs of pointer parameters with the same pointee are analyzed again with
-    both pointing to the same object. A diagnostic that only this pass has is an
-    error of the function when they alias: W_FLOW_PARAM_MAY_ALIAS. restrict on one
-    of them says they never alias, so the pair is not analyzed. p_normal is the
-    queue with the normal pass diagnostics.
-*/
-static void flow_check_parameter_aliasing(struct flow_ctx* ctx, struct declaration* p_declaration, const struct diagnostic_item* _Opt p_normal)
-{
-    const struct declarator* params[FLOW_ALIAS_MAX_PARAMETERS] = { 0 };
-    const int params_count = flow_alias_parameters(p_declaration, params, FLOW_ALIAS_MAX_PARAMETERS);
-
-    struct flow_alias_report reports[FLOW_ALIAS_MAX_REPORTS] = { 0 };
-    int reports_count = 0;
-
-    for (int i = 0; i < params_count; i++)
-    {
-        for (int j = i + 1; j < params_count; j++)
-        {
-            /* two _Owner parameters each own their object: the caller cannot pass the same one twice */
-            const bool both_owner = type_is_owner(&params[i]->object.type) && type_is_owner(&params[j]->object.type);
-            /* two const views only read: the same object changes nothing */
-            const bool both_const_views =
-                flow_dest_pointee_is_const(&params[i]->object.type) && !type_is_owner(&params[i]->object.type) &&
-                flow_dest_pointee_is_const(&params[j]->object.type) && !type_is_owner(&params[j]->object.type);
-            if (flow_alias_is_restrict(params[i]) ||
-                    flow_alias_is_restrict(params[j]) ||
-                    both_owner ||
-                    both_const_views ||
-                    !flow_alias_same_pointee(params[i], params[j]))
-                continue;
-
-            struct diagnostic_queue alias_queue = { 0 };
-            diagnostic_queue_swap(&ctx->ctx->diagnostic_queue, &alias_queue);
-
-            ctx->p_alias_src = params[i];
-            ctx->p_alias_dest = params[j];
-            flow_analyze_declaration(ctx, p_declaration);
-            ctx->p_alias_src = NULL;
-            ctx->p_alias_dest = NULL;
-
-            diagnostic_queue_swap(&ctx->ctx->diagnostic_queue, &alias_queue);
-
-            const struct token* _Opt p_name_i = params[i]->name_opt;
-            const struct token* _Opt p_name_j = params[j]->name_opt;
-            const char* name_i = p_name_i ? p_name_i->lexeme : "";
-            const char* name_j = p_name_j ? p_name_j->lexeme : "";
-
-            if (!ctx->stopped)
-            {
-                for (const struct diagnostic_item* _Opt p = alias_queue.head; p; p = p->next)
-                {
-                    if (!flow_alias_item_is_compared(p) || flow_alias_item_is_in(p_normal, p))
-                        continue;
-
-                    bool line_reported = false;
-                    for (int k = 0; k < reports_count; k++)
-                        line_reported = line_reported || reports[k].line == p->line;
-
-                    if (!line_reported && reports_count < FLOW_ALIAS_MAX_REPORTS)
-                    {
-                        struct flow_alias_report* r = &reports[reports_count++];
-                        r->line = p->line;
-                        if (p->id == W_FLOW_RESTRICT_ARGUMENTS_ALIAS)
-                        {
-                            /* the restrict of the callee moves up to this function */
-                            snprintf(r->message, sizeof r->message,
-                                     "'%s' and '%s' may reach a restrict parameter as the same object; add restrict to '%s' or '%s', or handle %s == %s",
-                                     name_i, name_j, name_i, name_j, name_i, name_j);
-                        }
-                        else
-                        {
-                            char problem[160] = { 0 };
-                            flow_alias_item_message(p, problem, sizeof problem);
-                            snprintf(r->message, sizeof r->message,
-                                     "in case '%s' and '%s' point to the same object: %s",
-                                     name_i, name_j, problem);
-                        }
-                    }
-                }
-            }
-
-            diagnostic_queue_destroy(&alias_queue);
-        }
-    }
-
-    /* the //lint of W_FLOW_PARAM_MAY_ALIAS is checked here, phase 3 is not checked by the parser */
-    const struct token* _Opt p_last = p_declaration->function_body ? p_declaration->function_body->last_token : p_declaration->last_token;
-    for (const struct token* _Opt p_token = p_declaration->first_token; p_token; p_token = p_token->next)
-    {
-        if (p_token->flags & TK_FLAG_FINAL)
-        {
-            for (int k = 0; k < reports_count; k++)
-            {
-                if (reports[k].p_token == NULL && reports[k].line == p_token->line)
-                    reports[k].p_token = p_token;
-            }
-        }
-        else if (p_token->type == TK_LINE_COMMENT || p_token->type == TK_COMMENT)
-        {
-            int ids[32] = { 0 };
-            const int count = parse_diagnostic_suppression(p_token->lexeme, ids, sizeof ids / sizeof ids[0]);
-            for (int n = 0; n < count; n++)
-            {
-                if (ids[n] != W_FLOW_PARAM_MAY_ALIAS)
-                    continue;
-                bool found = false;
-                for (int k = 0; k < reports_count; k++)
-                {
-                    if (reports[k].line == p_token->line && reports[k].line != 0)
-                    {
-                        reports[k].line = 0; /* suppressed */
-                        found = true;
-                    }
-                }
-                if (!found && diagnostic_can_happen(&ctx->ctx->options, (enum diagnostic_id)ids[n]))
-                {
-                    diagnostic(W_WARNING_DID_NOT_HAPPEN, ctx->ctx, p_token, NULL,
-                               "lint %d expects warning %d on this line, but it is not reported here",
-                               ids[n], ids[n]);
-                }
-            }
-        }
-        if (p_token == p_last)
-            break;
-    }
-
-    for (int k = 0; k < reports_count; k++)
-    {
-        if (reports[k].line != 0 && reports[k].p_token != NULL)
-            diagnostic(W_FLOW_PARAM_MAY_ALIAS, ctx->ctx, reports[k].p_token, NULL, "%s", reports[k].message);
-    }
-}
-
 void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
 {
     flow_analyze_declaration(ctx, p_declaration);
-
-    if (p_declaration->function_body == NULL || ctx->stopped)
-        return;
-
-    /* the queue still has the normal pass diagnostics: a //lint may remove any item, so it is not split by a saved tail */
-    flow_check_parameter_aliasing(ctx, p_declaration, ctx->ctx->diagnostic_queue.head);
 }
 
 void flow_visit_ctx_destroy(_Dtor struct flow_ctx* ctx)

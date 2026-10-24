@@ -1091,21 +1091,6 @@ void diagnostic_queue_flush(struct diagnostic_queue* db, struct parser_ctx* ctx)
 * recent queued diagnostic with that id, not the oldest: an unsuppressed one
 * far above (same id) must stay reported.
 */
-void diagnostic_queue_swap(struct diagnostic_queue* a, struct diagnostic_queue* b)
-{
-    struct diagnostic_item* _Owner _Opt head = a->head;
-    a->head = b->head;
-    b->head = head;
-
-    struct diagnostic_item* _Opt tail = a->tail;
-    a->tail = b->tail;
-    b->tail = tail;
-
-    const int count = a->count;
-    a->count = b->count;
-    b->count = count;
-}
-
 bool diagnostic_queue_remove(struct diagnostic_queue* q, enum diagnostic_id id)
 {
     struct diagnostic_item* _Opt found = NULL;
@@ -9222,6 +9207,7 @@ void declarator_delete(struct declarator* _Owner _Opt p)
         expression_delete(p->p_expression_true);
         expression_delete(p->p_expression_false);
         free(p->original_name);
+        free(p->used_globals);
         free(p);
     }
 }

@@ -173,10 +173,6 @@ int get_diagnostic_phase(enum diagnostic_id w)
     switch (w)
     {
 
-        /* reported after the aliasing passes; flow.c checks their //lint itself */
-    case W_FLOW_PARAM_MAY_ALIAS:
-        return 3;
-
     case C_ERROR_EXIT_DEFER:
     case C_ERROR_JUMP_OVER_VLA:
         return 1;
@@ -206,6 +202,8 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_FLOW_NOT_DONE:
     case W_FLOW_RETURN_TYPE:
     case W_FLOW_RESTRICT_ARGUMENTS_ALIAS:
+    case W_FLOW_RESTRICT_PARAMETER_RETURNED:
+    case W_FLOW_PARAM_MAY_ALIAS:
     case W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME:
     case W_COMPILE_ASSERT_UNPROVEM:
 
