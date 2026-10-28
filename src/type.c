@@ -376,7 +376,9 @@ struct type type_lvalue_conversion(const struct type* p_type)
           If the array object has register storage class, the behavior is undefined.
         */
         struct type t = get_array_item_type(p_type);
-        struct type t2 = type_add_pointer(&t);
+        struct type t2 = (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER) ?
+            type_param_array_to_pointer(p_type) : /*int a[_Opt 2] is int* _Opt a*/
+            type_add_pointer(&t);
 
 
         type_remove_non_cake_qualifiers(&t2);
@@ -2108,9 +2110,14 @@ struct type get_array_item_type(const struct type* p_type)
            node, so `const struct X* p; p->arr[0] = 1;` produced an element
            type of plain `int` and the modifiable-lvalue check passed.
            Carrying const/volatile down here fixes every consumer at once.
+           Not for a parameter: in `int a[const n]` the qualifier is the
+           adjusted pointer's (6.7.6.3p7), a[0] is a plain int.
         */
-        r2.type_qualifier_flags |=
-            (r.type_qualifier_flags & (TYPE_QUALIFIER_CONST | TYPE_QUALIFIER_VOLATILE));
+        if (!(r.type_qualifier_flags & TYPE_QUALIFIER_ARRAY_BRACKET))
+        {
+            r2.type_qualifier_flags |=
+                (r.type_qualifier_flags & (TYPE_QUALIFIER_CONST | TYPE_QUALIFIER_VOLATILE));
+        }
 
         free(r.next); //lint 29 29 29 
         free((void* _Owner) r.name_opt);
@@ -2127,14 +2134,16 @@ struct type type_param_array_to_pointer(const struct type* p_type)
     struct type t = get_array_item_type(p_type);
     struct type t2 = type_add_pointer(&t);
 
-    if (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST)
+    if (p_type->type_qualifier_flags & TYPE_QUALIFIER_ARRAY_BRACKET)
     {
         /*
+         the qualifiers inside the brackets are the pointer's
          void F(int a[static const 5]) {
           static_assert((typeof(a)) == (int* const));
         }
+         int a[_Opt 2] is int* _Opt a
         */
-        t2.type_qualifier_flags |= TYPE_QUALIFIER_CONST;
+        t2.type_qualifier_flags |= (p_type->type_qualifier_flags & ~TYPE_QUALIFIER_ARRAY_BRACKET);
     }
 
     type_destroy(&t);
@@ -4320,8 +4329,16 @@ static bool type_is_same_impl(const struct type* a,
                       'int*' vs 'const int*' are not compatible parameter
                       types, so those are always compared strictly.
                     */
-                    struct type a_param = type_dup(&p_param_a->type);
-                    struct type b_param = type_dup(&p_param_b->type);
+                    /*
+                      'int a[const 2]' is adjusted to 'int* const a' (6.7.6.3p7),
+                      so an array parameter is compared as that pointer
+                    */
+                    struct type a_param = type_is_array(&p_param_a->type) ?
+                        type_param_array_to_pointer(&p_param_a->type) :
+                        type_dup(&p_param_a->type);
+                    struct type b_param = type_is_array(&p_param_b->type) ?
+                        type_param_array_to_pointer(&p_param_b->type) :
+                        type_dup(&p_param_b->type);
                     type_remove_all_qualifiers(&a_param);
                     type_remove_all_qualifiers(&b_param);
 
@@ -5000,7 +5017,8 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             if (pdirectdeclarator->array_declarator->type_qualifier_list_opt)
             {
-                p->type_qualifier_flags = pdirectdeclarator->array_declarator->type_qualifier_list_opt->flags;
+                p->type_qualifier_flags = pdirectdeclarator->array_declarator->type_qualifier_list_opt->flags |
+                                          TYPE_QUALIFIER_ARRAY_BRACKET;
             }
 
             type_list_push_back(list, p);
@@ -5287,7 +5305,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             if (list.tail)
             {
                 assert(list.tail->next == NULL);
-                list.tail->next = p_nt;
+                list.tail->next = p_nt; //lint 26
             }
             else
             {
@@ -5326,7 +5344,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             if (list.tail)
             {
                 assert(list.tail->next == NULL);
-                list.tail->next = p_nt;
+                list.tail->next = p_nt; //lint 26
             }
             else
             {
@@ -5377,7 +5395,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             if (list.tail)
             {
                 assert(list.tail->next == 0);
-                list.tail->next = p_nt;
+                list.tail->next = p_nt; //lint 26
             }
             else
             {

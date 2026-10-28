@@ -54,7 +54,6 @@ struct flow_deferred_pointee_effect
 };
 
 /* A pointee passed to a call that has a restrict parameter (see flow_check_restrict_arguments). */
-struct flow_hypothesis;
 
 struct flow_restrict_argument
 {
@@ -62,8 +61,9 @@ struct flow_restrict_argument
     int argument_serial;
     bool is_restrict; /* the parameter receiving it is restrict */
     bool is_owner; /* the parameter receiving it is _Owner */
+    bool is_pointee_const; /* the parameter receiving it points to const */
     const struct expression* _Opt p_argument;
-    const struct flow_hypothesis* _Opt p_hypothesis; /* the pointee is the argument's only under it */
+    const struct flow_branch* _Opt p_same_object_side; /* the pointee is the argument's only on this side */
 };
 
 #define FLOW_MAX_RESTRICT_ARGUMENTS 64
@@ -90,16 +90,6 @@ struct flow_finding_sample
    An entry with no pending message only deduplicates
    (flow_finding_already_reported), and so does an entry already flushed.
 */
-/* "in case 'a' and 'b' point to the same object": the values of p_branch and its descendants exist only then */
-struct flow_hypothesis
-{
-    const struct flow_branch* _Opt p_branch;
-    bool is_parameter; /* reported as W_FLOW_PARAM_MAY_ALIAS */
-    char text[160];
-};
-
-#define FLOW_MAX_HYPOTHESES 128
-
 struct flow_reported_finding
 {
     const struct object* _Opt p_object; /* NULL marks the end of the used entries */
@@ -111,8 +101,8 @@ struct flow_reported_finding
     int count; /* alternatives supporting the finding */
     int sample_count;
     struct flow_finding_sample samples[FLOW_FINDING_MAX_SAMPLES];
-    const struct flow_hypothesis* _Opt p_hypothesis; /* the hypothesis of the alternatives, when all have one */
-    bool has_plain; /* an alternative with no hypothesis supports it */
+    const struct flow_branch* _Opt p_same_object_side; /* the same-object side of the alternatives, when all have one */
+    bool has_plain; /* an alternative on no same-object side supports it */
 };
 
 struct flow_ctx
@@ -208,9 +198,6 @@ struct flow_ctx
     const struct declarator* _Opt restrict_parameters[16];
     int restrict_pointees_count;
 
-    /* hypotheses of the function, see struct flow_hypothesis */
-    struct flow_hypothesis hypotheses[FLOW_MAX_HYPOTHESES];
-    int hypotheses_count;
 
     /*
      * Set by the `*` and `->` "dereference of an ended pointee"

@@ -788,7 +788,7 @@ static bool codegen_bitfield_run(const struct codegen_ctx* ctx,
             if (run_open)
                 return false;
 
-            struct type t = codegen_make_struct_type(d->specifier_qualifier_list->struct_or_union_specifier); //lint 35 BUG in flow
+            struct type t = codegen_make_struct_type(d->specifier_qualifier_list->struct_or_union_specifier);
             size_t align = type_get_alignof(&t, target);
             if (p_complete->pack_alignment > 0 && align > p_complete->pack_alignment)
                 align = p_complete->pack_alignment;
@@ -2054,8 +2054,9 @@ static void codegen_emit_runtime_assert_expr(struct codegen_ctx* ctx, struct oss
         precedence, so without them it could bind incorrectly when the
         _Assert appears inside a larger expression.
     */
-    ss_fprintf(oss, "((");
-    codegen_visit_expression(ctx, oss, p_sa->constant_expression);
+    assert(p_sa->constant_expression != NULL); /* only static_debug() has none */
+    ss_fprintf(oss, "((");    
+    codegen_visit_expression(ctx, oss, p_sa->constant_expression); //lint 35 assert line 2058
     ss_fprintf(oss, ") ? (void)0 : %s(\"%s\", %d, %s))",
                ctx->runtime_assert_function_name, file_name, line, text);
     ctx->runtime_assert_used = true;
@@ -6127,7 +6128,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 assert(member_declarator->declarator->object.type.struct_or_union_specifier != NULL);
 
                                                 struct struct_or_union_specifier* _Opt p_complete_member =
-                                                    get_complete_struct_or_union_specifier(member_declarator->declarator->object.type.struct_or_union_specifier); //lint 35 assert line 6038
+                                                    get_complete_struct_or_union_specifier(member_declarator->declarator->object.type.struct_or_union_specifier); //lint 35
 
                                                 if (p_complete_member == NULL)
                                                     throw;
@@ -6200,7 +6201,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                         {
                                             assert(t.struct_or_union_specifier != NULL);
                                             struct struct_or_union_specifier* _Opt p_complete_member =
-                                                get_complete_struct_or_union_specifier(t.struct_or_union_specifier);
+                                                get_complete_struct_or_union_specifier(t.struct_or_union_specifier); //lint 35 
 
                                             if (p_complete_member == NULL)
                                             {
@@ -8404,7 +8405,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
             while (entry)
             {
                 assert(entry->data.p_struct_entry != NULL);
-                d_print_structs(ctx, oss, entry->data.p_struct_entry);
+                d_print_structs(ctx, oss, entry->data.p_struct_entry); //lint 35
                 if (ctx->error)
                     throw;
                 entry = entry->next;

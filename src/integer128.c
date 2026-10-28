@@ -43,7 +43,7 @@ static void integer128_set_bit(struct integer128* a, int i)
 
 struct integer128 integer128_from_signed(long long value)
 {
-    struct integer128 r;
+    struct integer128 r = integer128_zero;
     r.w[0] = (unsigned long long)value;
     for (int i = 1; i < INTEGER128_WORDS; i++)
         r.w[i] = value < 0 ? ULLONG_MAX : 0;
@@ -92,7 +92,7 @@ struct integer128 integer128_from_long_double(long double value)
         for (int k = 0; k < i; k++)
             weight *= INTEGER128_WORD_WEIGHT;
 
-        r.w[i] = (unsigned long long)(value / weight);
+        r.w[i] = (unsigned long long)(value / weight); //lint 36 weight is a power of 2, never 0
         value -= (long double)r.w[i] * weight;
     }
     return integer128_normalize(r);
@@ -164,7 +164,7 @@ int integer128_compare_s(struct integer128 a, struct integer128 b)
 
 struct integer128 integer128_add(struct integer128 a, struct integer128 b)
 {
-    struct integer128 r;
+    struct integer128 r = integer128_zero;
     unsigned long long carry = 0;
     for (int i = 0; i < INTEGER128_WORDS; i++)
     {
@@ -178,7 +178,7 @@ struct integer128 integer128_add(struct integer128 a, struct integer128 b)
 
 struct integer128 integer128_sub(struct integer128 a, struct integer128 b)
 {
-    struct integer128 r;
+    struct integer128 r = integer128_zero;
     unsigned long long borrow = 0;
     for (int i = 0; i < INTEGER128_WORDS; i++)
     {
@@ -249,7 +249,7 @@ struct integer128 integer128_mul(struct integer128 a, struct integer128 b)
 
 struct integer128 integer128_not(struct integer128 a)
 {
-    struct integer128 r;
+    struct integer128 r = integer128_zero;
     for (int i = 0; i < INTEGER128_WORDS; i++)
         r.w[i] = ~a.w[i];
     return integer128_normalize(r);
@@ -257,7 +257,7 @@ struct integer128 integer128_not(struct integer128 a)
 
 struct integer128 integer128_and(struct integer128 a, struct integer128 b)
 {
-    struct integer128 r;
+    struct integer128 r = integer128_zero;
     for (int i = 0; i < INTEGER128_WORDS; i++)
         r.w[i] = a.w[i] & b.w[i];
     return r;
@@ -265,7 +265,7 @@ struct integer128 integer128_and(struct integer128 a, struct integer128 b)
 
 struct integer128 integer128_or(struct integer128 a, struct integer128 b)
 {
-    struct integer128 r;
+    struct integer128 r = integer128_zero;
     for (int i = 0; i < INTEGER128_WORDS; i++)
         r.w[i] = a.w[i] | b.w[i];
     return r;
@@ -273,7 +273,7 @@ struct integer128 integer128_or(struct integer128 a, struct integer128 b)
 
 struct integer128 integer128_xor(struct integer128 a, struct integer128 b)
 {
-    struct integer128 r;
+    struct integer128 r = integer128_zero;
     for (int i = 0; i < INTEGER128_WORDS; i++)
         r.w[i] = a.w[i] ^ b.w[i];
     return r;
@@ -286,7 +286,7 @@ struct integer128 integer128_shl(struct integer128 a, int count)
     const int words = count / INTEGER128_WORD_BITS;
     const int bits = count % INTEGER128_WORD_BITS;
 
-    struct integer128 r;
+    struct integer128 r = integer128_zero;
     for (int i = INTEGER128_WORDS - 1; i >= 0; i--)
     {
         const int from = i - words;
@@ -309,7 +309,7 @@ struct integer128 integer128_shr_u(struct integer128 a, int count)
     const int words = count / INTEGER128_WORD_BITS;
     const int bits = count % INTEGER128_WORD_BITS;
 
-    struct integer128 r;
+    struct integer128 r = integer128_zero;
     for (int i = 0; i < INTEGER128_WORDS; i++)
     {
         const int from = i + words;

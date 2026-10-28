@@ -62,6 +62,7 @@ struct gui_node
     int multi;                 /* GUI_GROUP: check boxes */
     int checked;               /* GUI_ITEM of a check-box group */
     int tab;                   /* GUI_BUTTON: drawn as a tab; 2 = the selected tab */
+    int accent_bytes;          /* LISTBOX item: gui_set_item_accent; 0: none */
     int has_colors;            /* GUI_TEXT/BOX: fg/bg below were set */
     uint32_t fg, bg;
     struct editor_data* editor;  /* GUI_EDITOR only, else NULL - see ide_gui_editor.c */

@@ -5805,7 +5805,18 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx, bool is_
                 }
 
                 type_destroy(&new_expression->object.type);
-                new_expression->object.type = type_add_pointer(&new_expression->right->object.type);
+                if (type_is_array(&new_expression->right->object.type) &&
+                    (new_expression->right->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER))
+                {
+                    /* the array parameter is a pointer (6.7.6.3p7): &a of int a[const 2] is int* const* */
+                    struct type t = type_param_array_to_pointer(&new_expression->right->object.type);
+                    new_expression->object.type = type_add_pointer(&t);
+                    type_destroy(&t);
+                }
+                else
+                {
+                    new_expression->object.type = type_add_pointer(&new_expression->right->object.type);
+                }
                 new_expression->object.type.address_of = true;
 
                 if (new_expression->right->declarator)
@@ -10778,12 +10789,17 @@ void check_assigment(const struct parser_ctx* ctx,
         return;
     }
 
-    if (is_null_pointer_constant && type_is_array(p_a_type) && assignment_type == ASSIGMENT_TYPE_PARAMETER)
+    if ((is_null_pointer_constant || type_is_nullptr_t(p_b_type)) &&
+        type_is_array(p_a_type) && assignment_type == ASSIGMENT_TYPE_PARAMETER)
     {
-        diagnostic(W_PASSING_NULL_AS_ARRAY,
-                   ctx,
-                   p_b_expression->first_token, NULL,
-                   "passing null as array");
+        /* int a[_Opt 2] is int* _Opt a: null is fine */
+        if (!(p_a_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OPT))
+        {
+            diagnostic(W_PASSING_NULL_AS_ARRAY,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       "passing null as array");
+        }
 
         type_destroy(&b_type_lvalue);
         

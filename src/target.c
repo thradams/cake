@@ -740,7 +740,7 @@ void target_self_test()
 #endif
 
     /* propeller-catalina: long long has 32 bits and there is no __int128 */
-    struct platform catalina;
+    struct platform catalina = { 0 };
     assert(parse_target("propeller-catalina", &catalina) == 0);
     assert(target_get_num_of_bits(&catalina, TYPE_SIGNED_LONG_LONG) == 32);
     assert(integer128_to_ull(target_unsigned_max(&catalina, TYPE_UNSIGNED_LONG_LONG)) == 0xFFFFFFFFULL);

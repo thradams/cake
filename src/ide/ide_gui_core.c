@@ -597,6 +597,11 @@ void gui_set_hint(struct gui_node* n, const char* utf8)
     n->hint = copy;
 }
 
+void gui_set_item_accent(struct gui_node* n, int bytes)
+{
+    n->accent_bytes = bytes;
+}
+
 void gui_set_hint_highlighter(struct gui_app* app, const struct gui_highlighter* h)
 {
     app->hint_highlighter = h;

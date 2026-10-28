@@ -502,13 +502,16 @@
 <li>
 <a href="#toc_105">11.11 <code>__int128</code></a>
 </li>
+<li>
+<a href="#toc_106">11.12 <code>static_debug</code></a>
+</li>
 </ul>
 </li>
 <li>
-<a href="#toc_106">12. GCC Compatibility</a>
+<a href="#toc_107">12. GCC Compatibility</a>
 </li>
 <li>
-<a href="#toc_107">13. MSVC Compatibility</a>
+<a href="#toc_108">13. MSVC Compatibility</a>
 </li>
 </ul>
 </li>
@@ -3380,7 +3383,53 @@ written from its halves:</p>
 
 <hr>
 
-<h2 id="toc_106">12. GCC Compatibility</h2>
+<h3 id="toc_106">11.12 <code>static_debug</code></h3>
+
+<p><code>static_debug</code> prints what flow analysis knows at that point. It is a
+debugging aid; it generates no code.</p>
+
+<ul>
+<li><code>static_debug()</code> or <code>static_debug(0)</code> prints every object.</li>
+<li><code>static_debug(expr)</code> prints only the objects of <code>expr</code>. A struct is printed
+with its members; a pointee (<code>*p</code>) is followed to the object it is.</li>
+</ul>
+
+<p>The output is a tree of the paths (maps) the values came from: <code>root</code>, the two
+sides of an <code>if</code>, the <code>if</code>s outside the function, and so on. Each value is printed under the
+path where it was set, with the line that set it. <code>&lt;- current</code> marks the path
+of the <code>static_debug</code> itself.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+void f(int a)
+{
+    int x = 0;
+    if (a &gt; 2)
+        x = 1;
+    else
+        x = 2;
+    static_debug(x);
+}
+</code></pre>
+
+<pre><code>main.c:9:5: note: static_debug
+root  &lt;- current
+├── true branch (a &gt; 2) #2 (line 5)
+│       x  == 1         line 6
+└── false branch (a &gt; 2) #2 (line 5)
+        x  == 2         line 8
+</code></pre>
+
+<p>Objects are named by how they are reached: <code>p</code>, <code>x.text</code>, <code>*p</code>, <code>p-&gt;i</code>.
+Values are <code>== v</code>, <code>!= v</code>, <code>&gt; v</code> ..., <code>ANY</code> (unknown), <code>UNINIT</code>, <code>&amp;obj</code>
+(pointer to obj) and <code>null</code>; <code>MOVED</code> and <code>ENDED</code> mark an owner that was moved
+or an object whose lifetime ended. <code>#N</code> is the id of a pair of paths (the two
+sides of one <code>if</code>); <code>q == p #N</code> and <code>q != p #N</code> are the two sides of the
+<code>if (same)</code> outside the function (see flow.md, section 5.5). Colors follow the diagnostics:
+<code>-fdiagnostics-color=never</code> disables them.</p>
+
+<h2 id="toc_107">12. GCC Compatibility</h2>
 
 <p>Cake recognizes the following GCC built-ins and extensions:</p>
 
@@ -3402,7 +3451,7 @@ written from its halves:</p>
 
 <hr>
 
-<h2 id="toc_107">13. MSVC Compatibility</h2>
+<h2 id="toc_108">13. MSVC Compatibility</h2>
 
 <p>Cake recognizes the following MSVC extensions:</p>
 

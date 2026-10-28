@@ -2298,7 +2298,7 @@ struct X { int i; };
 void f(struct X* _Owner p, struct X* p2)
 {
     free(p);
-    p2-&gt;i = 1; //warning 100: in case &#39;p&#39; and &#39;p2&#39; point to the same object: lifetime of the object pointed to by &#39;p2&#39; has ended
+    p2-&gt;i = 1; //warning 100: in case p2 == p: lifetime of the object pointed to by &#39;p2&#39; has ended
 }
 </code></pre>
 

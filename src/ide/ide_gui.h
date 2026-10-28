@@ -427,6 +427,14 @@ void gui_set_change_id(struct gui_node* n, int id);
 */
 void gui_set_shortcut(struct gui_node* n, const char* shortcut);
 
+/*
+    A <listbox> item drawn in two tones: its label's first `bytes` bytes in
+    the theme's keyword color (editor_keyword_fg), the rest in the list's own
+    (already dimmer) listbox_fg -
+    "name.cakeproj" stands out of "  (C:\full\path)". 0: plain.
+*/
+void gui_set_item_accent(struct gui_node* n, int bytes);
+
 void gui_set_enabled(struct gui_node* n, int enabled);  /* default 1 */
 void gui_set_separator(struct gui_node* n, int separator);  /* a menu item drawn as a line */
 void gui_set_mark(struct gui_node* item, int marked);  /* a menu item with a dot column: its menu's labels stay aligned; marked: the dot */

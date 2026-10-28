@@ -4471,6 +4471,43 @@ static bool trying_to_use_vm_type_from_enclosing_function(const struct type* p_t
     return false;
 }
 
+/*
+  [static] and [const] are allowed only in the outermost array of a parameter
+  (6.7.6.2p1): int a[const 2] is a parameter, int a[const 2], struct { int m[const 2]; },
+  int (*p)[const 2] and void f(int a[2][const 2]) are not.
+*/
+static void check_array_bracket_qualifiers(const struct parser_ctx* ctx,
+                                           const struct type* p_type,
+                                           bool is_parameter,
+                                           const struct token* _Opt p_token)
+{
+    const struct type* _Opt p = p_type;
+    bool outermost = true;
+    while (p)
+    {
+        if (p->category == TYPE_CATEGORY_ARRAY &&
+            ((p->type_qualifier_flags & TYPE_QUALIFIER_ARRAY_BRACKET) || p->has_static_array_size) &&
+            !(is_parameter && outermost))
+        {
+            if (p_token)
+            {
+                diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
+                           ctx,
+                           p_token, NULL,
+                           "static or type qualifiers are not allowed in non-parameter array declarator");
+            }
+            return;
+        }
+        if (p->category == TYPE_CATEGORY_FUNCTION)
+        {
+            /* the return type is not a parameter */
+            is_parameter = false;
+        }
+        outermost = false;
+        p = p->next;
+    }
+}
+
 struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers)
 {
@@ -4533,6 +4570,7 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         }
 
         if ((p_init_declarator->p_declarator->object.type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) &&
+            !(p_init_declarator->p_declarator->object.type.type_qualifier_flags & TYPE_QUALIFIER_ARRAY_BRACKET) /*error 1000*/ &&
             !type_is_pointer(&p_init_declarator->p_declarator->object.type))
         {
             diagnostic(C_ERROR_RESTRICT_ON_NON_POINTER_TYPE,
@@ -5335,7 +5373,8 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
                     }
                 }
 
-                if (type_is_const(&p_init_declarator->p_declarator->object.type))
+                if (type_is_const(&p_init_declarator->p_declarator->object.type) &&
+                    !(p_init_declarator->p_declarator->object.type.type_qualifier_flags & TYPE_QUALIFIER_ARRAY_BRACKET))
                 {
                     if (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
                     {
@@ -5355,29 +5394,12 @@ struct init_declarator* _Owner _Opt init_declarator(struct parser_ctx* ctx,
         /* 
         * checking usage of [static ] other than in function arguments
         */
-        /*
-            p_declarator is not _Opt, so it is never null here -- the comment
-            that used to sit on this `if` said as much.
-        */
-        if (type_is_array(&p_init_declarator->p_declarator->object.type))
-            if (p_init_declarator->p_declarator->object.type.type_qualifier_flags != 0 ||
-                p_init_declarator->p_declarator->object.type.has_static_array_size)
-        {
-            if (p_init_declarator->p_declarator->first_token_opt)
-            {
-                diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
-                        ctx,
-                        p_init_declarator->p_declarator->first_token_opt, NULL,
-                        "static or type qualifiers are not allowed in non-parameter array declarator");
-            }
-            else if (p_init_declarator->initializer)
-            {
-                diagnostic(C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
-                        ctx,
-                        p_init_declarator->initializer->first_token, NULL,
-                        "static or type qualifiers are not allowed in non-parameter array declarator");
-            }
-        }
+        check_array_bracket_qualifiers(ctx,
+                                       &p_init_declarator->p_declarator->object.type,
+                                       false,
+                                       p_init_declarator->p_declarator->first_token_opt ?
+                                           p_init_declarator->p_declarator->first_token_opt :
+                                           p_init_declarator->p_declarator->name_opt);
 
 
         if (ctx->scopes.tail->scope_level == 0 &&
@@ -7287,6 +7309,11 @@ struct member_declarator* _Owner _Opt member_declarator(
         type_swap(&p_member_declarator->declarator->object.type, &t);
         type_destroy(&t);
 
+        check_array_bracket_qualifiers(ctx,
+                                       &p_member_declarator->declarator->object.type,
+                                       false,
+                                       p_member_declarator->declarator->first_token_opt);
+
         if (type_is_function(&p_member_declarator->declarator->object.type))
         {
             // A structure or union shall not contain a member with incomplete
@@ -7322,6 +7349,7 @@ struct member_declarator* _Owner _Opt member_declarator(
         }
 
         if ((p_member_declarator->declarator->object.type.type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) &&
+            !(p_member_declarator->declarator->object.type.type_qualifier_flags & TYPE_QUALIFIER_ARRAY_BRACKET) /*error 1000*/ &&
             !type_is_pointer(&p_member_declarator->declarator->object.type))
         {
             struct token* _Opt p_token =
@@ -8777,7 +8805,7 @@ void enumerator_delete(struct enumerator* _Owner _Opt p)
 }
 
 /* true when the value is representable in the underlying type of the enum */
-static bool enumerator_value_fits_underlying(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* p_value)
+static bool enumerator_value_fits_underlying(const struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, const struct object* p_value)
 {
     /* bool is stored in more bits, but only 0 and 1 are values */
     if (p_enum_specifier->integer_type.type_specifier_flags & TYPE_SPECIFIER_BOOL)
@@ -10284,6 +10312,11 @@ struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ct
         type_swap(&p_parameter_declaration->declarator->object.type, &t);
         type_destroy(&t);
 
+        check_array_bracket_qualifiers(ctx,
+                                       &p_parameter_declaration->declarator->object.type,
+                                       true,
+                                       p_parameter_declaration->declarator->first_token_opt);
+
         if (p_parameter_declaration->declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
         {
         }
@@ -10579,6 +10612,11 @@ struct type_name* _Owner _Opt type_name(struct parser_ctx* ctx)
         struct type t = make_type_using_declarator(ctx, p_type_name->abstract_declarator);
         type_swap(&p_type_name->abstract_declarator->object.type, &t);
         type_destroy(&t);
+
+        check_array_bracket_qualifiers(ctx,
+                                       &p_type_name->abstract_declarator->object.type,
+                                       false,
+                                       p_type_name->first_token);
 
         if (ctx->current == NULL)
         {
@@ -11488,11 +11526,17 @@ struct static_assertion* _Owner _Opt static_assertion(struct parser_ctx* ctx)
             show_error_if_not_constant = true;
         }
 
-        struct expression* _Owner _Opt p_constant_expression = constant_expression(ctx, show_error_if_not_constant, false);
-        if (p_constant_expression == NULL)
-            throw;
+        /* static_debug() prints the whole flow map */
+        const bool is_static_debug = position->type == TK_KEYWORD_CAKE_STATIC_DEBUG ||
+                                     position->type == TK_KEYWORD_CAKE_STATIC_DEBUG_EX;
+        if (!(is_static_debug && ctx->current != NULL && ctx->current->type == ')'))
+        {
+            struct expression* _Owner _Opt p_constant_expression = constant_expression(ctx, show_error_if_not_constant, false);
+            if (p_constant_expression == NULL)
+                throw;
 
-        p_static_assertion->constant_expression = p_constant_expression;
+            p_static_assertion->constant_expression = p_constant_expression;
+        }
 
         if (ctx->current == NULL)
         {
@@ -11519,7 +11563,8 @@ struct static_assertion* _Owner _Opt static_assertion(struct parser_ctx* ctx)
 
         p_static_assertion->last_token = ctx->current;
 
-        if (position->type == TK_KEYWORD__STATIC_ASSERT)
+        if (position->type == TK_KEYWORD__STATIC_ASSERT &&
+            p_static_assertion->constant_expression != NULL)
         {
             if (object_has_constant_value(&p_static_assertion->constant_expression->object) &&
                 !object_is_true(&p_static_assertion->constant_expression->object))
@@ -12758,7 +12803,7 @@ struct label* _Owner _Opt label(struct parser_ctx* ctx, struct attribute_specifi
                                 p_label->constant_expression->first_token,
                                 p_label->constant_expression,
                                 ctx->p_current_switch_statement->condition->expression,
-                                "mismatch in enumeration types"); //lint 35 BUG in flow
+                                "mismatch in enumeration types");
                         }
                     }
                     else

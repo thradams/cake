@@ -1309,12 +1309,17 @@ static void folder_refresh(struct ide* ide)
     f->count = n > 0 ? n : 0;
 
     /* As the old IDE: "..\", then folders with a trailing '\', then files. */
-    gui_append(f->list, create(ide, GUI_ITEM, "..\\"));
+    /* a blank marker column, so the names line up with the Project and Git panels' */
+    struct gui_node* up = create(ide, GUI_ITEM, " ..\\");
+    gui_set_colors(up, ide->theme->panel_fg, 0);
+    gui_append(f->list, up);
     for (int i = 0; i < f->count; i++)
     {
         char label[300] = { 0 };
-        snprintf(label, sizeof label, "%s%s", f->entries[i].name, f->entries[i].is_dir ? "\\" : "");
-        gui_append(f->list, create(ide, GUI_ITEM, label));
+        snprintf(label, sizeof label, " %s%s", f->entries[i].name, f->entries[i].is_dir ? "\\" : "");
+        struct gui_node* item = create(ide, GUI_ITEM, label);
+        gui_set_colors(item, ide->theme->panel_fg, 0);
+        gui_append(f->list, item);
     }
     gui_set_selected(f->list, 0);
     gui_set_label(f->window, file_name(f->dir));
@@ -1785,6 +1790,12 @@ static void apply_theme(struct ide* ide, int index)
         color_themed(ide, ide->themed.items[i].node, ide->themed.items[i].role, ide->themed.items[i].fg);
     if (ide->project_list)
         project_refresh(ide, gui_get_selected(ide->project_list));   /* the markers' colors */
+    if (ide->folder.list)
+    {
+        int row = gui_get_selected(ide->folder.list);
+        folder_refresh(ide);   /* its items' color too */
+        gui_set_selected(ide->folder.list, row);
+    }
     for (int i = 0; i < ide->doc_count; i++)
     {
         if (ends_with(ide->docs[i].path, ".c") || ends_with(ide->docs[i].path, ".h"))
@@ -2789,9 +2800,15 @@ static void show_folder_of(struct ide* ide, const char* path)
 static void build_recent(struct ide* ide)
 {
     struct recent_dialog* r = &ide->recent;
+    /* the size it opens at; the list takes what a resize adds */
+    enum { W = 82, H = 20 };
+    const int top_right = GUI_ANCHOR_RIGHT | GUI_ANCHOR_TOP;
     r->window = new_dialog(ide, "Get Started");
+    gui_window_set_resizable(r->window, 1);
+    gui_window_set_min_size(r->window, W, H);
     add_label(ide, r->window, 2, 1, "Open recent");
     r->list = add_at(ide, r->window, GUI_LISTBOX, 2, 2, 60, 15, NULL);
+    anchor_in(r->list, GUI_ANCHOR_LEFT | GUI_ANCHOR_TOP | GUI_ANCHOR_RIGHT | GUI_ANCHOR_BOTTOM, 2, 2, 60, 15, W, H);
     gui_set_id(r->list, EV_RECENT_LIST);
     static const struct { int id; const char* label; } actions[] = {
         { EV_RECENT_OK, "Open" },
@@ -2802,8 +2819,14 @@ static void build_recent(struct ide* ide)
         { EV_RECENT_PLAYGROUND, "Playground" },
     };
     for (int i = 0; i < COUNT(actions); i++)
-        gui_set_id(add_at(ide, r->window, GUI_BUTTON, 63, 2 + 2 * i, 16, 1, actions[i].label), actions[i].id);
-    gui_set_id(add_at(ide, r->window, GUI_BUTTON, 63, 16, 16, 1, "Close"), EV_RECENT_CANCEL);
+    {
+        struct gui_node* b = add_at(ide, r->window, GUI_BUTTON, 63, 2 + 2 * i, 16, 1, actions[i].label);
+        anchor_in(b, top_right, 63, 2 + 2 * i, 16, 1, W, H);
+        gui_set_id(b, actions[i].id);
+    }
+    struct gui_node* close = add_at(ide, r->window, GUI_BUTTON, 63, 16, 16, 1, "Close");
+    anchor_in(close, GUI_ANCHOR_RIGHT | GUI_ANCHOR_BOTTOM, 63, 16, 16, 1, W, H);
+    gui_set_id(close, EV_RECENT_CANCEL);
 }
 
 /* Rows "name.cakeproj  (full path)", newest first; nothing when there are none. */
@@ -2816,11 +2839,13 @@ static void show_recent(struct ide* ide)
         const char* p = ide->recent_projects.items[i];
         char label[1400] = { 0 };
         snprintf(label, sizeof label, "%s  (%s)", file_name(p), p);
-        gui_append(r->list, create(ide, GUI_ITEM, label));
+        struct gui_node* item = create(ide, GUI_ITEM, label);
+        gui_set_item_accent(item, (int)strlen(file_name(p)));
+        gui_append(r->list, item);
     }
     if (ide->recent_projects.count > 0)
         gui_set_selected(r->list, 0);
-    show_dialog(ide, r->window, 82, 20, r->list);
+    show_resizable_dialog(ide, r->window, 82, 20, r->list);
 }
 
 static void project_open(struct ide* ide, const char* path);
@@ -9317,6 +9342,15 @@ static void project_close_docs(struct ide* ide)
     }
 }
 
+/* Output and Find Results emptied - a new project starts with nothing from the last. */
+static void project_clear_panels(struct ide* ide)
+{
+    gui_set_value(ide->output.editor, "");
+    free(ide->fr.previous);
+    ide->fr.previous = NULL;
+    gui_set_value(ide->fr.editor, "");
+}
+
 static void exit_check(struct ide* ide);
 
 static void project_open(struct ide* ide, const char* path)
@@ -9346,6 +9380,7 @@ static void project_open(struct ide* ide, const char* path)
         return;
     }
     recent_project_add(ide, ide->project.file_path);
+    project_clear_panels(ide);
     snprintf(ide->folder.dir, sizeof ide->folder.dir, "%s", ide->project.dir);   /* the Folder panel - and Git - follow the project */
     folder_refresh(ide);
     ide->git.root[0] = '\0';   /* found again from the new folder on the next Git refresh */
@@ -9370,6 +9405,7 @@ static void project_create(struct ide* ide, const char* path)
         *dot = '\0';
     project_save(ide);
     recent_project_add(ide, p->file_path);
+    project_clear_panels(ide);
     project_refresh(ide, 0);
     project_show_panel(ide);
 }

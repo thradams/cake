@@ -128,6 +128,12 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_MSVC_PTR64 = 1 << 10,
     TYPE_QUALIFIER_MSVC_UNALIGNED = 1 << 11,
 
+    /*
+      the array qualifiers came from inside the brackets (int a[const n]);
+      they belong to the adjusted pointer, not to the element (6.7.6.3p7)
+    */
+    TYPE_QUALIFIER_ARRAY_BRACKET = 1 << 14,
+
 };
 
 enum storage_class_specifier_flags

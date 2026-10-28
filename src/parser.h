@@ -420,13 +420,14 @@ struct static_assertion
 
       extension:
       "static_debug" ( constant-expression ) ;
-      
+      "static_debug" ( ) ;
+
     */
 
     struct token* first_token;
     struct token* last_token;
     struct token* _Opt p_lint_token;
-    struct expression* _Owner constant_expression;
+    struct expression* _Owner _Opt constant_expression; /* null only in static_debug() */
     struct token* _Opt string_literal_opt;
 };
 struct static_assertion* _Owner _Opt static_assertion(struct parser_ctx* ctx);

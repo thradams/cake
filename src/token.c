@@ -447,7 +447,7 @@ struct token* _Opt token_list_clone_and_add(struct token_list* list, const struc
     return token_list_add(list, clone);
 }
 
-void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source)
+void token_list_append_list_at_beginning(struct token_list* restrict dest, struct token_list* restrict source)
 {
     if (source->head == NULL)
     {
@@ -471,7 +471,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     assert(dest->head == NULL || dest->head->prev == NULL);
 }
 
-void token_list_append_list(struct token_list* dest, _Clear struct token_list* source)
+void token_list_append_list(struct token_list* restrict dest, _Clear struct token_list* restrict source)
 {
     if (source->head == NULL)
     {

@@ -28,10 +28,6 @@ enum flow_branch_kind
     FLOW_BRANCH_SWITCH_BODY,
     FLOW_BRANCH_OPT_NULL,
     FLOW_BRANCH_OPT_NONNULL,
-    FLOW_BRANCH_OPT_MEM_NULL,
-    FLOW_BRANCH_OPT_MEM_NONNULL,
-    FLOW_BRANCH_CALL_OPT_NULL,
-    FLOW_BRANCH_CALL_OPT_NONNULL,
     FLOW_BRANCH_FOR_BODY_DIAG,
     FLOW_BRANCH_FOR_BODY_PASS1,
     FLOW_BRANCH_DEFAULT,
@@ -47,8 +43,8 @@ enum flow_branch_kind
     FLOW_BRANCH_AND_DEAD_FALSE,
     FLOW_BRANCH_MERGE_TEMP, /* short-lived local scratch map used only inside flow_branch_merge_arms; never printed */
     FLOW_BRANCH_POINTER_TARGET, /* the paths where a pointer with several targets points to one of them */
-    FLOW_BRANCH_HYPOTHESIS, /* the paths of a hypothesis: two pointers are the same object (struct flow_hypothesis) */
-    FLOW_BRANCH_HYPOTHESIS_NOT, /* the other side of a hypothesis */
+    FLOW_BRANCH_SAME_OBJECT, /* a side of an if outside the code: two pointers are the same object */
+    FLOW_BRANCH_NOT_SAME_OBJECT, /* the other side of that if */
 };
 
 /* A branch side known to hold: the map is on side `kind` of the pair tagged branch_id. */
@@ -85,6 +81,10 @@ struct flow_branch
       less precision, never a wrong answer.
     */
     struct flow_branch_implied_facts implied_facts;
+
+    /* what a side of an if outside the code decides, ready to print: "p == null", "q != p" */
+    char* _Owner _Opt label;
+    bool same_object_of_parameters; /* reported as W_FLOW_PARAM_MAY_ALIAS */
 };
 
 struct flow_branch_arena
@@ -144,7 +144,15 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
                                     bool full_state, bool join_reached_before);
 
 void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstream* ss);
-void flow_branch_debug_print(const struct flow_branch* _Opt map, int indent);
+/* the objects static_debug(expr) shows */
+struct flow_debug_filter
+{
+    const struct object* data[64];
+    int count;
+};
+
+void flow_branch_debug_print(const struct flow_branch* _Opt map, bool colors, const struct flow_debug_filter* _Opt p_filter);
+void flow_branch_raw_dump(const struct flow_branch* _Opt map, const struct flow_branch_arena* arena, bool colors, const struct flow_debug_filter* _Opt p_filter);
 int flow_alternative_truth(struct flow_branch* _Opt map, const struct flow_alternative* alt, int depth);
 int flow_object_truth(struct flow_branch* _Opt map, const struct object* p_object, int depth);
 
@@ -153,8 +161,11 @@ struct osstream flow_explain_origin(const struct flow_branch* _Opt map);
 
 struct flow_branch* _Opt flow_branch_arena_new_branch(struct flow_branch_arena* a, struct flow_branch* _Opt parent, bool is_true, const struct expression* _Opt p_expr);
 const struct flow_branch* _Opt flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Opt new_origin);
+int flow_new_branch_id(void);
 void flow_tag_branch_pair(struct flow_branch* _Opt p_true, struct flow_branch* _Opt p_false);
-bool flow_branch_is_under_hypothesis(const struct flow_branch* _Opt p_map);
+void flow_branch_set_label(struct flow_branch* _Opt m, const char* _Opt label);
+bool flow_branch_kind_is_entry_side(enum flow_branch_kind kind);
+bool flow_branch_is_under_same_object(const struct flow_branch* _Opt p_map);
 
 
 struct object_set

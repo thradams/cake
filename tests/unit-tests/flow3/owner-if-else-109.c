@@ -22,7 +22,7 @@ int main()
     }
     //warning: pointer may be null
 
-    free(p->name); //lint 33 30 -> operator applied to a null pointer; '.name' possibly uninitialized
+    free(p->name); //lint 33 -> operator applied to a null pointer
 
     // warning: object 'name' may not be empty
 

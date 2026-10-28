@@ -267,10 +267,16 @@ static void input_edit(struct gui_app* app, struct gui_node* n, int lo, int hi, 
     box, and just enough to bring it back - the code editor's rule
     (ensure_caret_visible). The text does not chase the caret.
 */
+/* The left margin, px, that keeps text off the edge of an input, select or listbox. */
+static int text_margin(const struct gui_app* app, const struct gui_node* n)
+{
+    return core_node_metrics(app, n)->cell_w;
+}
+
 static void input_follow_caret(const struct gui_app* app, struct gui_node* n)
 {
     int cw = core_node_metrics(app, n)->cell_w;
-    int room = n->rect.w - (cw / 5 > 0 ? cw / 5 : 1);
+    int room = n->rect.w - 2 * text_margin(app, n) - (cw / 5 > 0 ? cw / 5 : 1);
     if (room <= 0)
         return;
     int caret_x = core_utf8_width(app, core_node_font(n), n->value, n->cursor);
@@ -287,8 +293,7 @@ static void input_follow_caret(const struct gui_app* app, struct gui_node* n)
 
 static int input_offset(const struct gui_app* app, const struct gui_node* n)
 {
-    (void)app;
-    return n->hscroll;
+    return n->hscroll - text_margin(app, n);   /* negative at rest: the text starts past the margin */
 }
 
 static int is_word_byte(char c)
@@ -408,15 +413,20 @@ static void paint_input(const struct paint* p, const struct gui_node* n)
     */
     gui_fill_rect(p->frame, n->rect.x, n->rect.y, n->rect.w, row_h, bg);
     int x = n->rect.x - input_offset(app, n);
+    /* scrolled text is cut at the margins, not the edges */
+    int left = n->rect.x + text_margin(app, n);
+    int right = n->rect.x + n->rect.w - text_margin(app, n);
+    gui_set_clip(p->frame, left, n->rect.y, right > left ? right - left : 0, row_h);
     core_draw_utf8(p, x, y, n->value, -1, fg, bg);
+    gui_set_clip(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h);
     if (hi > lo)
     {
         int sel_x0 = x + core_utf8_width(app, p->font, n->value, lo);
         int sel_x1 = x + core_utf8_width(app, p->font, n->value, hi);
-        if (sel_x0 < n->rect.x)
-            sel_x0 = n->rect.x;
-        if (sel_x1 > n->rect.x + n->rect.w)
-            sel_x1 = n->rect.x + n->rect.w;
+        if (sel_x0 < left)
+            sel_x0 = left;
+        if (sel_x1 > right)
+            sel_x1 = right;
         if (sel_x1 > sel_x0)
         {
             gui_set_clip(p->frame, sel_x0, n->rect.y, sel_x1 - sel_x0, row_h);
@@ -452,8 +462,9 @@ static void paint_select(const struct paint* p, const struct gui_node* n)
         /* the label, cut where the arrow's cell starts */
         const char* label = n->children[n->selected]->label;
         int y = n->rect.y + (ch - core_font_metrics(app, p->font)->cell_h) / 2;
-        gui_set_clip(p->frame, n->rect.x, n->rect.y, text_w, ch);
-        core_draw_utf8(p, n->rect.x, y, label, -1, fg, bg);
+        int m = text_margin(app, n);   /* a margin on each side, before the arrow's cell */
+        gui_set_clip(p->frame, n->rect.x + m, n->rect.y, text_w > 2 * m ? text_w - 2 * m : 0, ch);
+        core_draw_utf8(p, n->rect.x + m, y, label, -1, fg, bg);
         gui_set_clip(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h);
     }
     if (text_w < n->rect.w)
@@ -564,7 +575,7 @@ static int list_max_cols(const struct gui_app* app, const struct gui_node* n)
 
 static int list_view_cols(const struct gui_app* app, const struct gui_node* n)
 {
-    return n->rect.w / core_node_metrics(app, n)->cell_w;
+    return n->rect.w / core_node_metrics(app, n)->cell_w - 2;   /* less the margins' columns */
 }
 
 static int has_hbar(const struct gui_app* app, const struct gui_node* n)
@@ -667,8 +678,11 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
         {
             const struct gui_node* item = n->children[index];
             const char* label = item->label;
-            int x = n->rect.x + (n->has_colors ? cw : 0);   /* a docked panel's list gets a left margin */
-            int room = cols - (n->has_colors ? 1 : 0);
+            int x = n->rect.x + text_margin(app, n);
+            int room = cols - 2;
+            /* the text between the margins, short of the scrollbar */
+            int right = n->rect.x + n->rect.w - text_margin(app, n) - (has_scrollbar(app, n) ? app->scrollbar_px : 0);
+            gui_set_clip(p->frame, x, y, right > x ? right - x : 0, ch);
             int skip = n->hscroll;
             if (core_node_font(n) == GUI_FONT_UI)
             {
@@ -689,8 +703,26 @@ static void paint_listbox(const struct paint* p, const struct gui_node* n)
                 x += 2 * cw;
                 label += len;
             }
+            const char* start = label;
             label += core_utf8_prefix_bytes(label, skip);
-            core_draw_utf8(p, x, y, label, core_utf8_prefix_bytes(label, room), fg, bg);
+            int bytes = core_utf8_prefix_bytes(label, room);
+            if (item->accent_bytes > 0 && !sel)
+            {
+                /* two tones: the accented head, then the rest muted */
+                int head = item->accent_bytes - (int)(label - start);
+                if (head < 0)
+                    head = 0;
+                if (head > bytes)
+                    head = bytes;
+                /* a dark background: the head in white; a light one: the keyword color */
+                int dark = ((bg >> 16 & 0xFF) * 299 + (bg >> 8 & 0xFF) * 587 + (bg & 0xFF) * 114) / 1000 < 128;
+                uint32_t head_fg = dark ? GUI_RGB(0xFF, 0xFF, 0xFF) : t->editor_keyword_fg;
+                x = core_draw_utf8(p, x, y, label, head, head_fg, bg);   /* returns the end x */
+                core_draw_utf8(p, x, y, label + head, bytes - head, body_fg, bg);
+            }
+            else
+                core_draw_utf8(p, x, y, label, bytes, fg, bg);
+            gui_set_clip(p->frame, n->rect.x, n->rect.y, n->rect.w, n->rect.h);
         }
     }
     paint_scrollbar(p, n);

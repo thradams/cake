@@ -13,6 +13,7 @@
 #include "cake_compat.h"
 #include "osstream.h"
 #include "error.h"
+#include "console.h"
 
 enum
 { 
@@ -490,22 +491,29 @@ struct flow_key_alternatives* _Opt flow_branch_find_add(struct flow_branch* _Opt
     }
 }
 
-/* p_map, or an ancestor, is a side of a hypothesis (FLOW_BRANCH_HYPOTHESIS / _NOT), or implies one */
-bool flow_branch_is_under_hypothesis(const struct flow_branch* _Opt p_map)
+/* a side of an entry pair: made at function entry or at a call (_Opt, same object), it holds in the whole body and never closes in a join */
+bool flow_branch_kind_is_entry_side(enum flow_branch_kind kind)
 {
-    bool under_hypothesis = false;
-    for (const struct flow_branch* _Opt p_branch = p_map; p_branch != NULL && !under_hypothesis; p_branch = p_branch->p_parent_map)
+    return kind == FLOW_BRANCH_OPT_NULL || kind == FLOW_BRANCH_OPT_NONNULL ||
+           kind == FLOW_BRANCH_SAME_OBJECT || kind == FLOW_BRANCH_NOT_SAME_OBJECT;
+}
+
+/* p_map, or an ancestor, is a side of a same-object if (FLOW_BRANCH_SAME_OBJECT / NOT_SAME_OBJECT), or implies one */
+bool flow_branch_is_under_same_object(const struct flow_branch* _Opt p_map)
+{
+    bool under_same_object = false;
+    for (const struct flow_branch* _Opt p_branch = p_map; p_branch != NULL && !under_same_object; p_branch = p_branch->p_parent_map)
     {
         for (int fact_index = -1; fact_index < p_branch->implied_facts.count; fact_index++)
         {
             const enum flow_branch_kind kind = fact_index < 0 ? p_branch->kind : p_branch->implied_facts.data[fact_index].kind;
-            if (kind == FLOW_BRANCH_HYPOTHESIS || kind == FLOW_BRANCH_HYPOTHESIS_NOT)
+            if (kind == FLOW_BRANCH_SAME_OBJECT || kind == FLOW_BRANCH_NOT_SAME_OBJECT)
             {
-                under_hypothesis = true;
+                under_same_object = true;
             }
         }
     }
-    return under_hypothesis;
+    return under_same_object;
 }
 
 void flow_branch_set_object_moved(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token)
@@ -858,8 +866,8 @@ void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const str
                 an unrelated line.
             */
             e->alternatives.data[i]->p_origin_token = p_token; //lint 33
-            /* the lifetime ends on this path, not on the arm that wrote the value; a hypothesis is kept */
-            if (!flow_branch_is_under_hypothesis(e->alternatives.data[i]->p_origin_map)) //lint 33
+            /* the lifetime ends on this path, not on the arm that wrote the value; a same-object side is kept */
+            if (!flow_branch_is_under_same_object(e->alternatives.data[i]->p_origin_map)) //lint 33
             {
                 e->alternatives.data[i]->p_origin_map = m; //lint 33
             }
@@ -932,6 +940,9 @@ static void flow_branch_clear(_Clear struct flow_branch* m)
     m->branch_id = 0;
     m->child_count = 0;
     m->implied_facts = (struct flow_branch_implied_facts){ 0 };
+    free(m->label);
+    m->label = NULL;
+    m->same_object_of_parameters = false;
 }
 
 static void flow_branch_delete(struct flow_branch* _Owner _Opt m)
@@ -966,7 +977,7 @@ static void flow_branch_free_entries(struct flow_branch* m)
     m->num_of_entries = 0;
 }
 
-static void flow_branch_move_entries(struct flow_branch* dest, struct flow_branch* src)
+static void flow_branch_move_entries(struct flow_branch* restrict dest, struct flow_branch* restrict src)
 {
     if (src->buckets == NULL)
         return;
@@ -1196,6 +1207,25 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
                         const struct flow_alternative* a2 = p_pre_entry->alternatives.data[k]; //lint 33
                         struct flow_alternative tagged = *a2;
                         tagged.p_origin_map = arms[j];
+
+                        /*
+                            A value of a same-object side (p2->pY when p2 == p1) keeps that
+                            side as its narrowed-from map: it still exists only there.
+                        */
+                        if (tagged.p_narrowed_from == NULL &&
+                            a2->p_origin_map != NULL &&
+                            flow_branch_is_under_same_object(a2->p_origin_map))
+                        {
+                            bool origin_on_chain = false;
+                            for (const struct flow_branch* _Opt m = parent; m != NULL && !origin_on_chain; m = m->p_parent_map)
+                            {
+                                origin_on_chain = m == a2->p_origin_map;
+                            }
+                            if (!origin_on_chain)
+                            {
+                                tagged.p_narrowed_from = a2->p_origin_map;
+                            }
+                        }
                         tagged.p_origin_token = a2->p_origin_token;
                         flow_alternatives_push(&p_temp_entry->alternatives, &tagged);
                     }
@@ -1417,9 +1447,9 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
                     continue;
                 }
 
-                /* a hypothesis holds in the whole function: the value keeps it */
+                /* a same-object side holds in the whole function: the value keeps it */
                 struct flow_alternative tagged = *a;
-                if (!flow_branch_is_under_hypothesis(a->p_origin_map))
+                if (!flow_branch_is_under_same_object(a->p_origin_map))
                 {
                     tagged.p_origin_map = p_retag_origin;
                 }
@@ -1458,103 +1488,487 @@ static int flow_branch_collect_entries(const struct flow_branch* map, const stru
 
 #define FLOW_TREE_BRANCH "\xE2\x94\x9C\xE2\x94\x80\xE2\x94\x80 " /* "├── " */
 #define FLOW_TREE_LAST   "\xE2\x94\x94\xE2\x94\x80\xE2\x94\x80 " /* "└── " */
+#define FLOW_TREE_VERTICAL "\xE2\x94\x82   " /* "│   " */
 
-static void flow_branch_debug_print_name(const struct flow_branch* map)
+/* the dump: a tree of the maps the values came from, each value under its origin map */
+struct flow_dump
 {
+    const struct flow_key_alternatives* entries[FLOW_BRANCH_DEBUG_MAX_ENTRIES];
+    int entries_count;
+    const struct flow_branch* maps[FLOW_BRANCH_DEBUG_MAX_ENTRIES];
+    int maps_count;
+    const struct flow_branch* _Opt p_current;
+    bool colors;
+    const struct flow_debug_filter* _Opt p_filter;
+};
+
+/* no filter, or p (or the object it is part of) is in the filter */
+static bool flow_dump_is_shown(const struct flow_dump* d, const struct object* p)
+{
+    if (d->p_filter == NULL)
+        return true;
+    for (const struct object* _Opt o = p; o != NULL; o = o->parent)
+    {
+        for (int i = 0; i < d->p_filter->count; i++)
+        {
+            if (d->p_filter->data[i] == o)
+                return true;
+        }
+    }
+    return false;
+}
+
+static const char* flow_dump_color(const struct flow_dump* d, const char* code)
+{
+    return d->colors ? code : "";
+}
+
+static bool flow_dump_is_same_side(const struct flow_branch* _Opt p_map)
+{
+    for (const struct flow_branch* _Opt m = p_map; m != NULL; m = m->p_parent_map)
+    {
+        if (m->kind == FLOW_BRANCH_SAME_OBJECT)
+            return true;
+    }
+    return false;
+}
+
+/* a name for p by how it is reached: p, s.m, *p; false for a temporary */
+static bool flow_dump_object_name(const struct flow_dump* d, const struct object* p, struct osstream* ss, int depth)
+{
+    if (depth > 8)
+        return false;
+
+    /* a member of a named object carries its whole path, e.g. "x.text" */
+    const bool is_full_path = p->member_designator != NULL &&
+                              p->member_designator[0] != 0 &&
+                              p->member_designator[0] != '.' &&
+                              p->member_designator[0] != '[';
+    if (p->parent != NULL && !is_full_path)
+    {
+        struct osstream parent_ss = { 0 };
+        const bool named = flow_dump_object_name(d, p->parent, &parent_ss, depth + 1);
+        if (named)
+        {
+            const char* parent = parent_ss.c_str ? parent_ss.c_str : "";
+            const char* member = p->member_designator ? p->member_designator : "";
+            /* (*p).m is printed p->m */
+            if (parent[0] == '*' && member[0] == '.')
+                ss_fprintf(ss, parent[1] == '*' ? "(%s)->%s" : "%s->%s", parent + 1, member + 1);
+            else if (parent[0] == '*' && member[0] == '[')
+                ss_fprintf(ss, "(%s)%s", parent, member);
+            else
+                ss_fprintf(ss, "%s%s", parent, member);
+        }
+        ss_close(&parent_ss);
+        return named;
+    }
+
+    if (p->member_designator != NULL && p->member_designator[0] != 0)
+    {
+        ss_fprintf(ss, "%s", p->member_designator);
+        return true;
+    }
+
+    /* the pointee of a pointer; a pointer on no same-object side names it first */
+    for (int pass = 0; pass < 2; pass++)
+    {
+        for (int e = 0; e < d->entries_count; e++)
+        {
+            const struct flow_key_alternatives* p_entry = d->entries[e];
+            if (p_entry->p_obj_key == p)
+                continue;
+            for (int i = 0; i < p_entry->alternatives.size; i++)
+            {
+                const struct flow_alternative* a = p_entry->alternatives.data[i]; //lint 33
+                if (a->value_kind == FLOW_VALUE_KIND_PTR &&
+                    a->value_relation == FLOW_RELATION_EQUAL &&
+                    a->value.p == p &&
+                    flow_dump_is_same_side(a->p_origin_map) == (pass == 1))
+                {
+                    struct osstream name_ss = { 0 };
+                    const bool named = flow_dump_object_name(d, p_entry->p_obj_key, &name_ss, depth + 1);
+                    if (named)
+                        ss_fprintf(ss, "*%s", name_ss.c_str ? name_ss.c_str : "");
+                    ss_close(&name_ss);
+                    if (named)
+                        return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+static void flow_dump_print_object(const struct flow_dump* d, const struct object* _Opt p, struct osstream* ss)
+{
+    if (p == NULL)
+    {
+        ss_fprintf(ss, "null");
+        return;
+    }
     struct osstream name_ss = { 0 };
-    flow_branch_name_to_string(map, &name_ss);
-    printf("\"%s\"\n", name_ss.c_str ? name_ss.c_str : "");
+    if (flow_dump_object_name(d, p, &name_ss, 0))
+        ss_fprintf(ss, "%s", name_ss.c_str ? name_ss.c_str : "");
+    else
+        print_object_ptr(ss, p, false);
     ss_close(&name_ss);
 }
 
-static void flow_print_object_ptr(const struct object* p)
+static void flow_dump_print_value(const struct flow_dump* d, const struct flow_alternative* alt, struct osstream* ss)
 {
-    struct osstream ss = { 0 };
-    print_object_ptr(&ss, p, false);
-    fputs(ss.c_str ? ss.c_str : "", stdout);
-    ss_close(&ss);
+    switch (alt->value_relation)
+    {
+        case FLOW_RELATION_EQUAL: ss_fprintf(ss, "== "); break;
+        case FLOW_RELATION_NOT_EQUAL: ss_fprintf(ss, "!= "); break;
+        case FLOW_RELATION_ANY: ss_fprintf(ss, "ANY"); break;
+        case FLOW_RELATION_UNINITIALIZED: ss_fprintf(ss, "UNINIT"); break;
+        case FLOW_RELATION_GREATER: ss_fprintf(ss, "> "); break;
+        case FLOW_RELATION_GREATER_EQUAL: ss_fprintf(ss, ">= "); break;
+        case FLOW_RELATION_LESS: ss_fprintf(ss, "< "); break;
+        case FLOW_RELATION_LESS_EQUAL: ss_fprintf(ss, "<= "); break;
+    }
+
+    if (alt->value_relation != FLOW_RELATION_ANY && alt->value_relation != FLOW_RELATION_UNINITIALIZED)
+    {
+        switch (alt->value_kind)
+        {
+            case FLOW_VALUE_KIND_SIGNED:
+                ss_fprintf(ss, "%lld", alt->value.i);
+                break;
+            case FLOW_VALUE_KIND_UNSIGNED:
+                ss_fprintf(ss, "%lluu", alt->value.u);
+                break;
+            case FLOW_VALUE_KIND_PTR:
+                if (alt->value.p != NULL)
+                    ss_fprintf(ss, "&");
+                flow_dump_print_object(d, alt->value.p, ss);
+                break;
+            case FLOW_VALUE_KIND_REF:
+                ss_fprintf(ss, "ref ");
+                flow_dump_print_object(d, alt->value.p, ss);
+                break;
+        }
+    }
+
+    if (alt->imaginary == FLOW_IMAGINARY_MOVED)
+        ss_fprintf(ss, " MOVED");
+    if (alt->imaginary == FLOW_IMAGINARY_ENDED)
+        ss_fprintf(ss, " ENDED");
 }
 
-void flow_branch_debug_print(const struct flow_branch* _Opt map, int indent)
+static bool flow_dump_is_temporary(const struct flow_dump* d, const struct object* p)
 {
-    (void)indent; /* kept for source compatibility with the existing call site */
+    struct osstream ss = { 0 };
+    const bool named = flow_dump_object_name(d, p, &ss, 0);
+    ss_close(&ss);
+    return !named;
+}
 
+static void flow_dump_add_map(struct flow_dump* d, const struct flow_branch* _Opt p_map)
+{
+    for (const struct flow_branch* _Opt m = p_map; m != NULL; m = m->p_parent_map)
+    {
+        bool found = false;
+        for (int i = 0; i < d->maps_count && !found; i++)
+            found = d->maps[i] == m;
+        if (found)
+            return;
+        if (d->maps_count < FLOW_BRANCH_DEBUG_MAX_ENTRIES)
+            d->maps[d->maps_count++] = m;
+    }
+}
+
+static bool flow_dump_is_null_side(enum flow_branch_kind kind)
+{
+    return kind == FLOW_BRANCH_OPT_NULL;
+}
+
+static bool flow_dump_is_nonnull_side(enum flow_branch_kind kind)
+{
+    return kind == FLOW_BRANCH_OPT_NONNULL;
+}
+
+/* "key == value" of the first pointer value set in p_map, with a null (or non-null) value when asked */
+static bool flow_dump_own_pointer(const struct flow_dump* d, const struct flow_branch* p_map, bool want_null, struct osstream* ss)
+{
+    for (int e = 0; e < d->entries_count; e++)
+    {
+        const struct flow_key_alternatives* p_entry = d->entries[e];
+        for (int i = 0; i < p_entry->alternatives.size; i++)
+        {
+            const struct flow_alternative* a = p_entry->alternatives.data[i]; //lint 33
+            if (a->p_origin_map == p_map &&
+                a->value_kind == FLOW_VALUE_KIND_PTR &&
+                a->value_relation == FLOW_RELATION_EQUAL &&
+                (a->value.p == NULL) == want_null)
+            {
+                struct osstream key_ss = { 0 };
+                const bool named = flow_dump_object_name(d, p_entry->p_obj_key, &key_ss, 0);
+                if (named)
+                {
+                    ss_fprintf(ss, "%s", key_ss.c_str ? key_ss.c_str : "");
+                    if (a->value.p != NULL)
+                    {
+                        /* q == &*p reads q == p */
+                        struct osstream value_ss = { 0 };
+                        flow_dump_print_object(d, a->value.p, &value_ss);
+                        const char* value = value_ss.c_str ? value_ss.c_str : "";
+                        ss_fprintf(ss, value[0] == '*' ? "|%s" : "|&%s", value[0] == '*' ? value + 1 : value);
+                        ss_close(&value_ss);
+                    }
+                }
+                ss_close(&key_ss);
+                if (named)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+/* the other side of p_map's pair: same parent and branch id, or same parent for the null/non-null sides */
+static const struct flow_branch* _Opt flow_dump_sibling(const struct flow_dump* d, const struct flow_branch* p_map)
+{
+    for (int i = 0; i < d->maps_count; i++)
+    {
+        const struct flow_branch* m = d->maps[i];
+        if (m == p_map)
+            continue;
+        if (p_map->branch_id != 0 && m->branch_id == p_map->branch_id)
+            return m;
+        if (p_map->branch_id == 0 && m->p_parent_map == p_map->p_parent_map &&
+            ((flow_dump_is_null_side(p_map->kind) && flow_dump_is_nonnull_side(m->kind)) ||
+             (flow_dump_is_nonnull_side(p_map->kind) && flow_dump_is_null_side(m->kind))))
+            return m;
+    }
+    return NULL;
+}
+
+/* what a map assumes, as a C condition: a > 2, !(a > 2), p == null, p != null, q == p, q != p */
+static void flow_dump_map_label(const struct flow_dump* d, const struct flow_branch* p_map, struct osstream* ss)
+{
+    if ((p_map->kind == FLOW_BRANCH_TRUE_BRANCH || p_map->kind == FLOW_BRANCH_FALSE_BRANCH) && p_map->p_branch_expr != NULL)
+    {
+        struct osstream expr_ss = { 0 };
+        flow_expression_to_string(p_map->p_branch_expr, &expr_ss);
+        ss_fprintf(ss, p_map->kind == FLOW_BRANCH_TRUE_BRANCH ? "%s" : "!(%s)", expr_ss.c_str ? expr_ss.c_str : "");
+        ss_close(&expr_ss);
+        return;
+    }
+
+    if (p_map->label != NULL)
+    {
+        ss_fprintf(ss, "%s", p_map->label);
+        return;
+    }
+
+    struct osstream own_ss = { 0 };
+    bool found = false;
+    const char* op = "==";
+    if (flow_dump_is_null_side(p_map->kind))
+    {
+        found = flow_dump_own_pointer(d, p_map, true, &own_ss);
+    }
+    else if (flow_dump_is_nonnull_side(p_map->kind))
+    {
+        /* the null side names the pointer; the non-null side has other pointers too */
+        const struct flow_branch* _Opt p_sibling = flow_dump_sibling(d, p_map);
+        found = p_sibling != NULL && flow_dump_own_pointer(d, p_sibling, true, &own_ss);
+        if (!found && flow_dump_own_pointer(d, p_map, false, &own_ss))
+        {
+            /* no null side in the dump: its own pointer, without the value */
+            const char* text = own_ss.c_str ? own_ss.c_str : "";
+            const char* _Opt bar = strchr(text, '|');
+            ss_fprintf(ss, "%.*s != null", bar ? (int)(bar - text) : (int)strlen(text), text);
+            ss_close(&own_ss);
+            return;
+        }
+        op = "!=";
+    }
+    else if (p_map->kind == FLOW_BRANCH_SAME_OBJECT)
+    {
+        found = flow_dump_own_pointer(d, p_map, false, &own_ss);
+    }
+    else if (p_map->kind == FLOW_BRANCH_NOT_SAME_OBJECT)
+    {
+        const struct flow_branch* _Opt p_sibling = flow_dump_sibling(d, p_map);
+        found = p_sibling != NULL && flow_dump_own_pointer(d, p_sibling, false, &own_ss);
+        op = "!=";
+    }
+
+    if (found)
+    {
+        const char* text = own_ss.c_str ? own_ss.c_str : "";
+        const char* _Opt bar = strchr(text, '|');
+        if (bar != NULL)
+            ss_fprintf(ss, "%.*s %s %s", (int)(bar - text), text, op, bar + 1);
+        else
+            ss_fprintf(ss, "%s %s null", text, op);
+    }
+    else
+    {
+        struct osstream name_ss = { 0 };
+        flow_branch_name_to_string(p_map, &name_ss);
+        ss_fprintf(ss, "%s", name_ss.c_str ? name_ss.c_str : "");
+        ss_close(&name_ss);
+    }
+    ss_close(&own_ss);
+}
+
+/* the label of an implied fact: the map of that pair side, when the dump has it */
+static void flow_dump_fact_label(const struct flow_dump* d, const struct flow_branch_fact* p_fact, struct osstream* ss)
+{
+    for (int i = 0; i < d->maps_count; i++)
+    {
+        if (d->maps[i]->branch_id == p_fact->branch_id && d->maps[i]->kind == p_fact->kind)
+        {
+            flow_dump_map_label(d, d->maps[i], ss);
+            return;
+        }
+    }
+    struct flow_branch fact_map = { 0 };
+    fact_map.kind = p_fact->kind;
+    struct osstream name_ss = { 0 };
+    flow_branch_name_to_string(&fact_map, &name_ss);
+    ss_fprintf(ss, "%s #%d", name_ss.c_str ? name_ss.c_str : "", p_fact->branch_id);
+    ss_close(&name_ss);
+}
+
+static void flow_dump_print_map(const struct flow_dump* d, const struct flow_branch* p_map, const char* prefix, bool is_last, bool is_top)
+{
+    struct osstream name_ss = { 0 };
+    flow_dump_map_label(d, p_map, &name_ss);
+    /* assumptions not written in the code: same object or not, null or not */
+    const bool is_same_object = p_map->kind == FLOW_BRANCH_SAME_OBJECT || p_map->kind == FLOW_BRANCH_NOT_SAME_OBJECT ||
+                               flow_dump_is_null_side(p_map->kind) || flow_dump_is_nonnull_side(p_map->kind);
+    printf("%s%s%s%s%s", prefix, is_top ? "" : (is_last ? FLOW_TREE_LAST : FLOW_TREE_BRANCH),
+           flow_dump_color(d, is_same_object ? LIGHTMAGENTA : LIGHTCYAN), name_ss.c_str ? name_ss.c_str : "", flow_dump_color(d, COLOR_RESET));
+    ss_close(&name_ss);
+    if (p_map->branch_id != 0)
+        printf("%s #%d%s", flow_dump_color(d, DARKGRAY), p_map->branch_id, flow_dump_color(d, COLOR_RESET));
+    /* the sides this map is on without being under them, e.g. the same-object side of a write */
+    for (int i = 0; i < p_map->implied_facts.count; i++)
+    {
+        struct osstream fact_ss = { 0 };
+        flow_dump_fact_label(d, &p_map->implied_facts.data[i], &fact_ss);
+        printf(" %s[%s]%s", flow_dump_color(d, LIGHTMAGENTA), fact_ss.c_str ? fact_ss.c_str : "", flow_dump_color(d, COLOR_RESET));
+        ss_close(&fact_ss);
+    }
+    if (p_map->p_branch_expr != NULL && p_map->p_branch_expr->first_token->line > 0)
+        printf("%s (line %d)%s", flow_dump_color(d, DARKGRAY), p_map->p_branch_expr->first_token->line, flow_dump_color(d, COLOR_RESET));
+    if (p_map->is_unreachable)
+        printf("%s [unreachable]%s", flow_dump_color(d, LIGHTRED), flow_dump_color(d, COLOR_RESET));
+    if (p_map == d->p_current)
+        printf("%s  <- current%s", flow_dump_color(d, DARKGRAY), flow_dump_color(d, COLOR_RESET));
+    printf("\n");
+
+    char child_prefix[1024] = "";
+    snprintf(child_prefix, sizeof(child_prefix), "%s%s", prefix, is_top ? "" : (is_last ? "    " : FLOW_TREE_VERTICAL));
+
+    int last_child = -1;
+    for (int i = 0; i < d->maps_count; i++)
+    {
+        if (d->maps[i]->p_parent_map == p_map)
+            last_child = i;
+    }
+
+    /* the values that came from this map: pass 0 measures the name column */
+    int name_width = 0;
+    for (int pass = 0; pass < 2; pass++)
+    {
+        for (int e = 0; e < d->entries_count; e++)
+        {
+            const struct flow_key_alternatives* p_entry = d->entries[e];
+            struct osstream key_ss = { 0 };
+            if (flow_dump_is_shown(d, p_entry->p_obj_key) &&
+                flow_dump_object_name(d, p_entry->p_obj_key, &key_ss, 0))
+            {
+                const char* key = key_ss.c_str ? key_ss.c_str : "";
+                for (int i = 0; i < p_entry->alternatives.size; i++)
+                {
+                    const struct flow_alternative* a = p_entry->alternatives.data[i]; //lint 33
+                    if (a->p_origin_map != p_map)
+                        continue;
+                    if (pass == 0)
+                    {
+                        const int w = (int)strlen(key);
+                        if (w > name_width)
+                            name_width = w;
+                        continue;
+                    }
+                    struct osstream value_ss = { 0 };
+                    flow_dump_print_value(d, a, &value_ss);
+                    const char* value = value_ss.c_str ? value_ss.c_str : "";
+                    const bool is_unknown = a->value_relation == FLOW_RELATION_ANY || a->value_relation == FLOW_RELATION_UNINITIALIZED;
+                    printf("%s%s%s%s%s%*s  %s%s%s%*s %sline %d%s\n",
+                           child_prefix,
+                           last_child >= 0 ? FLOW_TREE_VERTICAL : "    ",
+                           flow_dump_color(d, YELLOW), key, flow_dump_color(d, COLOR_RESET), name_width - (int)strlen(key), "",
+                           flow_dump_color(d, is_unknown ? MAGENTA : LIGHTGREEN), value, flow_dump_color(d, COLOR_RESET), 12 - (int)strlen(value), "",
+                           flow_dump_color(d, DARKGRAY), flow_alternative_line(a), flow_dump_color(d, COLOR_RESET));
+                    ss_close(&value_ss);
+                }
+            }
+            ss_close(&key_ss);
+        }
+    }
+
+    for (int i = 0; i < d->maps_count; i++)
+    {
+        if (d->maps[i]->p_parent_map == p_map)
+            flow_dump_print_map(d, d->maps[i], child_prefix, i == last_child, false);
+    }
+}
+
+void flow_branch_debug_print(const struct flow_branch* _Opt map, bool colors, const struct flow_debug_filter* _Opt p_filter)
+{
     if (!map)
     {
         printf("(null map)\n");
         return;
     }
 
-    const struct flow_branch* chain[FLOW_BRANCH_DEBUG_MAX_CHAIN];
-    int chain_len = 0;
-    for (const struct flow_branch* _Opt cur = map; cur; cur = cur->p_parent_map)
+    struct flow_dump* _Opt _Owner d = calloc(1, sizeof * d);
+    if (d == NULL)
+        return;
+    d->p_current = map;
+    d->colors = colors;
+    d->p_filter = p_filter;
+
+    /* the visible entry of each object: the nearest map wins */
+    for (const struct flow_branch* _Opt m = map; m != NULL; m = m->p_parent_map)
     {
-        if (chain_len < FLOW_BRANCH_DEBUG_MAX_CHAIN)
-            chain[chain_len] = cur;
-        chain_len++;
-    }
-    const int printed_len = chain_len < FLOW_BRANCH_DEBUG_MAX_CHAIN ? chain_len : FLOW_BRANCH_DEBUG_MAX_CHAIN;
-
-    char prefix[1024] = "";
-
-    /*
-        chain[0] is the deepest (current) map, chain[printed_len-1] is the
-        root -- walk it backwards so the root prints first.
-    */
-    for (int i = printed_len - 1; i >= 0; i--)
-    {
-        const struct flow_branch* m = chain[i];
-        const bool is_root = (i == printed_len - 1);
-        const bool has_child_map = (i > 0);
-
-        if (is_root)
-        {
-            flow_branch_debug_print_name(m);
-        }
-        else
-        {
-            printf("%s%s", prefix, FLOW_TREE_LAST);
-            flow_branch_debug_print_name(m);
-        }
-
-        char child_prefix[1024] = "";
-        snprintf(child_prefix, sizeof(child_prefix), "%s%s", prefix, is_root ? "" : "    ");
-
         const struct flow_key_alternatives* entries[FLOW_BRANCH_DEBUG_MAX_ENTRIES] = { 0 };
-        int n_entries = flow_branch_collect_entries(m, entries, FLOW_BRANCH_DEBUG_MAX_ENTRIES);
-        const int printed_entries = n_entries < FLOW_BRANCH_DEBUG_MAX_ENTRIES ? n_entries : FLOW_BRANCH_DEBUG_MAX_ENTRIES;
-
-        if (printed_entries == 0 && !has_child_map)
+        const int n = flow_branch_collect_entries(m, entries, FLOW_BRANCH_DEBUG_MAX_ENTRIES);
+        for (int e = 0; e < n && e < FLOW_BRANCH_DEBUG_MAX_ENTRIES; e++)
         {
-            printf("%s%s(empty)\n", child_prefix, FLOW_TREE_LAST);
+            bool shadowed = false;
+            for (int k = 0; k < d->entries_count && !shadowed; k++)
+                shadowed = d->entries[k]->p_obj_key == entries[e]->p_obj_key;
+            if (!shadowed && d->entries_count < FLOW_BRANCH_DEBUG_MAX_ENTRIES)
+                d->entries[d->entries_count++] = entries[e];
         }
-        else
-        {
-            for (int e = 0; e < printed_entries; e++)
-            {
-                const bool last_entry = (e == printed_entries - 1) && !has_child_map;
-                printf("%s%s", child_prefix, last_entry ? FLOW_TREE_LAST : FLOW_TREE_BRANCH);
-                flow_print_object_ptr((void*)entries[e]->p_obj_key);
-                flow_alternatives_print(&entries[e]->alternatives);
-                printf("\n");
-            }
-            if (n_entries > printed_entries)
-            {
-                printf("%s%s... (%d more entries)\n", child_prefix, FLOW_TREE_LAST, n_entries - printed_entries);
-            }
-        }
-
-        /*
-            Next iteration (one level deeper) prints its own map header and
-            entries under this node's child slot, i.e. at child_prefix.
-        */
-        snprintf(prefix, sizeof(prefix), "%s", child_prefix);
     }
 
-    if (chain_len > FLOW_BRANCH_DEBUG_MAX_CHAIN)
+    /* temporaries are left out, and so are the maps only they came from */
+    flow_dump_add_map(d, map);
+    for (int e = 0; e < d->entries_count; e++)
     {
-        printf("%s... (chain truncated, %d more ancestors)\n", prefix, chain_len - FLOW_BRANCH_DEBUG_MAX_CHAIN);
+        if (!flow_dump_is_shown(d, d->entries[e]->p_obj_key) ||
+            flow_dump_is_temporary(d, d->entries[e]->p_obj_key))
+            continue;
+        for (int i = 0; i < d->entries[e]->alternatives.size; i++)
+            flow_dump_add_map(d, d->entries[e]->alternatives.data[i]->p_origin_map); //lint 33
     }
+
+    for (int i = 0; i < d->maps_count; i++)
+    {
+        if (d->maps[i]->p_parent_map == NULL)
+            flow_dump_print_map(d, d->maps[i], "", true, true);
+    }
+
+    free(d);
 }
 
 int flow_alternative_truth(struct flow_branch* _Opt map,
@@ -1758,6 +2172,11 @@ const struct flow_branch* _Opt flow_alternative_narrowed_provenance(const struct
     return provenance;
 }
 
+int flow_new_branch_id(void)
+{
+    return ++g_flow_next_branch_id;
+}
+
 void flow_tag_branch_pair(struct flow_branch* _Opt p_true, struct flow_branch* _Opt p_false)
 {
     if (p_true == NULL || p_false == NULL || p_true == p_false)
@@ -1765,6 +2184,16 @@ void flow_tag_branch_pair(struct flow_branch* _Opt p_true, struct flow_branch* _
     int id = ++g_flow_next_branch_id;
     p_true->branch_id = id;
     p_false->branch_id = id;
+}
+
+/* a copy of label, a ready string printed as it is */
+void flow_branch_set_label(struct flow_branch* _Opt m, const char* _Opt label)
+{
+    if (m != NULL && label != NULL)
+    {
+        free(m->label);
+        m->label = strdup(label);
+    }
 }
 
 void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstream* ss)
@@ -1806,23 +2235,11 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
         case FLOW_BRANCH_OPT_NONNULL:
             ss_fprintf(ss, "opt-nonnull");
             return;
-        case FLOW_BRANCH_OPT_MEM_NULL:
-            ss_fprintf(ss, "opt-mem-null");
+        case FLOW_BRANCH_SAME_OBJECT:
+            ss_fprintf(ss, "same-object");
             return;
-        case FLOW_BRANCH_OPT_MEM_NONNULL:
-            ss_fprintf(ss, "opt-mem-nonnull");
-            return;
-        case FLOW_BRANCH_CALL_OPT_NULL:
-            ss_fprintf(ss, "call-opt-null");
-            return;
-        case FLOW_BRANCH_CALL_OPT_NONNULL:
-            ss_fprintf(ss, "call-opt-nonnull");
-            return;
-        case FLOW_BRANCH_HYPOTHESIS:
-            ss_fprintf(ss, "hypothesis");
-            return;
-        case FLOW_BRANCH_HYPOTHESIS_NOT:
-            ss_fprintf(ss, "hypothesis-not");
+        case FLOW_BRANCH_NOT_SAME_OBJECT:
+            ss_fprintf(ss, "not-same-object");
             return;
         case FLOW_BRANCH_FOR_BODY_DIAG:
             ss_fprintf(ss, "for body (diagnostics only)");
@@ -1894,4 +2311,146 @@ void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstr
     }
 
     ss_fprintf(ss, "?");
+}
+
+static const char* flow_branch_kind_name(enum flow_branch_kind kind)
+{
+    switch (kind)
+    {
+        case FLOW_BRANCH_ROOT: return "ROOT";
+        case FLOW_BRANCH_TRUE_BRANCH: return "TRUE_BRANCH";
+        case FLOW_BRANCH_FALSE_BRANCH: return "FALSE_BRANCH";
+        case FLOW_BRANCH_BREAK_JOIN: return "BREAK_JOIN";
+        case FLOW_BRANCH_CONTINUE_JOIN: return "CONTINUE_JOIN";
+        case FLOW_BRANCH_THROW_JOIN: return "THROW_JOIN";
+        case FLOW_BRANCH_TRY_BRANCH: return "TRY_BRANCH";
+        case FLOW_BRANCH_CATCH_BRANCH: return "CATCH_BRANCH";
+        case FLOW_BRANCH_SWITCH_BODY: return "SWITCH_BODY";
+        case FLOW_BRANCH_OPT_NULL: return "OPT_NULL";
+        case FLOW_BRANCH_OPT_NONNULL: return "OPT_NONNULL";
+        case FLOW_BRANCH_FOR_BODY_DIAG: return "FOR_BODY_DIAG";
+        case FLOW_BRANCH_FOR_BODY_PASS1: return "FOR_BODY_PASS1";
+        case FLOW_BRANCH_DEFAULT: return "DEFAULT";
+        case FLOW_BRANCH_CASE: return "CASE";
+        case FLOW_BRANCH_GOTO_LABEL: return "GOTO_LABEL";
+        case FLOW_BRANCH_REL_DEAD: return "REL_DEAD";
+        case FLOW_BRANCH_EQ_DEAD: return "EQ_DEAD";
+        case FLOW_BRANCH_NOT_DEAD_TRUE: return "NOT_DEAD_TRUE";
+        case FLOW_BRANCH_NOT_DEAD_FALSE: return "NOT_DEAD_FALSE";
+        case FLOW_BRANCH_OR_DEAD_TRUE: return "OR_DEAD_TRUE";
+        case FLOW_BRANCH_OR_DEAD_FALSE: return "OR_DEAD_FALSE";
+        case FLOW_BRANCH_AND_DEAD_TRUE: return "AND_DEAD_TRUE";
+        case FLOW_BRANCH_AND_DEAD_FALSE: return "AND_DEAD_FALSE";
+        case FLOW_BRANCH_MERGE_TEMP: return "MERGE_TEMP";
+        case FLOW_BRANCH_POINTER_TARGET: return "POINTER_TARGET";
+        case FLOW_BRANCH_SAME_OBJECT: return "SAME_OBJECT";
+        case FLOW_BRANCH_NOT_SAME_OBJECT: return "NOT_SAME_OBJECT";
+    }
+    return "?";
+}
+
+/* #n: the map's index in the arena, stable for the function */
+static void flow_raw_dump_map_ref(const struct flow_branch_arena* arena, const struct flow_branch* _Opt m)
+{
+    if (m == NULL)
+    {
+        printf("NULL");
+        return;
+    }
+    for (int i = 0; arena->data != NULL && i < arena->size; i++)
+    {
+        if (arena->data[i] == m)
+        {
+            printf("#%d", i);
+            return;
+        }
+    }
+    printf("#?(%p)", (const void*)m);
+}
+
+static bool flow_raw_dump_is_shown(const struct flow_debug_filter* _Opt p_filter, const struct object* p)
+{
+    if (p_filter == NULL)
+        return true;
+    for (const struct object* _Opt o = p; o != NULL; o = o->parent)
+    {
+        for (int i = 0; i < p_filter->count; i++)
+        {
+            if (p_filter->data[i] == o)
+                return true;
+        }
+    }
+    return false;
+}
+
+/*
+    The maps as they are in memory, field by field, from `map` up to the root
+    (the chain flow_branch_search_up reads). Maps are #n (arena index), objects
+    their address and designator.
+*/
+void flow_branch_raw_dump(const struct flow_branch* _Opt map, const struct flow_branch_arena* arena, bool colors, const struct flow_debug_filter* _Opt p_filter)
+{
+    static const char* const kinds[] = { "SIGNED", "UNSIGNED", "PTR", "REF" };
+    static const char* const relations[] = { "UNINITIALIZED", "EQUAL", "NOT_EQUAL", "ANY", "GREATER", "GREATER_EQUAL", "LESS", "LESS_EQUAL" };
+    static const char* const imaginaries[] = { "NONE", "MOVED", "ENDED" };
+
+    const char* c_map = colors ? "\x1b[96m" : "";
+    const char* c_key = colors ? "\x1b[93m" : "";
+    const char* c_dim = colors ? "\x1b[90m" : "";
+    const char* c_warn = colors ? "\x1b[91m" : "";
+    const char* c_off = colors ? "\x1b[0m" : "";
+
+    for (const struct flow_branch* _Opt m = map; m != NULL; m = m->p_parent_map)
+    {
+        printf("%sflow_branch ", c_map);
+        flow_raw_dump_map_ref(arena, m);
+        printf(" {%s%s\n", c_off, m == map ? "   <- current" : "");
+        printf("  kind           = %s\n", flow_branch_kind_name(m->kind));
+        printf("  branch_id      = %d\n", m->branch_id);
+        printf("  p_parent_map   = ");
+        flow_raw_dump_map_ref(arena, m->p_parent_map);
+        printf("\n");
+        printf("  is_unreachable = %s\n", m->is_unreachable ? "true" : "false");
+        if (m->label != NULL)
+            printf("  label          = \"%s\"\n", m->label);
+        printf("  implied_facts  = [");
+        for (int f = 0; f < m->implied_facts.count; f++)
+            printf("%s {branch_id=%d, kind=%s}", f > 0 ? "," : "", m->implied_facts.data[f].branch_id, flow_branch_kind_name(m->implied_facts.data[f].kind));
+        printf(" ]\n");
+        printf("  entries (%d) {\n", m->num_of_entries);
+        for (int b = 0; m->buckets != NULL && b < m->num_of_buckets; b++)
+        {
+            for (const struct flow_key_alternatives* _Opt e = m->buckets[b]; e != NULL; e = e->next)
+            {
+                if (!flow_raw_dump_is_shown(p_filter, e->p_obj_key))
+                    continue;
+                printf("    %sp_obj_key%s = %s%p%s \"%s\"", c_key, c_off, c_dim, (const void*)e->p_obj_key, c_off,
+                       e->p_obj_key->member_designator ? e->p_obj_key->member_designator : "");
+                if (e->p_obj_key->parent != NULL)
+                    printf(" %s(parent %p)%s", c_dim, (const void*)e->p_obj_key->parent, c_off);
+                printf("\n    alternatives (%d) {\n", e->alternatives.size);
+                for (int i = 0; i < e->alternatives.size; i++)
+                {
+                    const struct flow_alternative* a = e->alternatives.data[i]; //lint 33
+                    printf("      [%d] { value_kind=%s ", i, kinds[a->value_kind]);
+                    if (a->value_kind == FLOW_VALUE_KIND_PTR || a->value_kind == FLOW_VALUE_KIND_REF)
+                        printf("value.p=%s%p%s", c_dim, (const void*)a->value.p, c_off);
+                    else if (a->value_kind == FLOW_VALUE_KIND_UNSIGNED)
+                        printf("value.u=%llu", a->value.u);
+                    else
+                        printf("value.i=%lld", a->value.i);
+                    printf(" value_relation=%s", relations[a->value_relation]);
+                    printf(" imaginary=%s%s%s", a->imaginary != FLOW_IMAGINARY_NONE ? c_warn : "", imaginaries[a->imaginary], c_off);
+                    printf(" contradicted=%s\n", a->contradicted ? "true" : "false");
+                    printf("            p_origin_map=");
+                    flow_raw_dump_map_ref(arena, a->p_origin_map);
+                    printf(" p_narrowed_from=");
+                    flow_raw_dump_map_ref(arena, a->p_narrowed_from);
+                    printf(" p_origin_token=line %d }\n", a->p_origin_token ? a->p_origin_token->line : 0);
+                }
+                printf("    }\n");
+            }
+        }
+        printf("  }\n}\n");
+    }
 }

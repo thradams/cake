@@ -276,94 +276,97 @@
 <a href="#toc_32">5.4 One Report per Fact</a>
 </li>
 <li>
-<a href="#toc_33">5.5 Hypotheses</a>
+<a href="#toc_33">5.5 The Entry Flow</a>
+</li>
+<li>
+<a href="#toc_34">5.6 Seeing the Paths: <code>static_debug</code></a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_34">Chapter 6 - Limitations</a>
+<a href="#toc_35">Chapter 6 - Limitations</a>
 <ul>
 <li>
-<a href="#toc_35">6.1 Conditional Contracts</a>
+<a href="#toc_36">6.1 Conditional Contracts</a>
 </li>
 <li>
-<a href="#toc_36">6.2 What the Analysis Assumes About <code>const</code></a>
+<a href="#toc_37">6.2 What the Analysis Assumes About <code>const</code></a>
 </li>
 <li>
-<a href="#toc_37">6.3 Functions That Are Too Large</a>
+<a href="#toc_38">6.3 Functions That Are Too Large</a>
 </li>
 <li>
-<a href="#toc_38">6.4 Backward <code>goto</code></a>
+<a href="#toc_39">6.4 Backward <code>goto</code></a>
 </li>
 <li>
-<a href="#toc_39">6.5 Arrays Whose Size Is Not Known</a>
+<a href="#toc_40">6.5 Arrays Whose Size Is Not Known</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_40">Appendix A - Reference Manual</a>
+<a href="#toc_41">Appendix A - Rules</a>
 <ul>
 <li>
-<a href="#toc_41">A1. Definitions</a>
+<a href="#toc_42">A1. Definitions</a>
 </li>
 <li>
-<a href="#toc_42">A2. Plain parameters: <code>struct X* p</code></a>
+<a href="#toc_43">A2. Plain parameters: <code>struct X* p</code></a>
 </li>
 <li>
-<a href="#toc_43">A3. Results: <code>struct X* F(void)</code></a>
+<a href="#toc_44">A3. Results: <code>struct X* F(void)</code></a>
 </li>
 <li>
-<a href="#toc_44">A4. <code>_Opt</code></a>
+<a href="#toc_45">A4. <code>_Opt</code></a>
 </li>
 <li>
-<a href="#toc_45">A5. Assignment <code>a = b</code></a>
+<a href="#toc_46">A5. Assignment <code>a = b</code></a>
 </li>
 <li>
-<a href="#toc_46">A6. <code>_Out</code></a>
+<a href="#toc_47">A6. <code>_Out</code></a>
 </li>
 <li>
-<a href="#toc_47">A7. <code>_Dtor</code></a>
+<a href="#toc_48">A7. <code>_Dtor</code></a>
 </li>
 <li>
-<a href="#toc_48">A8. <code>_Clear</code></a>
+<a href="#toc_49">A8. <code>_Clear</code></a>
 </li>
 <li>
-<a href="#toc_49">A9. <code>_Uninitialized</code></a>
+<a href="#toc_50">A9. <code>_Uninitialized</code></a>
 </li>
 <li>
-<a href="#toc_50">A10. <code>_View</code></a>
+<a href="#toc_51">A10. <code>_View</code></a>
 </li>
 <li>
-<a href="#toc_51">A11. <code>_Owner</code></a>
+<a href="#toc_52">A11. <code>_Owner</code></a>
 </li>
 <li>
-<a href="#toc_52">A12. Combination</a>
+<a href="#toc_53">A12. Combination</a>
 </li>
 <li>
-<a href="#toc_53">A13. Casts</a>
+<a href="#toc_54">A13. Casts</a>
 </li>
 <li>
-<a href="#toc_54">A14. Flow analysis</a>
+<a href="#toc_55">A14. Flow analysis</a>
 </li>
 <li>
-<a href="#toc_55">A15. Compatibility of annotated types</a>
+<a href="#toc_56">A15. Compatibility of annotated types</a>
 </li>
 <li>
-<a href="#toc_56">A16. <code>restrict</code> and parameters that may alias</a>
+<a href="#toc_57">A16. <code>restrict</code> and parameters that may alias</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_57">Appendix B - Hypotheses</a>
+<a href="#toc_58">Appendix B - Hypotheses</a>
 <ul>
 <li>
-<a href="#toc_58">B.1 The Result of a Call</a>
+<a href="#toc_59">B.1 The Result of a Call</a>
 </li>
 <li>
-<a href="#toc_59">B.2 Parameters That May Be the Same Object</a>
+<a href="#toc_60">B.2 Parameters That May Be the Same Object</a>
 </li>
 <li>
-<a href="#toc_60">B.3 <code>restrict</code></a>
+<a href="#toc_61">B.3 <code>restrict</code></a>
 </li>
 </ul>
 </li>
@@ -1130,7 +1133,7 @@ int f(void)
     free(p);
 
     int v = *r;
-    /* warning 31: in case &#39;first(p)&#39; and &#39;p&#39; point to the same object */
+    /* warning 31: in case first(p) == p */
     return v + *q;
 }
 </code></pre>
@@ -1232,39 +1235,232 @@ void f(int a, int b)
 
 <p><strong>Experiment 5-1.</strong> Three more <code>else if</code> branches set <code>p</code> to null. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIHVzZShpbnQqIHApOwppbnQgZzsKCnZvaWQgZihpbnQgYSwgaW50IGIsIGludCBjLCBpbnQgZCwgaW50IGUpCnsKICAgIGludCogX09wdCBwID0gJmc7CiAgICBpZiAoYSkgcCA9IDA7CiAgICBlbHNlIGlmIChiKSBwID0gMDsKICAgIGVsc2UgaWYgKGMpIHAgPSAwOwogICAgZWxzZSBpZiAoZCkgcCA9IDA7CiAgICBlbHNlIGlmIChlKSBwID0gMDsKICAgIHVzZShwKTsgLyogd2FybmluZyAzNSAqLwp9Cg%3D%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
-<h3 id="toc_33">5.5 Hypotheses</h3>
+<h3 id="toc_33">5.5 The Entry Flow</h3>
 
-<p>Some things the declarations do not rule out: two pointer parameters may be
-the same object, and a pointer returned by a call may be one of its
-arguments. Each of these is a hypothesis. The analysis does not choose one;
-it follows them all, as it follows the two sides of an <code>if</code>.</p>
+<p>A function is analysed as if some code ran before it: the code of the caller,
+which the analysis does not see. That code is a set of <code>if</code>s outside the
+function. Their decisions were made outside, so the body starts with both
+sides of each one, and they never join: the continuation is unknown.</p>
+
+<p><code>new()</code> below is any valid object (local, static or allocated, it is not
+known); it never fails. For</p>
+
+<pre><code class="language-c">void f(int* _Opt p1, int* _Opt p2);
+</code></pre>
+
+<p>the entry flow is</p>
+
+<pre><code class="language-c">if (/* p1 and p2 are the same */)
+{
+    if (/* not null */) p1 = new(); else p1 = 0;
+    p2 = p1;     /* both null, or both the same object */
+}
+else
+{
+    if (/* not null */) p1 = new(); else p1 = 0;
+    if (/* not null */) p2 = new(); else p2 = 0;
+}
+</code></pre>
+
+<p>The <code>if (not null)</code> is <code>_Opt</code>: without <code>_Opt</code> it is only <code>p1 = new();</code>. The
+<code>if (same)</code> exists for two pointers that may point to the same object
+(section 4.7); <code>restrict</code> removes it.</p>
+
+<p>With three parameters each one may be the same as any parameter before it:</p>
+
+<pre><code class="language-c">void f(struct X* p1, struct X* p2, struct X* p3);
+</code></pre>
+
+<pre><code class="language-c">p1 = new();
+
+if (/* p2 and p1 are the same */) p2 = p1;
+else p2 = new();
+
+if (/* p3 and p1 are the same */) p3 = p1;
+else if (/* p3 and p2 are the same */) p3 = p2;
+else p3 = new();
+</code></pre>
+
+<p>These are the 5 ways of grouping three pointers into objects: all the same,
+<code>p1 == p2</code>, <code>p1 == p3</code>, <code>p2 == p3</code>, all different. With <code>_Opt</code>, each
+<code>p = new();</code> becomes <code>if (not null) p = new(); else p = 0;</code>.</p>
+
+<p>A <code>restrict</code> parameter is different from all the others, <code>restrict</code> or not;
+the others may still be the same object:</p>
+
+<pre><code class="language-c">void f(struct X* restrict p1, struct X* p2, struct X* p3);
+</code></pre>
+
+<pre><code class="language-c">p1 = new();
+p2 = new();
+
+if (/* p3 and p2 are the same */) p3 = p2;
+else p3 = new();
+</code></pre>
+
+<p>Pointers to different types are never the same object:</p>
+
+<pre><code class="language-c">void f(struct X* p1, struct Z* p2);
+</code></pre>
+
+<pre><code class="language-c">p1 = new();
+p2 = new();
+``` A pointer parameter and a file scope
+object the function uses have the same `if (same)`.
+
+A call has the same entry flow for its result, made at the call instead of
+at the root of the function:
+
+```c
+int* _Opt find(int* p);
+int* _Opt r = find(a);
+/* is */
+if (/* r and a are the same */) r = a;
+else if (/* not null */) r = new(); else r = 0;
+</code></pre>
+
+<p>The analysis does not choose one side; it follows them all, as it follows the
+two sides of an <code>if</code>.</p>
+
+<p>All the cases:</p>
+
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th>Entry flow</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>T* p</code></td>
+<td><code>p = new();</code></td>
+</tr>
+<tr>
+<td><code>T* _Opt p</code></td>
+<td><code>if (not null) p = new(); else p = 0;</code></td>
+</tr>
+<tr>
+<td><code>_Opt T* p</code></td>
+<td><code>p = new();</code>, and pointers read through it are <code>_Opt</code></td>
+</tr>
+<tr>
+<td><code>_Out T* p</code></td>
+<td><code>p = new();</code>, <code>*p</code> uninitialized</td>
+</tr>
+<tr>
+<td><code>T** p</code></td>
+<td><code>p = new();</code>, <code>*p</code> by the same rules</td>
+</tr>
+<tr>
+<td><code>int i</code>, other scalars</td>
+<td>any value</td>
+</tr>
+<tr>
+<td><code>struct X s</code></td>
+<td>each member by these rules</td>
+</tr>
+<tr>
+<td>two pointers <code>p</code>, <code>q</code> to the same type</td>
+<td><code>if (same) q = p;</code> around them, except when one is <code>restrict</code>, both are <code>_Owner</code>, or both only read through <code>const</code></td>
+</tr>
+<tr>
+<td>pointer <code>p</code> and a used file scope object <code>g</code></td>
+<td><code>if (same) p = &amp;g;</code>, except when <code>p</code> is <code>restrict</code> or <code>_Owner</code></td>
+</tr>
+<tr>
+<td>file scope object</td>
+<td>any value allowed by its type</td>
+</tr>
+<tr>
+<td>result <code>T* r = f(...)</code></td>
+<td><code>r = new();</code> at the call</td>
+</tr>
+<tr>
+<td>result <code>T* _Opt r = f(...)</code></td>
+<td><code>if (not null) r = new(); else r = 0;</code> at the call</td>
+</tr>
+<tr>
+<td>result <code>_Clear</code> / <code>_Uninitialized</code></td>
+<td><code>*r</code> zero / uninitialized</td>
+</tr>
+<tr>
+<td>result and a pointer argument <code>a</code></td>
+<td><code>if (same) r = a;</code>, when <code>*r</code> and <code>*a</code> have the same type or <code>r</code> is <code>void*</code> or <code>char*</code>, except when <code>a</code>&#39;s parameter is <code>restrict</code> or <code>_Owner</code>, or <code>r</code> is <code>_Owner</code></td>
+</tr>
+<tr>
+<td><code>_Opt</code> member <code>x-&gt;m</code>, first read</td>
+<td><code>if (not null) x-&gt;m = new(); else x-&gt;m = 0;</code></td>
+</tr>
+</tbody>
+</table>
 
 <!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 
-void f(int* p, int* q)
+void free(void* _Owner _Opt p);
+char* _Owner _Opt strdup(const char* s);
+
+struct box { char* _Owner _Opt text; };
+
+void box_copy(struct box* dest, const struct box* source)
 {
-    *p = 1;
-    *q = 2;
-    compile_assert(*p == 1 || *p == 2);
+    free(dest-&gt;text);
+    dest-&gt;text = source-&gt;text ? strdup(source-&gt;text) : nullptr; /* warning 31 */
 }
 </code></pre>
 
-<p><code>*p</code> is 1 when <code>p</code> and <code>q</code> are different objects, and 2 when they are the
-same. <code>compile_assert(*p == 1)</code> alone would fail.</p>
+<p>With different boxes the function is correct. But <code>box_copy(&amp;b, &amp;b)</code> is a
+valid call, and then <code>source-&gt;text</code> was freed one line before: the classic
+self-assignment bug. Nothing in the function looks wrong until both
+hypotheses are followed. The fix is to handle the case
+(<code>if (dest == source) return;</code>) or to rule it out with <code>restrict</code>, which
+moves the obligation to the caller.</p>
 
 <p>The hypotheses are made where they start: at the entry of the function for
 parameters, at the call for a result. Then they are paths like any other, in
 the same pass. A problem that only one hypothesis has is reported with it:
-&quot;in case &#39;p&#39; and &#39;q&#39; point to the same object: ...&quot;. <code>restrict</code> removes a
+&quot;in case q == p: ...&quot;. <code>restrict</code> removes a
 hypothesis (sections 4.7 and 4.8); Appendix B has the details.</p>
 
-<h2 id="toc_34">Chapter 6 - Limitations</h2>
+<h3 id="toc_34">5.6 Seeing the Paths: <code>static_debug</code></h3>
+
+<p><code>static_debug()</code> prints the paths the analysis is following at that point,
+and the values each one gave to each object. <code>static_debug(x)</code> prints only
+<code>x</code>. Here are the two sides of the <code>if (same)</code> of section 5.5:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+void f(int* p, int* q)
+{
+    *p = 1;
+    *q = 2;
+    static_debug(*p);
+}
+</code></pre>
+
+<pre><code>main.c:6:5: note: static_debug
+root  &lt;- current
+├── q != p #1
+│       *p  == 1         line 4
+└── q == p #1
+        *p  == 2         line 5
+</code></pre>
+
+<p>When <code>p</code> and <code>q</code> are different objects (<code>q != p</code>), <code>*p</code> is 1. When
+they are the same object (<code>q == p</code>), the write through <code>q</code> made it 2. So
+after this point <code>*p</code> is 1 or 2. Each value is printed under the path where
+it was set, with the line that set it. The manual (section 11.12) has the
+full notation.</p>
+
+<h2 id="toc_35">Chapter 6 - Limitations</h2>
 
 <p>The rules describe what a declaration can say today. Some programs are correct but cannot be described, and some bugs cannot be seen. This chapter lists the ones a programmer will meet first.</p>
 
-<h3 id="toc_35">6.1 Conditional Contracts</h3>
+<h3 id="toc_36">6.1 Conditional Contracts</h3>
 
 <p>A conditional contract holds only under a condition, usually the result of
 the call. The best known is <code>realloc</code>: ownership of its argument moves only
@@ -1297,25 +1493,21 @@ void f(int* _Owner _Opt p)
 
 <p><strong>Experiment 6-1.</strong> In the example above, the <code>/* lint 26 (realloc) */</code> comment is removed. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkKiBfT3duZXIgX09wdCByZWFsbG9jKHZvaWQqIF9PcHQgcCwgdW5zaWduZWQgbG9uZyBzaXplKTsKdm9pZCBmcmVlKHZvaWQqIF9Pd25lciBfT3B0IHApOwoKdm9pZCBmKGludCogX093bmVyIF9PcHQgcCkKewogICAgaW50KiBfT3duZXIgX09wdCBxID0gcmVhbGxvYyhwLCAxMCAqIHNpemVvZihpbnQpKTsKICAgIGlmIChxID09IDApCiAgICB7CiAgICAgICAgZnJlZShwKTsgLyogZmFpbGVkOiBwIHN0aWxsIG93bnMgdGhlIG1lbW9yeSAqLwogICAgICAgIHJldHVybjsKICAgIH0KICAgIHAgPSBxOwogICAgZnJlZShwKTsKfQo%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
-<h3 id="toc_36">6.2 What the Analysis Assumes About <code>const</code></h3>
+<h3 id="toc_37">6.2 What the Analysis Assumes About <code>const</code></h3>
 
-<p>In C a <code>const struct X* p</code> protects only <code>*p</code>: <code>p-&gt;m</code> cannot be written, but <code>p-&gt;m-&gt;x</code> can. The analysis assumes more: after a call through <code>const</code>, the caller keeps what it knew about everything reachable from <code>*p</code>.</p>
+<p>In C, <code>const struct X* p</code> protects only <code>*p</code>: <code>p-&gt;m-&gt;x</code> can still be written. The analysis assumes more: after a call through <code>const</code>, nothing reachable from <code>*p</code> changed.</p>
 
-<p>Where a function&#39;s implementation does not agree with that, warning 120 reports it: writing <code>p-&gt;m-&gt;x</code> (or <code>++</code>, <code>+=</code>...) through a <code>const</code> pointer <code>p</code>, or letting <code>p-&gt;m</code> out as a pointer that is not <code>const</code>: passed to such a parameter, copied to such a pointer (<code>struct m* q = p-&gt;m;</code>, <code>int* q = &amp;p-&gt;m-&gt;x;</code>) or returned as one. Once out, the copy could change what <code>const</code> promised. A <code>void*</code> parameter follows the same rule: a non-<code>const</code> <code>void*</code> says it may write (<code>memset</code>), one that only reads takes <code>const void*</code> (the source of <code>memcpy</code>). A struct copied by value (<code>struct X y = *p;</code>, <code>return *p;</code>, <code>f(*p)</code>) carries its pointer members without the <code>const</code>, so it is reported too when it has pointers to non-<code>const</code>. Passing it to a <code>const</code> parameter is fine: that function assumes the same and is checked the same way. An explicit cast is taken as intended. The same is reported through any <code>const</code> pointer (a local, a member), not only a parameter: it may not be what the programmer meant.</p>
+<p>Warning 120 reports an implementation that breaks this: writing <code>p-&gt;m-&gt;x</code> through <code>const p</code>, or letting <code>p-&gt;m</code> out as non-<code>const</code> (passed, copied, returned, or inside a struct copied by value). <code>void*</code> follows the same rule: <code>memset</code> takes <code>void*</code>, the source of <code>memcpy</code> takes <code>const void*</code>. An explicit cast is taken as intended.</p>
 
-<p>A move is also a write: it does not change any byte, but it changes the owner&#39;s state to &quot;moved&quot;. So <code>const</code> applies to it. Moving <code>p-&gt;head</code> from a <code>const struct list* p</code> is warning 99 (C does not see a move as a write), and moving <code>p-&gt;head-&gt;next</code> is warning 120. Someone may be pointing to the <code>const</code> object and still expect it to own what it owns.</p>
+<p>A move is a write too: it changes the owner&#39;s state. Moving <code>p-&gt;head</code> from <code>const struct list* p</code> is warning 99; moving <code>p-&gt;head-&gt;next</code> is warning 120. This applies only to <code>const</code> reached through a pointer: a <code>const</code> object of our own still moves its owners when its lifetime ends.</p>
 
-<p>This applies only to <code>const</code> reached through a pointer, an object that belongs to someone else. A <code>const</code> object of our own (a local, or a parameter by value as in <code>void f(const struct X x)</code>) still has to move its owners at the end of its lifetime, like any other object: destroying it is not changing it.</p>
+<p>A function that hands out something reachable from a <code>const</code> argument as non-<code>const</code> (like <code>strchr</code>) should come in two versions: <code>T* find(const C*)</code> and <code>const T* find_const(const C*)</code>.</p>
 
-<p>For the same reason, a parameter whose owner is moved is not suggested <code>const</code> (warning 82): <code>void f(struct list* p) { free(p-&gt;head); ... }</code> would no longer compile cleanly with <code>const</code>.</p>
-
-<p>A function that receives <code>const</code> and hands out something reachable from it as non-<code>const</code> (a lookup, like <code>strchr</code>) breaks the promise for its callers. Provide two versions: <code>T* find(const C*)</code> for callers that change the result, and <code>const T* find_const(const C*)</code> for callers that only read it.</p>
-
-<h3 id="toc_37">6.3 Functions That Are Too Large</h3>
+<h3 id="toc_38">6.3 Functions That Are Too Large</h3>
 
 <p>The analysis follows every path, and in a very large function the number of objects and paths can grow too much. When that happens the analysis stops, reports warning 97 once, and reports nothing else for that function. The next function is analysed normally. Splitting the function brings the analysis back.</p>
 
-<h3 id="toc_38">6.4 Backward <code>goto</code></h3>
+<h3 id="toc_39">6.4 Backward <code>goto</code></h3>
 
 <p>A <code>while</code> or <code>for</code> loop is analysed as a loop: what one iteration does reaches the next. A label is not. A <code>goto</code> that jumps back to a label above it has no effect on what the analysis knows, so the result is too optimistic:</p>
 
@@ -1339,7 +1531,7 @@ L:
 
 <p>Write the loop with <code>while</code> or <code>for</code> instead.</p>
 
-<h3 id="toc_39">6.5 Arrays Whose Size Is Not Known</h3>
+<h3 id="toc_40">6.5 Arrays Whose Size Is Not Known</h3>
 
 <p>Indexes are checked only against arrays whose size is a constant. A variable length array, or a pointer to <code>n</code> items, has a size known only at run time, and an index past its end is not reported.</p>
 
@@ -1355,11 +1547,11 @@ void f(int n, int* p)
 }
 </code></pre>
 
-<h2 id="toc_40">Appendix A - Reference Manual</h2>
+<h2 id="toc_41">Appendix A - Rules</h2>
 
 <p>This appendix states the rules more precisely.</p>
 
-<h3 id="toc_41">A1. Definitions</h3>
+<h3 id="toc_42">A1. Definitions</h3>
 
 <ul>
 <li>A1.1 <strong>Valid</strong>: the object and every object reachable from it are fully initialized, their non-nullable pointer members are non-null, and no owner among them is moved. For example, &quot;<code>*p</code> is valid&quot; is a statement about <code>*p</code> and everything that can be reached through <code>p</code>: its members, the objects they point to, and so on.</li>
@@ -1368,7 +1560,7 @@ void f(int n, int* p)
 <li>A1.4 <strong>Empty</strong>: uninitialized, null or moved.</li>
 </ul>
 
-<h3 id="toc_42">A2. Plain parameters: <code>struct X* p</code></h3>
+<h3 id="toc_43">A2. Plain parameters: <code>struct X* p</code></h3>
 
 <ul>
 <li>A2.1 The implementation assumes <code>p</code> is not null, <code>*p</code> is valid, and <code>p</code> does not own <code>*p</code>.</li>
@@ -1377,14 +1569,14 @@ void f(int n, int* p)
 <li>A2.4 With <code>const</code>, the analysis assumes that nothing reachable from <code>*p</code> is written or moved, so what the caller knew still holds (6.2). C protects only <code>*p</code>, so the implementation is checked for writes that break this assumption, and for pointers reachable from <code>*p</code> that leave as non-<code>const</code> (passed, <code>void*</code> included; copied, also as <code>&amp;p-&gt;m-&gt;x</code>; returned; or inside a struct copied by value) (warning 120).</li>
 </ul>
 
-<h3 id="toc_43">A3. Results: <code>struct X* F(void)</code></h3>
+<h3 id="toc_44">A3. Results: <code>struct X* F(void)</code></h3>
 
 <ul>
 <li>A3.1 The result is not null and <code>*result</code> is valid. The caller does not own it.</li>
 <li>A3.2 The implementation must return a value on every path: reaching the closing <code>}</code> of a non-void function leaves the result uninitialized (warning 98). <code>main</code> is the exception, its end returns 0.</li>
 </ul>
 
-<h3 id="toc_44">A4. <code>_Opt</code></h3>
+<h3 id="toc_45">A4. <code>_Opt</code></h3>
 
 <ul>
 <li>A4.1 On a parameter or result, null may be passed or returned, and the receiver must test before use.</li>
@@ -1392,7 +1584,7 @@ void f(int n, int* p)
 <li>A4.3 <code>_Opt</code> may be used wherever a pointer is declared: local and file-scope variables, members, parameters and results.</li>
 </ul>
 
-<h3 id="toc_45">A5. Assignment <code>a = b</code></h3>
+<h3 id="toc_46">A5. Assignment <code>a = b</code></h3>
 
 <ul>
 <li>A5.1 <code>a</code> and its owner members must be empty.</li>
@@ -1403,14 +1595,14 @@ void f(int n, int* p)
 <li>A5.6 A move changes only which owner must release the object. After <code>a = b</code> between owners, the object is still alive and may be read through <code>b</code>. After <code>b</code> is passed to an <code>_Owner</code> parameter, the lifetime of the object may have ended and it must not be used through <code>b</code>.</li>
 </ul>
 
-<h3 id="toc_46">A6. <code>_Out</code></h3>
+<h3 id="toc_47">A6. <code>_Out</code></h3>
 
 <ul>
 <li>A6.1 <code>*p</code> is uninitialized at entry and must be fully initialized on every exit. Owner members not created are null.</li>
 <li>A6.2 The caller must pass <code>*p</code> empty (A1.4).</li>
 </ul>
 
-<h3 id="toc_47">A7. <code>_Dtor</code></h3>
+<h3 id="toc_48">A7. <code>_Dtor</code></h3>
 
 <ul>
 <li>A7.1 The caller must pass a valid object (A1.1), with one exception: its non-nullable pointer members may be null, so a partially constructed object is accepted. The implementation assumes the same.</li>
@@ -1419,7 +1611,7 @@ void f(int n, int* p)
 <li>A7.5 <code>_Dtor</code> may be used only on the pointed type of a parameter.</li>
 </ul>
 
-<h3 id="toc_48">A8. <code>_Clear</code></h3>
+<h3 id="toc_49">A8. <code>_Clear</code></h3>
 
 <ul>
 <li>A8.1 On a parameter, the caller must pass a valid object (A1.1), without the exception of A7.1. At every exit every owner member is moved and every member is zero.</li>
@@ -1428,13 +1620,13 @@ void f(int n, int* p)
 <li>A8.4 <code>_Clear</code> cannot be combined with <code>const</code>.</li>
 </ul>
 
-<h3 id="toc_49">A9. <code>_Uninitialized</code></h3>
+<h3 id="toc_50">A9. <code>_Uninitialized</code></h3>
 
 <ul>
 <li>A9.1 <code>_Uninitialized</code> may be used only on the pointed type of a result: <code>*result</code> is uninitialized.</li>
 </ul>
 
-<h3 id="toc_50">A10. <code>_View</code></h3>
+<h3 id="toc_51">A10. <code>_View</code></h3>
 
 <ul>
 <li>A10.1 An object declared <code>_View</code> does not own its owner members: assigning to it, or passing it by value, moves nothing, and the source still owns them. Without <code>_View</code>, they are moved.</li>
@@ -1442,7 +1634,7 @@ void f(int n, int* p)
 <li>A10.3 <code>_View</code> may be used wherever an object is declared: parameters, local and file-scope variables, and members (for example <code>_View struct X x2 = x;</code>).</li>
 </ul>
 
-<h3 id="toc_51">A11. <code>_Owner</code></h3>
+<h3 id="toc_52">A11. <code>_Owner</code></h3>
 
 <ul>
 <li>A11.1 An <code>_Owner</code> parameter must be moved on every exit; the argument is moved.</li>
@@ -1452,19 +1644,19 @@ void f(int n, int* p)
 <li>A11.5 A move changes the owner&#39;s state, so it is a write: an owner that is <code>const</code> through a pointer cannot be moved (warning 99), nor an owner reachable from a <code>const</code> object (warning 120, 6.2). A <code>const</code> object of our own (local, parameter by value) still moves its owners at the end of its lifetime.</li>
 </ul>
 
-<h3 id="toc_52">A12. Combination</h3>
+<h3 id="toc_53">A12. Combination</h3>
 
 <ul>
 <li>A12.1 Annotations combine; each adds its own contract and does not change the others.</li>
 </ul>
 
-<h3 id="toc_53">A13. Casts</h3>
+<h3 id="toc_54">A13. Casts</h3>
 
 <ul>
 <li>A13.1 Casts are not yet defined: whether a cast may add or remove an annotation (for example from <code>T* _Opt</code> to <code>T*</code>, or from <code>T* _Owner</code> to <code>T*</code>) is an open question.</li>
 </ul>
 
-<h3 id="toc_54">A14. Flow analysis</h3>
+<h3 id="toc_55">A14. Flow analysis</h3>
 
 <ul>
 <li>A14.1 The analysis runs on one function at a time. A call is described only by the declaration of the callee.</li>
@@ -1478,7 +1670,7 @@ void f(int n, int* p)
 <li>A14.9 An implementation that stops analysing a function must report warning 97 once and nothing else in that function.</li>
 </ul>
 
-<h3 id="toc_55">A15. Compatibility of annotated types</h3>
+<h3 id="toc_56">A15. Compatibility of annotated types</h3>
 
 <p><code>_Opt</code> is checked in two places. The flow analysis checks the value (whether it can be null at that point, branch by branch). The type checks the pointed objects, because writes through a pointer happen later, where the flow analysis does not see them.</p>
 
@@ -1554,7 +1746,7 @@ void attributes(void)
 }
 </code></pre>
 
-<h3 id="toc_56">A16. <code>restrict</code> and parameters that may alias</h3>
+<h3 id="toc_57">A16. <code>restrict</code> and parameters that may alias</h3>
 
 <ul>
 <li>A16.1 Two pointer parameters with the same pointed type, neither <code>restrict</code>, may point to the same object. The implementation must be correct in that case.</li>
@@ -1572,23 +1764,21 @@ to handle them being equal.</li>
 the objects the call&#39;s pointer arguments point to, when the pointed type
 is the same as the result&#39;s (any argument when the result points to <code>void</code>
 or <code>char</code>). Each is a hypothesis, exclusive with the others. A diagnostic
-that follows only from one says so: &quot;in case &#39;first(p)&#39; and &#39;p&#39; point to
-the same object: ...&quot;. An argument passed to a <code>restrict</code> parameter is
+that follows only from one says so: &quot;in case first(p) == p: ...&quot;. An argument passed to a <code>restrict</code> parameter is
 never returned. An argument passed to an <code>_Owner</code> parameter is kept alive
 by the callee and is not considered.</li>
 <li>A16.7 A function must not return a pointer to the object of a <code>restrict</code>
 parameter, or into it: warning 102.</li>
 </ul>
 
-<h2 id="toc_57">Appendix B - Hypotheses</h2>
+<h2 id="toc_58">Appendix B - Hypotheses</h2>
 
 <p>A hypothesis is a possibility the declarations do not rule out, such as two
 pointers being the same object. Each hypothesis is a branch, like a side of
 an <code>if</code>, and its values are alternatives of the same pass. A diagnostic that
-only a hypothesis supports names it: &quot;in case &#39;a&#39; and &#39;b&#39; point to the same
-object: ...&quot;.</p>
+only a hypothesis supports names it: &quot;in case b == a: ...&quot;.</p>
 
-<h3 id="toc_58">B.1 The Result of a Call</h3>
+<h3 id="toc_59">B.1 The Result of a Call</h3>
 
 <p>At the caller, a pointer returned by a call is a new object or one of the
 arguments:</p>
@@ -1602,12 +1792,12 @@ hypothesis that the result points to it. Arguments of <code>restrict</code> and
 <li>The new pointee and each argument&#39;s object are exclusive sides, as in
 B.2: a write through the result changes one object per path.</li>
 <li>A problem found only under a hypothesis is reported in that case:
-&quot;in case &#39;first(p)&#39; and &#39;p&#39; point to the same object: ...&quot;.</li>
+&quot;in case first(p) == p: ...&quot;.</li>
 </ol>
 
 <p>All hypotheses are alternatives of one pass: nothing is analysed again.</p>
 
-<h3 id="toc_59">B.2 Parameters That May Be the Same Object</h3>
+<h3 id="toc_60">B.2 Parameters That May Be the Same Object</h3>
 
 <p>In the callee, all hypotheses are made at the entry of the function:</p>
 
@@ -1620,13 +1810,13 @@ the function uses (the parser records them).</li>
 <li>The parameter&#39;s own value and the new one are the two sides of the
 hypothesis, as the two sides of an <code>if</code>: they are never on the same path.</li>
 <li>A problem found only through the new value is reported as warning 100,
-&quot;in case &#39;a&#39; and &#39;b&#39; point to the same object: ...&quot;.</li>
+&quot;in case b == a: ...&quot;.</li>
 </ol>
 
 <p><code>a == b</code> is false on one side and true on the other: both branches are
 analysed. As in B.1, everything is one pass.</p>
 
-<h3 id="toc_60">B.3 <code>restrict</code></h3>
+<h3 id="toc_61">B.3 <code>restrict</code></h3>
 
 <p><code>restrict</code> removes a hypothesis, and the check moves to the other side:</p>
 
