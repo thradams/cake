@@ -2,7 +2,7 @@
 
 
 void destroy(char* _Owner x);
-char   * _Owner  get();
+char   * _Nonnull _Owner  get();
 
 int main()
 {

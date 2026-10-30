@@ -6,12 +6,12 @@
 
 struct item {
     char* _Owner title;
-    struct item* _Owner _Opt next;
+    struct item* _Owner next;
 };
 
 struct list {
-    struct item* _Owner _Opt head;
-    struct item* _Opt tail;
+    struct item* _Owner head;
+    struct item* tail;
 };
 
 void list_insert_after(struct list* list,
@@ -58,9 +58,9 @@ void list_push_front(struct list* list,
 
 void list_destroy(_Dtor struct list* list)
 {
-    struct item* _Owner _Opt it = list->head;
+    struct item* _Owner it = list->head;
     while (it != NULL) {
-        struct item* _Owner _Opt next = it->next;
+        struct item* _Owner next = it->next;
         free(it->title);
         free(it);
         it = next;
@@ -70,10 +70,10 @@ void list_destroy(_Dtor struct list* list)
 int main(int argc, char* argv[])
 {
     struct list list = { 0 };
-    struct item* _Owner _Opt p_item = calloc(1, sizeof(struct item));
+    struct item* _Owner p_item = calloc(1, sizeof(struct item));
     if (p_item)
     {
-        char * _Owner _Opt title = strdup("title");
+        char * _Owner title = strdup("title");
         if (title)
         {
             p_item->title = title;

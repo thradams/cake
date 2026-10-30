@@ -4,7 +4,7 @@
 void free( void * _Owner p);
 
 struct X {
-  char * _Owner name;
+  char * _Nonnull _Owner name;
 };
 
 void x_destroy( _Dtor struct X *  p);

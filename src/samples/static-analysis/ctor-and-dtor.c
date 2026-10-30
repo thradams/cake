@@ -4,7 +4,7 @@
 #include <string.h>
 
 struct X {
-    char * _Owner _Opt text;
+    char * _Owner text;
 };
 
 int init(_Out struct X *p)

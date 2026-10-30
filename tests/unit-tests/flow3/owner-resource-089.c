@@ -1,12 +1,12 @@
 #pragma safety enable
 
 void free(void* _Owner _Opt p);
-char* _Owner _Opt strdup(const char* s);
+char* _Owner strdup(const char* s);
 [[noreturn]] void exit( int exit_code );
 
 void f()
 {
-    char * _Opt _Owner s = strdup("a");
+    char * _Owner s = strdup("a");
     
     if (s == nullptr)
     {

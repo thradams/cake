@@ -5,7 +5,7 @@ void free(void* _Owner _Opt p);
 struct X
 {
     int i;
-    void* _Owner _Opt p;
+    void* _Owner p;
 };
 void f(struct X* _Opt p);
 int main()

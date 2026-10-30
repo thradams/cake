@@ -13,7 +13,7 @@
 
 struct report;
 int compile(int argc, const char** argv, struct report* report);
-const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report);
+const char* _Owner compile_source(const char* pszoptions, const char* content, struct report* report);
 
 /*
     `path` is the real path of the file `content` came from - even though
@@ -27,12 +27,12 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
     put -format-lines=first:last in pszoptions - same flag as the CLI (see
     options.c), one parsing path instead of a second one just for this.
 */
-const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt path, const char* content, struct report* report);
+const char* _Owner cake_format(const char* pszoptions, const char* _Nullable path, const char* content, struct report* report);
 
 /*
    This function is called by the web version
 */   
-char* _Owner _Opt CompileText(const char* pszoptions, const char* content);
+char* _Owner CompileText(const char* pszoptions, const char* content);
 
 
 void print_report(const struct report* report);

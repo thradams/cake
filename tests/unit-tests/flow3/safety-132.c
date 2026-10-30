@@ -6,7 +6,7 @@ struct Y {
 };
 
 struct X {
-    struct Y* _Opt current;
+    struct Y* current;
 };
 
 void f(struct X* ctx)

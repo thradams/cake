@@ -5,14 +5,14 @@
 #define NULL ((void*)0)
 
 void free(void* _Owner _Opt p);
-char* _Owner _Opt strdup(const char* s);
+char* _Owner strdup(const char* s);
 
-struct m { struct m* _Opt next; const char* key; };
-struct m* _Opt find(const char* s);
+struct m { struct m* next; const char* _Nonnull key; };
+struct m* find(const char* s);
 int cmp(const char* a, const char* b);
 
-struct name { char* _Owner _Opt lexeme; };
-struct decl { struct name* _Opt name_opt; int renamed; };
+struct name { char* _Owner lexeme; };
+struct decl { struct name* name_opt; int renamed; };
 
 int rename_if_necessary(struct decl* p, const char* nn)
 {
@@ -20,21 +20,21 @@ int rename_if_necessary(struct decl* p, const char* nn)
     {
         if (p->name_opt == NULL) throw;
 
-        struct m* _Opt it = find(nn);
+        struct m* it = find(nn);
         while (it)
         {
             if (cmp(nn, it->key) == 0)
             {
                 for (int i = 2; i < 1000000; )
                 {
-                    struct m* _Opt it2 = find(nn);
+                    struct m* it2 = find(nn);
                     if (it2 == NULL)
                     {
                         p->renamed = 1;
                         if (p->name_opt)
                         {
                             free(p->name_opt->lexeme);
-                            char* _Opt _Owner temp = strdup(nn);
+                            char* _Owner temp = strdup(nn);
                             if (temp == NULL) throw;
                             p->name_opt->lexeme = temp;
                         }

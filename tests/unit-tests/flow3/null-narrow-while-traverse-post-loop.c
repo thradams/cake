@@ -4,7 +4,7 @@
 
 struct node
 {
-    struct node* _Opt next;
+    struct node* next;
     int v;
 };
 

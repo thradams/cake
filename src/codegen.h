@@ -49,7 +49,7 @@ struct codegen_ctx
        must reuse the typedef's snapshot, not re-evaluate the dimension)
        while those of already-closed sibling blocks drop out.
     */
-    int* _Owner _Opt vm_snapshot_ids;
+    int* _Owner vm_snapshot_ids;
     int vm_snapshot_count;
     int vm_snapshot_capacity;
 
@@ -104,27 +104,27 @@ struct codegen_ctx
     /*
     * Points to the function we're in. Or null in file scope.
     */
-    const struct declarator* _Opt p_current_function_opt;
+    const struct declarator* p_current_function_opt;
 
     struct break_reference
     {
-        struct selection_statement* _Opt p_selection_statement;
-        struct iteration_statement* _Opt p_iteration_statement;
+        struct selection_statement* p_selection_statement;
+        struct iteration_statement* p_iteration_statement;
     } break_reference;
 
     bool is__func__predefined_identifier_added;
-    struct try_statement* _Opt p_current_try_statement;
+    struct try_statement* p_current_try_statement;
 
-    struct ast* p_ast;
+    struct ast* _Nonnull p_ast;
     
     bool error;
 
     /* where codegen_error reports; NULL keeps only the ctx->error flag */
-    struct report* _Opt p_report;
+    struct report* p_report;
 };
 
 /* Reports a construct the target cannot express and sets ctx->error. */
-void codegen_error(struct codegen_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...);
+void codegen_error(struct codegen_ctx* ctx, const struct token* _Nullable p_token, const char* fmt, ...);
 
 /* Returns 0 on success, non-zero if code generation failed (ctx->error). */
 int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss);

@@ -1,15 +1,15 @@
 #pragma safety enable
 
-void* _Owner _Opt malloc(unsigned long n);
-void free(void* _Owner _Opt p);
+void* _Owner malloc(unsigned long n);
+void free(void* _Owner _Nullable p);
 
-int* first(int* p);
+int* _Nonnull first(int* p);
 
 /* the result is the value of p at the call, not the variable p */
 int value_at_call(void)
 {
-    int* _Owner _Opt a = malloc(sizeof(int));
-    int* _Owner _Opt b = malloc(sizeof(int));
+    int* _Owner a = malloc(sizeof(int));
+    int* _Owner b = malloc(sizeof(int));
     if (!a || !b)
     {
         free(a);
@@ -30,8 +30,8 @@ int value_at_call(void)
 /* p changed after the call: q was never b */
 int not_the_new_value(void)
 {
-    int* _Owner _Opt a = malloc(sizeof(int));
-    int* _Owner _Opt b = malloc(sizeof(int));
+    int* _Owner a = malloc(sizeof(int));
+    int* _Owner b = malloc(sizeof(int));
     if (!a || !b)
     {
         free(a);

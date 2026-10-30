@@ -1,11 +1,11 @@
 #pragma safety enable
 
-struct E { int i; struct E* _Owner _Opt left; };
-_Clear struct E* _Owner make(void);
+struct E { int i; struct E* _Owner left; };
+_Clear struct E* _Nonnull _Owner make(void);
 void d(_Dtor struct E* _Owner p);
 int f(void);
 
-struct E* _Owner g(struct E* _Owner p)
+struct E* _Nonnull _Owner g(struct E* _Owner p)
 {
     while (f())
     {

@@ -3,8 +3,8 @@
 struct node { int x; };
 
 struct holder {
-    struct node* _Owner p;
-    struct node* _Owner q;
+    struct node* _Nonnull _Owner p;
+    struct node* _Nonnull _Owner q;
 };
 
 void f(struct node* view_a, struct node* view_b)

@@ -2,7 +2,7 @@
 
 
 struct S {
-    char* _Owner p;
+    char* _Nonnull _Owner p;
 };
 
 void swap(struct S* a, struct S* b)

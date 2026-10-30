@@ -41,11 +41,11 @@ static unsigned int string_hash(const char* key)
     return (hash_val);
 }
 
-void map_entry_delete(struct map_entry* _Owner _Opt p)
+void map_entry_delete(struct map_entry* _Owner _Nullable p)
 {
     while (p != NULL)
     {
-        struct map_entry* _Owner _Opt next = p->next;
+        struct map_entry* _Owner next = p->next;
         p->next = NULL;
 
         switch (p->type)
@@ -115,7 +115,7 @@ void hashmap_destroy(_Dtor struct hash_map* map)
     assert(map->table == NULL);
 } //lint 29 assert line 115
 
-const struct map_entry* _Opt hashmap_find_const(const struct hash_map* map, const char* key)
+const struct map_entry* hashmap_find_const(const struct hash_map* map, const char* key)
 {
     if (map->table == NULL)
         return NULL;
@@ -125,7 +125,7 @@ const struct map_entry* _Opt hashmap_find_const(const struct hash_map* map, cons
     const unsigned int hash = string_hash(key);
     const int index = hash % map->capacity; //lint 36 assert line 123
 
-    const struct map_entry* _Opt pentry = map->table[index];
+    const struct map_entry* pentry = map->table[index];
 
     for (; pentry != NULL; pentry = pentry->next)
     {
@@ -138,12 +138,12 @@ const struct map_entry* _Opt hashmap_find_const(const struct hash_map* map, cons
     return NULL;
 }
 
-struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key)
+struct map_entry* hashmap_find(const struct hash_map* map, const char* key)
 {
-    return (struct map_entry* _Opt)hashmap_find_const(map, key);
+    return (struct map_entry*)hashmap_find_const(map, key);
 }
 
-void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt)
+void* _Owner hashmap_remove(struct hash_map* map, const char* key, enum tag* _Nullable p_type_opt)
 {
 #pragma CAKE diagnostic push
 #pragma CAKE diagnostic ignored 29
@@ -154,8 +154,8 @@ void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag
         assert(map->capacity != 0);
 
         const unsigned int hash = string_hash(key);
-        struct map_entry* _Owner _Opt* pp_entry = &map->table[hash % map->capacity]; //lint 36 assert line 149
-        struct map_entry* _Opt p_entry = *pp_entry;
+        struct map_entry* _Owner _Nullable* pp_entry = &map->table[hash % map->capacity]; //lint 36 assert line 149
+        struct map_entry* p_entry = *pp_entry;
 
         for (; p_entry != NULL; p_entry = p_entry->next)
         {
@@ -166,7 +166,7 @@ void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* _Owner _Opt p = p_entry->data.p_declarator; //moved
+                void* _Owner p = p_entry->data.p_declarator; //moved
                 free((void* _Owner)p_entry->key);
 
                 free((void* _Owner)p_entry);
@@ -199,7 +199,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 {
     int result = 0;
 
-    void* _Opt p = NULL;
+    void* p = NULL;
     enum tag type = TAG_TYPE_NUMBER;
 
 #pragma CAKE diagnostic push
@@ -283,7 +283,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
         unsigned int hash = string_hash(key);
         int index = hash % map->capacity; //lint 36 assert line 277
 
-        struct map_entry* _Opt pentry = map->table[index];
+        struct map_entry* pentry = map->table[index];
 
         for (; pentry != NULL; pentry = pentry->next)
         {
@@ -295,10 +295,10 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 
         if (pentry == NULL)
         {
-            char* _Opt _Owner temp_key = strdup(key);
+            char* _Owner temp_key = strdup(key);
             if (temp_key == NULL) throw;
 
-            struct map_entry* _Owner _Opt p_new_entry = calloc(1, sizeof(*pentry));
+            struct map_entry* _Owner p_new_entry = calloc(1, sizeof(*pentry));
             if (p_new_entry == NULL)
             {
                 free(temp_key);

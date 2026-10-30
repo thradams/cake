@@ -1117,6 +1117,11 @@ void gui_window_set_ask_close(struct gui_node* win, int ask)
     win->window->ask_close = ask != 0;
 }
 
+void gui_window_set_playground(struct gui_node* win, int playground)
+{
+    win->window->playground = playground != 0;
+}
+
 /* --- Message box --- */
 
 /*
@@ -2861,9 +2866,11 @@ static void paint_window(const struct paint* p, const struct gui_node* win, int 
     const struct gui_rect* r = &win->rect;
     int dragging = app->drag.mode != DRAG_NONE && app->drag.win == win;
     int active = dragging || focused;
-    uint32_t border_fg = dragging ? t->window_border_fg_dragging
-                       : active ? t->window_border_fg : t->window_border_fg_unfocused;
     int docked = win->window->dock != GUI_DOCK_NONE;
+    uint32_t border_fg = dragging ? t->window_border_fg_dragging
+                       : active ? (win->window->playground ? t->window_border_fg_playground
+                                  : docked ? t->window_border_fg_docked : t->window_border_fg)
+                                : t->window_border_fg_unfocused;
     enum gui_border_style style =
         docked ? (active ? t->window_border_style_docked : t->window_border_style_docked_unfocused)
                : (active ? t->window_border_style : t->window_border_style_unfocused);
@@ -2872,7 +2879,7 @@ static void paint_window(const struct paint* p, const struct gui_node* win, int 
     if (win->window->modal)
     {
         /* A modal dialog: always its single active look, in modal colors. */
-        border_fg = t->modal_border_fg;
+        border_fg = win->window->playground ? t->window_border_fg_playground : t->modal_border_fg;
         border_bg = t->modal_border_bg;
         body_bg = t->modal_bg;
         style = t->modal_border_style;
@@ -2883,7 +2890,8 @@ static void paint_window(const struct paint* p, const struct gui_node* win, int 
     if (r->w > 2 * cw && r->h > 2 * ch)
         gui_fill_rect(p->frame, r->x + cw, r->y + ch, r->w - 2 * cw, r->h - 2 * ch, body_bg);
     core_draw_frame(p, r, style, border_fg, border_bg);
-    paint_window_title(p, win, border_fg, border_bg);
+    uint32_t title_fg = win->window->modal ? t->modal_fg : t->window_fg;
+    paint_window_title(p, win, title_fg, border_bg);
 
     /*
         The icons: the symbol in the middle cell of three, between drawn

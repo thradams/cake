@@ -18,7 +18,7 @@ struct X
 {
     int a;
     int b;
-    int* p;
+    int* _Nonnull p;
 };
 
 struct X f(void);

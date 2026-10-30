@@ -37,7 +37,7 @@ void different_locals(void)
     copy(&x, &y);
 }
 
-struct S { struct X* p; };
+struct S { struct X* _Nonnull p; };
 void same_member_pointer(struct S* s)
 {
     copy(s->p, s->p); //lint 101

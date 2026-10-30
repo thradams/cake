@@ -3,9 +3,9 @@
 #pragma safety enable
 
 struct FILE;
-struct FILE* _Owner _Opt fopen(const char* name, const char* mode);
+struct FILE* _Owner fopen(const char* name, const char* mode);
 
 void bad()
 {
-    struct FILE* _Owner _Opt f = fopen("file.txt", "w+");
+    struct FILE* _Owner f = fopen("file.txt", "w+");
 } //lint 29

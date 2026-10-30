@@ -64,12 +64,12 @@
         double _difftime64(time_t time1, time_t time0);
         time_t _mktime64(struct tm* timeptr);
         time_t _mkgmtime64(struct tm* timeptr);
-        time_t _time64(time_t* _Opt timer);
+        time_t _time64(time_t* _Nullable timer);
         int _timespec64_get(struct timespec* ts, int base);
-        char* _Opt _ctime64(const time_t* timer);
-        struct tm* _Opt _gmtime64(const time_t* timer);
-        struct tm* _Opt _localtime64(const time_t* timer);
-        char* _Opt asctime(const struct tm* timeptr);
+        char* _ctime64(const time_t* timer);
+        struct tm* _gmtime64(const time_t* timer);
+        struct tm* _localtime64(const time_t* timer);
+        char* asctime(const struct tm* timeptr);
         size_t strftime(char* restrict s, size_t maxsize, const char* restrict format, const struct tm* restrict timeptr);
 
         #define difftime     _difftime64
@@ -88,26 +88,26 @@
         double difftime(time_t time1, time_t time0);
         time_t mktime(struct tm* timeptr);
         time_t timegm(struct tm* timeptr);
-        time_t time(time_t* _Opt timer);
+        time_t time(time_t* _Nullable timer);
         int timespec_get(struct timespec* ts, int base);
         #if defined(__linux__)
             int timespec_getres(struct timespec* ts, int base);
         #endif
 
         /* time conversion */
-        char* _Opt asctime(const struct tm* timeptr);
-        char* _Opt ctime(const time_t* timer);
-        struct tm* _Opt gmtime(const time_t* timer);
-        struct tm* _Opt localtime(const time_t* timer);
+        char* asctime(const struct tm* timeptr);
+        char* ctime(const time_t* timer);
+        struct tm* gmtime(const time_t* timer);
+        struct tm* localtime(const time_t* timer);
         size_t strftime(char* restrict s, size_t maxsize, const char* restrict format, const struct tm* restrict timeptr);
 
         #if defined(__linux__) || defined(__APPLE__)
             /* POSIX */
-            struct tm* _Opt gmtime_r(const time_t* timer, struct tm* buf);
-            struct tm* _Opt localtime_r(const time_t* timer, struct tm* buf);
-            char* _Opt asctime_r(const struct tm* restrict tm, char* restrict buf);
-            char* _Opt ctime_r(const time_t* clock, char* buf);
-            int nanosleep(const struct timespec* req, struct timespec* _Opt rem);
+            struct tm* gmtime_r(const time_t* timer, struct tm* buf);
+            struct tm* localtime_r(const time_t* timer, struct tm* buf);
+            char* asctime_r(const struct tm* restrict tm, char* restrict buf);
+            char* ctime_r(const time_t* clock, char* buf);
+            int nanosleep(const struct timespec* req, struct timespec* _Nullable rem);
         #endif
 
     #endif
@@ -118,19 +118,19 @@
     #if defined(__APPLE__)
         #include <sys/_types.h>
         #include <sys/_types/_time_t.h>
-        time_t time(time_t* _Opt timer);
+        time_t time(time_t* _Nullable timer);
     #elif defined(__linux__)
         #include <bits/types/time_t.h>
-        time_t time(time_t* _Opt timer);
+        time_t time(time_t* _Nullable timer);
     #elif defined(_MSC_VER)
         /* the UCRT's time() is an inline wrapper over _time64 whose linkage is
            _CRT_NONSTANDARD_STATIC (static unless _STATIC_INLINE_UCRT_FUNCTIONS is 0;
            always static in older SDKs) - this declaration must match it */
         #include <corecrt.h>
         #ifdef _CRT_NONSTANDARD_STATIC
-            _CRT_NONSTANDARD_STATIC time_t __CRTDECL time(time_t* _Opt timer);
+            _CRT_NONSTANDARD_STATIC time_t __CRTDECL time(time_t* _Nullable timer);
         #else
-            static time_t __CRTDECL time(time_t* _Opt timer);
+            static time_t __CRTDECL time(time_t* _Nullable timer);
         #endif
     #endif
 

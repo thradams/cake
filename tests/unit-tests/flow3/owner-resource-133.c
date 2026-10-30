@@ -1,11 +1,11 @@
 #pragma safety enable
 
 
-char* _Owner _Opt strdup(const char* s);
+char* _Owner strdup(const char* s);
 void free(void* _Owner _Opt p);
 
 struct X {
-    char* _Owner _Opt name;
+    char* _Owner name;
 };
 
 struct X make()

@@ -17,8 +17,8 @@ void f(struct X* _Owner p, struct X* p2)
 }
 
 /* the shape of preprocessor_constant_expression (tokenizer.c) */
-struct token { struct token* _Owner _Opt next; };
-struct token_list { struct token* _Owner _Opt head; struct token* _Opt tail; };
+struct token { struct token* _Owner next; };
+struct token_list { struct token* _Owner head; struct token* tail; };
 void token_list_swap(struct token_list* a, struct token_list* b);
 void token_list_destroy(_Dtor struct token_list* list);
 void report(const struct token* p);
@@ -28,7 +28,7 @@ void h(int* ctx, struct token_list* output_list, struct token_list* input_list)
     if (output_list == input_list)
         return;
 
-    struct token* _Opt first = input_list->head;
+    struct token* first = input_list->head;
     struct token_list r = { 0 };
     token_list_swap(output_list, &r);
     if (first)
@@ -43,7 +43,7 @@ void h1(struct token_list* output_list, struct token_list* input_list)
     if (output_list == input_list)
         return;
 
-    struct token* _Opt first = input_list->head;
+    struct token* first = input_list->head;
     struct token_list r = { 0 };
     token_list_swap(output_list, &r);
     if (first)

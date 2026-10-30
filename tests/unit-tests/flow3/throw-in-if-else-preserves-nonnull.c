@@ -11,7 +11,7 @@ void f(struct S* s)
 {
     try
     {
-        int* _Opt p = 0;
+        int* p = 0;
 
         if (cond1())
         {

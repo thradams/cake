@@ -2,16 +2,16 @@
 
 
 struct Y {
-  char * _Owner p0;
-  int * _Owner p2;
+  char * _Nonnull _Owner p0;
+  int * _Nonnull _Owner p2;
   double i2;
 };
 
 struct X {
-  char * _Owner text;
-  int * _Owner p1;
+  char * _Nonnull _Owner text;
+  int * _Nonnull _Owner p1;
   int i;
-  struct Y  *pY;
+  struct Y  * _Nonnull pY;
 };
 
 void init(_Out struct X * p);

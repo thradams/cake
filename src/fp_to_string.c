@@ -536,7 +536,7 @@ static void fp_shortest_digits_float(float value, char* buffer, _Out int* length
     -------------------------------------------------------------------------
 */
 
-static char* fp_write_exponent(int K, char* buffer)
+static char* _Nonnull fp_write_exponent(int K, char* buffer)
 {
     if (K < 0)
     {
@@ -571,7 +571,7 @@ static char* fp_write_exponent(int K, char* buffer)
    Lay the digits out as a valid C floating literal: a '.' or an 'e' is always
    present, so the result can never be mistaken for an integer constant.
 */
-static char* fp_prettify(char* buffer, int length, int k)
+static char* _Nonnull fp_prettify(char* buffer, int length, int k)
 {
     const int kk = length + k; /* the decimal point sits after kk digits */
 

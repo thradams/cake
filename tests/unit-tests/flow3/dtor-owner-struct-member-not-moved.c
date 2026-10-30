@@ -3,15 +3,15 @@
 /* passing &item to a _Dtor parameter ends its _Owner members, so the scope-exit check must not report "owner not moved" (hashmap.c) */
 
 struct payload { int x; };
-void payload_free(struct payload* _Owner _Opt p);
-void free(void* _Owner _Opt p);
+void payload_free(struct payload* _Owner _Nullable p);
+void free(void* _Owner _Nullable p);
 
 struct item_set
 {
     unsigned long number;
-    struct payload* _Owner _Opt p1;
-    struct payload* _Owner _Opt p2;
-    char* _Owner _Opt text;
+    struct payload* _Owner p1;
+    struct payload* _Owner p2;
+    char* _Owner text;
 };
 
 void item_set_destroy(_Dtor struct item_set* p)

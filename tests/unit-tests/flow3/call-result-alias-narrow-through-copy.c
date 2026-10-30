@@ -2,10 +2,10 @@
 
 /* the result of a call may be its argument: a member read through it has two targets, and a test of it still narrows (codegen.c register_struct_types_and_functions) */
 
-struct L { int* _Opt s; };
-struct S { struct L* _Opt head; };
+struct L { int* s; };
+struct S { struct L* head; };
 
-struct S* _Opt complete(struct S* p);
+struct S* complete(struct S* p);
 void use(struct L* p);
 void use_int(int* p);
 
@@ -19,7 +19,7 @@ void use_int(int* p);
 /* Must NOT warn: c->head was tested, through both targets. */
 void test_then_cast(struct S* s0)
 {
-    struct S* _Opt c = complete(s0);
+    struct S* c = complete(s0);
     if (c && c->head)
         use((struct L*)c->head);
 }
@@ -27,10 +27,10 @@ void test_then_cast(struct S* s0)
 /* must warn: h->s is not tested */
 void not_tested(struct S* s0)
 {
-    struct S* _Opt c = complete(s0);
+    struct S* c = complete(s0);
     if (c)
     {
-        struct L* _Opt h = c->head;
+        struct L* h = c->head;
         if (h)
             use_int(h->s); //lint 35 'h->s' may be null
     }

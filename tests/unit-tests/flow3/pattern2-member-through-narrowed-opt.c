@@ -4,8 +4,8 @@
 
 #define NULL ((void*)0)
 
-struct token { char* _Owner lexeme; };      /* lexeme is non-_Opt -> non-null */
-struct ctx   { struct token* _Opt current; };
+struct token { char* _Nonnull _Owner lexeme; };      /* lexeme is non-_Opt -> non-null */
+struct ctx   { struct token* current; };
 
 /* Base pointer narrowed from _Opt: now correctly clean. */
 int through_narrowed_opt(const struct ctx* c)

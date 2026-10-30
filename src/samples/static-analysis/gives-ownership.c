@@ -3,12 +3,12 @@
 #include <string.h>
 #include <stdlib.h>
 
-const char * _Owner _Opt gives_ownership() {
-    _Owner _Opt auto some_string = strdup("yours");
+const char * _Owner gives_ownership() {
+    _Owner auto some_string = strdup("yours");
     return some_string;
 }
 
 int main(){
-    _Owner _Opt auto s = gives_ownership();
+    _Owner auto s = gives_ownership();
     free(s);
 }

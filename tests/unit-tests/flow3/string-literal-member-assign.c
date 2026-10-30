@@ -4,7 +4,7 @@
 
 struct X
 {
-    char* _Opt text;
+    char* text;
 };
 
 void f(struct X* p, char* s);

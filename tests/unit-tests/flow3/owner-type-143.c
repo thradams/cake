@@ -2,11 +2,11 @@
 
 
 
-_Clear void* _Owner _Opt calloc(int n ,unsigned size);
+_Clear void* _Owner calloc(int n ,unsigned size);
 
-char* _Owner _Opt f(int i)
+char* _Owner f(int i)
 {
-    char* _Owner _Opt p = calloc(1,2);
+    char* _Owner p = calloc(1,2);
     switch (i)
     {
         case 1:

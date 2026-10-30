@@ -3,19 +3,19 @@
 /* a plain pointer parameter is a borrow: every _Owner member it frees must be restored on every exit; only _Dtor may consume */
 
 typedef unsigned long size_t;
-_Uninitialized void* _Owner _Opt malloc(size_t sz);
-void free(void* _Owner _Opt p);
-char* _Owner _Opt strdup(const char* s);
+_Uninitialized void* _Owner malloc(size_t sz);
+void free(void* _Owner _Nullable p);
+char* _Owner strdup(const char* s);
 
 struct person {
-    char* _Opt _Owner name;
+    char* _Owner name;
 };
 
 /* Must warn: early return leaves p->name freed and never reassigned. */
 void set_leaves_dangling_on_early_return(struct person* p, const char* name)
 {
     free(p->name);
-    char* _Opt _Owner temp = strdup(name);
+    char* _Owner temp = strdup(name);
     if (temp == 0) return; /* warns: p->name moved/released here, never restored */ //lint 72
     p->name = temp;
 }
@@ -25,7 +25,7 @@ void set_restores_on_failure(struct person* p, const char* name)
 {
     free(p->name);
     p->name = 0;
-    char* _Opt _Owner temp = strdup(name);
+    char* _Owner temp = strdup(name);
     if (temp == 0) return;
     p->name = temp;
 }
@@ -44,7 +44,7 @@ void person_destroy(_Dtor struct person* p)
 }
 
 /* must NOT warn: p itself is _Owner, covered by the "owner not moved" check instead */
-void person_take_and_destroy(struct person* _Owner _Opt p)
+void person_take_and_destroy(struct person* _Owner _Nullable p)
 {
     if (p)
     {

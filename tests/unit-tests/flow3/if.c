@@ -1,7 +1,7 @@
 
 #pragma safety enable
 
-void f(int * _Opt p)
+void f(int * _Nullable p)
 {
     if (p)
     {

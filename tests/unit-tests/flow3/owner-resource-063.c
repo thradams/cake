@@ -3,11 +3,11 @@
 /* a forward goto skipping free(p) joins a fall-through path that frees it: at the label p is possibly not moved, the leak is reported */
 
 void free(void* _Owner _Opt ptr);
-_Uninitialized void* _Owner _Opt malloc(int size);
+_Uninitialized void* _Owner malloc(int size);
 
 void f(int condition)
 {
-    int* _Owner _Opt p = malloc(sizeof(int)); // owner object (p) not moved (call-opt-nonnull see line 17)
+    int* _Owner p = malloc(sizeof(int)); // owner object (p) not moved (call-opt-nonnull see line 17)
 
     if (condition)
     {

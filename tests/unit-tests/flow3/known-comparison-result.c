@@ -6,14 +6,14 @@ struct S { int x; };
 
 void dead_branch_has_no_null_dereference(void)
 {
-    struct S* _Opt p = 0;
+    struct S* p = 0;
     if (p != 0) //lint 85
         g(p->x);
 }
 
 void known_comparison_outside_condition(void)
 {
-    struct S* _Opt p = 0;
+    struct S* p = 0;
     int b = (p != 0); //lint 85
     g(b);
 }

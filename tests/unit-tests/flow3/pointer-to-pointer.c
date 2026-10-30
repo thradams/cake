@@ -4,11 +4,11 @@
 
 struct node
 {
-    struct node* _Opt next;
+    struct node* next;
     int value;
 };
 
-struct node* _Opt get();
+struct node* get();
 
 int both_levels_checked(struct node* _Opt const* _Opt pp)
 {
@@ -75,8 +75,7 @@ int assign_then_check_still_warns(struct node* _Opt* _Opt pp)
         *pp = get();
         if (*pp)
         {
-            /* known gap: *pp was just narrowed non-null by the if above but the narrowing does not reach this access */
-            return (*pp)->value; //lint 33 -> operator applied to a null pointer
+            return (*pp)->value;
         }
     }
     return -1;

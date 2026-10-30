@@ -47,10 +47,10 @@
         #include <stdarg.h>
         #include <stdio.h>
 
-        int __stdio_common_vfwprintf(unsigned long long options, FILE* stream, const wchar_t* format, void* _Opt locale, va_list arg);
-        int __stdio_common_vswprintf(unsigned long long options, wchar_t* _Opt s, size_t n, const wchar_t* format, void* _Opt locale, va_list arg);
-        int __stdio_common_vfwscanf(unsigned long long options, FILE* stream, const wchar_t* format, void* _Opt locale, va_list arg);
-        int __stdio_common_vswscanf(unsigned long long options, const wchar_t* s, size_t n, const wchar_t* format, void* _Opt locale, va_list arg);
+        int __stdio_common_vfwprintf(unsigned long long options, FILE* stream, const wchar_t* format, void* _Nullable locale, va_list arg);
+        int __stdio_common_vswprintf(unsigned long long options, wchar_t* _Nullable s, size_t n, const wchar_t* format, void* _Nullable locale, va_list arg);
+        int __stdio_common_vfwscanf(unsigned long long options, FILE* stream, const wchar_t* format, void* _Nullable locale, va_list arg);
+        int __stdio_common_vswscanf(unsigned long long options, const wchar_t* s, size_t n, const wchar_t* format, void* _Nullable locale, va_list arg);
 
         static inline int vfwprintf(FILE* restrict stream, const wchar_t* restrict format, va_list arg)
         {
@@ -156,7 +156,7 @@
 
     /* wide character input/output */
     wint_t fgetwc(FILE* stream);
-    wchar_t* _Opt fgetws(wchar_t* restrict s, int n, FILE* restrict stream);
+    wchar_t* fgetws(wchar_t* restrict s, int n, FILE* restrict stream);
     wint_t fputwc(wchar_t c, FILE* stream);
     int fputws(const wchar_t* restrict s, FILE* restrict stream);
     #if defined(_WIN32)
@@ -176,24 +176,24 @@
     wint_t ungetwc(wint_t c, FILE* stream);
 
     /* general wide string utilities */
-    double wcstod(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr);
-    float wcstof(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr);
-    long double wcstold(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr);
-    long int wcstol(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr, int base);
-    long long int wcstoll(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr, int base);
-    unsigned long int wcstoul(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr, int base);
-    unsigned long long int wcstoull(const wchar_t* restrict nptr, wchar_t** _Opt restrict endptr, int base);
+    double wcstod(const wchar_t* restrict nptr, wchar_t** _Nullable restrict endptr);
+    float wcstof(const wchar_t* restrict nptr, wchar_t** _Nullable restrict endptr);
+    long double wcstold(const wchar_t* restrict nptr, wchar_t** _Nullable restrict endptr);
+    long int wcstol(const wchar_t* restrict nptr, wchar_t** _Nullable restrict endptr, int base);
+    long long int wcstoll(const wchar_t* restrict nptr, wchar_t** _Nullable restrict endptr, int base);
+    unsigned long int wcstoul(const wchar_t* restrict nptr, wchar_t** _Nullable restrict endptr, int base);
+    unsigned long long int wcstoull(const wchar_t* restrict nptr, wchar_t** _Nullable restrict endptr, int base);
 
-    wchar_t* wcscpy(wchar_t* restrict s1, const wchar_t* restrict s2);
-    wchar_t* wcsncpy(wchar_t* restrict s1, const wchar_t* restrict s2, size_t n);
-    wchar_t* wmemcpy(wchar_t* restrict s1, const wchar_t* restrict s2, size_t n);
-    wchar_t* wmemmove(wchar_t* s1, const wchar_t* s2, size_t n);
-    wchar_t* wcscat(wchar_t* restrict s1, const wchar_t* restrict s2);
-    wchar_t* wcsncat(wchar_t* restrict s1, const wchar_t* restrict s2, size_t n);
+    wchar_t* _Nonnull wcscpy(wchar_t* restrict s1, const wchar_t* restrict s2);
+    wchar_t* _Nonnull wcsncpy(wchar_t* restrict s1, const wchar_t* restrict s2, size_t n);
+    wchar_t* _Nonnull wmemcpy(wchar_t* restrict s1, const wchar_t* restrict s2, size_t n);
+    wchar_t* _Nonnull wmemmove(wchar_t* s1, const wchar_t* s2, size_t n);
+    wchar_t* _Nonnull wcscat(wchar_t* restrict s1, const wchar_t* restrict s2);
+    wchar_t* _Nonnull wcsncat(wchar_t* restrict s1, const wchar_t* restrict s2, size_t n);
     int wcscmp(const wchar_t* s1, const wchar_t* s2);
     int wcscoll(const wchar_t* s1, const wchar_t* s2);
     int wcsncmp(const wchar_t* s1, const wchar_t* s2, size_t n);
-    size_t wcsxfrm(wchar_t* _Opt restrict s1, const wchar_t* restrict s2, size_t n);
+    size_t wcsxfrm(wchar_t* _Nullable restrict s1, const wchar_t* restrict s2, size_t n);
     #if defined(_WIN32)
         /* inline in the msvc CRT headers */
         static inline int wmemcmp(const wchar_t* s1, const wchar_t* s2, size_t n)
@@ -208,15 +208,15 @@
     #else
         int wmemcmp(const wchar_t* s1, const wchar_t* s2, size_t n);
     #endif
-    wchar_t* _Opt wcschr(const wchar_t* s, wchar_t c);
+    wchar_t* wcschr(const wchar_t* s, wchar_t c);
     size_t wcscspn(const wchar_t* s1, const wchar_t* s2);
-    wchar_t* _Opt wcspbrk(const wchar_t* s1, const wchar_t* s2);
-    wchar_t* _Opt wcsrchr(const wchar_t* s, wchar_t c);
+    wchar_t* wcspbrk(const wchar_t* s1, const wchar_t* s2);
+    wchar_t* wcsrchr(const wchar_t* s, wchar_t c);
     size_t wcsspn(const wchar_t* s1, const wchar_t* s2);
-    wchar_t* _Opt wcsstr(const wchar_t* s1, const wchar_t* s2);
-    wchar_t* _Opt wcstok(wchar_t* _Opt restrict s1, const wchar_t* restrict s2, wchar_t** restrict ptr);
+    wchar_t* wcsstr(const wchar_t* s1, const wchar_t* s2);
+    wchar_t* wcstok(wchar_t* _Nullable restrict s1, const wchar_t* restrict s2, wchar_t** restrict ptr);
     #if defined(_WIN32)
-        static inline wchar_t* _Opt wmemchr(const wchar_t* s, wchar_t c, size_t n)
+        static inline wchar_t* wmemchr(const wchar_t* s, wchar_t c, size_t n)
         {
             for (size_t i = 0; i < n; i++)
             {
@@ -226,21 +226,21 @@
             return NULL;
         }
     #else
-        wchar_t* _Opt wmemchr(const wchar_t* s, wchar_t c, size_t n);
+        wchar_t* wmemchr(const wchar_t* s, wchar_t c, size_t n);
     #endif
     size_t wcslen(const wchar_t* s);
     size_t wcsnlen(const wchar_t* s, size_t maxlen);
-    wchar_t* wmemset(wchar_t* s, wchar_t c, size_t n);
-    wchar_t* _Owner _Opt wcsdup(const wchar_t* s);
+    wchar_t* _Nonnull wmemset(wchar_t* s, wchar_t c, size_t n);
+    wchar_t* _Owner wcsdup(const wchar_t* s);
 
     #if defined(_WIN32)
         /* msvc extensions, declared by its string.h/wchar.h */
-        wchar_t* _Owner _Opt _wcsdup(const wchar_t* s);
+        wchar_t* _Owner _wcsdup(const wchar_t* s);
         int _wcsicmp(const wchar_t* s1, const wchar_t* s2);
         int _wcsnicmp(const wchar_t* s1, const wchar_t* s2, size_t n);
-        wchar_t* _wcslwr(wchar_t* s);
-        wchar_t* _wcsupr(wchar_t* s);
-        wchar_t* _wcsrev(wchar_t* s);
+        wchar_t* _Nonnull _wcslwr(wchar_t* s);
+        wchar_t* _Nonnull _wcsupr(wchar_t* s);
+        wchar_t* _Nonnull _wcsrev(wchar_t* s);
     #endif
 
     /* wide character time conversion */
@@ -250,20 +250,22 @@
     wint_t btowc(int c);
     int wctob(wint_t c);
     #if defined(_WIN32)
-        static inline int mbsinit(const mbstate_t* _Opt ps)
+        static inline int mbsinit(const mbstate_t* _Nullable ps)
         {
             return ps == NULL || ps->_Wchar == 0;
         }
     #else
-        int mbsinit(const mbstate_t* _Opt ps);
+        int mbsinit(const mbstate_t* _Nullable ps);
     #endif
-    size_t mbrlen(const char* _Opt restrict s, size_t n, mbstate_t* _Opt restrict ps);
-    size_t mbrtowc(wchar_t* _Opt restrict pwc, const char* _Opt restrict s, size_t n, mbstate_t* _Opt restrict ps);
-    size_t wcrtomb(char* _Opt restrict s, wchar_t wc, mbstate_t* _Opt restrict ps);
-    size_t mbsrtowcs(wchar_t* _Opt restrict dst, const char** restrict src, size_t len, mbstate_t* _Opt restrict ps);
-    size_t wcsrtombs(char* _Opt restrict dst, const wchar_t** restrict src, size_t len, mbstate_t* _Opt restrict ps);
+    size_t mbrlen(const char* _Nullable restrict s, size_t n, mbstate_t* _Nullable restrict ps);
+    size_t mbrtowc(wchar_t* _Nullable restrict pwc, const char* _Nullable restrict s, size_t n, mbstate_t* _Nullable restrict ps);
+    size_t wcrtomb(char* _Nullable restrict s, wchar_t wc, mbstate_t* _Nullable restrict ps);
+    size_t mbsrtowcs(wchar_t* _Nullable restrict dst, const char** restrict src, size_t len, mbstate_t* _Nullable restrict ps);
+    size_t wcsrtombs(char* _Nullable restrict dst, const wchar_t** restrict src, size_t len, mbstate_t* _Nullable restrict ps);
 
 #else
 
+    /* the msvc wchar.h declares strstr etc. (vcruntime_string.h) without _Nullable; cake string.h must come first */
+    #include <string.h>
     #include_next <wchar.h>
 #endif

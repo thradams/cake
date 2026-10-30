@@ -5,7 +5,7 @@
 #define NULL ((void*)0)
 
 struct Y { int i; };
-struct X { struct Y* _Opt pY; };
+struct X { struct Y* pY; };
 
 /*
     entry flow, the same for every function in this file:

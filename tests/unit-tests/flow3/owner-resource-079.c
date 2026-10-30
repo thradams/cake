@@ -3,7 +3,7 @@
 void free(void* _Owner _Opt p);
 
 struct X {
-    char* _Owner name;
+    char* _Nonnull _Owner name;
 };
 
 void x_delete(struct X* _Owner _Opt p)

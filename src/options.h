@@ -195,7 +195,7 @@ enum diagnostic_id {
     W_UNUSED_WARNING_119 = 119,
     W_CONST_REACHABLE_MODIFIED = 120,
     W_UNUSED_WARNING_121 = 121,
-    W_UNUSED_WARNING_122 = 122,
+    W_REDUNDANT_NULLABILITY = 122,
     W_UNUSED_WARNING_123 = 123,
     W_UNUSED_WARNING_124 = 124,
     W_UNUSED_WARNING_125 = 125,
@@ -503,7 +503,7 @@ struct options
     bool test_mode;             /* -testmode : reports success with 0 errors/warnings */
     bool clear_error_at_end;    /* used by tests*/
 
-    bool safety_enabled;        /* -safety: Cake contracts (_Owner, _Opt, _Out..., non-null default) are checked */
+    bool safety_enabled;        /* -safety: Cake contracts (_Owner, _Nullable, _Out..., non-null default) are checked */
     bool preprocess_only;       /* -E: preprocess only */
 
     bool preprocess_def_macro;  /* -preprocess-def-macro : preprocess #def */
@@ -634,14 +634,14 @@ struct options
     char rename_target_file[FS_MAX_PATH];
     int rename_target_line;
     int rename_target_col;
-    struct rename_list* _Opt p_rename_list;
+    struct rename_list* p_rename_list;
 
     /*
       -unused-extern-report
       Report mode: only the unused functions are reported (see
       options_diagnostic_is_muted), no flow analysis and no output.
     */
-    struct global_unused_list* _Opt p_unused_functions;
+    struct global_unused_list* p_unused_functions;
 };
 
 /* -find-definition, -find-declaration, -rename: the cursor is resolved by the find code */

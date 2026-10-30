@@ -5,7 +5,7 @@ int get(void);
 
 void defer_free_once(void)
 {
-    int* _Owner _Opt p = malloc(sizeof(int));
+    int* _Owner p = malloc(sizeof(int));
     defer free(p); /* ok: not "p is moved" */
     if (get())
     {

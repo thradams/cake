@@ -2,10 +2,10 @@
 
 
 void  free(void* _Owner p);
-char* _Owner strdup(const char* s);
+char* _Nonnull _Owner strdup(const char* s);
 
 struct X {
-    char* _Owner s;
+    char* _Nonnull _Owner s;
 };
 void init(_Out struct X* px)
 {

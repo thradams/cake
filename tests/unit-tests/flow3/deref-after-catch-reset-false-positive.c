@@ -2,18 +2,18 @@
 
 /* `catch { delete(p); p = 0; } if (p && p->m)` must not report an ended pointee: only alternatives that can coexist with the dereferenced pointer count (parser.c, 250 false 31s) */
 
-_Clear void* _Owner _Opt calloc(unsigned long n, unsigned long s);
+_Clear void* _Owner calloc(unsigned long n, unsigned long s);
 
 struct D { int x; };
-struct I { struct D* _Owner _Opt p_declarator; };
+struct I { struct D* _Owner p_declarator; };
 
-void init_declarator_delete(struct I* _Owner _Opt p);
+void init_declarator_delete(struct I* _Owner _Nullable p);
 void use(struct D* p);
 int maybe(void);
 
-struct I* _Owner _Opt f(void)
+struct I* _Owner f(void)
 {
-    struct I* _Owner _Opt p = calloc(1, sizeof(struct I));
+    struct I* _Owner p = calloc(1, sizeof(struct I));
     try
     {
         if (p == 0) throw;

@@ -3,8 +3,8 @@
 /* flow.md 6.3: a call changes only the pointee of its argument; what the pointee's pointer
    members point to keeps its state (through const, nothing reachable changes) */
 
-struct Y { int * _Opt p; };
-struct X { struct Y * q; };
+struct Y { int * p; };
+struct X { struct Y * _Nonnull q; };
 
 void f_const(const struct X * p);
 void f_mut(struct X * p);

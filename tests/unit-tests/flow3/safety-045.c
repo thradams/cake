@@ -1,18 +1,18 @@
 #pragma safety enable
 
 struct X {
-    struct X* _Opt next;
+    struct X* next;
 };
 
 
 void f(struct X* p);
-struct X* _Opt get();
+struct X* get();
 
 int c;
 
 int main()
 {
-    struct X* _Opt p = get();
+    struct X* p = get();
     for (; p; p = p->next)
     {
         compile_assert(p != 0);
@@ -42,14 +42,14 @@ int main()
         p = p->next;
     }
    
-    for (struct X* _Opt p2 = get(); p2; )
+    for (struct X* p2 = get(); p2; )
     {
         compile_assert(p2 != 0);
         f(p2);
     }
 
     
-    struct X* _Opt p3 = get();
+    struct X* p3 = get();
     for (;;)
     {
         break;

@@ -8,11 +8,11 @@
     not reach the arm where it is alive (tokenizer.c control_line #include).
 */
 
-struct token { int type; struct token* _Owner _Opt next; };
-struct token_list { struct token* _Owner _Opt head; struct token* _Opt tail; };
+struct token { int type; struct token* _Owner next; };
+struct token_list { struct token* _Owner head; struct token* tail; };
 void move_front(struct token_list* dest, struct token_list* input);
 void prepend(struct token_list* restrict dest, struct token_list* restrict source);
-void token_list_destroy(_Opt _Dtor struct token_list* list);
+void token_list_destroy(_Dtor struct token_list* list);
 void use(const struct token* _Opt p);
 
 void include_shape(struct token_list* input)

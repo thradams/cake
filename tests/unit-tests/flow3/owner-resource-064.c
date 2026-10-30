@@ -3,11 +3,11 @@
 /* same as owner-resource-063.c: the goto path never freed p, the leak is reported */
 
 void free(void* _Owner _Opt ptr);
-_Uninitialized void* _Owner _Opt malloc(int size);
+_Uninitialized void* _Owner malloc(int size);
 
 void f(int condition)
 {
-    int* _Owner _Opt p = malloc(sizeof(int)); // owner object (p) not moved (call-opt-nonnull see line 15)
+    int* _Owner p = malloc(sizeof(int)); // owner object (p) not moved (call-opt-nonnull see line 15)
 
     if (condition)
         goto end; /*memory leak o p*/

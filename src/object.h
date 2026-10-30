@@ -44,7 +44,7 @@ enum make_state
 
 struct object_list
 {
-    struct object* _Owner _Opt head, * _Opt tail;
+    struct object* _Owner _Nullable head, * _Nullable tail;
     size_t count;
 };
 
@@ -57,7 +57,7 @@ struct object
     enum object_type value_type;
     struct type type;
 
-    const char* _Opt _Owner member_designator;
+    const char* _Owner member_designator;
 
     union
     {
@@ -66,17 +66,17 @@ struct object
     } value;
 
     /* the enclosing array or struct; set where the object is built in place (make_object), NULL in object_dup copies. flow follows it from an element pointer to the whole array */
-    struct object* _Opt parent;
-    struct object* _Opt p_ref;
-    struct expression* _Opt p_init_expression;
+    struct object* parent;
+    struct object* p_ref;
+    struct expression* p_init_expression;
     struct object_list members;
-    struct object* _Opt _Owner next;
+    struct object* _Owner next;
 };
 
 void object_swap(struct object* a, struct object* b);
 void object_print_value_debug(const struct object* a);
-void object_destroy(_Opt _Dtor struct object* p);
-void object_delete(_Dtor struct object* _Opt _Owner p);
+void object_destroy(_Dtor struct object* p);
+void object_delete(_Dtor struct object* _Nullable _Owner p);
 bool object_has_constant_value(const struct object* a);
 bool object_has_known_value(const struct object* a);
 
@@ -161,8 +161,8 @@ bool unsigned_long_long_mul(_Out unsigned long long* result, unsigned long long 
 
 void object_default_initialization(struct object* p_object, bool is_constant);
 
-const struct object* _Opt object_get_member_const(const struct object* p_object, size_t index);
-struct object* _Opt object_get_member(const struct object* p_object, size_t index);
+const struct object* object_get_member_const(const struct object* p_object, size_t index);
+struct object* object_get_member(const struct object* p_object, size_t index);
 
 int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum make_state make_state, const struct platform* target);
 int make_object(const struct type* p_type, struct object* obj, enum make_state make_state, const struct platform* target);
@@ -176,13 +176,13 @@ void object_set_any(struct object* p_object);
 bool object_is_one(const struct object* p_object);
 bool object_is_zero(const struct object* p_object);
 
-const struct object* object_get_referenced(const struct object* p_object);
+const struct object* _Nonnull object_get_referenced(const struct object* p_object);
 
 NODISCARD
 int object_set(
     struct parser_ctx* ctx,
     struct object* to,
-    struct expression* _Opt init_expression,
+    struct expression* _Nullable init_expression,
     const struct object* from,
     bool is_constant,
     bool requires_constant_initialization);
@@ -193,8 +193,8 @@ enum object_type type_to_object_type(const struct type* type, const struct platf
 
 void object_print_to_debug(const struct object* object, const struct platform* target);
 
-struct object* _Opt object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant, const struct platform* target);
-struct object* object_get_non_const_referenced(struct object* p_object);
+struct object* object_extend_array_to_index(const struct type* p_type, struct object* a, size_t n, bool is_constant, const struct platform* target);
+struct object* _Nonnull object_get_non_const_referenced(struct object* p_object);
 
 
 void object_print_value(const struct platform* target, struct osstream* ss, const struct object* a);

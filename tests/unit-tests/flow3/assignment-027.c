@@ -1,4 +1,4 @@
-struct X { int i; void* p; };
+struct X { int i; void* _Nonnull p; };
 int main() {
 	struct X x;
 	x = (struct X){ 0 };

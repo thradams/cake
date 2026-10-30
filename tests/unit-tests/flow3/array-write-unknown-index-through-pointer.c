@@ -39,7 +39,7 @@ int increment(struct S* p, int c)
 }
 
 /* the write lands in the pointee, p keeps its non-null value */
-void pointer(int* _Opt p, int c)
+void pointer(int* _Nullable p, int c)
 {
     if (p == 0)
     {

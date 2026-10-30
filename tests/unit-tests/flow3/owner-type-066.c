@@ -1,15 +1,15 @@
 #pragma safety enable
 
 
-_Clear void* _Owner _Opt calloc(int n, int size);
+_Clear void* _Owner calloc(int n, int size);
 
 struct X {
-    char* _Owner _Opt name;
+    char* _Owner name;
 };
 
-void* _Owner _Opt f1()
+void* _Owner f1()
 {
-    struct X* _Owner _Opt p = calloc(1, sizeof(struct X));
+    struct X* _Owner p = calloc(1, sizeof(struct X));
     if (p)
     {
         /* no discard warning: calloc is _Clear, p->name is known zero */

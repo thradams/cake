@@ -4,7 +4,7 @@
 
 
 struct token { int type; };
-struct ctx { struct token* _Opt current; };
+struct ctx { struct token* current; };
 
 int fpost(struct ctx* ctx);
 

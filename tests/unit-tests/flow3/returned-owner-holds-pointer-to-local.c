@@ -2,16 +2,16 @@
 
 /* issue #512: the returned heap object holds the address of a local that dies at return */
 
-void* _Owner _Opt malloc(unsigned long n);
+void* _Owner malloc(unsigned long n);
 
 struct V
 {
-    int* q;
+    int* _Nonnull q;
 };
 
-struct V* _Owner _Opt f(void)
+struct V* _Owner f(void)
 {
-    struct V* _Owner _Opt v = malloc(sizeof(struct V));
+    struct V* _Owner v = malloc(sizeof(struct V));
     if (!v) return 0;
     int x = 1;
     v->q = &x;

@@ -1,10 +1,10 @@
 #pragma safety enable
 
 void free(void* _Owner _Opt p);
-void* _Owner _Opt malloc(unsigned long n);
+void* _Owner malloc(unsigned long n);
 
 struct X {
-    int * _Opt p;
+    int * p;
 };
 
 struct X f(struct X* pX)
@@ -34,7 +34,7 @@ void f3(struct X* pX)
 
 void f4(struct X* pX)
 {
-    int* _Owner _Opt p = malloc(sizeof(int));
+    int* _Owner p = malloc(sizeof(int));
     if (p == 0) return;
     pX->p = p;
     free(p);
@@ -73,7 +73,7 @@ void g4(struct X* pX)
 
 struct Y {
     int i;
-    struct Y* _Opt next;
+    struct Y* next;
 };
 
 void y_destroy(_Dtor struct Y* p);
@@ -116,7 +116,7 @@ const char* i210b(void)
 }
 
 struct B {
-    char* _Opt p;
+    char* p;
 };
 
 void i210c(struct B* b)

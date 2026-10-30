@@ -2,7 +2,7 @@
 
 
 struct X {
-    void* _Owner _Opt text;
+    void* _Owner text;
 };
 
 void x_change(struct X* list);

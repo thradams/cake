@@ -6,7 +6,7 @@
 
 void f(int cond)
 {
-    int* _Opt p = 0;
+    int* p = 0;
 
     while (cond)
     {

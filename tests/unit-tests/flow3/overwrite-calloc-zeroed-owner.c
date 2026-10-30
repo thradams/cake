@@ -2,12 +2,12 @@
 
 /* `p->type = make_type()` overwrites the zeroed nested struct with an unknown value, so free(p) through void* correctly reports name_opt/next as possibly owning */
 
-_Clear void* _Owner _Opt calloc(unsigned long n, unsigned long size);
+_Clear void* _Owner calloc(unsigned long n, unsigned long size);
 void free(void* _Owner _Opt p);
 
 struct type {
-    char* _Owner _Opt name_opt;
-    struct type* _Owner _Opt next;
+    char* _Owner name_opt;
+    struct type* _Owner next;
 };
 
 struct expr {
@@ -21,7 +21,7 @@ void f(void)
 {
     try
     {
-        struct expr* _Owner _Opt p = calloc(1, sizeof *p);
+        struct expr* _Owner p = calloc(1, sizeof *p);
         if (p == 0) throw;
 
         p->type = make_type();
@@ -39,7 +39,7 @@ void f_loop(void)
     {
         while (more())
         {
-            struct expr* _Owner _Opt p = calloc(1, sizeof *p);
+            struct expr* _Owner p = calloc(1, sizeof *p);
             if (p == 0) throw;
 
             p->type = make_type();

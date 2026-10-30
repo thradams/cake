@@ -145,7 +145,7 @@ void diagnostic_remove(struct diagnostic* d, enum diagnostic_id w)
 }
 
 
-/* pointers without _Opt are non-null when the contracts are checked */
+/* pointers without _Nullable are non-null when the contracts are checked */
 bool options_default_nonnull(const struct options* options)
 {
     return options->safety_enabled;
@@ -878,7 +878,7 @@ void print_help()
     print_option("-Werror", "Treats every enabled warning as an error");
     print_option("-flow", "Runs flow analysis, including null checks (same as #pragma flow enable)");
     print_option("-flow-limit=N", "Objects tracked per function before flow analysis stops (same as #pragma flow limit N)");
-    print_option("-safety", "Checks Cake contracts: _Owner, _Opt, _Out..., pointers non-null by default; turns on -flow (same as #pragma safety enable)");
+    print_option("-safety", "Checks Cake contracts: _Owner, _Nullable, _Out..., pointers non-null by default; turns on -flow (same as #pragma safety enable)");
     print_option("-sarif ", "Generates sarif files");
     print_option("-H", "Print the name of each header file used");
     print_option("-sarif-path", "Set sarif output dir");

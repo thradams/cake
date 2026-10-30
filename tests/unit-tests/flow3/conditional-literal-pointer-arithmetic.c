@@ -8,7 +8,7 @@
 #include <string.h>
 
 struct O {
-  const char * _Opt md;
+  const char * md;
 };
 
 void f(const struct O * o, const char * b)

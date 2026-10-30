@@ -5,7 +5,7 @@
 #define NULL ((void*)0)
 
 struct T { int type; };
-struct L { struct T* _Opt head; };
+struct L { struct T* head; };
 
 /* The reduced tokenizer.c shape: right operand's value depends on the path. */
 _Bool or_is_boolean(struct L r4)

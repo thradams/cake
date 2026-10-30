@@ -1,7 +1,7 @@
 #pragma safety enable
 #pragma flow enable
 
-struct X { char* name; };
+struct X { char* _Nonnull name; };
 
 void receives_non_null(struct X* p) {};
 

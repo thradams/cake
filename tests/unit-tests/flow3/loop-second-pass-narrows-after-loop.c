@@ -5,14 +5,14 @@
 struct node
 {
     int value;
-    struct node* _Opt next;
+    struct node* next;
 };
 
-void after_loop_wrongly_non_null(struct node* _Opt head)
+void after_loop_wrongly_non_null(struct node* _Nullable head)
 {
-    struct node* _Opt found = 0;
+    struct node* found = 0;
 
-    for (struct node* _Opt p = head; p; p = p->next)
+    for (struct node* p = head; p; p = p->next)
     {
         if (found == 0)
         {

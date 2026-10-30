@@ -5,7 +5,7 @@
 #define NULL ((void*)0)
 
 struct T { int x; };
-struct list { struct T* _Opt head; struct T* _Opt tail; };
+struct list { struct T* head; struct T* tail; };
 
 /* The single-element-list test: reachable, not dead. */
 void one_element(struct list* p)

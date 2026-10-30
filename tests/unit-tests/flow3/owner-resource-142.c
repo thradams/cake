@@ -2,7 +2,7 @@
 
 
 
-void* _Owner make();
+void* _Nonnull _Owner make();
 void free( void* _Owner p);
 
 void f(int condition)

@@ -45,7 +45,7 @@ int main(int argc, char** argv)
     const char* source =
         "#include <stdio.h>\n";
 
-    char* _Owner _Opt r =
+    char* _Owner r =
         CompileText("", source);
     return;
 #endif

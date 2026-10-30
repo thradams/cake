@@ -1,10 +1,10 @@
 #pragma safety enable
 
-char * _Opt _Owner strdup(const char* s);
-void free(void * _Opt _Owner p);
+char * _Owner strdup(const char* s);
+void free(void * _Nullable _Owner p);
 
 struct X {
-    char *_Owner _Opt name;
+    char *_Owner name;
 };
 
 void x_destroy(_Dtor struct X * x)

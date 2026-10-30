@@ -8,7 +8,7 @@
 #include <string.h>
 
 struct int_array {
-    int* _Owner _Opt data;
+    int* _Owner data;
     int size;
     int capacity;
 };
@@ -20,7 +20,7 @@ int int_array_reserve(struct int_array* p, int n)
             return EOVERFLOW;
         }
 
-        void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
+        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
         
         p->data = pnew;

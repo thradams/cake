@@ -1,13 +1,13 @@
 #pragma safety enable
 
 
-char* _Owner strdup(const char* s);
-_Uninitialized void* _Owner malloc(unsigned size);
+char* _Nonnull _Owner strdup(const char* s);
+_Uninitialized void* _Nonnull _Owner malloc(unsigned size);
 
 void free(void* _Owner _Opt ptr);
 
 struct X {
-    char* _Owner _Opt name;
+    char* _Owner name;
 };
 
 void x_destroy(_Dtor struct X* p)

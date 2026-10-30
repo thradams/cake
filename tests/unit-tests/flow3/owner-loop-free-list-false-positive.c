@@ -5,7 +5,7 @@
 
 struct node
 {
-    struct node* _Owner _Opt next;
+    struct node* _Owner next;
 };
 
 void node_delete(struct node* _Owner _Opt p);
@@ -15,7 +15,7 @@ void free_list(struct node* _Owner _Opt head)
 {
     while (head)
     {
-        struct node* _Owner _Opt next = head->next;
+        struct node* _Owner next = head->next;
         head->next = NULL; /* detach so head is the sole owner of *head */
         node_delete(head); /* release this node */
         head = next;       /* advance */
@@ -27,7 +27,7 @@ void leaks_when_not_a_loop(struct node* _Owner _Opt head)
 {
     if (head)
     {
-        struct node* _Owner _Opt next = head->next;
+        struct node* _Owner next = head->next;
         head->next = NULL;
         node_delete(head);
         head = next; // owner object (head) not moved: real leak, must warn

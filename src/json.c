@@ -14,15 +14,15 @@
 
 struct parser
 {
-    const char *start;
-    const char *p;
+    const char * _Nonnull start;
+    const char * _Nonnull p;
     int depth;
-    struct json_error *error;
+    struct json_error * _Nonnull error;
 };
 
 struct buffer
 {
-    char * _Owner _Opt data;
+    char * _Owner data;
     size_t length;
     size_t capacity;
 };
@@ -31,7 +31,7 @@ static int json_buffer_reserve(struct buffer *b, size_t extra)
 {
     int result = 0;
     size_t needed = b->length + extra + 1;
-    char * _Opt _Owner data = NULL;
+    char * _Owner data = NULL;
 
     try
     {
@@ -232,9 +232,9 @@ static long json_read_hex4(struct parser *parser)
 }
 
 /* Parses a quoted string, decoding escapes. Returns an owned string. */
-static char * _Opt _Owner json_parse_string(struct parser *parser)
+static char * _Owner json_parse_string(struct parser *parser)
 {
-    char * _Opt _Owner result = NULL;
+    char * _Owner result = NULL;
     struct buffer buffer = {0};
 
     try
@@ -439,11 +439,11 @@ static char * _Opt _Owner json_parse_string(struct parser *parser)
 }
 
 /* Validates the JSON number grammar, then converts with strtod. */
-static struct json_value *_Opt _Owner json_parse_number(struct parser *parser)
+static struct json_value * _Owner json_parse_number(struct parser *parser)
 {
-    struct json_value * _Owner _Opt result = NULL;
+    struct json_value * _Owner result = NULL;
     const char *begin = parser->p;
-    char * _Opt end = NULL;
+    char * end = NULL;
     double number;
 
     try
@@ -528,13 +528,13 @@ static struct json_value *_Opt _Owner json_parse_number(struct parser *parser)
     return result;
 }
 
-static struct json_value * _Opt _Owner json_parse_value(struct parser *parser);
+static struct json_value * _Owner json_parse_value(struct parser *parser);
 
-static struct json_value * _Opt _Owner json_parse_literal(struct parser *parser,
+static struct json_value * _Owner json_parse_literal(struct parser *parser,
                                                           const char *text,
                                                           enum json_type type)
 {
-    struct json_value * _Opt _Owner result = NULL;
+    struct json_value * _Owner result = NULL;
     size_t length = strlen(text);
 
     try
@@ -563,9 +563,9 @@ static struct json_value * _Opt _Owner json_parse_literal(struct parser *parser,
     return result;
 }
 
-static struct json_value * _Opt _Owner json_parse_array(struct parser *parser)
+static struct json_value * _Owner json_parse_array(struct parser *parser)
 {
-    struct json_value * _Opt _Owner result = NULL;
+    struct json_value * _Owner result = NULL;
 
     try
     {
@@ -589,7 +589,7 @@ static struct json_value * _Opt _Owner json_parse_array(struct parser *parser)
         {
             for (;;)
             {
-                struct json_value * _Opt _Owner item = json_parse_value(parser);
+                struct json_value * _Owner item = json_parse_value(parser);
                 if (item == NULL)
                 {
                     throw;
@@ -624,9 +624,9 @@ static struct json_value * _Opt _Owner json_parse_array(struct parser *parser)
     return result;
 }
 
-static struct json_value * _Opt _Owner  json_parse_object(struct parser *parser)
+static struct json_value * _Owner  json_parse_object(struct parser *parser)
 {
-    struct json_value * _Opt _Owner result = NULL;
+    struct json_value * _Owner result = NULL;
 
     try
     {
@@ -650,8 +650,8 @@ static struct json_value * _Opt _Owner  json_parse_object(struct parser *parser)
         {
             for (;;)
             {
-                char * _Opt _Owner key = NULL;
-                struct json_value * _Opt _Owner member = NULL;
+                char * _Owner key = NULL;
+                struct json_value * _Owner member = NULL;
 
                 key = json_parse_string(parser);
                 if (key == NULL)
@@ -710,10 +710,10 @@ static struct json_value * _Opt _Owner  json_parse_object(struct parser *parser)
     return result;
 }
 
-static struct json_value * _Opt _Owner json_parse_value(struct parser *parser)
+static struct json_value * _Owner json_parse_value(struct parser *parser)
 {
-    struct json_value *_Opt _Owner result = NULL;
-    char * _Opt _Owner text = NULL;
+    struct json_value * _Owner result = NULL;
+    char * _Owner text = NULL;
 
     json_skip_whitespace(parser);
 
@@ -787,9 +787,9 @@ static struct json_value * _Opt _Owner json_parse_value(struct parser *parser)
     return result;
 }
 
-struct json_value * _Opt _Owner json_parse(const char * _Opt text, struct json_error * _Opt error)
+struct json_value * _Owner json_parse(const char * _Nullable text, struct json_error * _Nullable error)
 {
-    struct json_value * _Opt _Owner result = NULL;
+    struct json_value * _Owner result = NULL;
     /*
         Cleared as a whole object rather than just message[0], so the caller's
         struct is fully initialized before parser.error starts pointing at it.
@@ -843,15 +843,15 @@ struct json_value * _Opt _Owner json_parse(const char * _Opt text, struct json_e
     return result;
 }
 
-void json_delete(struct json_value * _Owner _Opt value)
+void json_delete(struct json_value * _Owner _Nullable value)
 {
     if (value != NULL)
     {
-        struct json_value *_Opt _Owner child = value->first_child;
+        struct json_value * _Owner child = value->first_child;
         value->first_child = NULL;
         while (child != NULL)
         {
-            struct json_value * _Opt _Owner next = child->next;
+            struct json_value * _Owner next = child->next;
             child->next = NULL;
             json_delete(child);
             child = next;
@@ -869,13 +869,13 @@ void json_delete(struct json_value * _Owner _Opt value)
     }
 }
 
-const struct json_value * _Opt json_find_member_const(const struct json_value *object, const char *key)
+const struct json_value * json_find_member_const(const struct json_value *object, const char *key)
 {
-    const struct json_value * _Opt result = NULL;
+    const struct json_value * result = NULL;
 
     if (object && object->type == JSON_OBJECT)
     {
-        const struct json_value * _Opt child;
+        const struct json_value * child;
 
         for (child = object->first_child; child != NULL; child = child->next)
         {
@@ -890,15 +890,15 @@ const struct json_value * _Opt json_find_member_const(const struct json_value *o
     return result;
 }
 
-struct json_value * _Opt json_find_member(struct json_value *object, const char *key)
+struct json_value * json_find_member(struct json_value *object, const char *key)
 {
-    return (struct json_value * _Opt) json_find_member_const(object, key);
+    return (struct json_value *) json_find_member_const(object, key);
 }
 
-const struct json_value * _Opt json_item_const(const struct json_value *value, size_t index)
+const struct json_value * json_item_const(const struct json_value *value, size_t index)
 {
-    const struct json_value * _Opt result = NULL;
-    const struct json_value * _Opt child;
+    const struct json_value * result = NULL;
+    const struct json_value * child;
 
     for (child = value->first_child; child != NULL; child = child->next)
     {
@@ -913,15 +913,15 @@ const struct json_value * _Opt json_item_const(const struct json_value *value, s
     return result;
 }
 
-struct json_value * _Opt json_item(struct json_value *value, size_t index)
+struct json_value * json_item(struct json_value *value, size_t index)
 {
-    return (struct json_value * _Opt) json_item_const(value, index);
+    return (struct json_value *) json_item_const(value, index);
 }
 
 size_t json_count(const struct json_value *value)
 {
     size_t count = 0;
-    const struct json_value * _Opt child;
+    const struct json_value * child;
 
     for (child = value->first_child; child != NULL; child = child->next)
     {
@@ -934,8 +934,8 @@ size_t json_count(const struct json_value *value)
 /* Unlinks and frees the member named key, if the object has one. */
 static void json_remove_member(struct json_value *object, const char *key)
 {
-    struct json_value * _Opt previous = NULL;
-    struct json_value * _Opt child;
+    struct json_value * previous = NULL;
+    struct json_value * child;
 
     for (child = object->first_child; child != NULL; child = child->next)
     {
@@ -968,11 +968,11 @@ static void json_remove_member(struct json_value *object, const char *key)
     }
 } //lint 31
 
-struct json_value * _Opt json_set_string(struct json_value *object, const char *key, const char *text)
+struct json_value * json_set_string(struct json_value *object, const char *key, const char *text)
 {
-    struct json_value * _Opt result = NULL;
-    char * _Opt _Owner key_copy = NULL;
-    char * _Opt _Owner copy = NULL;
+    struct json_value * result = NULL;
+    char * _Owner key_copy = NULL;
+    char * _Owner copy = NULL;
 
     try
     {
@@ -988,7 +988,7 @@ struct json_value * _Opt json_set_string(struct json_value *object, const char *
             throw;
         }
 
-        struct json_value * _Opt _Owner value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1018,10 +1018,10 @@ struct json_value * _Opt json_set_string(struct json_value *object, const char *
     return result;
 }
 
-struct json_value * _Opt json_set_number(struct json_value *object, const char *key, double number)
+struct json_value * json_set_number(struct json_value *object, const char *key, double number)
 {
-    struct json_value * _Opt result = NULL;
-    char * _Opt _Owner key_copy = NULL;
+    struct json_value * result = NULL;
+    char * _Owner key_copy = NULL;
 
     try
     {
@@ -1031,7 +1031,7 @@ struct json_value * _Opt json_set_number(struct json_value *object, const char *
             throw;
         }
 
-        struct json_value * _Opt _Owner value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1059,10 +1059,10 @@ struct json_value * _Opt json_set_number(struct json_value *object, const char *
     return result;
 }
 
-struct json_value * _Opt json_set_bool(struct json_value *object, const char *key, int boolean_value)
+struct json_value * json_set_bool(struct json_value *object, const char *key, int boolean_value)
 {
-    struct json_value * _Opt result = NULL;
-    char * _Opt _Owner key_copy = NULL;
+    struct json_value * result = NULL;
+    char * _Owner key_copy = NULL;
 
     try
     {
@@ -1072,7 +1072,7 @@ struct json_value * _Opt json_set_bool(struct json_value *object, const char *ke
             throw;
         }
 
-        struct json_value * _Opt _Owner value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1099,10 +1099,10 @@ struct json_value * _Opt json_set_bool(struct json_value *object, const char *ke
     return result;
 }
 
-struct json_value * _Opt json_set_null(struct json_value *object, const char *key)
+struct json_value * json_set_null(struct json_value *object, const char *key)
 {
-    struct json_value * _Opt result = NULL;
-    char * _Opt _Owner key_copy = NULL;
+    struct json_value * result = NULL;
+    char * _Owner key_copy = NULL;
 
     try
     {
@@ -1112,7 +1112,7 @@ struct json_value * _Opt json_set_null(struct json_value *object, const char *ke
             throw;
         }
 
-        struct json_value * _Opt _Owner value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1139,10 +1139,10 @@ struct json_value * _Opt json_set_null(struct json_value *object, const char *ke
     return result;
 }
 
-struct json_value * _Opt json_set_object(struct json_value *object, const char *key)
+struct json_value * json_set_object(struct json_value *object, const char *key)
 {
-    struct json_value * _Opt result = NULL;
-    char * _Opt _Owner key_copy = NULL;
+    struct json_value * result = NULL;
+    char * _Owner key_copy = NULL;
 
     try
     {
@@ -1152,7 +1152,7 @@ struct json_value * _Opt json_set_object(struct json_value *object, const char *
             throw;
         }
 
-        struct json_value * _Opt _Owner value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1179,10 +1179,10 @@ struct json_value * _Opt json_set_object(struct json_value *object, const char *
     return result;
 }
 
-struct json_value * _Opt json_set_array(struct json_value *object, const char *key)
+struct json_value * json_set_array(struct json_value *object, const char *key)
 {
-    struct json_value * _Opt result = NULL;
-    char * _Opt _Owner key_copy = NULL;
+    struct json_value * result = NULL;
+    char * _Owner key_copy = NULL;
 
     try
     {
@@ -1192,7 +1192,7 @@ struct json_value * _Opt json_set_array(struct json_value *object, const char *k
             throw;
         }
 
-        struct json_value * _Opt _Owner value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1219,10 +1219,10 @@ struct json_value * _Opt json_set_array(struct json_value *object, const char *k
     return result;
 }
 
-struct json_value * _Opt json_add_string(struct json_value *array, const char *text)
+struct json_value * json_add_string(struct json_value *array, const char *text)
 {
-    struct json_value * _Opt result = NULL;
-    char * _Opt _Owner copy = NULL;
+    struct json_value * result = NULL;
+    char * _Owner copy = NULL;
 
     try
     {
@@ -1232,7 +1232,7 @@ struct json_value * _Opt json_add_string(struct json_value *array, const char *t
             throw;
         }
 
-        struct json_value * _Owner _Opt value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1253,13 +1253,13 @@ struct json_value * _Opt json_add_string(struct json_value *array, const char *t
     return result;
 }
 
-struct json_value * _Opt json_add_number(struct json_value *array, double number)
+struct json_value * json_add_number(struct json_value *array, double number)
 {
-    struct json_value * _Opt result = NULL;
+    struct json_value * result = NULL;
 
     try
     {
-        struct json_value * _Owner _Opt value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1278,13 +1278,13 @@ struct json_value * _Opt json_add_number(struct json_value *array, double number
     return result;
 }
 
-struct json_value * _Opt json_add_bool(struct json_value *array, int boolean_value)
+struct json_value * json_add_bool(struct json_value *array, int boolean_value)
 {
-    struct json_value * _Opt result = NULL;
+    struct json_value * result = NULL;
 
     try
     {
-        struct json_value * _Owner _Opt value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1302,13 +1302,13 @@ struct json_value * _Opt json_add_bool(struct json_value *array, int boolean_val
     return result;
 }
 
-struct json_value * _Opt json_add_null(struct json_value *array)
+struct json_value * json_add_null(struct json_value *array)
 {
-    struct json_value * _Opt result = NULL;
+    struct json_value * result = NULL;
 
     try
     {
-        struct json_value * _Owner _Opt value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1326,13 +1326,13 @@ struct json_value * _Opt json_add_null(struct json_value *array)
     return result;
 }
 
-struct json_value * _Opt json_add_object(struct json_value *array)
+struct json_value * json_add_object(struct json_value *array)
 {
-    struct json_value * _Opt result = NULL;
+    struct json_value * result = NULL;
 
     try
     {
-        struct json_value * _Owner _Opt value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1350,13 +1350,13 @@ struct json_value * _Opt json_add_object(struct json_value *array)
     return result;
 }
 
-struct json_value * _Opt json_add_array(struct json_value *array)
+struct json_value * json_add_array(struct json_value *array)
 {
-    struct json_value * _Opt result = NULL;
+    struct json_value * result = NULL;
 
     try
     {
-        struct json_value * _Owner _Opt value = calloc(1, sizeof *value);
+        struct json_value * _Owner value = calloc(1, sizeof *value);
         if (value == NULL)
         {
             throw;
@@ -1443,7 +1443,7 @@ static void json_write_value(FILE *file, const struct json_value *value, int dep
             }
             else
             {
-                const struct json_value * _Opt child;
+                const struct json_value * child;
 
                 fputs(is_object ? "{\n" : "[\n", file);
 
@@ -1497,7 +1497,7 @@ static void json_write_value(FILE *file, const struct json_value *value, int dep
 int json_write_file(const char *path, const struct json_value *root)
 {
     int result = 0;
-    FILE * _Opt _Owner file = NULL;
+    FILE * _Owner file = NULL;
 
     try
     {

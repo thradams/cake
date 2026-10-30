@@ -15,21 +15,16 @@
 #include "expressions.h"
 #include <ctype.h>
 
-/*
-*  Prefix used to create file scope declarators
-*/
-#define CAKE_FILE_SCOPE_PREFIX "__c" 
+#define CAKE_FILE_SCOPE_PREFIX "__c"  /* Prefix used to create file scope declarators */
 
 #define LITERAL_FUNCTION_BASE_NAME CAKE_FILE_SCOPE_PREFIX "fn"
 #define COMPOUND_LITERAL_BASE_NAME CAKE_FILE_SCOPE_PREFIX "obj"
 #define IDENTATION_STR "    "
 
-/*
-  Prefix used to create labels
-*/
-#define CAKE_PREFIX_LABEL "__L"
 
-void codegen_error(struct codegen_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...)
+#define CAKE_PREFIX_LABEL "__L" /* Prefix used to create labels */
+
+void codegen_error(struct codegen_ctx* ctx, const struct token* _Nullable p_token, const char* fmt, ...)
 {
     ctx->error = true;
     if (ctx->p_report == NULL)
@@ -46,7 +41,7 @@ void codegen_error(struct codegen_ctx* ctx, const struct token* _Opt p_token, co
                    file, p_token ? p_token->line : 0, p_token ? p_token->col : 0, "%s", buffer);
 }
 
-static bool codegen_require_int128(struct codegen_ctx* ctx, const struct token* _Opt p_token, const char* what)
+static bool codegen_require_int128(struct codegen_ctx* ctx, const struct token* _Nullable p_token, const char* what)
 {
     if (ctx->options.platform.int128_n_bits >= 128)
         return true;
@@ -57,7 +52,7 @@ static bool codegen_require_int128(struct codegen_ctx* ctx, const struct token* 
 
 static void emit_line_directive(const struct codegen_ctx* ctx,
                                 struct osstream* oss,
-                                const struct token* _Opt tk)
+                                const struct token* _Nullable tk)
 {
     if (!ctx->options.line_directives)
         return;
@@ -118,7 +113,7 @@ static void generate_name(int n, int sz, char* out)
 
 int generate_file_scope_new_name(struct codegen_ctx* ctx, const char* current_name, int sz, char new_name[])
 {
-    struct map_entry* _Opt it =
+    struct map_entry* it =
         hashmap_find(&ctx->p_ast->file_scope.variables, current_name);
     while (it)
     {
@@ -127,7 +122,7 @@ int generate_file_scope_new_name(struct codegen_ctx* ctx, const char* current_na
             for (int i = 2; i < 1000000; )
             {
                 snprintf(new_name, sz, "%s%d", current_name, i);
-                struct map_entry* _Opt it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
+                struct map_entry* it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
                 if (it2 == NULL)
                 {
                     struct hash_item_set item = { 0 };
@@ -176,7 +171,7 @@ int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct in
         snprintf(qualified_name, sizeof(qualified_name), CAKE_FILE_SCOPE_PREFIX "%s", current_name);
 
         char new_name[220] = { 0 };
-        struct map_entry* _Opt it =
+        struct map_entry* it =
             hashmap_find(&ctx->p_ast->file_scope.variables, qualified_name);
         while (it)
         {
@@ -185,7 +180,7 @@ int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct in
                 for (int i = 2; i < 1000000; )
                 {
                     snprintf(new_name, sizeof(new_name), "%s%d", qualified_name, i);
-                    struct map_entry* _Opt it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
+                    struct map_entry* it2 = hashmap_find(&ctx->p_ast->file_scope.variables, new_name);
                     if (it2 == NULL)
                     {
                         struct hash_item_set item = { 0 };
@@ -196,7 +191,7 @@ int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct in
                         p_init_declarator->p_declarator->declarator_renamed = true;
                         if (p_init_declarator->p_declarator->name_opt)
                         {
-                            char* _Opt _Owner temp = strdup(new_name);
+                            char* _Owner temp = strdup(new_name);
                             if (temp == NULL) throw;
                             declarator_save_original_name(p_init_declarator->p_declarator);
                             free(p_init_declarator->p_declarator->name_opt->lexeme);
@@ -227,7 +222,7 @@ int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct in
         p_init_declarator->p_declarator->declarator_renamed = true;
         if (p_init_declarator->p_declarator->name_opt)
         {
-            char* _Opt _Owner temp = strdup(qualified_name);
+            char* _Owner temp = strdup(qualified_name);
             if (temp == NULL) throw;
             declarator_save_original_name(p_init_declarator->p_declarator);
             free(p_init_declarator->p_declarator->name_opt->lexeme);
@@ -241,9 +236,9 @@ int rename_file_scope_declarator_if_necessary(struct codegen_ctx* ctx, struct in
     return 1;
 }
 
-static struct struct_or_union_specifier* _Opt get_complete_struct_or_union_specifier2(struct struct_or_union_specifier* p_struct_or_union_specifier)
+static struct struct_or_union_specifier* get_complete_struct_or_union_specifier2(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
-    struct struct_or_union_specifier* _Opt p_complete =
+    struct struct_or_union_specifier* p_complete =
         get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
     if (p_complete == NULL)
         p_complete = p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection;
@@ -255,7 +250,7 @@ struct struct_entry;
 
 struct struct_entry_list
 {
-    struct struct_entry** _Owner _Opt data;
+    struct struct_entry** _Owner data;
     int size;
     int capacity;
 };
@@ -272,7 +267,7 @@ struct struct_entry
     */
     bool declaration_was_printed;
 
-    struct struct_or_union_specifier* p_struct_or_union_specifier;
+    struct struct_or_union_specifier* _Nonnull p_struct_or_union_specifier;
 
     /*
      Structs that must be defined beforehand because we need the full definition.
@@ -285,10 +280,10 @@ struct struct_entry
 
     struct struct_entry_list soft_dependencies;
 
-    struct struct_entry* _Opt next;
+    struct struct_entry* next;
 };
 
-void struct_entry_delete(struct struct_entry* _Opt _Owner p)
+void struct_entry_delete(struct struct_entry* _Nullable _Owner p)
 {
     if (p)
     {
@@ -307,7 +302,7 @@ int struct_entry_list_reserve(struct struct_entry_list* p, int n)
             return ERANGE;
         }
 
-        void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
+        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
 
         p->data = pnew; //lint 26
@@ -361,7 +356,7 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
 static void codegen_visit_secondary_block(struct codegen_ctx* ctx, struct osstream* oss, struct secondary_block* p_secondary_block);
 static void codegen_visit_init_declarator(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator* p_init_declarator, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
 static void codegen_visit_init_declarator_list(struct codegen_ctx* ctx, struct osstream* oss, struct init_declarator_list* p_init_declarator_list, enum function_specifier_flags function_specifier_flags, enum storage_class_specifier_flags storage_class_specifier_flags);
-static void codegen_visit_compound_statement(struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement, struct osstream* _Opt parameters_vars, struct osstream* _Opt parameters_init);
+static void codegen_visit_compound_statement(struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement, struct osstream* _Nullable parameters_vars, struct osstream* _Nullable parameters_init);
 static void codegen_visit_statement(struct codegen_ctx* ctx, struct osstream* oss, struct statement* p_statement);
 static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct osstream* oss, struct unlabeled_statement* p_unlabeled_statement);
 static void assign_each_member_from_initialization(struct codegen_ctx* ctx, struct osstream* ss, struct object* object,
@@ -373,11 +368,11 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
                                                            const char* dest_prefix, const struct object* dest, const struct object* source, bool* first);
 static bool codegen_expr_takes_postfix_suffix(const struct expression* p_expression);
 
-static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, struct type* p_type0, const char* _Opt name_opt, bool name_unnamed_parameters);
+static void d_print_type_core(struct codegen_ctx* ctx, struct osstream* ss, struct type* p_type0, const char* _Nullable name_opt, bool name_unnamed_parameters);
 static void d_print_type(struct codegen_ctx* ctx,
                          struct osstream* ss,
                          struct type* p_type,
-                         const char* _Opt name_opt,
+                         const char* _Nullable name_opt,
                          bool print_storage_qualifier,
                          bool name_unnamed_parameters);
 
@@ -459,7 +454,7 @@ static void il_print_defer_new(struct codegen_ctx* ctx, struct osstream* oss, st
 static int il_defer_count(struct defer_list* p_defer_list)
 {
     int count = 0;
-    struct defer_list_item* _Opt p_item = p_defer_list->head;
+    struct defer_list_item* p_item = p_defer_list->head;
     while (p_item)
     {
         if (p_item->defer_statement) count++;
@@ -470,7 +465,7 @@ static int il_defer_count(struct defer_list* p_defer_list)
 
 static void il_print_defer_list(struct codegen_ctx* ctx, struct osstream* oss, struct defer_list* p_defer_list, const struct token* position)
 {
-    struct defer_list_item* _Opt p_item = p_defer_list->head;
+    struct defer_list_item* p_item = p_defer_list->head;
     while (p_item)
     {
         il_print_defer_new(ctx, oss, p_item);
@@ -543,7 +538,7 @@ static void expression_to_bool_value(struct codegen_ctx* ctx, struct osstream* o
     }
 }
 
-static struct member_declarator* _Opt find_member_declarator_name_by_index(struct struct_or_union_specifier* p_complete_owner,
+static struct member_declarator* find_member_declarator_name_by_index(struct struct_or_union_specifier* p_complete_owner,
                                                                            int member_index,
                                                                            char name[100],
                                                                            int* p_count,
@@ -557,10 +552,10 @@ static struct member_declarator* _Opt find_member_declarator_name_by_index(struc
 
         int no_name_index = 0;
 
-        struct member_declaration* _Opt p_member_declaration = list->head;
+        struct member_declaration* p_member_declaration = list->head;
         while (p_member_declaration)
         {
-            struct member_declarator* _Opt p_member_declarator = NULL;
+            struct member_declarator* p_member_declarator = NULL;
 
             if (p_member_declaration->member_declarator_list_opt)
             {
@@ -588,7 +583,7 @@ static struct member_declarator* _Opt find_member_declarator_name_by_index(struc
             {
                 if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                 {
-                    struct struct_or_union_specifier* _Opt p_complete =
+                    struct struct_or_union_specifier* p_complete =
                         get_complete_struct_or_union_specifier(p_member_declaration->specifier_qualifier_list->struct_or_union_specifier);
 
                     if (p_complete)
@@ -623,22 +618,22 @@ static struct member_declarator* _Opt find_member_declarator_name_by_index(struc
 static int find_member_name(const struct type* p_type,
                             int index,
                             char name[100],
-                            struct member_declarator* _Opt* pp_member,
-                            struct struct_or_union_specifier* _Opt* pp_owner)
+                            struct member_declarator* _Nullable* pp_member,
+                            struct struct_or_union_specifier* _Nullable* pp_owner)
 {
     if (!type_is_struct_or_union(p_type))
         return 1;
 
     assert(p_type->struct_or_union_specifier != NULL);
 
-    struct struct_or_union_specifier* _Opt p_complete =
-        get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier); //lint 35 assert line 605
+    struct struct_or_union_specifier* p_complete =
+        get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier); //lint 35 (assert)
 
     if (p_complete)
     {
         int count = 0;
         struct struct_or_union_specifier* p_owner = p_complete;
-        struct member_declarator* _Opt p =
+        struct member_declarator* p =
             find_member_declarator_name_by_index(p_complete, index, name, &count, &p_owner);
         if (p)
         {
@@ -678,7 +673,7 @@ static void codegen_emit_wrap_text(const struct codegen_ctx* ctx,
                                    bool source_is_floating,
                                    bool text_is_unsigned);
 
-static const char* _Opt codegen_unsigned_type_of_size(const struct codegen_ctx* ctx, size_t size)
+static const char* codegen_unsigned_type_of_size(const struct codegen_ctx* ctx, size_t size)
 {
     const struct platform* p = &ctx->options.platform;
     if ((size_t)p->char_n_bits / 8 == size) return "unsigned char";
@@ -745,12 +740,12 @@ static bool codegen_bitfield_run(const struct codegen_ctx* ctx,
     bool run_open = false;
     bool found = false;
 
-    struct member_declaration* _Opt d = p_complete->member_declaration_list.head;
+    struct member_declaration* d = p_complete->member_declaration_list.head;
     while (d)
     {
         if (d->member_declarator_list_opt)
         {
-            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            struct member_declarator* md = d->member_declarator_list_opt->head;
             while (md)
             {
                 if (md->constant_expression)
@@ -830,7 +825,7 @@ static size_t codegen_print_bitfield_tiles(const struct codegen_ctx* ctx, struct
     while (pos < end)
     {
         const size_t size = codegen_bitfield_tile_size(ctx, pos, end, cap);
-        const char* _Opt type_name = codegen_unsigned_type_of_size(ctx, size);
+        const char* type_name = codegen_unsigned_type_of_size(ctx, size);
         ss_fprintf(ss, IDENTATION_STR "%s __bits%zu;\n", type_name ? type_name : "unsigned char", pos);
         if (size > largest)
             largest = size;
@@ -922,7 +917,7 @@ static void codegen_emit_bitfield_read(struct codegen_ctx* ctx,
     /* 'text & MASK' follows: more than one part needs parentheses */
     struct osstream value = { 0 };
     if (parts > 1)
-        ss_fprintf(&value, "(%s)", text.c_str);
+        ss_fprintf(&value, "(%s)", empty_if_null(text.c_str));
     else if (text.c_str != NULL)
         ss_fprintf(&value, "%s", text.c_str);
 
@@ -947,12 +942,12 @@ static bool codegen_tile_has_earlier_bitfield(struct struct_or_union_specifier* 
                                               size_t tile_first_bit,
                                               size_t tile_bits)
 {
-    struct member_declaration* _Opt d = p_owner->member_declaration_list.head;
+    struct member_declaration* d = p_owner->member_declaration_list.head;
     while (d)
     {
         if (d->member_declarator_list_opt)
         {
-            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            struct member_declarator* md = d->member_declarator_list_opt->head;
             while (md)
             {
                 if (md != p_member && md->constant_expression && md->bit_offset < p_member->bit_offset)
@@ -993,7 +988,7 @@ static void codegen_emit_bitfield_store(struct codegen_ctx* ctx,
                                         struct member_declarator* p_member,
                                         const char* value,
                                         bool value_is_floating,
-                                        const struct object* _Opt p_constant,
+                                        const struct object* _Nullable p_constant,
                                         bool yield_value,
                                         bool fresh)
 {
@@ -1108,8 +1103,8 @@ static void codegen_emit_bitfield_store(struct codegen_ctx* ctx,
 struct codegen_bitfield_access
 {
     struct osstream base;
-    struct struct_or_union_specifier* _Opt p_owner;
-    struct member_declarator* _Opt p_member;
+    struct struct_or_union_specifier* p_owner;
+    struct member_declarator* p_member;
 };
 
 static bool codegen_bitfield_access_from_member(const struct codegen_ctx* ctx,
@@ -1120,15 +1115,15 @@ static bool codegen_bitfield_access_from_member(const struct codegen_ctx* ctx,
                                                 const char* op,
                                                 char name[100])
 {
-    struct member_declarator* _Opt p_member = NULL;
-    struct struct_or_union_specifier* _Opt p_owner = NULL;
+    struct member_declarator* p_member = NULL;
+    struct struct_or_union_specifier* p_owner = NULL;
     if (find_member_name(p_struct_type, member_index, name, &p_member, &p_owner) != 0)
         return false;
 
     if (p_member == NULL || p_owner == NULL || !codegen_is_lowered_bitfield(ctx, p_owner, p_member))
         return false;
 
-    const char* _Opt last_dot = strrchr(name, '.');
+    const char* last_dot = strrchr(name, '.');
     const int path_length = last_dot ? (int)(last_dot - name) + 1 : 0;
     ss_fprintf(&p_access->base, "%s%s%.*s", left_text, op, path_length, name);
     p_access->p_owner = p_owner;
@@ -1158,8 +1153,8 @@ static bool codegen_bitfield_access(struct codegen_ctx* ctx,
     bool result = false;
 
     /* the left operand is visited only for a bitfield (a visit can hoist code) */
-    struct member_declarator* _Opt p_member = NULL;
-    struct struct_or_union_specifier* _Opt p_owner = NULL;
+    struct member_declarator* p_member = NULL;
+    struct struct_or_union_specifier* p_owner = NULL;
     if (find_member_name(&t, p_expression->member_index, name, &p_member, &p_owner) == 0 &&
         p_member && p_owner && codegen_is_lowered_bitfield(ctx, p_owner, p_member))
     {
@@ -1182,8 +1177,8 @@ static bool codegen_bitfield_access(struct codegen_ctx* ctx,
 static void codegen_emit_bitfield_assignment(struct codegen_ctx* ctx,
                                              struct osstream* oss,
                                              struct codegen_bitfield_access* p_access,
-                                             const char* _Opt op,
-                                             struct expression* _Opt p_right,
+                                             const char* _Nullable op,
+                                             struct expression* _Nullable p_right,
                                              bool postfix,
                                              bool yield_value)
 {
@@ -1216,7 +1211,7 @@ static void codegen_emit_bitfield_assignment(struct codegen_ctx* ctx,
     ss_fprintf(&value, ")");
 
     /* 'a = constant': the new tile bits are computed here */
-    const struct object* _Opt p_constant = (op == NULL && p_right != NULL) ? &p_right->object : NULL;
+    const struct object* p_constant = (op == NULL && p_right != NULL) ? &p_right->object : NULL;
 
     if (value.c_str != NULL)
     {
@@ -1254,15 +1249,15 @@ static void codegen_emit_bitfield_assignment(struct codegen_ctx* ctx,
   made one per member declarator with a declarator and one per anonymous
   struct, in order; see make_object_ptr_core). NULL for an anonymous struct.
 */
-static struct member_declarator* _Opt codegen_member_declarator_of_object_index(struct struct_or_union_specifier* p_complete, int index)
+static struct member_declarator* codegen_member_declarator_of_object_index(struct struct_or_union_specifier* p_complete, int index)
 {
     int count = 0;
-    struct member_declaration* _Opt d = p_complete->member_declaration_list.head;
+    struct member_declaration* d = p_complete->member_declaration_list.head;
     while (d)
     {
         if (d->member_declarator_list_opt)
         {
-            struct member_declarator* _Opt md = d->member_declarator_list_opt->head;
+            struct member_declarator* md = d->member_declarator_list_opt->head;
             while (md)
             {
                 if (md->declarator)
@@ -1290,9 +1285,9 @@ static struct member_declarator* _Opt codegen_member_declarator_of_object_index(
   for the root) to p_object, e.g. ".a.__m0.x". An anonymous struct member has
   the designator of its parent; codegen names it __mN (see struct printing).
 */
-static void codegen_print_designator(struct osstream* ss, const struct object* p_object, const struct object* _Opt p_stop)
+static void codegen_print_designator(struct osstream* ss, const struct object* p_object, const struct object* _Nullable p_stop)
 {
-    const struct object* _Opt p_parent = p_object->parent;
+    const struct object* p_parent = p_object->parent;
     const char* designator = p_object->member_designator ? p_object->member_designator : "";
     if (p_parent == NULL)
     {
@@ -1309,7 +1304,7 @@ static void codegen_print_designator(struct osstream* ss, const struct object* p
     if (suffix[0] == '\0' && type_is_struct_or_union(&p_object->type) && type_is_struct_or_union(&p_parent->type))
     {
         int index = 0;
-        const struct object* _Opt p = p_parent->members.head;
+        const struct object* p = p_parent->members.head;
         while (p && p != p_object)
         {
             const char* d = p->member_designator ? p->member_designator : "";
@@ -1326,8 +1321,8 @@ static void codegen_print_designator(struct osstream* ss, const struct object* p
 /* p_object is a member object that is a lowered bitfield: its struct and declarator */
 static bool codegen_object_is_lowered_bitfield(const struct codegen_ctx* ctx,
                                                const struct object* p_object,
-                                               struct struct_or_union_specifier* _Opt* pp_owner,
-                                               struct member_declarator* _Opt* pp_member)
+                                               struct struct_or_union_specifier* _Nullable* pp_owner,
+                                               struct member_declarator* _Nullable* pp_member)
 {
     if (!ctx->options.no_bitfields || !type_is_bitfield(&p_object->type) || p_object->parent == NULL)
         return false;
@@ -1336,13 +1331,13 @@ static bool codegen_object_is_lowered_bitfield(const struct codegen_ctx* ctx,
     if (!type_is_struct_or_union(&p_parent->type) || p_parent->type.struct_or_union_specifier == NULL)
         return false;
 
-    struct struct_or_union_specifier* _Opt p_complete =
+    struct struct_or_union_specifier* p_complete =
         get_complete_struct_or_union_specifier(p_parent->type.struct_or_union_specifier);
     if (p_complete == NULL)
         return false;
 
     int index = 0;
-    const struct object* _Opt p = p_parent->members.head;
+    const struct object* p = p_parent->members.head;
     while (p && p != p_object)
     {
         index++;
@@ -1351,7 +1346,7 @@ static bool codegen_object_is_lowered_bitfield(const struct codegen_ctx* ctx,
     if (p == NULL)
         return false;
 
-    struct member_declarator* _Opt p_member = codegen_member_declarator_of_object_index(p_complete, index);
+    struct member_declarator* p_member = codegen_member_declarator_of_object_index(p_complete, index);
     if (p_member == NULL || !codegen_is_lowered_bitfield(ctx, p_complete, p_member))
         return false;
 
@@ -1371,17 +1366,17 @@ static bool codegen_emit_object_bitfield_store(struct codegen_ctx* ctx,
                                                const struct object* p_object,
                                                const char* value,
                                                bool value_is_floating,
-                                               const struct object* _Opt p_constant,
+                                               const struct object* _Nullable p_constant,
                                                bool yield_value,
                                                bool fresh)
 {
-    struct struct_or_union_specifier* _Opt p_owner = NULL;
-    struct member_declarator* _Opt p_member = NULL;
+    struct struct_or_union_specifier* p_owner = NULL;
+    struct member_declarator* p_member = NULL;
     if (!codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member) ||
         p_owner == NULL || p_member == NULL)
         return false;
 
-    const char* _Opt last_dot = strrchr(lvalue, '.');
+    const char* last_dot = strrchr(lvalue, '.');
     if (last_dot == NULL)
         return false;
 
@@ -1410,7 +1405,7 @@ static void codegen_print_bitfield_tile_initializers(struct codegen_ctx* ctx,
                                                      bool only_first_tile,
                                                      bool* first)
 {
-    struct member_declarator* _Opt p_first_member = codegen_member_declarator_of_object_index(p_owner, first_index);
+    struct member_declarator* p_first_member = codegen_member_declarator_of_object_index(p_owner, first_index);
     size_t start = 0, end = 0, cap = 0;
     if (p_first_member == NULL || !codegen_bitfield_run(ctx, p_owner, p_first_member, &start, &end, &cap))
         return;
@@ -1430,10 +1425,10 @@ static void codegen_print_bitfield_tile_initializers(struct codegen_ctx* ctx,
         unsigned long long constant_bits = 0;
         struct osstream parts = { 0 };
 
-        const struct object* _Opt p_object = p_first;
+        const struct object* p_object = p_first;
         for (int i = 0; i < count && p_object; i++, p_object = p_object->next)
         {
-            struct member_declarator* _Opt p_member = codegen_member_declarator_of_object_index(p_owner, first_index + i);
+            struct member_declarator* p_member = codegen_member_declarator_of_object_index(p_owner, first_index + i);
             if (p_member == NULL || p_member->constant_expression == NULL || p_member->declarator == NULL)
                 continue;
 
@@ -1448,7 +1443,7 @@ static void codegen_print_bitfield_tile_initializers(struct codegen_ctx* ctx,
             const unsigned long long tile_mask = (shift_left ? field_mask << shift : field_mask >> shift) & tile_all;
 
             const struct object* p_value_object = object_is_reference(p_object) ? object_get_referenced(p_object) : p_object;
-            const struct expression* _Opt p_init = p_value_object->p_init_expression;
+            const struct expression* p_init = p_value_object->p_init_expression;
             if (p_init == NULL)
                 continue;
 
@@ -1510,11 +1505,11 @@ static bool codegen_emit_bitfield_init_statement(struct codegen_ctx* ctx,
                                                  struct osstream* ss,
                                                  const char* prefix,
                                                  const struct object* p_object,
-                                                 struct expression* _Opt p_init,
+                                                 struct expression* _Nullable p_init,
                                                  bool fresh)
 {
-    struct struct_or_union_specifier* _Opt p_owner = NULL;
-    struct member_declarator* _Opt p_member = NULL;
+    struct struct_or_union_specifier* p_owner = NULL;
+    struct member_declarator* p_member = NULL;
     if (!codegen_object_is_lowered_bitfield(ctx, p_object, &p_owner, &p_member))
         return false;
 
@@ -1549,8 +1544,8 @@ static bool codegen_emit_bitfield_init_statement(struct codegen_ctx* ctx,
 static bool codegen_emit_bitfield_operation(struct codegen_ctx* ctx,
                                             struct osstream* oss,
                                             struct expression* p_left,
-                                            const char* _Opt op,
-                                            struct expression* _Opt p_right,
+                                            const char* _Nullable op,
+                                            struct expression* _Nullable p_right,
                                             bool postfix,
                                             bool yield_value)
 {
@@ -1562,7 +1557,7 @@ static bool codegen_emit_bitfield_operation(struct codegen_ctx* ctx,
     return is_bitfield;
 }
 
-static const char* get_op_by_expression_type(enum expression_type type);
+static const char* _Nonnull get_op_by_expression_type(enum expression_type type);
 
 /*
   An expression statement that is an assignment, ++ or -- of a lowered
@@ -1695,7 +1690,7 @@ static void il_print_string(const struct token* first_token, const struct token*
     bool opened = false;
     bool wide = false;
 
-    const struct token* _Opt ptk = first_token;
+    const struct token* ptk = first_token;
     do
     {
         if (ptk == NULL)
@@ -1735,7 +1730,7 @@ static void il_print_string(const struct token* first_token, const struct token*
 
 }
 
-static const char* get_op_by_expression_type(enum expression_type type)
+static const char* _Nonnull get_op_by_expression_type(enum expression_type type)
 {
     switch (type)
     {
@@ -1769,7 +1764,7 @@ static const char* get_op_by_expression_type(enum expression_type type)
     return "";
 }
 
-static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
+static void codegen_visit_compound_statement_2(const char* _Nullable var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement);
 
 /*
    Emits the runtime value of one VM array dimension.
@@ -1887,13 +1882,13 @@ static void vm_emit_sizeof_expr(struct codegen_ctx* ctx,
     ss_fprintf(oss, "(%zu", sz);
 
     if (local.size > 0)
-        ss_fprintf(oss, " * %s)", local.c_str);
+        ss_fprintf(oss, " * %s)", empty_if_null(local.c_str));
 
     ss_close(&local);
 }
 
 static void codegen_vm_ptr_advance(struct codegen_ctx* ctx, struct osstream* oss,
-                                   struct expression* p_ptr_expr, const char* op, struct expression* _Opt p_count_expr)
+                                   struct expression* p_ptr_expr, const char* op, struct expression* _Nullable p_count_expr)
 {
     ss_fprintf(oss, "(");
     d_print_type(ctx, oss, &p_ptr_expr->object.type, NULL, false, false);
@@ -1946,7 +1941,7 @@ static void codegen_vm_ptr_postfix_step(struct codegen_ctx* ctx, struct osstream
     print_identation_core(&decl, ctx->indentation);
     d_print_type(ctx, &decl, &p_ptr_expr->object.type, name, false, false);
     ss_fprintf(&decl, ";\n");
-    ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+    ss_fprintf(&ctx->block_scope_declarators, "%s", empty_if_null(decl.c_str));
     ss_close(&decl);
 
     struct osstream add_this_before = { 0 };
@@ -1962,7 +1957,7 @@ static void codegen_vm_ptr_postfix_step(struct codegen_ctx* ctx, struct osstream
     codegen_vm_ptr_advance(ctx, &add_this_before, p_ptr_expr, op, NULL);
     ss_fprintf(&add_this_before, ";\n");
 
-    ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
+    ss_fprintf(&ctx->add_this_before, "%s", empty_if_null(add_this_before.c_str));
     ss_close(&add_this_before);
 
     ss_fprintf(oss, "%s", name);
@@ -2224,9 +2219,9 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
             integer128_fits_ll(v) && integer128_to_ll(v) != LLONG_MIN;
 
         if (fits && is_unsigned)
-            ss_fprintf(oss, "((%s)%lluULL)", lowered.c_str, integer128_to_ull(v));
+            ss_fprintf(oss, "((%s)%lluULL)", empty_if_null(lowered.c_str), integer128_to_ull(v));
         else if (fits)
-            ss_fprintf(oss, "((%s)%lldLL)", lowered.c_str, integer128_to_ll(v));
+            ss_fprintf(oss, "((%s)%lldLL)", empty_if_null(lowered.c_str), integer128_to_ll(v));
         else
         {
             char text[INTEGER128_TO_C_TEXT_MIN_SIZE] = { 0 };
@@ -2236,7 +2231,7 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
                 return true;
             }
             integer128_to_c_text(v, text, sizeof text);
-            ss_fprintf(oss, "((%s)%s)", lowered.c_str, text);
+            ss_fprintf(oss, "((%s)%s)", empty_if_null(lowered.c_str), text);
         }
 
         ss_close(&lowered);
@@ -2253,7 +2248,7 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
     {
         struct object wrapped = object_make_unsigned_bitint(width, bits);
-        ss_fprintf(oss, "((%s)%lluU)", lowered.c_str, integer128_to_ull(wrapped.value.host_integer128));
+        ss_fprintf(oss, "((%s)%lluU)", empty_if_null(lowered.c_str), integer128_to_ull(wrapped.value.host_integer128));
         object_destroy(&wrapped);
     }
     else
@@ -2262,9 +2257,9 @@ static bool codegen_emit_bitint_wrap_constant(struct codegen_ctx* ctx,
         const long long value = integer128_to_ll(wrapped.value.host_integer128);
         object_destroy(&wrapped);
         if (value == LLONG_MIN)
-            ss_fprintf(oss, "((%s)(-%lld - 1))", lowered.c_str, LLONG_MAX);
+            ss_fprintf(oss, "((%s)(-%lld - 1))", empty_if_null(lowered.c_str), LLONG_MAX);
         else
-            ss_fprintf(oss, "((%s)%lld)", lowered.c_str, value);
+            ss_fprintf(oss, "((%s)%lld)", empty_if_null(lowered.c_str), value);
     }
 
     ss_close(&lowered);
@@ -2344,7 +2339,7 @@ static void codegen_emit_converted_compound_assignment(struct codegen_ctx* ctx,
                                                        struct osstream* oss,
                                                        struct expression* p_left,
                                                        const char* op,
-                                                       struct expression* _Opt p_right,
+                                                       struct expression* _Nullable p_right,
                                                        const struct type* p_operation_type)
 {
     struct osstream left = { 0 };
@@ -2389,7 +2384,7 @@ static bool codegen_compound_assignment_needs_conversion(const struct codegen_ct
 static void codegen_atomic_helper(struct codegen_ctx* ctx,
                                   const struct type* p_atomic_type,
                                   const char* kind,
-                                  const struct type* _Opt p_operand_type,
+                                  const struct type* _Nullable p_operand_type,
                                   bool return_old,
                                   char helper_name[100])
 {
@@ -2410,9 +2405,9 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
         d_print_type(ctx, &operand_text, &value_type, "v", false, false);
     }
 
-    ss_fprintf(&key, "%s|%s|%s|%d", kind, value_type_text.c_str, operand_text.c_str, return_old ? 1 : 0);
+    ss_fprintf(&key, "%s|%s|%s|%d", kind, empty_if_null(value_type_text.c_str), empty_if_null(operand_text.c_str), return_old ? 1 : 0);
 
-    struct map_entry* _Opt p_entry = NULL;
+    struct map_entry* p_entry = NULL;
     if (key.c_str != NULL)
     {
         p_entry = hashmap_find(&ctx->atomic_helpers, key.c_str);
@@ -2467,9 +2462,9 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
 
         char type_name[60] = { 0 };
         int type_name_length = 0;
-        for (const char* _Opt p_char = value_type_text.c_str; p_char != NULL && *p_char != '\0'; p_char++)
+        for (const char* p_char = value_type_text.c_str; p_char != NULL && *p_char != '\0'; p_char++)
         {
-            const char* _Opt part = NULL;
+            const char* part = NULL;
             char one_char[2] = { *p_char, '\0' };
             if (*p_char == '*')
             {
@@ -2606,24 +2601,24 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
         }
         else if (is_cas)
         {
-            ss_fprintf(&signature_name, "%s(void * p, void * e, %s)", helper_name, d_param.c_str);
+            ss_fprintf(&signature_name, "%s(void * p, void * e, %s)", helper_name, empty_if_null(d_param.c_str));
         }
         else
         {
-            ss_fprintf(&signature_name, "%s(void * p, %s)", helper_name, operand_text.c_str);
+            ss_fprintf(&signature_name, "%s(void * p, %s)", helper_name, empty_if_null(operand_text.c_str));
         }
 
         if (is_cas)
         {
-            ss_fprintf(&signature, "int %s", signature_name.c_str);
+            ss_fprintf(&signature, "int %s", empty_if_null(signature_name.c_str));
         }
         else
         {
             d_print_type(ctx, &signature, &value_type, signature_name.c_str, false, false);
         }
 
-        ss_fprintf(&ctx->atomic_helpers_declarations, "static %s;\n", signature.c_str);
-        ss_fprintf(&ctx->atomic_helpers_text, "static %s\n{\n", signature.c_str);
+        ss_fprintf(&ctx->atomic_helpers_declarations, "static %s;\n", empty_if_null(signature.c_str));
+        ss_fprintf(&ctx->atomic_helpers_text, "static %s\n{\n", empty_if_null(signature.c_str));
 
         if (is_load && !is_msvc && !is_tcc)
         {
@@ -2633,7 +2628,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    q = p;\n"
                        "    __atomic_load(q, &r, 5);\n"
                        "    return r;\n",
-                       q_decl.c_str, r_decl.c_str);
+                       empty_if_null(q_decl.c_str), empty_if_null(r_decl.c_str));
         }
         else if (is_cas && !is_msvc && !is_tcc)
         {
@@ -2643,7 +2638,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    q = p;\n"
                        "    pe = e;\n"
                        "    return __atomic_compare_exchange(q, pe, &d, 0, 5, 5);\n",
-                       q_decl.c_str, pe_decl.c_str);
+                       empty_if_null(q_decl.c_str), empty_if_null(pe_decl.c_str));
         }
         else if (is_load && tcc_integer[0] != '\0')
         {
@@ -2651,7 +2646,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    union { %s; %s i; } u;\n"
                        "    __atomic_load((%s *)p, &u.i, 5);\n"
                        "    return u.v;\n",
-                       v_member.c_str, tcc_integer, tcc_integer);
+                       empty_if_null(v_member.c_str), tcc_integer, tcc_integer);
         }
         else if (is_cas && tcc_integer[0] != '\0')
         {
@@ -2664,7 +2659,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    if (__atomic_compare_exchange((%s *)p, &x.i, &y.i, 0, 5, 5)) return 1;\n"
                        "    *pe = x.v;\n"
                        "    return 0;\n",
-                       v_member.c_str, tcc_integer, pe_decl.c_str, tcc_integer);
+                       empty_if_null(v_member.c_str), tcc_integer, empty_if_null(pe_decl.c_str), tcc_integer);
         }
         else if (is_load && msvc_cas[0] != '\0')
         {
@@ -2672,7 +2667,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    union { %s; %s i; } u;\n"
                        "    u.i = %s((%s volatile *)p, 0, 0);\n"
                        "    return u.v;\n",
-                       v_member.c_str, msvc_integer, msvc_cas, msvc_integer);
+                       empty_if_null(v_member.c_str), msvc_integer, msvc_cas, msvc_integer);
         }
         else if (is_cas && msvc_cas[0] != '\0')
         {
@@ -2688,7 +2683,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    x.i = old;\n"
                        "    *pe = x.v;\n"
                        "    return 0;\n",
-                       v_member.c_str, msvc_integer, pe_decl.c_str, msvc_integer, msvc_cas, msvc_integer);
+                       empty_if_null(v_member.c_str), msvc_integer, empty_if_null(pe_decl.c_str), msvc_integer, msvc_cas, msvc_integer);
         }
         else if (is_load)
         {
@@ -2700,7 +2695,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    r = *q;\n"
                        "%s"
                        "    return r;\n",
-                       q_decl.c_str, r_decl.c_str, lock_text, unlock_text);
+                       empty_if_null(q_decl.c_str), empty_if_null(r_decl.c_str), lock_text, unlock_text);
         }
         else if (is_cas)
         {
@@ -2721,7 +2716,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    if (equal) *q = d; else *pe = *q;\n"
                        "%s"
                        "    return equal;\n",
-                       q_decl.c_str, pe_decl.c_str, lock_text, unlock_text);
+                       empty_if_null(q_decl.c_str), empty_if_null(pe_decl.c_str), lock_text, unlock_text);
         }
         else if (is_store || is_xchg)
         {
@@ -2730,7 +2725,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    o = %s(p);\n"
                        "    while (!%s(p, &o, v)) {}\n"
                        "    return %s;\n",
-                       o_decl.c_str, load_name, cas_name, is_xchg ? "o" : "v");
+                       empty_if_null(o_decl.c_str), load_name, cas_name, is_xchg ? "o" : "v");
         }
         else
         {
@@ -2740,7 +2735,7 @@ static void codegen_atomic_helper(struct codegen_ctx* ctx,
                        "    o = %s(p);\n"
                        "    do { n = o %s v; } while (!%s(p, &o, n));\n"
                        "    return %s;\n",
-                       o_decl.c_str, n_decl.c_str, load_name, kind, cas_name, return_old ? "o" : "n");
+                       empty_if_null(o_decl.c_str), empty_if_null(n_decl.c_str), load_name, kind, cas_name, return_old ? "o" : "n");
         }
 
         ss_fprintf(&ctx->atomic_helpers_text, "}\n\n");
@@ -2859,7 +2854,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             d_print_type(ctx, &decl,
                          &p_expression->object.type, name, false, false);
             ss_fprintf(&decl, ";\n");
-            ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+            ss_fprintf(&ctx->block_scope_declarators, "%s", empty_if_null(decl.c_str));
             ss_close(&decl);
 
             print_identation_core(&add_this_before, ctx->indentation);
@@ -2885,7 +2880,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 print_identation_core(&add_this_before, ctx->indentation);
                 ss_fprintf(&add_this_before, "}\n");
             }
-            ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
+            ss_fprintf(&ctx->add_this_before, "%s", empty_if_null(add_this_before.c_str));
             ss_fprintf(oss, "%s", name);
             ss_close(&add_this_before);
             return;
@@ -3041,7 +3036,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             {
                 ss_fprintf(oss, "%s", p_expression->declarator->name_opt->lexeme); //lint 33 assert line 2884
 
-                struct map_entry* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
+                struct map_entry* p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
 
                 /*
                   __builtin_* functions are known by the target compiler and
@@ -3078,7 +3073,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
                     assert(p_expression->declarator != NULL);
 
-                    struct declarator* _Opt p_function_defined = declarator_get_function_definition(p_expression->declarator); //lint 35 assert line 2987
+                    struct declarator* p_function_defined = declarator_get_function_definition(p_expression->declarator); //lint 35 assert line 2987
 
                     /*
                         An inline function is emitted as static only when
@@ -3105,7 +3100,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     /* the static of the definition replaces the extern of the first declaration */
                     const bool print_storage = !(defined_static_or_inline && !is_static);
                     d_print_type(ctx, &ss, &p_expression->object.type, declarator_name, print_storage, false);
-                    ss_fprintf(&ctx->add_this_before_external_decl, "%s", ss.c_str);
+                    ss_fprintf(&ctx->add_this_before_external_decl, "%s", empty_if_null(ss.c_str));
                     ss_fprintf(&ctx->add_this_before_external_decl, ";\n");
 
                     if (p_function_defined && (is_static || is_inline || defined_static_or_inline || is_auto || is_local_function_definition))
@@ -3117,7 +3112,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                         d_print_type(ctx, &local4, &p_function_defined->object.type, declarator_name, false, true);
 
                         emit_line_directive(ctx, &local3, p_function_defined->first_token_opt);
-                        ss_fprintf(&local3, "static %s\n", local4.c_str);
+                        ss_fprintf(&local3, "static %s\n", empty_if_null(local4.c_str));
 
                         codegen_visit_function_body(ctx, &local3, p_function_defined);
 
@@ -3125,7 +3120,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                         assert(oss->c_str);
 
                         ss_fprintf(&ctx->add_this_after_external_decl, "\n");
-                        ss_fprintf(&ctx->add_this_after_external_decl, "%s", local3.c_str);
+                        ss_fprintf(&ctx->add_this_after_external_decl, "%s", empty_if_null(local3.c_str));
 
                         ss_close(&local3);
                         ss_close(&local4);
@@ -3144,7 +3139,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
            local static declarators are generated on-demand.
         */
 
-                void* _Opt p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
+                void* p = hashmap_find(&ctx->file_scope_declarator_map, declarator_name);
                 if (p == NULL)
                 {
                     /*
@@ -3169,7 +3164,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     {
                         print_initializer(ctx, &ss, p_expression->p_init_declarator, true);
                         assert(ss.c_str);
-                        ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", ss.c_str);
+                        ss_fprintf(&ctx->add_this_before_external_decl, "%s\n", empty_if_null(ss.c_str));
                     }
                     else
                     {
@@ -3365,7 +3360,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                   folding every constant designator into constant_part.
                 */
                 unsigned long long constant_part = 0;
-                struct offsetof_designator* _Opt p_designator = p_expression->offsetof_member_designator;
+                struct offsetof_designator* p_designator = p_expression->offsetof_member_designator;
                 while (p_designator)
                 {
                     if (p_designator->identifier != NULL)
@@ -3419,7 +3414,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                   The second argument is optional in C23. Before C23 it is
                   the last named parameter, so we insert it.
                 */
-                const struct param* _Opt p_last_param =
+                const struct param* p_last_param =
                     ctx->p_current_function_opt ? ctx->p_current_function_opt->object.type.params.tail : NULL;
 
                 if (p_last_param && p_last_param->type.name_opt)
@@ -3606,7 +3601,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
            if it is we have a [flat_index]
         */
 
-            struct expression* _Opt expr0 = p_expression;
+            struct expression* expr0 = p_expression;
             while (expr0 && expr0->expression_type == EXPR_POSTFIX_ARRAY)
             {
                 expr0 = expr0->left;
@@ -3630,7 +3625,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
                 struct osstream offset_flat = { 0 };
 
-                struct expression* _Opt expr = p_expression;
+                struct expression* expr = p_expression;
                 while (expr && expr->expression_type == EXPR_POSTFIX_ARRAY)
                 {
                     assert(expr->right != NULL);
@@ -3649,7 +3644,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     }
 
                     assert(expr->left);
-                    struct type* _Opt p_type = expr->left->object.type.next; //lint 33 assert line 3560
+                    struct type* p_type = expr->left->object.type.next; //lint 33 assert line 3560
                     while (p_type && type_is_array(p_type))
                     {
                         if (p_type->array_num_elements > 0)
@@ -3698,7 +3693,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     codegen_visit_expression(ctx, oss, expr);
                 }
                 ss_fprintf(oss, "[");
-                ss_fprintf(oss, "%s", offset_flat.c_str);
+                ss_fprintf(oss, "%s", empty_if_null(offset_flat.c_str));
                 ss_fprintf(oss, "]");
                 ss_close(&offset_flat);
             }
@@ -3717,8 +3712,8 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             assert(p_expression->left != NULL);
 
             /* the __c11_atomic and __atomic builtins used by <stdatomic.h> call the same helpers as _Atomic operators */
-            struct argument_expression* _Opt p_first_argument = p_expression->argument_expression_list.head;
-            const char* _Opt atomic_builtin = NULL;
+            struct argument_expression* p_first_argument = p_expression->argument_expression_list.head;
+            const char* atomic_builtin = NULL;
             if (p_expression->left->expression_type == EXPR_PRIMARY_DECLARATOR &&
                 p_expression->left->declarator &&
                 p_expression->left->declarator->name_opt &&
@@ -3727,7 +3722,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 atomic_builtin = p_expression->left->declarator->name_opt->lexeme; //lint 33 assert line 3626
             }
 
-            const char* _Opt atomic_kind = NULL;
+            const char* atomic_kind = NULL;
             bool atomic_return_old = false;
             int atomic_expected_index = -1;
             int atomic_value_index = -1;
@@ -3844,9 +3839,9 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 p_first_argument &&
                 type_is_pointer(&p_first_argument->expression->object.type))
             {
-                struct argument_expression* _Opt arguments[6] = { 0 };
+                struct argument_expression* _Nullable arguments[6] = { 0 };
                 int argument_count = 0;
-                for (struct argument_expression* _Opt p_argument = p_expression->argument_expression_list.head;
+                for (struct argument_expression* p_argument = p_expression->argument_expression_list.head;
                      p_argument != NULL && argument_count < 6;
                      p_argument = p_argument->next)
                 {
@@ -3854,7 +3849,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 }
 
                 struct type atomic_type = type_remove_pointer(&p_first_argument->expression->object.type);
-                struct type* _Opt p_operand_type = NULL;
+                struct type* p_operand_type = NULL;
                 if (atomic_value_index >= 0 && atomic_value_index < argument_count && !atomic_value_by_pointer &&
                     strcmp(atomic_kind, "store") != 0 && strcmp(atomic_kind, "xchg") != 0 && strcmp(atomic_kind, "cas") != 0)
                 {
@@ -3901,7 +3896,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             }
 
             /* tcc on macOS does not know __builtin_inf and __builtin_fabs */
-            const char* _Opt builtin_name = NULL;
+            const char* builtin_name = NULL;
             if (p_expression->left->expression_type == EXPR_PRIMARY_DECLARATOR &&
                 p_expression->left->declarator &&
                 p_expression->left->declarator->name_opt) //lint 33 33 33 assert line 3626
@@ -3909,7 +3904,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 builtin_name = p_expression->left->declarator->name_opt->lexeme; //lint 33 assert line 3626
             }
 
-            const char* _Opt builtin_cast = NULL;
+            const char* builtin_cast = NULL;
             bool builtin_is_inf = false;
             if (builtin_name == NULL || !ctx->options.platform.code_tcc_like_no_builtin_inf)
             {
@@ -3964,10 +3959,10 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
             codegen_visit_expression(ctx, oss, p_expression->left); //lint 35 assert line 3626
 
-            struct param* _Opt param = p_expression->left->object.type.params.head; //lint 33 assert line 3626
+            struct param* param = p_expression->left->object.type.params.head; //lint 33 assert line 3626
 
             ss_fprintf(oss, "(");
-            struct argument_expression* _Opt arg = p_expression->argument_expression_list.head;
+            struct argument_expression* arg = p_expression->argument_expression_list.head;
 
             while (arg)
             {
@@ -4055,7 +4050,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
             assert(p_expression->compound_statement != NULL);
 
-            const struct declarator* _Opt p_current_function_opt = ctx->p_current_function_opt;
+            const struct declarator* p_current_function_opt = ctx->p_current_function_opt;
             ctx->p_current_function_opt = p_expression->type_name->abstract_declarator; //lint 33 assert line 3956
             const int current_indentation = ctx->indentation;
             ctx->indentation = 0;
@@ -4065,7 +4060,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             ctx->indentation = current_indentation;
 
             struct osstream function_literal = { 0 };
-            ss_fprintf(&function_literal, "%s%s", function_literal_nameless.c_str, function_literal_body.c_str);
+            ss_fprintf(&function_literal, "%s%s", empty_if_null(function_literal_nameless.c_str), empty_if_null(function_literal_body.c_str));
 
             assert(function_literal_nameless.c_str);
 
@@ -4077,7 +4072,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 throw;
             }
 
-            struct map_entry* _Opt l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
+            struct map_entry* l = hashmap_find(&ctx->instantiated_function_literals, function_literal.c_str);
             if (l != NULL)
             {
                 snprintf(new_name, sizeof(new_name), "%s", l->data.p_text);
@@ -4092,11 +4087,11 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 struct osstream lambda_sig = { 0 };
                 d_print_type(ctx, &lambda_sig, &p_expression->object.type, new_name, false, false);
 
-                ss_fprintf(&ctx->add_this_before_external_decl, "static %s;\n", lambda_sig.c_str);
+                ss_fprintf(&ctx->add_this_before_external_decl, "static %s;\n", empty_if_null(lambda_sig.c_str));
 
                 ss_fprintf(&ctx->add_this_after_external_decl, "\n");
                 emit_line_directive(ctx, &ctx->add_this_after_external_decl, p_expression->first_token);
-                ss_fprintf(&ctx->add_this_after_external_decl, "static %s\n%s", lambda_sig.c_str, function_literal_body.c_str);
+                ss_fprintf(&ctx->add_this_after_external_decl, "static %s\n%s", empty_if_null(lambda_sig.c_str), empty_if_null(function_literal_body.c_str));
                 ss_close(&lambda_sig);
             }
 
@@ -4124,7 +4119,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 ss_fprintf(&local, " = {");
                 object_print_initialization_list(ctx, &local, &p_expression->object, &first);
                 ss_fprintf(&local, "};\n");
-                ss_fprintf(&ctx->add_this_before_external_decl, "%s", local.c_str);
+                ss_fprintf(&ctx->add_this_before_external_decl, "%s", empty_if_null(local.c_str));
                 ss_close(&local);
                 ss_fprintf(oss, "%s", name);
             }
@@ -4138,7 +4133,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 print_identation_core(&local, ctx->indentation);
                 d_print_type(ctx, &local, &p_expression->object.type, name, false, false);
                 ss_fprintf(&local, ";\n", name);
-                ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
+                ss_fprintf(&ctx->block_scope_declarators, "%s", empty_if_null(local.c_str));
 
                 ss_clear(&local);
 
@@ -4151,7 +4146,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     assign_each_member_from_initialization(ctx, &local, &p_expression->object, name, true, true);
                 }
                 assert(local.c_str);
-                ss_fprintf(&ctx->add_this_before, "%s", local.c_str);
+                ss_fprintf(&ctx->add_this_before, "%s", empty_if_null(local.c_str));
                 ss_close(&local);
                 ss_fprintf(oss, "%s", name);
             }
@@ -4596,12 +4591,12 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                   The _BitInt wrap already casts to the lowered type, bool needs the cast ('!= 0' is int).
                 */
                 if (type_is_bool(&p_expression->object.type))
-                    ss_fprintf(oss, "(%s)", local2.c_str);
+                    ss_fprintf(oss, "(%s)", empty_if_null(local2.c_str));
                 codegen_emit_converted_expression(ctx, oss, &p_expression->object.type, p_expression->left); //lint 35 assert line 4490
             }
             else
             {
-                ss_fprintf(oss, "(%s)", local2.c_str);
+                ss_fprintf(oss, "(%s)", empty_if_null(local2.c_str));
                 codegen_visit_expression(ctx, oss, p_expression->left); //lint 35 assert line 4490
             }
             ss_close(&local2);
@@ -4743,7 +4738,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     d_print_type(ctx, &decl,
                                  &p_expression->condition_expr->object.type, name, false, false); //lint 33 assert line 4631
                     ss_fprintf(&decl, ";\n");
-                    ss_fprintf(&ctx->block_scope_declarators, "%s", decl.c_str);
+                    ss_fprintf(&ctx->block_scope_declarators, "%s", empty_if_null(decl.c_str));
                     ss_close(&decl);
 
                     if (cond_is_stmtexpr)
@@ -4752,7 +4747,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                         struct osstream stmtexpr_body = { 0 };
                         codegen_visit_compound_statement_2(name, ctx, &stmtexpr_body,
                                                            p_expression->condition_expr->compound_statement); //lint 33 35 assert line 4631, 4660
-                        ss_fprintf(&ctx->add_this_before, "%s", stmtexpr_body.c_str);
+                        ss_fprintf(&ctx->add_this_before, "%s", empty_if_null(stmtexpr_body.c_str));
                         ss_close(&stmtexpr_body);
                     }
                     else
@@ -4771,7 +4766,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                         assert(p_expression->right && p_expression->right->compound_statement != NULL);
                         struct osstream right_body = { 0 };
                         codegen_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement); //lint 33 35 assert line 4632, 4680
-                        ss_fprintf(&add_this_before, "%s", right_body.c_str);
+                        ss_fprintf(&add_this_before, "%s", empty_if_null(right_body.c_str));
                         ss_close(&right_body);
                     }
                     else
@@ -4782,7 +4777,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                         ss_fprintf(&add_this_before, ";\n");
                     }
 
-                    ss_fprintf(&ctx->add_this_before, "%s", add_this_before.c_str);
+                    ss_fprintf(&ctx->add_this_before, "%s", empty_if_null(add_this_before.c_str));
                     ss_fprintf(oss, "%s", name);
                     ss_close(&add_this_before);
                 }
@@ -4879,11 +4874,11 @@ static void codegen_visit_expression_statement(struct codegen_ctx* ctx, struct o
 
     if (ctx->add_this_before.size > 0)
     {
-        ss_fprintf(oss, "%s", ctx->add_this_before.c_str);
+        ss_fprintf(oss, "%s", empty_if_null(ctx->add_this_before.c_str));
         ss_clear(&ctx->add_this_before);
     }
 
-    ss_fprintf(oss, "%s;\n", local.c_str);
+    ss_fprintf(oss, "%s;\n", empty_if_null(local.c_str));
     ss_close(&local);
 }
 
@@ -4943,7 +4938,7 @@ static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstrea
                     print_identation(ctx, &local);
                     d_print_type(ctx, &local, &return_type, name, false, false);
                     ss_fprintf(&local, ";\n", name);
-                    ss_fprintf(&ctx->block_scope_declarators, "%s", local.c_str);
+                    ss_fprintf(&ctx->block_scope_declarators, "%s", empty_if_null(local.c_str));
                     ss_close(&local);
                 }
 
@@ -5383,7 +5378,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             */
             if (ctx->add_this_before.size > 0)
             {
-                ss_fprintf(oss, "%s", ctx->add_this_before.c_str);
+                ss_fprintf(oss, "%s", empty_if_null(ctx->add_this_before.c_str));
                 ss_clear(&ctx->add_this_before);
             }
         }
@@ -5420,8 +5415,8 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             ss_fprintf(&ss, "%s", controlling_expression.c_str ? controlling_expression.c_str : "");
             ss_fprintf(&ss, ";\n");
 
-            struct label* _Opt p_label = p_selection_statement->label_list.head;
-            struct label* _Opt p_label_default = NULL;
+            struct label* p_label = p_selection_statement->label_list.head;
+            struct label* p_label_default = NULL;
             while (p_label)
             {
                 if (p_label->p_first_token->type == TK_KEYWORD_DEFAULT)
@@ -5479,7 +5474,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             print_identation(ctx, &ss);
             ss_fprintf(&ss, "}\n");
 
-            ss_fprintf(oss, "%s", ss.c_str);
+            ss_fprintf(oss, "%s", empty_if_null(ss.c_str));
 
             //restore
             ctx->break_reference = old;
@@ -5550,7 +5545,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
 
 static void codegen_visit_try_statement(struct codegen_ctx* ctx, struct osstream* oss, struct try_statement* p_try_statement)
 {
-    struct try_statement* _Opt p_old_try_statement = ctx->p_current_try_statement;
+    struct try_statement* p_old_try_statement = ctx->p_current_try_statement;
     ctx->p_current_try_statement = p_try_statement;
     print_identation(ctx, oss);
 
@@ -5615,7 +5610,7 @@ static void codegen_visit_primary_block(struct codegen_ctx* ctx, struct osstream
     else if (p_primary_block->asm_statement)
     {
         print_identation(ctx, oss);
-        struct token* _Opt p = p_primary_block->asm_statement->p_first_token;
+        struct token* p = p_primary_block->asm_statement->p_first_token;
         while (p)
         {
             ss_fprintf(oss, "%s", p->lexeme);
@@ -5632,7 +5627,7 @@ static void codegen_visit_unlabeled_statement(struct codegen_ctx* ctx, struct os
     if (p_unlabeled_statement->primary_block)
     {
 
-        struct token* _Opt tk = NULL;
+        struct token* tk = NULL;
         if (p_unlabeled_statement->primary_block->compound_statement)
             tk = p_unlabeled_statement->primary_block->compound_statement->first_token;
         else if (p_unlabeled_statement->primary_block->iteration_statement)
@@ -5788,7 +5783,7 @@ static void codegen_visit_block_item(struct codegen_ctx* ctx, struct osstream* o
 
     if (ctx->add_this_before.size > 0)
     {
-        ss_fprintf(&ss0, "%s", ctx->add_this_before.c_str);
+        ss_fprintf(&ss0, "%s", empty_if_null(ctx->add_this_before.c_str));
         ss_clear(&ctx->add_this_before);
 
     }
@@ -5802,7 +5797,7 @@ static void codegen_visit_block_item(struct codegen_ctx* ctx, struct osstream* o
 
 static void codegen_visit_block_item_list(struct codegen_ctx* ctx, struct osstream* oss, struct block_item_list* p_block_item_list)
 {
-    struct block_item* _Opt p_block_item = p_block_item_list->head;
+    struct block_item* p_block_item = p_block_item_list->head;
     while (p_block_item)
     {
         codegen_visit_block_item(ctx, oss, p_block_item);
@@ -5813,8 +5808,8 @@ static void codegen_visit_block_item_list(struct codegen_ctx* ctx, struct osstre
 static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
                                              struct osstream* oss,
                                              struct compound_statement* p_compound_statement,
-                                             struct osstream* _Opt parameters_vars,
-                                             struct osstream* _Opt parameters_init
+                                             struct osstream* _Nullable parameters_vars,
+                                             struct osstream* _Nullable parameters_init
 )
 {
     bool is_local = ctx->is_local;
@@ -5848,7 +5843,7 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
 
     if (parameters_vars && parameters_vars->size > 0)
     {
-        ss_fprintf(oss, "%s", parameters_vars->c_str);
+        ss_fprintf(oss, "%s", empty_if_null(parameters_vars->c_str));
         ss_fprintf(oss, "\n");
     }
 
@@ -5860,7 +5855,7 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
 
     if (parameters_init && parameters_init->size > 0)
     {
-        ss_fprintf(oss, "%s", parameters_init->c_str);
+        ss_fprintf(oss, "%s", empty_if_null(parameters_init->c_str));
         ss_fprintf(oss, "\n");
     }
 
@@ -5876,7 +5871,7 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
     ss_close(&local);
 }
 
-static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
+static void codegen_visit_compound_statement_2(const char* _Nullable var_name, struct codegen_ctx* ctx, struct osstream* oss, struct compound_statement* p_compound_statement)
 {
     bool is_local = ctx->is_local;
     ctx->is_local = true;
@@ -5889,7 +5884,7 @@ static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct
 
     ctx->indentation++;
 
-    struct block_item* _Opt p_block_item = p_compound_statement->block_item_list.head;
+    struct block_item* p_block_item = p_compound_statement->block_item_list.head;
     while (p_block_item)
     {
         if (p_block_item->next == NULL && var_name != NULL)
@@ -5901,7 +5896,7 @@ static void codegen_visit_compound_statement_2(const char* _Opt var_name, struct
                 chain is re-read at the call otherwise, and the narrowing from
                 the guard above does not reach it.
             */
-            struct expression* _Opt p_result_expression = NULL;
+            struct expression* p_result_expression = NULL;
             if (p_block_item->unlabeled_statement &&
                 p_block_item->unlabeled_statement->expression_statement)
             {
@@ -5988,7 +5983,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
 
     int indentation = ctx->indentation;
     ctx->indentation = 0;
-    const struct declarator* _Opt previous_func = ctx->p_current_function_opt;
+    const struct declarator* previous_func = ctx->p_current_function_opt;
     ctx->p_current_function_opt = function_definition;
 
     /*
@@ -6001,7 +5996,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     bool previous_is__func__predefined_identifier_added = ctx->is__func__predefined_identifier_added;
     ctx->is__func__predefined_identifier_added = false;
 
-    const struct type* _Opt func_type = &function_definition->object.type;
+    const struct type* func_type = &function_definition->object.type;
     while (func_type && func_type->category != TYPE_CATEGORY_FUNCTION)
         func_type = func_type->next;
 
@@ -6013,7 +6008,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     if (func_type != NULL)
     {
         ctx->indentation++;
-        const struct param* _Opt pa = func_type->params.head;
+        const struct param* pa = func_type->params.head;
         while (pa)
         {
             if (type_is_vm(&pa->type))
@@ -6039,11 +6034,11 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
 
 static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 struct type* p_type0,
-                                                struct struct_entry* _Opt p_struct_entry0)
+                                                struct struct_entry* _Nullable p_struct_entry0)
 {
     try
     {
-        struct type* _Opt p_type = p_type0;
+        struct type* p_type = p_type0;
 
         while (p_type)
         {
@@ -6053,7 +6048,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
             {
                 if (p_type->struct_or_union_specifier)
                 {
-                    struct struct_or_union_specifier* _Opt p_complete = get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
+                    struct struct_or_union_specifier* p_complete = get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
 
                     if (p_complete == NULL)
                     {
@@ -6065,10 +6060,10 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                         char unique_id[100] = { 0 };
                         snprintf(unique_id, sizeof unique_id, "%d", p_complete->unique_id);
 
-                        struct map_entry* _Opt p = hashmap_find(&ctx->structs_map, unique_id);
+                        struct map_entry* p = hashmap_find(&ctx->structs_map, unique_id);
                         if (p == NULL)
                         {
-                            struct map_entry* _Opt p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
+                            struct map_entry* p_name = hashmap_find(&ctx->tag_names, p_complete->tag_name);
                             if (p_name != NULL)
                             {
                                 /*
@@ -6091,7 +6086,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                 hash_item_set_destroy(&i);
                             }
 
-                            _Opt struct struct_entry* _Opt _Owner p_struct_entry = calloc(1, sizeof * p_struct_entry);
+                            _Nullable struct struct_entry* _Owner p_struct_entry = calloc(1, sizeof * p_struct_entry);
                             if (p_struct_entry == NULL)
                                 throw;
 
@@ -6109,12 +6104,12 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                 struct_entry_list_push_back(&p_struct_entry0->soft_dependencies, p_struct_entry); //lint 31 BUG in flow
                             }
 
-                            struct member_declaration* _Opt member_declaration =
+                            struct member_declaration* member_declaration =
                                 p_complete->member_declaration_list.head;
 
                             while (member_declaration)
                             {
-                                struct member_declarator* _Opt member_declarator = NULL;
+                                struct member_declarator* member_declarator = NULL;
 
                                 if (member_declaration->member_declarator_list_opt)
                                 {
@@ -6127,7 +6122,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                             {
                                                 assert(member_declarator->declarator->object.type.struct_or_union_specifier != NULL);
 
-                                                struct struct_or_union_specifier* _Opt p_complete_member =
+                                                struct struct_or_union_specifier* p_complete_member =
                                                     get_complete_struct_or_union_specifier(member_declarator->declarator->object.type.struct_or_union_specifier); //lint 35
 
                                                 if (p_complete_member == NULL)
@@ -6137,7 +6132,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                                 register_struct_types_and_functions(ctx, &member_declarator->declarator->object.type, NULL);
-                                                struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
+                                                struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
                                                     assert(p2->data.p_struct_entry != NULL);
@@ -6151,7 +6146,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 {
                                                     assert(t.struct_or_union_specifier != NULL);
 
-                                                    struct struct_or_union_specifier* _Opt p_complete_member =
+                                                    struct struct_or_union_specifier* p_complete_member =
                                                         get_complete_struct_or_union_specifier(t.struct_or_union_specifier); //lint 35 assert line 6062
 
                                                     if (p_complete_member == NULL)
@@ -6164,7 +6159,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                     snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                                     register_struct_types_and_functions(ctx, &t, NULL);
-                                                    struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
+                                                    struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
                                                     if (p2 != NULL)
                                                     {
                                                         assert(p2->data.p_struct_entry != NULL);
@@ -6200,7 +6195,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                         if (type_is_struct_or_union(&t))
                                         {
                                             assert(t.struct_or_union_specifier != NULL);
-                                            struct struct_or_union_specifier* _Opt p_complete_member =
+                                            struct struct_or_union_specifier* p_complete_member =
                                                 get_complete_struct_or_union_specifier(t.struct_or_union_specifier); //lint 35 
 
                                             if (p_complete_member == NULL)
@@ -6212,7 +6207,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                             snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                             register_struct_types_and_functions(ctx, &t, p_struct_entry);
-                                            struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
+                                            struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
                                             if (p2 != NULL)
                                             {
                                                 assert(p2->data.p_struct_entry != NULL);
@@ -6224,7 +6219,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                             struct type t2 = get_array_item_type(&t);
                                             if (type_is_struct_or_union(&t2))
                                             {
-                                                struct struct_or_union_specifier* _Opt p_complete_member =
+                                                struct struct_or_union_specifier* p_complete_member =
                                                     get_complete_struct_or_union_specifier(t.struct_or_union_specifier); //lint 35: 't.struct_or_union_specifier' may be null (type_is_struct_or_union)
 
                                                 if (p_complete_member == NULL)
@@ -6238,7 +6233,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
                                                 snprintf(name2, sizeof name2, "%d", p_complete_member->unique_id);
 
                                                 register_struct_types_and_functions(ctx, &t, p_struct_entry);
-                                                struct map_entry* _Opt p2 = hashmap_find(&ctx->structs_map, name2);
+                                                struct map_entry* p2 = hashmap_find(&ctx->structs_map, name2);
                                                 if (p2 != NULL)
                                                 {
                                                     assert(p2->data.p_struct_entry != NULL);
@@ -6280,7 +6275,7 @@ static void register_struct_types_and_functions(struct codegen_ctx* ctx,
 
             case TYPE_CATEGORY_FUNCTION:
             {
-                struct param* _Opt pa = p_type->params.head;
+                struct param* pa = p_type->params.head;
                 while (pa)
                 {
                     register_struct_types_and_functions(ctx, &pa->type, p_struct_entry0);
@@ -6323,10 +6318,10 @@ static void d_print_type_qualifier_flags(struct osstream* ss, bool* first, enum 
 static void d_print_type_core(struct codegen_ctx* ctx,
                               struct osstream* ss,
                               struct type* p_type0,
-                              const char* _Opt name_opt,
+                              const char* _Nullable name_opt,
                               bool name_unnamed_parameters)
 {
-    struct type* _Opt p_type = p_type0;
+    struct type* p_type = p_type0;
 
     while (p_type)
     {
@@ -6345,7 +6340,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
 
             if (p_type->struct_or_union_specifier)
             {
-                struct struct_or_union_specifier* _Opt p_complete =
+                struct struct_or_union_specifier* p_complete =
                     get_complete_struct_or_union_specifier2(p_type->struct_or_union_specifier);
                 if (p_complete)
                 {
@@ -6415,9 +6410,9 @@ static void d_print_type_core(struct codegen_ctx* ctx,
 
             struct osstream local2 = { 0 };
             if (ss->c_str)
-                ss_fprintf(&local2, "%s %s", local.c_str, ss->c_str);
+                ss_fprintf(&local2, "%s %s", empty_if_null(local.c_str), ss->c_str);
             else
-                ss_fprintf(&local2, "%s", local.c_str);
+                ss_fprintf(&local2, "%s", empty_if_null(local.c_str));
 
             ss_swap(ss, &local2);
             ss_close(&local2);
@@ -6433,7 +6428,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                 names[][300]) is not VM: it prints [] and the inner
                 dimensions are kept.
             */
-            struct type* _Opt it = p_type;
+            struct type* it = p_type;
             bool vm = false;
             while (it && it->category == TYPE_CATEGORY_ARRAY)
             {
@@ -6510,14 +6505,14 @@ static void d_print_type_core(struct codegen_ctx* ctx,
             }
             ss_fprintf(ss, "(");
 
-            struct param* _Opt pa = p_type->params.head;
+            struct param* pa = p_type->params.head;
 
             while (pa)
             {
                 struct osstream sslocal = { 0 };
                 struct osstream local2 = { 0 };
 
-                const char* _Opt param_name = pa->type.name_opt;
+                const char* param_name = pa->type.name_opt;
                 char generated_name[16] = { 0 };
                 if (param_name == NULL && name_unnamed_parameters && !type_is_void(&pa->type))
                 {
@@ -6531,8 +6526,8 @@ static void d_print_type_core(struct codegen_ctx* ctx,
                 */
                 d_print_type_core(ctx, &local2, &pa->type, param_name, false);
 
-                ss_fprintf(&sslocal, "%s", local2.c_str);
-                ss_fprintf(ss, "%s", sslocal.c_str);
+                ss_fprintf(&sslocal, "%s", empty_if_null(local2.c_str));
+                ss_fprintf(ss, "%s", empty_if_null(sslocal.c_str));
                 if (pa->next)
                     ss_fprintf(ss, ", ");
                 ss_close(&sslocal);
@@ -6598,7 +6593,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
             (p_type->next->category == TYPE_CATEGORY_FUNCTION ||
                 (p_type->next->category == TYPE_CATEGORY_ARRAY)))
             {
-                ss_fprintf(&local, ")", ss->c_str);
+                ss_fprintf(&local, ")", empty_if_null(ss->c_str));
             }
 
             ss_swap(ss, &local);
@@ -6616,7 +6611,7 @@ static void d_print_type_core(struct codegen_ctx* ctx,
 static void d_print_type(struct codegen_ctx* ctx,
                          struct osstream* ss,
                          struct type* p_type,
-                         const char* _Opt name_opt,
+                         const char* _Nullable name_opt,
                          bool print_storage_qualifiers,
                          bool name_unnamed_parameters)
 {
@@ -6638,12 +6633,12 @@ static void d_print_type(struct codegen_ctx* ctx,
 
     if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_THREAD_LOCAL)
     {
-        const char* _Opt ta = ctx->options.platform.code_thread_local_spelling;
+        const char* ta = ctx->options.platform.code_thread_local_spelling;
         if (ta)
             ss_fprintf(ss, "%s ", ta);
     }
 
-    ss_fprintf(ss, "%s", local.c_str);
+    ss_fprintf(ss, "%s", empty_if_null(local.c_str));
 
     ss_close(&local);
 }
@@ -6658,7 +6653,7 @@ static bool is_all_zero(const struct object* object)
 
     if (object->members.head != NULL)
     {
-        const struct object* _Opt member = object->members.head;
+        const struct object* member = object->members.head;
         while (member)
         {
             if (!is_all_zero(member))
@@ -6693,7 +6688,7 @@ static size_t count_zero_fill_leaves(const struct object* object, size_t* p_tota
     if (object->members.head != NULL)
     {
         size_t zero_count = 0;
-        const struct object* _Opt member = object->members.head;
+        const struct object* member = object->members.head;
         while (member)
         {
             zero_count += count_zero_fill_leaves(member, p_total_out);
@@ -6733,7 +6728,7 @@ static void assign_each_member_from_constexpr(
              * Use the first member of source as well.
              */
             const struct object* dest_member = object->members.head;
-            const struct object* _Opt source_member = source->members.head;
+            const struct object* source_member = source->members.head;
 
             if (source_member)
             {
@@ -6744,8 +6739,8 @@ static void assign_each_member_from_constexpr(
         else
         {
             /* Struct / array: walk both member lists in lock-step */
-            const struct object* _Opt dest_member = object->members.head;
-            const struct object* _Opt source_member = source->members.head;
+            const struct object* dest_member = object->members.head;
+            const struct object* source_member = source->members.head;
 
             while (dest_member && source_member)
             {
@@ -6824,8 +6819,8 @@ static void codegen_emit_member_assignments_from_constexpr(struct codegen_ctx* c
 
         if (dest->members.head != NULL)
         {
-            const struct object* _Opt dest_member = dest->members.head;
-            const struct object* _Opt source_member = source->members.head;
+            const struct object* dest_member = dest->members.head;
+            const struct object* source_member = source->members.head;
 
             while (dest_member && source_member)
             {
@@ -6933,9 +6928,9 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
             /* in C89, only the first member can be initialized */
             //we could make the first member be array of unsigned int
             //then initialize it
-            struct object* _Opt member = object->members.head;
-            struct struct_or_union_specifier* _Opt p_owner = NULL;
-            struct member_declarator* _Opt p_member = NULL;
+            struct object* member = object->members.head;
+            struct struct_or_union_specifier* p_owner = NULL;
+            struct member_declarator* p_member = NULL;
             if (member && codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
             {
                 /* the first member of the lowered union is its first tile */
@@ -6949,16 +6944,16 @@ static void object_print_initialization_list(struct codegen_ctx* ctx, struct oss
         else
         {
             /* under -no-bitfields a run of bitfields is initialized as its tiles */
-            struct object* _Opt member = object->members.head;
+            struct object* member = object->members.head;
             int index = 0;
             while (member)
             {
-                struct struct_or_union_specifier* _Opt p_owner = NULL;
-                struct member_declarator* _Opt p_member = NULL;
+                struct struct_or_union_specifier* p_owner = NULL;
+                struct member_declarator* p_member = NULL;
                 if (codegen_object_is_lowered_bitfield(ctx, member, &p_owner, &p_member))
                 {
                     int count = 0;
-                    struct object* _Opt p = member;
+                    struct object* p = member;
                     while (p && codegen_object_is_lowered_bitfield(ctx, p, &p_owner, &p_member))
                     {
                         count++;
@@ -7044,7 +7039,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
             if (type_is_union(&object->type))
             {
                 /* in C89, only the first member can be initialized */
-                struct object* _Opt member = object->members.head;
+                struct object* member = object->members.head;
 
                 if (member->p_init_expression &&
                     object_has_constant_value(&member->p_init_expression->object) &&
@@ -7071,7 +7066,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     ss_fprintf(ss, " = ");
                     struct osstream local = { 0 };
                     codegen_visit_expression(ctx, &local, object->p_init_expression);
-                    ss_fprintf(ss, "%s", local.c_str);
+                    ss_fprintf(ss, "%s", empty_if_null(local.c_str));
                     ss_fprintf(ss, ";\n");
                     ss_close(&local);
                 }
@@ -7095,7 +7090,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                             ss_fprintf(ss, " = ");
                             struct osstream local = { 0 };
                             codegen_visit_expression(ctx, &local, member->p_init_expression);
-                            ss_fprintf(ss, "%s", local.c_str);
+                            ss_fprintf(ss, "%s", empty_if_null(local.c_str));
                             ss_fprintf(ss, ";\n");
                             ss_close(&local);
                             break;
@@ -7129,7 +7124,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     struct osstream local = { 0 };
                     codegen_visit_expression(ctx, &local, object->p_init_expression);
                     size_t string_size = object->p_init_expression->object.type.array_num_elements;
-                    ss_fprintf(ss, "%s, %zu", local.c_str, string_size);
+                    ss_fprintf(ss, "%s, %zu", empty_if_null(local.c_str), string_size);
 
                     ss_fprintf(ss, ");\n");
                     ss_close(&local);
@@ -7181,13 +7176,13 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                         codegen_visit_expression(ctx, &local, object->p_init_expression);
                         size_t sz = 0;
                         type_get_sizeof(&object->type, &sz, &ctx->options.platform);
-                        ss_fprintf(ss, "&%s, %d", local.c_str, sz);
+                        ss_fprintf(ss, "&%s, %d", empty_if_null(local.c_str), sz);
 
                         ss_fprintf(ss, ");\n");
                         ss_close(&local);
                         ctx->memcpy_used = true;
                     }
-                    struct object* _Opt member = object->members.head;
+                    struct object* member = object->members.head;
                     while (member)
                     {
                         assign_each_member_from_initialization(ctx, ss, member, declarator_name, all, false);
@@ -7196,7 +7191,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 }
                 else
                 {
-                    struct object* _Opt member = object->members.head;
+                    struct object* member = object->members.head;
                     while (member)
                     {
                         assign_each_member_from_initialization(ctx, ss, member, declarator_name, all,
@@ -7234,7 +7229,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                         ss_fprintf(ss, " = ");
                         struct osstream local = { 0 };
                         codegen_visit_expression(ctx, &local, object->p_init_expression);
-                        ss_fprintf(ss, "%s", local.c_str);
+                        ss_fprintf(ss, "%s", empty_if_null(local.c_str));
                         ss_fprintf(ss, ";\n");
                         ss_close(&local);
                     }
@@ -7251,7 +7246,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     ss_fprintf(ss, " = ");
                     struct osstream local = { 0 };
                     codegen_visit_expression(ctx, &local, object->p_init_expression);
-                    ss_fprintf(ss, "%s", local.c_str);
+                    ss_fprintf(ss, "%s", empty_if_null(local.c_str));
                     ss_fprintf(ss, ";\n");
                     ss_close(&local);
                 }
@@ -7310,7 +7305,7 @@ static void print_initializer(struct codegen_ctx* ctx,
                     ss_fprintf(oss, "%s(%s, ", ctx->memcpy_function_name, p_init_declarator->p_declarator->name_opt->lexeme);
                     struct osstream local = { 0 };
                     codegen_visit_expression(ctx, &local, p_init_declarator->initializer->assignment_expression); //lint 33 assert line 7193
-                    ss_fprintf(oss, "%s, %d", local.c_str, p_init_declarator->p_declarator->object.type.array_num_elements);
+                    ss_fprintf(oss, "%s, %d", empty_if_null(local.c_str), p_init_declarator->p_declarator->object.type.array_num_elements);
 
                     ss_fprintf(oss, ");\n");
                     ss_close(&local);
@@ -7511,7 +7506,7 @@ static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
 {
     try
     {
-        const struct type* _Opt it = p_type;
+        const struct type* it = p_type;
         while (it)
         {
             if (it->category == TYPE_CATEGORY_ARRAY &&
@@ -7533,7 +7528,7 @@ static void vm_emit_snapshot_decls(struct codegen_ctx* ctx,
                     if (ctx->vm_snapshot_count == ctx->vm_snapshot_capacity)
                     {
                         int new_capacity = ctx->vm_snapshot_capacity == 0 ? 16 : ctx->vm_snapshot_capacity * 2;
-                        int* _Owner _Opt new_ids = realloc(ctx->vm_snapshot_ids, sizeof(int) * new_capacity);
+                        int* _Owner new_ids = realloc(ctx->vm_snapshot_ids, sizeof(int) * new_capacity);
                         if (new_ids == NULL)
                         {
                             throw;
@@ -7645,7 +7640,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
         struct osstream ss = { 0 };
         d_print_type(ctx, &ss, &p_init_declarator->p_declarator->object.type, name, true, false);
 
-        ss_fprintf(oss0, "%s", ss.c_str);
+        ss_fprintf(oss0, "%s", empty_if_null(ss.c_str));
 
         if (p_init_declarator->initializer)
         {
@@ -7713,7 +7708,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                         const char* size_t_name = ctx->options.platform.size_t_type == TYPE_UNSIGNED_LONG_LONG ? "unsigned long long" : "unsigned long";
                         ss_fprintf(&ctx->atomic_helpers_declarations, "void * alloca(%s);\n", size_t_name);
                     }
-                    ss_fprintf(oss0, "%s = %s%s;\n", var_name, ctx->options.platform.code_alloca_spelling, ssz.c_str);
+                    ss_fprintf(oss0, "%s = %s%s;\n", var_name, ctx->options.platform.code_alloca_spelling, empty_if_null(ssz.c_str));
 
                     if (p_init_declarator->initializer &&
                         p_init_declarator->initializer->braced_initializer &&
@@ -7727,7 +7722,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                         ss_fprintf(oss0, "%s(%s, 0, %s);\n",
                                    ctx->memset_function_name,
                                    var_name,
-                                   sizeof_expression.c_str);
+                                   empty_if_null(sizeof_expression.c_str));
                         ctx->memset_used = true;
                         ss_close(&sizeof_expression);
                     }
@@ -7739,7 +7734,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
                 }
 
                 ss_fprintf(&ss, ";\n");
-                ss_fprintf(&ctx->block_scope_declarators, "%s", ss.c_str);
+                ss_fprintf(&ctx->block_scope_declarators, "%s", empty_if_null(ss.c_str));
                 ss_close(&ss);
             }
 
@@ -7762,7 +7757,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
             struct osstream ss = { 0 };
             d_print_type(ctx, &ss, decl_type, var_name, false, false);
             print_identation(ctx, &ctx->block_scope_declarators);
-            ss_fprintf(&ctx->block_scope_declarators, "%s;\n", ss.c_str);
+            ss_fprintf(&ctx->block_scope_declarators, "%s;\n", empty_if_null(ss.c_str));
             ss_close(&ss);
 
             if (p_init_declarator->initializer)
@@ -7798,7 +7793,7 @@ static void codegen_visit_init_declarator(struct codegen_ctx* ctx,
         ss_fprintf(&ss, "\n");
         codegen_visit_function_body(ctx, &ss, p_init_declarator->p_declarator);
 
-        ss_fprintf(oss0, "%s", ss.c_str);
+        ss_fprintf(oss0, "%s", empty_if_null(ss.c_str));
         ss_close(&ss);
         hash_item_set_destroy(&i);
         return;
@@ -7841,7 +7836,7 @@ static void codegen_visit_init_declarator_list(struct codegen_ctx* ctx,
                                                enum function_specifier_flags function_specifier_flags,
                                                enum storage_class_specifier_flags storage_class_specifier_flags)
 {
-    struct init_declarator* _Opt p_init_declarator = p_init_declarator_list->head;
+    struct init_declarator* p_init_declarator = p_init_declarator_list->head;
 
     while (p_init_declarator)
     {
@@ -7873,7 +7868,7 @@ static void codegen_visit_declaration(struct codegen_ctx* ctx, struct osstream* 
             struct osstream local = { 0 };
             print_identation(ctx, &local);
             codegen_emit_runtime_assert_expr(ctx, &local, p_declaration->static_assertion);
-            ss_fprintf(oss, "%s;\n", local.c_str);
+            ss_fprintf(oss, "%s;\n", empty_if_null(local.c_str));
             ss_close(&local);
         }
         return;
@@ -7896,7 +7891,7 @@ static void codegen_visit_declaration(struct codegen_ctx* ctx, struct osstream* 
 static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
 
-    struct struct_or_union_specifier* _Opt p_complete =
+    struct struct_or_union_specifier* p_complete =
         get_complete_struct_or_union_specifier2(p_struct_or_union_specifier);
 
     if (p_complete == NULL)
@@ -7914,7 +7909,7 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
         return;
     }
 
-    struct member_declaration* _Opt member_declaration =
+    struct member_declaration* member_declaration =
         p_complete->member_declaration_list.head;
 
     ss_fprintf(ss, "\n");
@@ -7946,7 +7941,7 @@ static void d_print_struct(struct codegen_ctx* ctx, struct osstream* ss, struct 
 
     while (member_declaration)
     {
-        struct member_declarator* _Opt member_declarator = NULL;
+        struct member_declarator* member_declarator = NULL;
 
         if (member_declaration->member_declarator_list_opt)
         {
@@ -8165,7 +8160,7 @@ void d_print_structs(struct codegen_ctx* ctx, struct osstream* ss, struct struct
 
 static int parse_line_directive(const char* src,
                                 int* line_num,
-                                const char* _Opt* filename,
+                                const char* _Nullable* filename,
                                 size_t* fname_len)
 {
     const char* p = src;
@@ -8225,7 +8220,7 @@ size_t clean_line_directives(char* buf)
         if (*r == '\n') r++;
 
         int dir_line_num = 0;
-        const char* _Opt dir_fname = NULL;
+        const char* dir_fname = NULL;
         size_t dir_fname_len = 0;
 
         char saved = line_start[line_len];
@@ -8322,7 +8317,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         {
             char timestamp[64] = "unknown";
             time_t now = time(NULL);
-            struct tm* _Opt tm_info = localtime(&now);
+            struct tm* tm_info = localtime(&now);
             if (tm_info != NULL)
             {
                 strftime(timestamp, sizeof timestamp, "%Y-%m-%d %H:%M:%S", tm_info);
@@ -8335,7 +8330,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
 #if defined(__CATALINA__)
         if (ctx->options.line_directives) {
-           const struct token* _Opt tail = ctx->p_ast->token_list.tail;
+           const struct token* tail = ctx->p_ast->token_list.tail;
            if (tail && tail->token_origin)
               ss_fprintf(oss, "#line 1 \"%s\"\n", tail->token_origin->lexeme);
         }
@@ -8354,12 +8349,12 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
                                        &first,
                                        object_type_to_type_specifier(ctx->options.platform.size_t_type),
                                        0);
-            snprintf(ctx->size_t_type_name, sizeof ctx->size_t_type_name, "%s", local.c_str);
+            snprintf(ctx->size_t_type_name, sizeof ctx->size_t_type_name, "%s", empty_if_null(local.c_str));
 
             ss_close(&local);
         }
 
-        struct declaration* _Opt p_declaration = ctx->p_ast->declaration_list.head;
+        struct declaration* p_declaration = ctx->p_ast->declaration_list.head;
         while (p_declaration)
         {
             ss_clear(&ctx->add_this_after_external_decl);
@@ -8401,7 +8396,7 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
 
         for (int i = 0; i < ctx->structs_map.capacity; i++)
         {
-            struct map_entry* _Opt entry = ctx->structs_map.table[i]; //lint 33
+            struct map_entry* entry = ctx->structs_map.table[i]; //lint 33
             while (entry)
             {
                 assert(entry->data.p_struct_entry != NULL);

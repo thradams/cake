@@ -6,14 +6,14 @@ int a[8];
 
 struct node
 {
-    struct node* _Opt next;
+    struct node* next;
 };
 
-int count_then_walk_backwards(struct node* _Opt list)
+int count_then_walk_backwards(struct node* _Nullable list)
 {
     int n = 0;
 
-    for (struct node* _Opt cur = list; cur; cur = cur->next)
+    for (struct node* cur = list; cur; cur = cur->next)
     {
         n++;
     }
@@ -36,11 +36,11 @@ int count_then_walk_backwards(struct node* _Opt list)
 }
 
 /* The same counter used as a loop bound going forwards. */
-int count_then_walk_forwards(struct node* _Opt list)
+int count_then_walk_forwards(struct node* _Nullable list)
 {
     int n = 0;
 
-    for (struct node* _Opt cur = list; cur; cur = cur->next)
+    for (struct node* cur = list; cur; cur = cur->next)
     {
         if (n < 8)
         {
@@ -59,10 +59,10 @@ int count_then_walk_forwards(struct node* _Opt list)
 }
 
 /* A counter incremented in a while loop, then tested. */
-int count_in_while(struct node* _Opt list)
+int count_in_while(struct node* _Nullable list)
 {
     int n = 0;
-    struct node* _Opt cur = list;
+    struct node* cur = list;
 
     while (cur != 0)
     {

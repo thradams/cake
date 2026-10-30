@@ -10,11 +10,11 @@ void f(int c)
     printf("%d", j); //lint 30 warning
 }
 
-int * _Owner _Opt make(void);
+int * _Owner make(void);
 void free(void * _Owner _Opt p);
 void f2(void)
 {
-    int * _Owner _Opt p = make();
+    int * _Owner p = make();
     printf("%p", p);
     free(p);
 }

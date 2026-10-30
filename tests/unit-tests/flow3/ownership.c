@@ -4,12 +4,12 @@
 
 #pragma safety enable
 
-_Uninitialized void* _Owner _Opt malloc(unsigned long size);
+_Uninitialized void* _Owner malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);
-char* _Owner _Opt strdup(const char* s);
+char* _Owner strdup(const char* s);
 
 struct X {
-    char* _Owner _Opt text;
+    char* _Owner text;
     int i;
 };
 
@@ -34,7 +34,7 @@ void test_nonnull_param_caller_fixed(int* _Opt q)
     }
 }
 
-int* test_nonnull_param_return(int* p)
+int* _Nonnull test_nonnull_param_return(int* p)
 {
     return p; /* ok */
 }
@@ -148,9 +148,9 @@ void test_nonnull_to_opt(int* p)
     accepts_opt(p); // ok
 }
 
-int* _Owner _Opt f(int c)
+int* _Owner f(int c)
 {
-    int* _Owner _Opt p = malloc(sizeof * p);
+    int* _Owner p = malloc(sizeof * p);
     try
     {
         if (c)
@@ -171,15 +171,15 @@ void test_assign_owner_leak(void)
     a = b; //lint 26 expected warning
 } //lint 29 owner object (.text) not moved (call-opt-nonnull see line 167)
 
-int* _Opt test_return_owner_as_nonowner(void)
+int* test_return_owner_as_nonowner(void)
 {
-    int* _Owner _Opt p = malloc(sizeof(int)); // owner object (p) not moved (call-opt-nonnull see line 173)
+    int* _Owner p = malloc(sizeof(int)); // owner object (p) not moved (call-opt-nonnull see line 173)
     return p; //lint 29 owner object (p) not moved (call-opt-nonnull see line 173)
 }
 
-void* _Owner _Opt test_void_owner_bad(void)
+void* _Owner test_void_owner_bad(void)
 {
-    int* _Owner _Opt p = malloc(sizeof(int));
+    int* _Owner p = malloc(sizeof(int));
     if (p)
         *p = 42;  // p is now initialized
     return p;
@@ -187,10 +187,10 @@ void* _Owner _Opt test_void_owner_bad(void)
 
 void test_void_owner_assign_bad(void)
 {
-    int* _Owner _Opt p = malloc(sizeof(int));
+    int* _Owner p = malloc(sizeof(int));
     if (p == nullptr)
         return;
-    void* _Owner _Opt q = p;
+    void* _Owner q = p;
     free(q);
 }
 
@@ -201,7 +201,7 @@ void clear_y(_Clear struct Y* p);
 void test_opt_to_nonnull_ambiguous(int* _Opt p)
 {
     // p may be null or non-null; assigning to non-null pointer is invalid.
-    int* q = p; //lint 35 p may be null
+    int* q = p;
 }
 
 void takes_view(_View struct X x);
@@ -212,38 +212,38 @@ void test_pass_owner_to_view(void)
     takes_view(x); // passing a possible uninitialized object  '.text' (see line 208)
 } //lint 29 owner object (.text) not moved (call-opt-nonnull see line 208)
 
-int* f2();
+int* _Nonnull f2();
 
 void test_free_nonowner(void)
 {
     int* p = f2();
     free(p); //lint 78 cannot assign a non-owner to owner
 }
-int* _Owner test_return_moved_bad(void)
+int* _Nonnull _Owner test_return_moved_bad(void)
 {
-    int* _Owner p = malloc(sizeof(int)); //lint 35 passing a possible null pointer 'malloc(sizeof(int))' to non-nullable pointer parameter
+    int* _Owner p = malloc(sizeof(int));
     free(p);
     return p; //lint 31 32 35 object 'p' is moved (see line 221)
 }
 struct X make(void)
 {
-    char* _Owner _Opt s = strdup("hello");
+    char* _Owner s = strdup("hello");
     return (struct X) { .text = s }; 
 } // ok
 
 void test_init_nonopt_null_bad(void)
 {
-    int* p = 0; //lint 35 Should error if nullable_enabled is on
+    int* p = 0;
 }
 
 void test_init_opt_null_ok(void)
 {
-    int* _Opt p = 0; // Should be OK
+    int* p = 0; // Should be OK
 }
 
 void test_pass_moved_bad(void)
 {
-    char* _Owner _Opt s = strdup("hi");
+    char* _Owner s = strdup("hi");
     free(s);
     accepts_opt(s); //lint 31 54 Should error: s is expired/moved
 }
@@ -251,7 +251,7 @@ void test_pass_moved_bad(void)
 void take_non_owner(int* p);
 void test_pass_owner_to_nonowner_bad(void)
 {
-    int* _Owner p = malloc(sizeof(int)); //lint 35 passing a possible null pointer 'malloc(sizeof(int))' to non-nullable pointer parameter
+    int* _Owner p = malloc(sizeof(int));
     take_non_owner(p); //lint 35 30 passing a possible null pointer 'p' to non-nullable pointer parameter (see line 251)
 } //lint 29 owner object (p) not moved (call-opt-nonnull see line 251)
 void test_clear_usage(void)

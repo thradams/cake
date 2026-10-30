@@ -4,7 +4,7 @@
 
 struct X { int i; };
 
-void deref_after_guard(const int* _Opt p)
+void deref_after_guard(const int* _Nullable p)
 {
     if (p)
     {

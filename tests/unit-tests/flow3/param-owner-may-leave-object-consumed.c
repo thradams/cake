@@ -3,7 +3,7 @@
 /* a plain pointer parameter is a borrow (72 if a member is left consumed); an _Owner parameter may consume members but still owes the release (29) */
 
 struct item { int v; };
-struct list { struct item* _Owner _Opt head; };
+struct list { struct item* _Owner head; };
 
 void free_item(struct item* _Owner _Opt p);
 void free_list(struct list* _Owner _Opt p);

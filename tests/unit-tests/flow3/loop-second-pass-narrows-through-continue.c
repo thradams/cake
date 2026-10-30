@@ -5,10 +5,10 @@
 struct e
 {
     int t;
-    struct e* _Opt next;
+    struct e* next;
 };
 
-int first_statement_wrongly_unreachable(const struct e* _Opt p)
+int first_statement_wrongly_unreachable(const struct e* _Nullable p)
 {
     while (p != 0)
     {

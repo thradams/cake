@@ -4,10 +4,10 @@
 
 struct X
 {
-    char* _Opt _Owner text;
+    char* _Owner text;
 };
 
-void free(void* _Opt _Owner p);
+void free(void* _Nullable _Owner p);
 
 void clear_x_correct(_Clear struct X* p)
 {

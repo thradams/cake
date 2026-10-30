@@ -5,11 +5,11 @@
 #define NULL ((void*)0)
 
 void free(void* _Owner _Opt p);
-char* _Owner _Opt strdup(const char* s);
+char* _Owner strdup(const char* s);
 
-struct name { char* _Owner _Opt lexeme; };
-struct decl { struct name* _Opt name_opt; };
-struct outer { struct decl* _Opt d; };
+struct name { char* _Owner lexeme; };
+struct decl { struct name* name_opt; };
+struct outer { struct decl* d; };
 
 int move_into_deep_member(struct outer* p, const char* s)
 {
@@ -19,7 +19,7 @@ int move_into_deep_member(struct outer* p, const char* s)
         if (p->d->name_opt == NULL) throw;
 
         free(p->d->name_opt->lexeme);
-        char* _Opt _Owner temp = strdup(s);
+        char* _Owner temp = strdup(s);
         if (temp == NULL) throw;
         p->d->name_opt->lexeme = temp;   /* temp moved into the deep member */
 
@@ -36,7 +36,7 @@ int move_into_shallow_member(struct name* n, const char* s)
 {
     free(n->lexeme);
     n->lexeme = 0;
-    char* _Opt _Owner temp = strdup(s);
+    char* _Owner temp = strdup(s);
     if (temp == NULL) return 0;
     n->lexeme = temp;
     return 1;

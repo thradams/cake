@@ -1,20 +1,20 @@
 #pragma safety enable
 
 
-_Uninitialized void* _Owner malloc(unsigned long size);
+_Uninitialized void* _Nonnull _Owner malloc(unsigned long size);
 void free(void* _Owner ptr);
 
 struct Y {
-    char* _Owner p0;
-    int* _Owner p2;
+    char* _Nonnull _Owner p0;
+    int* _Nonnull _Owner p2;
     double i2;
 };
 
 struct X {
-    char* _Owner _Opt text;
-    int* _Owner _Opt p1;
+    char* _Owner text;
+    int* _Owner p1;
     int i;
-    struct Y* _Opt pY;
+    struct Y* pY;
 };
 
 void f(const struct X* p);

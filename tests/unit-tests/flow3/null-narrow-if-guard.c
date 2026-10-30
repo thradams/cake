@@ -4,10 +4,10 @@
 
 struct X
 {
-    struct X* _Opt next;
+    struct X* next;
 };
 
-struct X* _Opt something();
+struct X* something();
 
 void guarded(struct X* _Opt p)
 {

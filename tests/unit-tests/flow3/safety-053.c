@@ -5,11 +5,11 @@ struct Z {
 };
 
 struct Y {
-    struct Z* _Opt pZ;
+    struct Z* pZ;
 };
 
 struct X {
-    struct Y* _Opt pY;
+    struct Y* pY;
 };
 
 void f(struct X* _Opt p)

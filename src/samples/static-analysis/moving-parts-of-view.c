@@ -1,8 +1,8 @@
 #pragma safety enable
 
-_Clear void * _Opt _Owner calloc(unsigned long n, unsigned long s);
-char * _Opt _Owner strdup(const char* s);
-void free(void * _Opt _Owner p);
+_Clear void * _Owner calloc(unsigned long n, unsigned long s);
+char * _Owner strdup(const char* s);
+void free(void * _Nullable _Owner p);
 
 struct X {
     char * _Owner name;

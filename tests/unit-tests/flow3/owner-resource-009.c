@@ -1,10 +1,10 @@
 
 #pragma safety enable
 
-_Uninitialized void* _Owner _Opt malloc(unsigned long size);
+_Uninitialized void* _Owner malloc(unsigned long size);
 
-int * _Owner _Opt f(int c) {
-    int * _Owner _Opt p = malloc(sizeof *p);
+int * _Owner f(int c) {
+    int * _Owner p = malloc(sizeof *p);
     return p;
 }
 

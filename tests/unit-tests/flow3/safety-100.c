@@ -1,10 +1,10 @@
 #pragma safety enable
 
-char* _Opt f();
+char* f();
 
 void g()
 {
-    const char* _Opt s1 = f();    
+    const char* s1 = f();    
     if (!s1)
     {
         compile_assert(s1 == 0);

@@ -1,7 +1,7 @@
 #pragma safety enable
 
-int* _Opt keep;
-struct S { int* _Opt p; };
+int* _Nullable keep;
+struct S { int* p; };
 struct S gs;
 
 void f1(void)

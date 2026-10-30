@@ -82,8 +82,7 @@ static int is_c_keyword1(const char* word, int len)
     }
     else if (c == 's')
     {
-        if (len == 6 && memcmp(word, "signed", 6) == 0) return 1;
-        if (len == 6 && memcmp(word, "sizeof", 6) == 0) return 1;
+        if (len == 6 && memcmp(word, "signed", 6) == 0) return 1;        if (len == 6 && memcmp(word, "sizeof", 6) == 0) return 1;
         if (len == 6 && memcmp(word, "struct", 6) == 0) return 1;
         if (len == 5 && memcmp(word, "short", 5) == 0) return 1;
         if (len == 6 && memcmp(word, "static", 6) == 0) return 1;
@@ -113,8 +112,7 @@ static int is_c_keyword1(const char* word, int len)
     }
     else if (c == 'w')
     {
-        if (len == 5 && memcmp(word, "while", 5) == 0) return 1;
-    }
+        if (len == 5 && memcmp(word, "while", 5) == 0) return 1;    }
     else if (c == '_')
     {
         // Standard C underscored keywords (C99, C11, C23)
@@ -140,6 +138,32 @@ static int is_c_keyword1(const char* word, int len)
         if (len == 7 && memcmp(word, "_Assert", 7) == 0) return 1;
         if (len == 8 && memcmp(word, "__int128", 8) == 0) return 1;   // GNU
     }
+
+    /* standard library typedefs */
+    static const char* const std_typedefs[] = {
+        "size_t", "ptrdiff_t", "wchar_t", "max_align_t", "nullptr_t",
+        "wint_t", "wctype_t", "wctrans_t", "mbstate_t",
+        "char8_t", "char16_t", "char32_t",
+        "int8_t", "int16_t", "int32_t", "int64_t",
+        "uint8_t", "uint16_t", "uint32_t", "uint64_t",
+        "int_least8_t", "int_least16_t", "int_least32_t", "int_least64_t",
+        "uint_least8_t", "uint_least16_t", "uint_least32_t", "uint_least64_t",
+        "int_fast8_t", "int_fast16_t", "int_fast32_t", "int_fast64_t",
+        "uint_fast8_t", "uint_fast16_t", "uint_fast32_t", "uint_fast64_t",
+        "intptr_t", "uintptr_t", "intmax_t", "uintmax_t",
+        "FILE", "fpos_t", "va_list", "jmp_buf", "sig_atomic_t",
+        "div_t", "ldiv_t", "lldiv_t", "imaxdiv_t",
+        "time_t", "clock_t",
+        "fenv_t", "fexcept_t", "float_t", "double_t",
+        "errno_t", "rsize_t",
+        "thrd_t", "thrd_start_t", "mtx_t", "cnd_t", "tss_t", "tss_dtor_t", "once_flag",
+        "memory_order", "atomic_flag",
+    };
+    for (size_t i = 0; i < sizeof std_typedefs / sizeof std_typedefs[0]; i++)
+    {
+        if ((int)strlen(std_typedefs[i]) == len && memcmp(word, std_typedefs[i], len) == 0)
+            return 1;
+    }
     return 0;
 }
 
@@ -148,6 +172,7 @@ static int is_c_keyword2(const char* word, int len)
 {
     if (len == 6 && memcmp(word, "_Owner", 6) == 0) return 1;
     if (len == 4 && memcmp(word, "_Opt", 4) == 0) return 1;
+    if (len == 8 && memcmp(word, "_Nonnull", 8) == 0) return 1;
     if (len == 5 && memcmp(word, "_Dtor", 5) == 0) return 1;
     if (len == 4 && memcmp(word, "_Out", 4) == 0) return 1;
     if (len == 5 && memcmp(word, "_View", 5) == 0) return 1;

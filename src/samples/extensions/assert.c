@@ -1,7 +1,7 @@
 #pragma safety enable
 
 struct X {
-  int * _Opt data;
+  int * data;
   bool has_pointer;
 };
 

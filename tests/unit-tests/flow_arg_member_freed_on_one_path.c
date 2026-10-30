@@ -2,9 +2,9 @@
 
 // a member released on only one path: passing the struct to a _Dtor reads a released pointer.
 
-struct X { int* _Owner _Opt p; };
+struct X { int* _Owner p; };
 
-void* _Owner _Opt malloc(unsigned long n);
+void* _Owner malloc(unsigned long n);
 void free(void* _Owner _Opt p);
 void destroy(_Dtor struct X* x);
 

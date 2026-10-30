@@ -1,16 +1,16 @@
 #pragma safety enable
 
 
-_Clear void* _Owner calloc(unsigned n, unsigned size);
+_Clear void* _Nonnull _Owner calloc(unsigned n, unsigned size);
 void free(void* _Owner ptr);
 
 struct X {
-    char* _Owner _Opt name;
+    char* _Owner name;
 };
 
-struct X* _Owner _Opt F(int i)
+struct X* _Owner F(int i)
 {
-    struct X* _Owner _Opt p1 = 0;
+    struct X* _Owner p1 = 0;
 
     switch (i)
     {

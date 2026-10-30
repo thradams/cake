@@ -65,20 +65,20 @@
     int mtx_unlock(mtx_t* mtx);
 
     /* thread functions */
-    int thrd_create(thrd_t* thr, thrd_start_t func, void* _Opt arg);
+    int thrd_create(thrd_t* thr, thrd_start_t func, void* _Nullable arg);
     thrd_t thrd_current(void);
     int thrd_detach(thrd_t thr);
     int thrd_equal(thrd_t thr0, thrd_t thr1);
     [[noreturn]] void thrd_exit(int res);
-    int thrd_join(thrd_t thr, int* _Opt res);
-    int thrd_sleep(const struct timespec* duration, struct timespec* _Opt remaining);
+    int thrd_join(thrd_t thr, int* _Nullable res);
+    int thrd_sleep(const struct timespec* duration, struct timespec* _Nullable remaining);
     void thrd_yield(void);
 
     /* thread-specific storage functions */
-    int tss_create(tss_t* key, tss_dtor_t _Opt dtor);
+    int tss_create(tss_t* key, tss_dtor_t _Nullable dtor);
     void tss_delete(tss_t key);
-    void* _Opt tss_get(tss_t key);
-    int tss_set(tss_t key, void* _Opt val);
+    void* tss_get(tss_t key);
+    int tss_set(tss_t key, void* _Nullable val);
 
 #else
     #include_next <threads.h>

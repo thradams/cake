@@ -163,7 +163,7 @@ bool path_is_under(const char* file, const char* dir)
 
 bool file_exists(const char* path)
 {
-    FILE* _Owner _Opt f = fopen(path, "rb");
+    FILE* _Owner f = fopen(path, "rb");
     if (f == NULL)
         return false;
     fclose(f);
@@ -233,13 +233,13 @@ int create_multiple_paths(const char* root, const char* outdir)
 #endif
 }
 
-char* _Owner _Opt read_file_binary(const char* path)
+char* _Owner read_file_binary(const char* path)
 {
-    FILE* _Owner _Opt f = fopen(path, "rb");
+    FILE* _Owner f = fopen(path, "rb");
     if (f == NULL)
         return NULL;
 
-    char* _Owner _Opt content = NULL;
+    char* _Owner content = NULL;
     if (fseek(f, 0, SEEK_END) == 0)
     {
         const long size = ftell(f);
@@ -260,12 +260,12 @@ char* _Owner _Opt read_file_binary(const char* path)
 
 struct TAGDIR
 {
-    void* handle;
+    void* _Nonnull handle;
     struct dirent dirent;
 };
 
 
-DIR* _Owner _Opt opendir(const char* name)
+DIR* _Owner opendir(const char* name)
 {
     assert(name != 0);
     WIN32_FIND_DATAA fdfile = { 0 };
@@ -278,7 +278,7 @@ DIR* _Owner _Opt opendir(const char* name)
 
     if (handle != INVALID_HANDLE_VALUE)
     {
-        _Opt DIR* _Owner _Opt p = calloc(1, sizeof * p);
+        _Nullable DIR* _Owner p = calloc(1, sizeof * p);
         if (p)
         {
             p->handle = handle;
@@ -305,7 +305,7 @@ int closedir(DIR* _Owner dirp)
     return 0;
 }
 
-struct dirent* _Opt readdir(DIR* dirp)
+struct dirent* readdir(DIR* dirp)
 {
     WIN32_FIND_DATAA fdfile = { 0 };
     BOOL b = FindNextFileA(dirp->handle, &fdfile);
@@ -342,7 +342,7 @@ struct dirent* _Opt readdir(DIR* dirp)
        resolved_path are undefined, and errno is set to indicate the
        error.
 */
-char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
+char* realpath(const char* restrict path, char* restrict resolved_path)
 {
     /*
     * _fullpath
@@ -352,7 +352,7 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
       letter that isn't valid or can't be found, or if the length of the
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
-    char* _Opt p = _fullpath(resolved_path, path, FS_MAX_PATH);
+    char* p = _fullpath(resolved_path, path, FS_MAX_PATH);
     if (p)
     {
         char* p2 = resolved_path;
@@ -372,11 +372,11 @@ char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
 int copy_file(const char* pathfrom, const char* pathto)
 {
 
-    FILE* _Owner _Opt fd_from = fopen(pathfrom, "rb");
+    FILE* _Owner fd_from = fopen(pathfrom, "rb");
     if (fd_from == NULL)
         return -1;
 
-    FILE* _Owner _Opt fd_to = fopen(pathto, "wb");
+    FILE* _Owner fd_to = fopen(pathto, "wb");
     if (fd_to == NULL)
     {
         fclose(fd_from);
@@ -423,14 +423,14 @@ int copy_folder(const char* from, const char* to)
         return errcode;
     }
 
-    DIR* _Owner _Opt dir = opendir(from);
+    DIR* _Owner dir = opendir(from);
 
     if (dir == NULL)
     {
         return errno;
     }
 
-    struct dirent* _Opt dp;
+    struct dirent* dp;
     while ((dp = readdir(dir)) != NULL)
     {
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
@@ -534,9 +534,9 @@ int get_self_path(char* buffer, int maxsize)
 #if !defined __EMSCRIPTEN__
 
 /* Find the last occurrence of c1 or c2 in s. */
-static char* _Opt fs_strrchr_ex(const char* s, int c1, int c2)
+static char* fs_strrchr_ex(const char* s, int c1, int c2)
 {
-    const char* _Opt last = NULL;
+    const char* last = NULL;
     const char* p = s;
     while (*p)
     {
@@ -571,13 +571,13 @@ void remove_file_extension(const char* filename, int n, char out[/*n*/])
         out[last_dot_index] = 0;
 }
 
-char* basename(const char* filename)
+char* _Nonnull basename(const char* filename)
 {
-    char* _Opt p = fs_strrchr_ex(filename, '/', '\\'); //added \ to windows path
+    char* p = fs_strrchr_ex(filename, '/', '\\'); //added \ to windows path
     return p ? p + 1 : (char*)filename;
 }
 
-char* dirname(char* path)
+char* _Nonnull dirname(char* path)
 {
     int last = -1;
     for (int i = 0; path[i]; i++)
@@ -600,10 +600,10 @@ char* dirname(char* path)
 
 #ifndef MOCKFILES
 
-char* _Owner _Opt read_file(const char* const path, bool append_newline)
+char* _Owner read_file(const char* const path, bool append_newline)
 {
-    char* _Owner _Opt data = NULL;
-    FILE* _Owner _Opt file = NULL;
+    char* _Owner data = NULL;
+    FILE* _Owner file = NULL;
     long file_size;
 
     file = fopen(path, "r");
@@ -798,7 +798,7 @@ static const char file_sys_stat_h[] = {
 
 
 
-char* _Owner read_file(const char* path, bool append_newline)
+char* _Nonnull _Owner read_file(const char* path, bool append_newline)
 {
     if (strcmp(path, "c:/__cake_types.h") == 0)
     {

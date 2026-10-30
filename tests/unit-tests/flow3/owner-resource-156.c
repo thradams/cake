@@ -1,21 +1,21 @@
 
 #pragma safety enable
 
-_Clear void* _Owner _Opt calloc(int n, unsigned long size);
+_Clear void* _Owner calloc(int n, unsigned long size);
 void free(void* _Owner _Opt ptr);
 
 struct Y {
     int i;
 };
 struct X {
-    struct Y* _Owner _Opt pY;
+    struct Y* _Owner pY;
 };
 
 void f(struct Y* p);
 int main()
 {
 
-    struct X* _Owner _Opt p = calloc(1, sizeof * p);
+    struct X* _Owner p = calloc(1, sizeof * p);
     if (p)
     {
         p->pY = calloc(1, sizeof(struct Y));

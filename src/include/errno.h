@@ -10,13 +10,13 @@
     #define __STDC_VERSION_ERRNO_H__ 202311L
 
     #if defined(_WIN32)
-        int* _errno(void);
+        int* _Nonnull _errno(void);
         #define errno (*_errno())
     #elif defined(__APPLE__)
-        int* __error(void);
+        int* _Nonnull __error(void);
         #define errno (*__error())
     #elif defined(__linux__)
-        int* __errno_location(void);
+        int* _Nonnull __errno_location(void);
         #define errno (*__errno_location())
     #else
         extern int errno;
@@ -222,5 +222,12 @@
     #endif
 
 #else
+    #if defined(_WIN32)
+        int* _Nonnull _errno(void);
+    #elif defined(__APPLE__)
+        int* _Nonnull __error(void);
+    #elif defined(__linux__)
+        int* _Nonnull __errno_location(void);
+    #endif
     #include_next <errno.h>
 #endif

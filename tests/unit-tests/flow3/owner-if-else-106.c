@@ -2,14 +2,14 @@
 
 
 
-int* _Owner make1();
-int* _Owner _Opt make2();
+int* _Nonnull _Owner make1();
+int* _Owner make2();
 void free(void * _Owner _Opt p);
 
 
 void f(int condition)
 {
-  int * _Owner _Opt p = 0;
+  int * _Owner p = 0;
   compile_assert(p == 0);
 
   if (condition)

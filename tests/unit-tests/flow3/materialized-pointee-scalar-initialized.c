@@ -1,6 +1,6 @@
 #pragma safety enable
 
-/* a struct copied from a non-optional pointer's pointee is initialized; the narrowed `_Opt` source case is a separate open item */
+/* a struct copied from a non-optional pointer's pointee is initialized; the narrowed `_Nullable` source case is a separate open item */
 
 struct inner {
     unsigned long long n;
@@ -12,7 +12,7 @@ struct outer {
 };
 
 struct holder {
-    struct outer* p;   /* non-optional: pointee has concrete member state */
+    struct outer* _Nonnull p;   /* non-optional: pointee has concrete member state */
 };
 
 void take_inner(const struct inner* q);

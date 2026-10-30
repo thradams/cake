@@ -5,7 +5,7 @@
 struct token;
 
 struct ctx {
-    struct token* _Opt current;
+    struct token* current;
 };
 
 /* const receiver: flow3 must NOT invalidate through this call */

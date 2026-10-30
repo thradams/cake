@@ -10,7 +10,7 @@
 
 struct osstream
 {
-    char* _Owner _Opt c_str;
+    char* _Owner c_str;
     int size;
     int capacity;
 };
@@ -23,3 +23,5 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...);
 int ss_putc(char ch, struct osstream* stream);
 void ss_clear(struct osstream* stream);
 void ss_swap(struct osstream* a, struct osstream* b);
+
+const char* _Nonnull empty_if_null(const char* _Nullable s);

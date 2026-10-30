@@ -5,11 +5,11 @@
 
 struct dirent { int d; };
 struct DIR { int x; };
-struct dirent* _Opt readdir(struct DIR* dir);
+struct dirent* readdir(struct DIR* dir);
 
 void use_while_loop(struct DIR* dir)
 {
-    struct dirent* _Opt dp;
+    struct dirent* dp;
     while ((dp = readdir(dir)) != NULL)
     {
         int x = dp->d; /* ok: dp is non-null here */
@@ -19,7 +19,7 @@ void use_while_loop(struct DIR* dir)
 /* contrast: a plain assignment with no null check is still flagged */
 void use_no_check(struct DIR* dir)
 {
-    struct dirent* _Opt dp;
+    struct dirent* dp;
     dp = readdir(dir);
     int x = dp->d; //lint 33 -> operator applied to a null pointer
 }
@@ -27,7 +27,7 @@ void use_no_check(struct DIR* dir)
 /* contrast: after the loop dp can be null, still flagged */
 void use_after_loop(struct DIR* dir)
 {
-    struct dirent* _Opt dp;
+    struct dirent* dp;
     while ((dp = readdir(dir)) != NULL)
     {
     }

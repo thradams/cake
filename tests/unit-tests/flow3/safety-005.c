@@ -1,6 +1,6 @@
 #pragma safety  enable
 
-struct X { char* name; };
+struct X { char* _Nonnull name; };
 
 void f(struct X x) {};
 

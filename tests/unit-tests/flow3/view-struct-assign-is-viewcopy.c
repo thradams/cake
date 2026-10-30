@@ -1,7 +1,7 @@
 #pragma safety enable
 
 struct node { int x; };
-struct holder { struct node* _Owner p; };
+struct holder { struct node* _Nonnull _Owner p; };
 
 void take(struct node* _Owner n);
 

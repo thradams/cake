@@ -6,7 +6,7 @@ int main()
 {
     //warning: unusual expression/type used as null pointer constant
 
-    int* _Opt p = false; //lint 46
+    int* p = false; //lint 46
 
     //warning: unusual expression/type used as null pointer constant
 

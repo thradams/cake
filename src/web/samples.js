@@ -461,7 +461,7 @@ sample["extensions"] = [];
 
 sample["extensions"]["assert"] =
 `
-#pragma safety enable\n\nstruct X {\n  int * _Opt data;\n  bool has_pointer;\n};\n\nvoid f(struct X* p)\n{\n    if (p->has_pointer)\n    {\n        _Assert(p->data); /* when has_pointer is true, p->data is not null*/\n        *p->data = 1;\n    }\n}\n\nint main()\n{\n   _Assert(1 == 1);\n}\n\n
+#pragma safety enable\n\nstruct X {\n  int * data;\n  bool has_pointer;\n};\n\nvoid f(struct X* p)\n{\n    if (p->has_pointer)\n    {\n        _Assert(p->data); /* when has_pointer is true, p->data is not null*/\n        *p->data = 1;\n    }\n}\n\nint main()\n{\n   _Assert(1 == 1);\n}\n\n
 `;
 
 sample["extensions"]["attribute-packed-aligned"] =
@@ -491,7 +491,7 @@ sample["extensions"]["checked-expressions-i"] =
 
 sample["extensions"]["checked-expressions-ii"] =
 `
-#pragma safety enable\n\nvoid* _Owner _Opt malloc(unsigned long size);\nvoid free(void* _Owner _Opt ptr);\n\nint main() {\n    try\n    {\n        int * _Owner p = malloc(1)!;\n        *p = 1;\n        free(p);\n    }\n    catch {\n\n    }\n}\n
+#pragma safety enable\n\nvoid* _Owner malloc(unsigned long size);\nvoid free(void* _Owner _Nullable ptr);\n\nint main() {\n    try\n    {\n        int * _Owner p = malloc(1)!;\n        *p = 1;\n        free(p);\n    }\n    catch {\n\n    }\n}\n
 `;
 
 sample["extensions"]["consteval"] =
@@ -553,47 +553,47 @@ sample["find-the-bug"] = [];
 
 sample["find-the-bug"]["bug-1"] =
 `
-#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n  char *_Owner _Opt name;\n};\n\nstruct X f(int condition)\n{\n   struct X x;\n   if (condition) {\n        x.name = strdup(\"a\");\n   }\n   return x;\n}\n\nint main()\n{\n    struct X x = f(2);\n}\n
+#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n  char *_Owner name;\n};\n\nstruct X f(int condition)\n{\n   struct X x;\n   if (condition) {\n        x.name = strdup(\"a\");\n   }\n   return x;\n}\n\nint main()\n{\n    struct X x = f(2);\n}\n
 `;
 
 sample["find-the-bug"]["bug-10"] =
 `
-#pragma safety enable\n\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\nstruct person {\n    char* _Opt _Owner name;\n};\n\nvoid set(struct person* p, char* name) {\n    free(p->name);\n    char* _Opt _Owner temp = strdup(name);\n    if (temp == NULL) return;\n    p->name = temp;\n    /*may leave this function with p->name uninitialized!*/\n}\n\nint main() {\n    struct person p = {0};\n    set(&p, \"a\");\n    printf(\"%s\", p.name);\n    free(p.name);\n    return 0;\n}\n
+#pragma safety enable\n\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\nstruct person {\n    char* _Owner name;\n};\n\nvoid set(struct person* p, char* name) {\n    free(p->name);\n    char* _Owner temp = strdup(name);\n    if (temp == NULL) return;\n    p->name = temp;\n    /*may leave this function with p->name uninitialized!*/\n}\n\nint main() {\n    struct person p = {0};\n    set(&p, \"a\");\n    printf(\"%s\", p.name);\n    free(p.name);\n    return 0;\n}\n
 `;
 
 sample["find-the-bug"]["bug-11"] =
 `
-#pragma safety enable\n\nvoid* _Owner _Opt malloc(unsigned long size);\n\nstruct X{\n  char * p_ch;    \n};\n\nstruct X * _Owner _Opt f()\n{\n   char ch  = 0;\n   struct X * _Owner _Opt p = malloc(sizeof(struct X));\n   if (p)\n   {\n       p->p_ch =  &ch;\n       return p;\n   } \n   return nullptr;   \n}\n
+#pragma safety enable\n\nvoid* _Owner malloc(unsigned long size);\n\nstruct X{\n  char * p_ch;    \n};\n\nstruct X * _Owner f()\n{\n   char ch  = 0;\n   struct X * _Owner p = malloc(sizeof(struct X));\n   if (p)\n   {\n       p->p_ch =  &ch;\n       return p;\n   } \n   return nullptr;   \n}\n
 `;
 
 sample["find-the-bug"]["bug-2"] =
 `
-\n#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n  char *_Owner _Opt name;\n};\n\nvoid delete(struct X * _Owner _Opt p)\n{\n    if (p)\n    {\n       /*forgot to free p->name*/\n       free(p);\n    }\n}\n\nint main()\n{\n    struct X * _Owner _Opt p = calloc(1, sizeof * p);\n    if (p)\n    {\n        p->name = strdup(\"a\");\n        delete(p);\n    }\n}\n
+\n#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n  char *_Owner name;\n};\n\nvoid delete(struct X * _Owner _Nullable p)\n{\n    if (p)\n    {\n       /*forgot to free p->name*/\n       free(p);\n    }\n}\n\nint main()\n{\n    struct X * _Owner p = calloc(1, sizeof * p);\n    if (p)\n    {\n        p->name = strdup(\"a\");\n        delete(p);\n    }\n}\n
 `;
 
 sample["find-the-bug"]["bug-3"] =
 `
-#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n  char *_Owner _Opt name;\n  char *_Owner _Opt surname;\n};\n\nvoid delete(struct X * _Owner _Opt p)\n{\n    if (p)\n    {\n       free(p->name);\n       /*forgot to free p->surname*/\n       free(p);\n    }\n}\n\nint main()\n{\n    struct X * _Owner _Opt p = malloc(sizeof * p);\n    if (p)\n    {\n        p->name = strdup(\"a\");\n        /*p->surname is uninitialized*/\n        delete(p);\n    }\n}\n
+#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n  char *_Owner name;\n  char *_Owner surname;\n};\n\nvoid delete(struct X * _Owner _Nullable p)\n{\n    if (p)\n    {\n       free(p->name);\n       /*forgot to free p->surname*/\n       free(p);\n    }\n}\n\nint main()\n{\n    struct X * _Owner p = malloc(sizeof * p);\n    if (p)\n    {\n        p->name = strdup(\"a\");\n        /*p->surname is uninitialized*/\n        delete(p);\n    }\n}\n
 `;
 
 sample["find-the-bug"]["bug-4"] =
 `
-\n#pragma safety enable\n\n#include <stdlib.h>\n#include <stdio.h>\n#include <string.h>\n\nstruct X {\n  char *_Owner _Opt name;\n  char *_Owner _Opt surname;\n};\n\nvoid change(struct X * p)\n{\n     free(p->name);       \n}\n\nint main()\n{\n    struct X x = {0};\n    x.name = strdup(\"a\");\n    change(&x);\n    printf(\"%s\", x.name);\n    /*forgot to free x.name and x.surname*/\n}\n
+\n#pragma safety enable\n\n#include <stdlib.h>\n#include <stdio.h>\n#include <string.h>\n\nstruct X {\n  char *_Owner name;\n  char *_Owner surname;\n};\n\nvoid change(struct X * p)\n{\n     free(p->name);       \n}\n\nint main()\n{\n    struct X x = {0};\n    x.name = strdup(\"a\");\n    change(&x);\n    printf(\"%s\", x.name);\n    /*forgot to free x.name and x.surname*/\n}\n
 `;
 
 sample["find-the-bug"]["bug-5"] =
 `
-#pragma safety enable\n\nvoid* _Owner _Opt calloc(unsigned int n, unsigned long size);\nvoid free(void* _Owner _Opt ptr);\n\nstruct Y {\n    int i; \n};\n\nstruct X {\n    int i; \n    struct Y* _Opt pY;\n};\n\nint main() \n{\n    struct X* _Owner _Opt pX = calloc(1, sizeof *pX);\n    if (pX) \n    {\n        struct Y* _Owner _Opt pY = calloc(1, sizeof *pY);\n        if (pY) \n        {\n            pX->pY = pY;\n            struct X* _Opt p = pX;\n            free(pY);            \n            p->pY->i = 1;  // no warning            \n        }\n        free(pX);\n    }\n}\n
+#pragma safety enable\n\nvoid* _Owner calloc(unsigned int n, unsigned long size);\nvoid free(void* _Owner _Nullable ptr);\n\nstruct Y {\n    int i; \n};\n\nstruct X {\n    int i; \n    struct Y* pY;\n};\n\nint main() \n{\n    struct X* _Owner pX = calloc(1, sizeof *pX);\n    if (pX) \n    {\n        struct Y* _Owner pY = calloc(1, sizeof *pY);\n        if (pY) \n        {\n            pX->pY = pY;\n            struct X* p = pX;\n            free(pY);            \n            p->pY->i = 1;  // no warning            \n        }\n        free(pX);\n    }\n}\n
 `;
 
 sample["find-the-bug"]["bug-6"] =
 `
-#pragma safety enable\n\n#include <stdlib.h>\n\nstruct Obj2 {\n    int i;\n};\n\nstruct Obj {\n    int i;\n    struct Obj2* _Opt _Owner obj2;\n};\n\nvoid main() \n{\n    struct Obj* _Opt _Owner o = calloc(1, sizeof *o);\n    if (o) {\n        o->obj2 = calloc(1, sizeof *o->obj2);\n        if (o->obj2) {\n            struct Obj* _Opt p = o;\n            free(o->obj2);\n            o->obj2 = nullptr;\n            p->obj2->i = 1; //warning: object is possibly null \n        }\n        free(o);\n    }\n}\n
+#pragma safety enable\n\n#include <stdlib.h>\n\nstruct Obj2 {\n    int i;\n};\n\nstruct Obj {\n    int i;\n    struct Obj2* _Owner obj2;\n};\n\nvoid main() \n{\n    struct Obj* _Owner o = calloc(1, sizeof *o);\n    if (o) {\n        o->obj2 = calloc(1, sizeof *o->obj2);\n        if (o->obj2) {\n            struct Obj* p = o;\n            free(o->obj2);\n            o->obj2 = nullptr;\n            p->obj2->i = 1; //warning: object is possibly null \n        }\n        free(o);\n    }\n}\n
 `;
 
 sample["find-the-bug"]["bug-7-k-r"] =
 `
-/*\n  This code is from \n  The C Programming Language 2 edition, page 145\n\n  There are two bugs int this original sample\n  - one memory leak\n  - one invalid state\n*/\n\n#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct nlist {          /* table entry: */\n    struct nlist *next; /* next entry in chain */\n    char *name;  /* defined name */\n    char *defn;  /* replacement text */\n};\n\nstruct nlist *lookup(char *s);\n\n/* hash:  form hash value for string s */\nunsigned hash(char *s);\n\n\n#define HASHSIZE 101\n\nstatic struct nlist *hashtab[HASHSIZE]; /* pointer table */\n\n/*1* lookup: look for s in hashtab */\nstruct nlist *lookup(char *);\n\n\n/* install:  put (name, defn) in hashtab */\nstruct nlist *install(char *name, char *defn)\n{\n    struct nlist *np;\n    unsigned hashval;\n\n    if ((np = lookup(name)) == NULL) {  /* not found */\n        np = (struct nlist *) malloc(sizeof(*np));\n        if (np == NULL || (np->name = strdup(name)) == NULL)\n            return NULL;\n        hashval = hash(name);\n        np->next = hashtab[hashval];\n        hashtab[hashval] = np;\n    } else      /* already there */\n        free((void *) np->defn);  /* free previous defn */\n\n    if ((np->defn = strdup(defn)) == NULL)\n        return NULL;\n    return np;\n}\n
+/*\n  This code is from \n  The C Programming Language 2 edition, page 145\n\n  There are two bugs int this original sample\n  - one memory leak\n  - one invalid state\n*/\n\n#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct nlist {          /* table entry: */\n    struct nlist * next; /* next entry in chain */\n    char * name;  /* defined name */\n    char * defn;  /* replacement text */\n};\n\nstruct nlist * lookup(char *s);\n\n/* hash:  form hash value for string s */\nunsigned hash(char *s);\n\n\n#define HASHSIZE 101\n\nstatic struct nlist *hashtab[HASHSIZE]; /* pointer table */\n\n/*1* lookup: look for s in hashtab */\nstruct nlist * lookup(char *);\n\n\n/* install:  put (name, defn) in hashtab */\nstruct nlist * install(char *name, char *defn)\n{\n    struct nlist *np;\n    unsigned hashval;\n\n    if ((np = lookup(name)) == NULL) {  /* not found */\n        np = (struct nlist *) malloc(sizeof(*np));\n        if (np == NULL || (np->name = strdup(name)) == NULL)\n            return NULL;\n        hashval = hash(name);\n        np->next = hashtab[hashval];\n        hashtab[hashval] = np;\n    } else      /* already there */\n        free((void *) np->defn);  /* free previous defn */\n\n    if ((np->defn = strdup(defn)) == NULL)\n        return NULL;\n    return np;\n}\n
 `;
 
 sample["find-the-bug"]["bug-8"] =
@@ -610,7 +610,7 @@ sample["static-analysis"] = [];
 
 sample["static-analysis"]["assert-state-static-debug"] =
 `
-#pragma safety enable\n\n_Uninitialized void* _Owner _Opt malloc(unsigned long size);\nvoid free(void* _Owner ptr);\n\nint main() {\n   void * _Owner  _Opt p = malloc(1);\n   if (p)\n   {\n     free(p);\n   }\n   static_debug(p);\n}\n
+#pragma safety enable\n\n_Uninitialized void* _Owner malloc(unsigned long size);\nvoid free(void* _Owner ptr);\n\nint main() {\n   void * _Owner p = malloc(1);\n   if (p)\n   {\n     free(p);\n   }\n   static_debug(p);\n}\n
 `;
 
 sample["static-analysis"]["checking-double-free"] =
@@ -620,12 +620,12 @@ sample["static-analysis"]["checking-double-free"] =
 
 sample["static-analysis"]["ctor-and-dtor"] =
 `
-#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n    char * _Owner _Opt text;\n};\n\nint init(_Out struct X *p)\n{\n    //comment and see what happens\n    p->text = strdup(\"a\");\n}\n\nvoid destructor(_Dtor struct X *p){\n    //comment and see what happens\n    free(p->text);\n}\n\nint main() {\n    struct X x;\n    init(&x);\n    destructor(&x);\n}\n
+#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n    char * _Owner text;\n};\n\nint init(_Out struct X *p)\n{\n    //comment and see what happens\n    p->text = strdup(\"a\");\n}\n\nvoid destructor(_Dtor struct X *p){\n    //comment and see what happens\n    free(p->text);\n}\n\nint main() {\n    struct X x;\n    init(&x);\n    destructor(&x);\n}\n
 `;
 
 sample["static-analysis"]["dynamic-array"] =
 `
-#pragma safety enable\n\n#include <stdlib.h>\n#include <assert.h>\n#include <errno.h>\n#include <stdio.h>\n#include <limits.h>\n#include <string.h>\n\nstruct int_array {\n    int* _Owner _Opt data;\n    int size;\n    int capacity;\n};\n\nint int_array_reserve(struct int_array* p, int n)\n{\n    if (n > p->capacity) {\n        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0])))) {\n            return EOVERFLOW;\n        }\n\n        void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));\n        if (pnew == NULL) return ENOMEM;\n        \n        p->data = pnew;\n        p->capacity = n;\n    }\n    return 0;\n}\n\nint int_array_push_back(struct int_array* p, int value)\n{\n    if (p->size == INT_MAX) {\n        return EOVERFLOW;\n    }\n\n    if (p->size + 1 > p->capacity) {\n        int new_capacity = 0;\n        if (p->capacity > (INT_MAX - p->capacity / 2))\n        {\n            /*overflow*/\n            new_capacity = INT_MAX;\n        }\n        else {\n            new_capacity = p->capacity + p->capacity / 2;\n            if (new_capacity < p->size + 1) {\n                new_capacity = p->size + 1;\n            }\n        }\n\n        int error = int_array_reserve(p, new_capacity);\n        if (error != 0) {\n            return error;\n        }\n    }\n\n    p->data[p->size] = value;\n    p->size++;\n\n    return 0;\n}\n\nvoid int_array_destroy(_Dtor struct int_array* p)\n{\n    free(p->data);\n}\n\nint main()\n{\n    struct int_array a = { 0 };\n    int_array_push_back(&a, 1);\n    int_array_push_back(&a, 2);\n    int_array_destroy(&a);\n}\n
+#pragma safety enable\n\n#include <stdlib.h>\n#include <assert.h>\n#include <errno.h>\n#include <stdio.h>\n#include <limits.h>\n#include <string.h>\n\nstruct int_array {\n    int* _Owner data;\n    int size;\n    int capacity;\n};\n\nint int_array_reserve(struct int_array* p, int n)\n{\n    if (n > p->capacity) {\n        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0])))) {\n            return EOVERFLOW;\n        }\n\n        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));\n        if (pnew == NULL) return ENOMEM;\n        \n        p->data = pnew;\n        p->capacity = n;\n    }\n    return 0;\n}\n\nint int_array_push_back(struct int_array* p, int value)\n{\n    if (p->size == INT_MAX) {\n        return EOVERFLOW;\n    }\n\n    if (p->size + 1 > p->capacity) {\n        int new_capacity = 0;\n        if (p->capacity > (INT_MAX - p->capacity / 2))\n        {\n            /*overflow*/\n            new_capacity = INT_MAX;\n        }\n        else {\n            new_capacity = p->capacity + p->capacity / 2;\n            if (new_capacity < p->size + 1) {\n                new_capacity = p->size + 1;\n            }\n        }\n\n        int error = int_array_reserve(p, new_capacity);\n        if (error != 0) {\n            return error;\n        }\n    }\n\n    p->data[p->size] = value;\n    p->size++;\n\n    return 0;\n}\n\nvoid int_array_destroy(_Dtor struct int_array* p)\n{\n    free(p->data);\n}\n\nint main()\n{\n    struct int_array a = { 0 };\n    int_array_push_back(&a, 1);\n    int_array_push_back(&a, 2);\n    int_array_destroy(&a);\n}\n
 `;
 
 sample["static-analysis"]["fix-me-1"] =
@@ -635,37 +635,37 @@ sample["static-analysis"]["fix-me-1"] =
 
 sample["static-analysis"]["gives-ownership"] =
 `
-#pragma safety enable\n\n#include <string.h>\n#include <stdlib.h>\n\nconst char * _Owner _Opt gives_ownership() {\n    _Owner _Opt auto some_string = strdup(\"yours\");\n    return some_string;\n}\n\nint main(){\n    _Owner _Opt auto s = gives_ownership();\n    free(s);\n}\n
+#pragma safety enable\n\n#include <string.h>\n#include <stdlib.h>\n\nconst char * _Owner gives_ownership() {\n    _Owner auto some_string = strdup(\"yours\");\n    return some_string;\n}\n\nint main(){\n    _Owner auto s = gives_ownership();\n    free(s);\n}\n
 `;
 
 sample["static-analysis"]["implementing-a-destructor-i"] =
 `
-#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n    char *_Owner _Opt name;\n};\n\nvoid x_destroy(struct X x)\n{\n    free(x.name);\n}\n\nint main() {\n    struct X x = {0};\n    x.name = strdup(\"a\");\n    x_destroy(x);\n}\n
+#pragma safety enable\n\n#include <stdlib.h>\n#include <string.h>\n\nstruct X {\n    char *_Owner name;\n};\n\nvoid x_destroy(struct X x)\n{\n    free(x.name);\n}\n\nint main() {\n    struct X x = {0};\n    x.name = strdup(\"a\");\n    x_destroy(x);\n}\n
 `;
 
 sample["static-analysis"]["implementing-a-destructor-ii"] =
 `
-#pragma safety enable\n\nchar * _Opt _Owner strdup(const char* s);\nvoid free(void * _Opt _Owner p);\n\nstruct X {\n    char *_Owner _Opt name;\n};\n\nvoid x_destroy(_Dtor struct X * x)\n{\n    free(x->name);\n}\n\nint main() {\n    struct X x = {0};\n    x.name = strdup(\"a\");\n    x_destroy(&x);\n}\n
+#pragma safety enable\n\nchar * _Owner strdup(const char* s);\nvoid free(void * _Nullable _Owner p);\n\nstruct X {\n    char *_Owner name;\n};\n\nvoid x_destroy(_Dtor struct X * x)\n{\n    free(x->name);\n}\n\nint main() {\n    struct X x = {0};\n    x.name = strdup(\"a\");\n    x_destroy(&x);\n}\n
 `;
 
 sample["static-analysis"]["implementing-delete"] =
 `
-#pragma safety enable \n\n_Clear void * _Opt _Owner calloc(unsigned long n, unsigned long s);\nchar * _Opt _Owner strdup(const char* s);\nvoid free(void * _Opt _Owner p);\n\nstruct X {\n    char * _Owner _Opt text;\n};\n\nvoid x_delete(struct X * _Owner _Opt p)\n{\n    if (p)\n    {\n        free(p->text);\n        free(p);\n    }\n}\n\nint main() {\n    struct X * _Owner _Opt p = calloc(1, sizeof * p);\n    if (p){\n        p->text = strdup(\"a\");\n    }\n    x_delete(p);\n\n}\n
+#pragma safety enable \n\n_Clear void * _Owner calloc(unsigned long n, unsigned long s);\nchar * _Owner strdup(const char* s);\nvoid free(void * _Nullable _Owner p);\n\nstruct X {\n    char * _Owner text;\n};\n\nvoid x_delete(struct X * _Owner _Nullable p)\n{\n    if (p)\n    {\n        free(p->text);\n        free(p);\n    }\n}\n\nint main() {\n    struct X * _Owner p = calloc(1, sizeof * p);\n    if (p){\n        p->text = strdup(\"a\");\n    }\n    x_delete(p);\n\n}\n
 `;
 
 sample["static-analysis"]["linked-list"] =
 `
-#pragma safety enable\n\n#include <stdlib.h>\n#include <assert.h>\n#include <string.h>\n\nstruct item {\n    char* _Owner title;\n    struct item* _Owner _Opt next;\n};\n\nstruct list {\n    struct item* _Owner _Opt head;\n    struct item* _Opt tail;\n};\n\nvoid list_insert_after(struct list* list,\n    struct item* item,\n    struct item* _Owner p_new_item)\n{\n    if (item->next == NULL) {\n        list->tail = p_new_item;\n    }\n    else {\n        assert(p_new_item->next == NULL);\n        p_new_item->next = item->next;\n    }\n\n    item->next = p_new_item;\n}\n\nvoid list_push_back(struct list* list,\n    struct item* _Owner p_item)\n{\n    if (list->head == NULL) {\n        list->head = p_item;\n    }\n    else {\n        assert(list->tail);\n        assert(list->tail->next == nullptr);\n        list->tail->next = p_item;\n    }\n    list->tail = p_item;\n}\n\nvoid list_push_front(struct list* list,\n    struct item* _Owner p_item)\n{\n    if (list->head == NULL) {\n        list->tail = p_item;\n    }\n    else {\n        assert(p_item->next == NULL);\n        p_item->next = list->head;\n    }\n    list->head = p_item;\n}\n\nvoid list_destroy(_Dtor struct list* list)\n{\n    struct item* _Owner _Opt it = list->head;\n    while (it != NULL) {\n        struct item* _Owner _Opt next = it->next;\n        free(it->title);\n        free(it);\n        it = next;\n    }\n}\n\nint main(int argc, char* argv[])\n{\n    struct list list = { 0 };\n    struct item* _Owner _Opt p_item = calloc(1, sizeof(struct item));\n    if (p_item)\n    {\n        char * _Owner _Opt title = strdup(\"title\");\n        if (title)\n        {\n            p_item->title = title;\n            list_push_front(&list, p_item);\n        }\n        else\n        {\n            free(p_item);\n        }\n    }\n    list_destroy(&list);\n}\n
+#pragma safety enable\n\n#include <stdlib.h>\n#include <assert.h>\n#include <string.h>\n\nstruct item {\n    char* _Owner title;\n    struct item* _Owner next;\n};\n\nstruct list {\n    struct item* _Owner head;\n    struct item* tail;\n};\n\nvoid list_insert_after(struct list* list,\n    struct item* item,\n    struct item* _Owner p_new_item)\n{\n    if (item->next == NULL) {\n        list->tail = p_new_item;\n    }\n    else {\n        assert(p_new_item->next == NULL);\n        p_new_item->next = item->next;\n    }\n\n    item->next = p_new_item;\n}\n\nvoid list_push_back(struct list* list,\n    struct item* _Owner p_item)\n{\n    if (list->head == NULL) {\n        list->head = p_item;\n    }\n    else {\n        assert(list->tail);\n        assert(list->tail->next == nullptr);\n        list->tail->next = p_item;\n    }\n    list->tail = p_item;\n}\n\nvoid list_push_front(struct list* list,\n    struct item* _Owner p_item)\n{\n    if (list->head == NULL) {\n        list->tail = p_item;\n    }\n    else {\n        assert(p_item->next == NULL);\n        p_item->next = list->head;\n    }\n    list->head = p_item;\n}\n\nvoid list_destroy(_Dtor struct list* list)\n{\n    struct item* _Owner it = list->head;\n    while (it != NULL) {\n        struct item* _Owner next = it->next;\n        free(it->title);\n        free(it);\n        it = next;\n    }\n}\n\nint main(int argc, char* argv[])\n{\n    struct list list = { 0 };\n    struct item* _Owner p_item = calloc(1, sizeof(struct item));\n    if (p_item)\n    {\n        char * _Owner title = strdup(\"title\");\n        if (title)\n        {\n            p_item->title = title;\n            list_push_front(&list, p_item);\n        }\n        else\n        {\n            free(p_item);\n        }\n    }\n    list_destroy(&list);\n}\n
 `;
 
 sample["static-analysis"]["malloc-free"] =
 `
-#pragma safety enable\n\n_Clear void * _Opt _Owner malloc(unsigned long s);\nvoid free(void * _Opt _Owner p);\n\nint main() {\n    void * _Owner _Opt p = malloc(1);\n    free(p);\n}\n
+#pragma safety enable\n\n_Clear void * _Owner malloc(unsigned long s);\nvoid free(void * _Nullable _Owner p);\n\nint main() {\n    void * _Owner p = malloc(1);\n    free(p);\n}\n
 `;
 
 sample["static-analysis"]["moving-parts-of-view"] =
 `
-#pragma safety enable\n\n_Clear void * _Opt _Owner calloc(unsigned long n, unsigned long s);\nchar * _Opt _Owner strdup(const char* s);\nvoid free(void * _Opt _Owner p);\n\nstruct X {\n    char * _Owner name;\n};\n\nstruct Y {\n    struct X x;\n    struct X * px;\n};\n\nvoid x_destroy(_Dtor struct X * p)\n{\n    free(p->name);\n}\n\nvoid f(struct Y * p)\n{\n    x_destroy(&p->x);\n    x_destroy(p->px);\n}\n\nint main() {\n    struct Y y = {};\n    y.x.name = strdup(\"a\");\n    f(&y);\n    free(y.x.name);\n}\n
+#pragma safety enable\n\n_Clear void * _Owner calloc(unsigned long n, unsigned long s);\nchar * _Owner strdup(const char* s);\nvoid free(void * _Nullable _Owner p);\n\nstruct X {\n    char * _Owner name;\n};\n\nstruct Y {\n    struct X x;\n    struct X * px;\n};\n\nvoid x_destroy(_Dtor struct X * p)\n{\n    free(p->name);\n}\n\nvoid f(struct Y * p)\n{\n    x_destroy(&p->x);\n    x_destroy(p->px);\n}\n\nint main() {\n    struct Y y = {};\n    y.x.name = strdup(\"a\");\n    f(&y);\n    free(y.x.name);\n}\n
 `;
 
 sample["static-analysis"]["mtx-t"] =
@@ -675,17 +675,17 @@ sample["static-analysis"]["mtx-t"] =
 
 sample["static-analysis"]["override-state-realloc"] =
 `
-#pragma safety enable\n\nvoid* _Owner _Opt realloc(void* _Opt ptr, unsigned size);\n_Uninitialized void* _Owner _Opt malloc(unsigned long size);\nvoid free(void* _Owner _Opt ptr);\n\nvoid f()\n{\n    void * _Owner _Opt p = malloc(1);\n    void * _Owner _Opt p2 = realloc(p, 2);\n    if (p2 != 0)\n    {\n        p = p2; //lint26 (semantic of realloc)\n    }\n    free(p);\n}\n
+#pragma safety enable\n\nvoid* _Owner realloc(void* _Nullable ptr, unsigned size);\n_Uninitialized void* _Owner malloc(unsigned long size);\nvoid free(void* _Owner _Nullable ptr);\n\nvoid f()\n{\n    void * _Owner p = malloc(1);\n    void * _Owner p2 = realloc(p, 2);\n    if (p2 != 0)\n    {\n        p = p2; //lint26 (semantic of realloc)\n    }\n    free(p);\n}\n
 `;
 
 sample["static-analysis"]["owner-assignment"] =
 `
-#pragma safety enable\n\nchar * _Opt _Owner strdup(const char* s);\nvoid free(void * _Opt _Owner p);\n\nint main()\n{\n    const char * _Owner _Opt s1 = strdup(\"hi\");\n    const char * _Owner _Opt s2 = nullptr;\n\n    s2 = s1; /*moved*/\n\n    free((void* _Owner)s2);\n}\n
+#pragma safety enable\n\nchar * _Owner strdup(const char* s);\nvoid free(void * _Nullable _Owner p);\n\nint main()\n{\n    const char * _Owner s1 = strdup(\"hi\");\n    const char * _Owner s2 = nullptr;\n\n    s2 = s1; /*moved*/\n\n    free((void* _Owner)s2);\n}\n
 `;
 
 sample["static-analysis"]["owner-pointer-owns-two-objects"] =
 `
-#pragma safety enable\n\nvoid * _Owner _Opt calloc(unsigned long i, unsigned long sz);\nchar * _Owner _Opt strdup(const char* );\nvoid free(void * _Owner _Opt p);\n\nstruct X {\n    char *_Owner _Opt name;\n};\n\nint main()\n{\n    struct X * _Owner _Opt p = calloc(1, sizeof * p);\n    if (p) {\n\n        p->name = strdup(\"hi\");\n        struct X x = {0};\n        x = *p;\n        free(x.name);\n\n        free(p);\n    }\n}\n
+#pragma safety enable\n\nvoid * _Owner calloc(unsigned long i, unsigned long sz);\nchar * _Owner strdup(const char* );\nvoid free(void * _Owner _Nullable p);\n\nstruct X {\n    char *_Owner name;\n};\n\nint main()\n{\n    struct X * _Owner p = calloc(1, sizeof * p);\n    if (p) {\n\n        p->name = strdup(\"hi\");\n        struct X x = {0};\n        x = *p;\n        free(x.name);\n\n        free(p);\n    }\n}\n
 `;
 
 sample["static-analysis"]["socket"] =
@@ -695,21 +695,21 @@ _Owner int socket();\nvoid close(_Owner int fd);\n\nint main()\n{\n    _Owner in
 
 sample["static-analysis"]["takes-ownership"] =
 `
-#pragma safety enable\n\n_Clear void * _Opt _Owner calloc(unsigned long n, unsigned long s);\nchar * _Opt _Owner strdup(const char* s);\nvoid free(void * _Opt _Owner p);\nvoid printf(char char* fmt, ...);\n\nvoid takes_ownership(char * _Owner _Opt some_string)\n{\n    if (some_string)\n    {\n        printf(\"%s\", some_string);\n        free(some_string);\n    }\n}\n\nint main()\n{\n    _Opt _Owner auto s = strdup(\"hello\");\n    takes_ownership(s /*moved here*/ );\n}\n
+#pragma safety enable\n\n_Clear void * _Owner calloc(unsigned long n, unsigned long s);\nchar * _Owner strdup(const char* s);\nvoid free(void * _Nullable _Owner p);\nvoid printf(char char* fmt, ...);\n\nvoid takes_ownership(char * _Owner _Nullable some_string)\n{\n    if (some_string)\n    {\n        printf(\"%s\", some_string);\n        free(some_string);\n    }\n}\n\nint main()\n{\n    _Owner auto s = strdup(\"hello\");\n    takes_ownership(s /*moved here*/ );\n}\n
 `;
 
 sample["static-analysis"]["use-after-free-via-member-pointer"] =
 `
-#pragma safety enable\nvoid* _Owner _Opt malloc(unsigned long n);\nvoid free(void* _Owner _Opt p);\n\nstruct S { int a; };\n\nint f(void)\n{\n    struct S* _Owner _Opt s = malloc(sizeof(struct S));\n    if (!s) return 0;\n    s->a = 1;\n    int* q = &s->a;\n    free(s);\n    return *q;   // use after free\n}\n
+#pragma safety enable\nvoid* _Owner malloc(unsigned long n);\nvoid free(void* _Owner _Nullable p);\n\nstruct S { int a; };\n\nint f(void)\n{\n    struct S* _Owner s = malloc(sizeof(struct S));\n    if (!s) return 0;\n    s->a = 1;\n    int* q = &s->a;\n    free(s);\n    return *q;   // use after free\n}\n
 `;
 
 sample["static-analysis"]["using-moved-object"] =
 `
-#pragma safety enable\n\n_Clear void * _Opt _Owner calloc(unsigned long n, unsigned long s);\nchar * _Opt _Owner strdup(const char* s);\nvoid free(void * _Opt _Owner p);\nvoid printf(char char* fmt, ...);\n\nstruct user\n{\n    int id;\n    char* _Owner _Opt name;\n};\n\nvoid set_id(struct user* p, int id){}\n\nint main()\n{\n    _Opt struct user user = {};\n    user.name = strdup(\"a\");\n    char* _Owner _Opt name = user.name;\n    free(name);\n    set_id(&user, 1); //warning: object 'user.name' was moved  \n}\n
+#pragma safety enable\n\n_Clear void * _Owner calloc(unsigned long n, unsigned long s);\nchar * _Owner strdup(const char* s);\nvoid free(void * _Nullable _Owner p);\nvoid printf(char char* fmt, ...);\n\nstruct user\n{\n    int id;\n    char* _Owner name;\n};\n\nvoid set_id(struct user* p, int id){}\n\nint main()\n{\n    _Nullable struct user user = {};\n    user.name = strdup(\"a\");\n    char* _Owner name = user.name;\n    free(name);\n    set_id(&user, 1); //warning: object 'user.name' was moved  \n}\n
 `;
 
 sample["static-analysis"]["view-qualifier"] =
 `
-#pragma safety enable \n\n#include <stdlib.h>\n#include <stdio.h>\n#include <string.h>\n\nstruct X {\n    char *_Owner _Opt name;\n};\n\nvoid f(_View struct X x)\n{\n    if (x.name)\n        printf(x.name);\n}\n\nint main() {\n    struct X x = {0};\n    x.name = strdup(\"a\");\n    f(x); /*not moved*/\n    free(x.name);\n}\n
+#pragma safety enable \n\n#include <stdlib.h>\n#include <stdio.h>\n#include <string.h>\n\nstruct X {\n    char *_Owner name;\n};\n\nvoid f(_View struct X x)\n{\n    if (x.name)\n        printf(x.name);\n}\n\nint main() {\n    struct X x = {0};\n    x.name = strdup(\"a\");\n    f(x); /*not moved*/\n    free(x.name);\n}\n
 `;
 

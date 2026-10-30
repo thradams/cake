@@ -3,11 +3,11 @@
 #pragma safety enable
 
 struct FILE;
-struct FILE* _Owner _Opt fopen(const char* name, const char* mode);
+struct FILE* _Owner fopen(const char* name, const char* mode);
 int fclose(struct FILE* _Owner p);
 
 void bad()
 {
-    struct FILE* _Owner _Opt f = fopen("file.txt", "w+");
+    struct FILE* _Owner f = fopen("file.txt", "w+");
     fclose(f); //lint 35
 }

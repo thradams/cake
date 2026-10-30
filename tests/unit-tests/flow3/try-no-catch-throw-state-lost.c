@@ -4,10 +4,10 @@
 
 int reported_repro(int condition)
 {
-    int* _Owner _Opt p = 0;
+    int* _Owner p = 0;
     try
     {
-        int* _Owner _Opt p2 = p;
+        int* _Owner p2 = p;
         if (condition) throw;
         p = 0;
     }
@@ -18,10 +18,10 @@ int reported_repro(int condition)
 /* control: with a catch the throw path goes through the catch body, unchanged */
 int with_catch_unaffected(int condition)
 {
-    int* _Owner _Opt p = 0;
+    int* _Owner p = 0;
     try
     {
-        int* _Owner _Opt p2 = p;
+        int* _Owner p2 = p;
         if (condition) throw;
         p = 0;
     }
@@ -35,7 +35,7 @@ int with_catch_unaffected(int condition)
 /* control: no throw in the body, the empty join must not be merged */
 int no_throw_at_all(void)
 {
-    int* _Owner _Opt p = 0;
+    int* _Owner p = 0;
     try
     {
         p = 0;

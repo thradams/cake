@@ -2,7 +2,7 @@
 
 
 struct X {
-  char * _Owner name;
+  char * _Nonnull _Owner name;
 };
 
 struct X f();

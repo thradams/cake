@@ -6,15 +6,15 @@
 
 struct X { int a; int b; };
 
-_Clear struct X* _Owner _Opt my_calloc(void);
-_Uninitialized struct X* _Owner _Opt my_malloc(void);
-void free(void* _Owner _Opt p);
+_Clear struct X* _Owner my_calloc(void);
+_Uninitialized struct X* _Owner my_malloc(void);
+void free(void* _Owner _Nullable p);
 void use(int);
 
 /* _Clear: members are concretely zero. */
 void zeroed(void)
 {
-    struct X* _Owner _Opt x = my_calloc();
+    struct X* _Owner x = my_calloc();
     if (x == NULL) return;
     use(x->a);            /* ok: a is zero-initialized (no uninit warning) */
     free(x);
@@ -23,7 +23,7 @@ void zeroed(void)
 /* _Uninitialized: writing first is required before reading. */
 void malloced_ok(void)
 {
-    struct X* _Owner _Opt x = my_malloc();
+    struct X* _Owner x = my_malloc();
     if (x == NULL) return;
     x->a = 1;             /* initialize before use */
     use(x->a);            /* ok */

@@ -9,12 +9,12 @@
 
 #include <stdlib.h>
 
-struct token { int type; struct token* _Owner _Opt next; };
-struct token_list { struct token* _Owner _Opt head; struct token* _Opt tail; };
+struct token { int type; struct token* _Owner next; };
+struct token_list { struct token* _Owner head; struct token* tail; };
 void move_front(struct token_list* dest, struct token_list* input);
 void prepend(struct token_list* restrict dest, struct token_list* restrict source);
-void token_list_destroy(_Opt _Dtor struct token_list* list);
-void use(const struct token* _Opt p);
+void token_list_destroy(_Dtor struct token_list* list);
+void use(const struct token* _Nullable p);
 
 /* Must NOT warn. */
 
@@ -58,7 +58,7 @@ void or_condition(struct token_list* input)
         use(input->head);
 }
 
-struct S { int* _Owner _Opt table; int size; int cap; };
+struct S { int* _Owner table; int size; int cap; };
 
 /* an unknown right operand is on both sides: l->table may be non-null here */
 void or_unknown_right(struct S* l)

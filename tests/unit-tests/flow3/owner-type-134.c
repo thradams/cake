@@ -1,9 +1,9 @@
 #pragma safety enable
 
 
-struct X { char  * _Owner _Opt owner_variable;   };
+struct X { char  * _Owner owner_variable;   };
 struct X global;
-char * _Opt f() 
+char * f() 
 {
     return global.owner_variable;
 }

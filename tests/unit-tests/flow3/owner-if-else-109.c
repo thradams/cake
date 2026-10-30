@@ -1,16 +1,16 @@
 #pragma safety enable
 
 
-_Uninitialized void* _Owner _Opt malloc(int i);
+_Uninitialized void* _Owner malloc(int i);
 void free(void* _Owner _Opt);
 
 struct X {
-    char* _Owner _Opt name;
+    char* _Owner name;
 };
 
 int main()
 {
-    struct X* _Owner _Opt p = malloc(sizeof(struct X));
+    struct X* _Owner p = malloc(sizeof(struct X));
     if (p)
     {
         /* no discard warning: malloc is _Uninitialized, p->name is uninitialized storage, not a resource */

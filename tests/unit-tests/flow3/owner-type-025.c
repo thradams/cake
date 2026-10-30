@@ -1,4 +1,4 @@
-struct X { const char* _Owner text; };
+struct X { const char* _Nonnull _Owner text; };
 void destroyX(struct X x) 
 {
 	_Assert(x.text == 0);

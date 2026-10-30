@@ -9,7 +9,7 @@ int main()
 
     strlen(0); //lint 35 cannot convert a null pointer constant to non-nullable pointer; passing a possible null
 
-    char* _Opt p = 0;
+    char* p = 0;
 
     //flow
     //warning: passing a possible null pointer 'p' to non-nullable pointer parameter

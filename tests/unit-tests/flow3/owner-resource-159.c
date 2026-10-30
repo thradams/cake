@@ -1,11 +1,11 @@
 #pragma safety enable
 
 
-_Uninitialized void* _Owner _Opt malloc(int i);
+_Uninitialized void* _Owner malloc(int i);
 void free(void* _Owner _Opt p);
 
 struct X {
-    char* _Owner name;
+    char* _Nonnull _Owner name;
 };
 
 void x_delete(struct X* _Owner _Opt p)
@@ -20,7 +20,7 @@ void x_delete(struct X* _Owner _Opt p)
 
 int main()
 {
-    struct X* _Owner _Opt p = malloc(sizeof * p);
+    struct X* _Owner p = malloc(sizeof * p);
 
     //warning: uninitialized object 'p.name'
 

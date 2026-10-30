@@ -1,13 +1,13 @@
 #pragma safety enable
 
-void* _Owner _Opt malloc(unsigned long n);
-void free(void* _Owner _Opt p);
+void* _Owner malloc(unsigned long n);
+void free(void* _Owner _Nullable p);
 
 int* gq;
 
 void f(void)
 {
-    int* _Owner _Opt p = malloc(sizeof(int));
+    int* _Owner p = malloc(sizeof(int));
     if (!p) return;
     gq = p;
     free(p);

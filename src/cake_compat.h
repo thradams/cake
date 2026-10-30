@@ -13,7 +13,8 @@
 #ifndef __CAKE__
 
     #define _Out
-    #define _Opt
+    #define _Nullable
+    #define _Nonnull
     #define _Owner
     #define _Dtor
     #define _View

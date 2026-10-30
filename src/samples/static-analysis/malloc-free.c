@@ -1,9 +1,9 @@
 #pragma safety enable
 
-_Clear void * _Opt _Owner malloc(unsigned long s);
-void free(void * _Opt _Owner p);
+_Clear void * _Owner malloc(unsigned long s);
+void free(void * _Nullable _Owner p);
 
 int main() {
-    void * _Owner _Opt p = malloc(1);
+    void * _Owner p = malloc(1);
     free(p);
 }

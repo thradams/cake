@@ -1,17 +1,17 @@
 #pragma safety enable
 
 
-_Uninitialized void* _Owner malloc(unsigned size);
+_Uninitialized void* _Nonnull _Owner malloc(unsigned size);
 void free(void* _Owner ptr);
 
 struct X {
-    char* _Owner name;
+    char* _Nonnull _Owner name;
 };
 
-struct X* _Owner _Opt F(int i)
+struct X* _Owner F(int i)
 {
 
-    struct X* _Owner _Opt p1 = 0;
+    struct X* _Owner p1 = 0;
     try
     {
         if (i == 1)

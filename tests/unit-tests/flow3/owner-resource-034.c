@@ -2,15 +2,15 @@
 
 struct X
  {
-   char * _Owner _Opt p;
-   char * p2;
+   char * _Owner p;
+   char * _Nonnull p2;
  };
 
- char* _Owner _Opt strdup(const char *s);
+ char* _Owner strdup(const char *s);
  void free(void* _Owner _Opt p);
 
  int main() {
-     char* _Owner _Opt p0 = strdup("a");
+     char* _Owner p0 = strdup("a");
      struct X x = {
          .p = p0                // moves p0 into the owner member x.p
      };

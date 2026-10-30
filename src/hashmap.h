@@ -15,15 +15,15 @@ struct struct_or_union_specifier;
 struct macro;
 struct struct_entry;
 
-void declarator_delete(_Dtor struct declarator* _Owner _Opt p);
-void init_declarator_delete(_Dtor struct init_declarator* _Owner _Opt p);
+void declarator_delete(_Dtor struct declarator* _Owner _Nullable p);
+void init_declarator_delete(_Dtor struct init_declarator* _Owner _Nullable p);
 
-void enumerator_delete(_Dtor struct enumerator* _Owner _Opt p);
-void enum_specifier_delete(_Dtor struct enum_specifier* _Owner _Opt p);
-void struct_or_union_specifier_delete(_Dtor struct struct_or_union_specifier* _Owner _Opt p);
-void struct_entry_delete(_Dtor struct struct_entry* _Opt _Owner p);
+void enumerator_delete(_Dtor struct enumerator* _Owner _Nullable p);
+void enum_specifier_delete(_Dtor struct enum_specifier* _Owner _Nullable p);
+void struct_or_union_specifier_delete(_Dtor struct struct_or_union_specifier* _Owner _Nullable p);
+void struct_entry_delete(_Dtor struct struct_entry* _Nullable _Owner p);
 
-void macro_delete(_Dtor struct macro* _Owner _Opt p);
+void macro_delete(_Dtor struct macro* _Owner _Nullable p);
 
 
 /*
@@ -47,39 +47,39 @@ enum tag
 
 struct map_entry 
 {
-    struct map_entry* _Owner _Opt next;
+    struct map_entry* _Owner next;
     unsigned int hash;
-    char* _Owner key;
+    char* _Nonnull _Owner key;
 
     enum tag type; /*type of the object pointed by p*/
 
     union 
     {
         size_t number;
-        struct enum_specifier* _Opt _Owner p_enum_specifier;
-        struct enumerator* _Opt _Owner p_enumerator;
-        struct struct_or_union_specifier* _Opt _Owner p_struct_or_union_specifier;
-        struct declarator* _Opt _Owner p_declarator;
-        struct init_declarator* _Opt _Owner p_init_declarator;
-        struct macro* _Opt _Owner p_macro;
-        struct struct_entry* _Opt _Owner p_struct_entry;
-        char* _Opt _Owner p_text;
+        struct enum_specifier* _Owner p_enum_specifier;
+        struct enumerator* _Owner p_enumerator;
+        struct struct_or_union_specifier* _Owner p_struct_or_union_specifier;
+        struct declarator* _Owner p_declarator;
+        struct init_declarator* _Owner p_init_declarator;
+        struct macro* _Owner p_macro;
+        struct struct_entry* _Owner p_struct_entry;
+        char* _Owner p_text;
     } data;
     
 };
 
 struct hash_map 
 {
-    struct map_entry* _Owner _Opt * _Owner _Opt table;
+    struct map_entry* _Owner _Nullable * _Owner table;
     int capacity;
     int  size;
 };
 
 void hashmap_remove_all(struct hash_map* map);
 void hashmap_destroy(_Dtor struct hash_map* map);
-const struct map_entry* _Opt hashmap_find_const(const struct hash_map* map, const char* key);
-struct map_entry* _Opt hashmap_find(const struct hash_map* map, const char* key);
-void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag* _Opt p_type_opt);
+const struct map_entry* hashmap_find_const(const struct hash_map* map, const char* key);
+struct map_entry* hashmap_find(const struct hash_map* map, const char* key);
+void* _Owner hashmap_remove(struct hash_map* map, const char* key, enum tag* _Nullable p_type_opt);
 
 /*
   hash_item_set is used to insert pointer with it type into a hashmap and also
@@ -88,14 +88,14 @@ void* _Owner _Opt hashmap_remove(struct hash_map* map, const char* key, enum tag
 struct hash_item_set
 {
     size_t  number;
-    struct enum_specifier* _Owner _Opt p_enum_specifier;
-    struct enumerator* _Owner _Opt p_enumerator;
-    struct struct_or_union_specifier* _Owner _Opt p_struct_or_union_specifier;
-    struct declarator* _Owner _Opt p_declarator;
-    struct init_declarator* _Owner _Opt p_init_declarator;
-    struct macro* _Owner _Opt p_macro;
-    struct struct_entry* _Owner _Opt p_struct_entry;
-    char* _Owner _Opt text;
+    struct enum_specifier* _Owner p_enum_specifier;
+    struct enumerator* _Owner p_enumerator;
+    struct struct_or_union_specifier* _Owner p_struct_or_union_specifier;
+    struct declarator* _Owner p_declarator;
+    struct init_declarator* _Owner p_init_declarator;
+    struct macro* _Owner p_macro;
+    struct struct_entry* _Owner p_struct_entry;
+    char* _Owner text;
 };
 void hash_item_set_destroy(_Dtor struct hash_item_set* p);
 

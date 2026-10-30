@@ -7,19 +7,19 @@ void free(void * _Owner _Opt p);
 
 void f(int * p, int * _Opt q)
 {
-    int * _Opt * pp1 = &p; //lint 54
-    int ** pp2 = &q; //lint 54
+    int * _Opt * pp1 = &p;
+    int ** pp2 = &q;
     int * _Opt const * pp4 = &p;
-    int * const * pp5 = &q; //lint 54
+    int * const * pp5 = &q;
 }
 
 void g()
 {
     char * _Owner s;
-    get(&s); //lint 54
+    get(&s);
     free(s);
 
-    char * _Owner _Opt s2;
+    char * _Owner s2;
     get2(&s2);
     free(s2);
 }

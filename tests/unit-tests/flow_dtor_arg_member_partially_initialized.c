@@ -3,7 +3,7 @@
 // a member initialized on only one path is still possibly uninitialized when
 // the struct is passed by pointer.
 
-struct X { int* _Owner _Opt p; };
+struct X { int* _Owner p; };
 
 void destroy(_Dtor struct X * x);
 

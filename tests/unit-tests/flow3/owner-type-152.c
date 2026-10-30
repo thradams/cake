@@ -3,7 +3,7 @@
 
 
 struct X {
-    char * _Owner _Opt text;
+    char * _Owner text;
 };
 
 void f(int condition) {

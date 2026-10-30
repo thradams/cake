@@ -2,7 +2,7 @@
 
 
 struct X {
-    char* _Owner p;
+    char* _Nonnull _Owner p;
 };
 void x_destroy(_Dtor struct X* p);
 

@@ -9,14 +9,14 @@ struct X
     int i;
 };
 
-void backwards_guard(struct X* _Opt p)
+void backwards_guard(struct X* _Nullable p)
 {
     if (p != NULL)
         return;
     p->i = 1; //lint 33 -> operator applied to a null pointer
 }
 
-int backwards_guard_return_value(struct X* _Opt p)
+int backwards_guard_return_value(struct X* _Nullable p)
 {
     if (p != NULL)
         return 1;
@@ -26,7 +26,7 @@ int backwards_guard_return_value(struct X* _Opt p)
 
 struct ctx
 {
-    struct X* _Opt p;
+    struct X* p;
 };
 
 void backwards_guard_member(struct ctx* c)
@@ -36,7 +36,7 @@ void backwards_guard_member(struct ctx* c)
     c->p->i = 1; //lint 33 -> operator applied to a null pointer
 }
 
-void backwards_guard_in_for(struct X* _Opt p, int n)
+void backwards_guard_in_for(struct X* _Nullable p, int n)
 {
     for (int i = 0; i < n; i++)
     {
@@ -46,7 +46,7 @@ void backwards_guard_in_for(struct X* _Opt p, int n)
     }
 }
 
-void backwards_guard_in_while(struct X* _Opt p)
+void backwards_guard_in_while(struct X* _Nullable p)
 {
     while (1)
     {
@@ -58,14 +58,14 @@ void backwards_guard_in_while(struct X* _Opt p)
 }
 
 /* contrast: the correct guard with `p == NULL` (a cast of 0 to pointer) is clean */
-void correct_guard(struct X* _Opt p)
+void correct_guard(struct X* _Nullable p)
 {
     if (p == NULL)
         return;
     p->i = 1; /* ok: p is non-null here */
 }
 
-void correct_guard_block_form(struct X* _Opt p)
+void correct_guard_block_form(struct X* _Nullable p)
 {
     if (p != NULL)
     {
@@ -73,7 +73,7 @@ void correct_guard_block_form(struct X* _Opt p)
     }
 }
 
-void unguarded_after_empty_if(struct X* _Opt p)
+void unguarded_after_empty_if(struct X* _Nullable p)
 {
     if (p != NULL)
     {

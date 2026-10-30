@@ -78,9 +78,9 @@ typedef struct TAGDIR DIR;
 #pragma CAKE diagnostic pop
 #endif
 
-DIR* _Owner _Opt opendir(const char* name);
+DIR* _Owner opendir(const char* name);
 int closedir(DIR* _Owner dirp);
-struct dirent* _Opt readdir(DIR* dirp);
+struct dirent* readdir(DIR* dirp);
 
 
 #else
@@ -122,9 +122,9 @@ struct dirent
     char d_name[256];
 };
 
-DIR* _Owner _Opt opendir(const char* name);
+DIR* _Owner opendir(const char* name);
 int closedir(DIR* _Owner dirp);
-struct dirent* _Opt readdir(DIR* dirp);
+struct dirent* readdir(DIR* dirp);
 #else
 #include <dirent.h>
 #endif
@@ -133,14 +133,14 @@ struct dirent* _Opt readdir(DIR* dirp);
 
 
 
-char* _Opt realpath(const char* restrict path, char* restrict resolved_path);
+char* realpath(const char* restrict path, char* restrict resolved_path);
 
 int get_self_path(char* buffer, int maxsize);
 
-char* _Owner _Opt read_file(const char* path, bool append_newline);
+char* _Owner read_file(const char* path, bool append_newline);
 
 /* the file as it is on disk: no BOM skipping, \r\n kept */
-char* _Owner _Opt read_file_binary(const char* path);
+char* _Owner read_file_binary(const char* path);
 bool file_exists(const char* path);
 #if !defined(__CATALYST__)
 /* an existing regular file (not a directory) */
@@ -151,11 +151,11 @@ long long file_mtime(const char* path);
 
 /* creates every folder of outdir after root (root itself must exist); 0 or errno */
 int create_multiple_paths(const char* root, const char* outdir);
-char* dirname(char* path);
-char* basename(const char* filename);
+char* _Nonnull dirname(char* path);
+char* _Nonnull basename(const char* filename);
 void remove_file_extension(const char* filename, int n, char out[/*n*/]);
 
-const char* get_posix_error_message(int error);
+const char* _Nonnull get_posix_error_message(int error);
 
 
 bool path_is_relative(const char* path);

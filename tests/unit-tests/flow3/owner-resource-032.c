@@ -6,7 +6,7 @@ void free(void* _Owner p);
 struct X
 {
     int i;
-    void* _Owner _Opt p;
+    void* _Owner p;
 };
 void f(const struct X* _Opt p);
 int main()

@@ -1,11 +1,11 @@
 #pragma safety enable
 
 int strcmp(const char* s1, const char* s2);
-char* _Opt f();
+char* f();
 
 int main()
 {
-    const char* _Opt s = f();
+    const char* s = f();
     if (s && strcmp(s, "a") == 0)
     {
     }

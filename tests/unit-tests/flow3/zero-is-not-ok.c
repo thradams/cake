@@ -3,10 +3,10 @@
 /* zero is a real state: using a zeroed non-_Opt pointer member (passing it, returning the aggregate) warns for both `= {0}` and calloc (_Clear); only the creation is clean */
 
 typedef unsigned long size_t;
-_Clear void* _Owner _Opt calloc(size_t n, size_t sz);
+_Clear void* _Owner calloc(size_t n, size_t sz);
 void free(void* _Owner _Opt p);
 
-struct X { char* p_non_null; };
+struct X { char* _Nonnull p_non_null; };
 
 void f(char* p);
 
@@ -28,7 +28,7 @@ struct X braced_return(void)
 
 void calloc_use(void)
 {
-    struct X* _Owner _Opt x = calloc(1, sizeof * x);   /* allowed */
+    struct X* _Owner x = calloc(1, sizeof * x);   /* allowed */
     if (x == 0) return;
     f(x->p_non_null);     /* warns: zeroed by calloc -> null */ //lint 35
     free(x);
@@ -37,7 +37,7 @@ void calloc_use(void)
 /* Assigning first is how you make it OK. */
 void calloc_assign_then_use(char* src)
 {
-    struct X* _Owner _Opt x = calloc(1, sizeof * x);
+    struct X* _Owner x = calloc(1, sizeof * x);
     if (x == 0) return;
     x->p_non_null = src;
     f(x->p_non_null);     /* ok: assigned */
@@ -53,10 +53,10 @@ void take(struct X* x);
 /* creating the storage is clean in both spellings (the split declare-then-assign form is how the parser is written) */
 void create_is_clean(void)
 {
-    struct X* _Owner _Opt a = calloc(1, sizeof * a);   /* clean */
+    struct X* _Owner a = calloc(1, sizeof * a);   /* clean */
     free(a);
 
-    struct X* _Owner _Opt b = 0;
+    struct X* _Owner b = 0;
     b = calloc(1, sizeof * b);                         /* clean */
     free(b);
 }
@@ -64,7 +64,7 @@ void create_is_clean(void)
 /* Filling it in: clean. This is the "in parts" half of the rule. */
 void completing_it_is_clean(char* src)
 {
-    struct X* _Owner _Opt x = calloc(1, sizeof * x);
+    struct X* _Owner x = calloc(1, sizeof * x);
     if (x == 0) return;
     x->p_non_null = src;  /* clean: this is completion */
     take(x);              /* clean: complete now */
@@ -74,7 +74,7 @@ void completing_it_is_clean(char* src)
 /* passing it while incomplete warns: the parameter type promises a non-null member (parser.c after the calloc) */
 void pass_while_incomplete_warns(void)
 {
-    struct X* _Owner _Opt x = calloc(1, sizeof * x);
+    struct X* _Owner x = calloc(1, sizeof * x);
     if (x == 0) return;
     take(x);              /* warns: incomplete */ //lint 35
     free(x);
@@ -91,7 +91,7 @@ void takev(struct X x);
 
 void by_value_still_warns(void)
 {
-    struct X* _Owner _Opt x = calloc(1, sizeof * x);
+    struct X* _Owner x = calloc(1, sizeof * x);
     if (x == 0) return;
     takev(*x);            /* warns: the null member is passed with the copy */ //lint 35
     free(x);

@@ -8,13 +8,13 @@ void free(void * _Owner _Opt p);
 void f1()
 {
     char * _Owner s;
-    get(&s); //lint 54
+    get(&s);
     free(s);
 }
 
 void f2()
 {
-    char * _Owner _Opt s;
+    char * _Owner s;
     get(&s);
     free(s);
 }

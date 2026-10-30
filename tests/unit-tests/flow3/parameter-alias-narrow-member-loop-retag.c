@@ -9,8 +9,8 @@
     call) comes back on the side input != dest.
 */
 
-struct token { int type; struct token* _Owner _Opt next; };
-struct token_list { struct token* _Owner _Opt head; struct token* _Opt tail; };
+struct token { int type; struct token* _Owner next; };
+struct token_list { struct token* _Owner head; struct token* tail; };
 void consume(struct token_list* _Opt dest, struct token_list* input);
 void use(const struct token* p);
 

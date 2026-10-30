@@ -2,5 +2,5 @@
 
 
 void f() {
-    _Owner int * _Opt p = 0;
+    _Owner int * p = 0;
 }

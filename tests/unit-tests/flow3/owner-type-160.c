@@ -1,7 +1,7 @@
 #pragma safety enable
 
 struct X {
-    char* _Owner text;
+    char* _Nonnull _Owner text;
 };
 
 void x_destroy(_Dtor struct X* p);

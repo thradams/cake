@@ -4,14 +4,14 @@
 
 struct expression { int kind; };
 
-void* _Owner _Opt calloc(int n, unsigned long size);
-void expression_delete(struct expression* _Owner _Opt p);
-struct expression* _Owner _Opt tail(struct expression* _Owner p);
+void* _Owner calloc(int n, unsigned long size);
+void expression_delete(struct expression* _Owner _Nullable p);
+struct expression* _Owner tail(struct expression* _Owner p);
 int step(void);
 
-struct expression* _Owner _Opt compound_literal(void)
+struct expression* _Owner compound_literal(void)
 {
-    struct expression* _Owner _Opt p = 0;
+    struct expression* _Owner p = 0;
     try
     {
         p = calloc(1, sizeof * p);

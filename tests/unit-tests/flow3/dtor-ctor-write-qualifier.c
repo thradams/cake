@@ -42,12 +42,12 @@ void use_ctor_pair_ok(void)
     // compile_assert(p.a == 1); // fails: any value, including zero
 }
 
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt p);
+char* _Owner strdup(const char* s);
+void free(void* _Owner _Nullable p);
 
 struct owned
 {
-    char* _Owner _Opt text;
+    char* _Owner text;
 };
 
 void ctor_owned_ok(_Out struct owned* p)

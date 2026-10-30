@@ -1,11 +1,11 @@
 #pragma safety enable
 
 struct X { int i; };
-_Bool get(struct X* _Opt* pp);
+_Bool get(struct X* _Nullable* pp);
 
-int f(int* _Opt e)
+int f(int* _Nullable e)
 {
-    struct X* _Opt p = 0;
+    struct X* p = 0;
     const _Bool ok = e != 0 && get(&p);
     if (!ok)
     {
@@ -19,9 +19,9 @@ int f(int* _Opt e)
     return 0;
 }
 
-int g(int* _Opt e)
+int g(int* _Nullable e)
 {
-    struct X* _Opt p = 0;
+    struct X* p = 0;
     if (e != 0 && get(&p))
     {
         if (p != 0)

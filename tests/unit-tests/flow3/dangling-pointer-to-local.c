@@ -10,7 +10,7 @@ struct X
 /* escapes through one branch only: p->i is dangling or null either way */
 void f(int condition)
 {
-   struct X * _Opt p = 0;
+   struct X * p = 0;
    if (condition)
    {
      struct X x = {};
@@ -22,7 +22,7 @@ void f(int condition)
 /* Escapes through BOTH branches -- p is never null here, only dangling. */
 void both_branches_escape(int condition)
 {
-    struct X* _Opt p = 0;
+    struct X* p = 0;
     if (condition)
     {
         struct X x = {};

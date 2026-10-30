@@ -2,21 +2,21 @@
 
 
 struct item {
-    struct item* _Owner _Opt next;
+    struct item* _Owner next;
 };
 void item_delete(struct item* _Owner p);
 
 struct list {
-    struct item* _Owner _Opt head;
-    struct item* _Opt tail;
+    struct item* _Owner head;
+    struct item* tail;
 };
 
 void list_destroy(_Dtor struct list*  list)
 {
-    struct item* _Owner _Opt p = list->head; // ok: loop frees every node; p is NULL on exit
+    struct item* _Owner p = list->head; // ok: loop frees every node; p is NULL on exit
     while (p)
     {
-        struct item* _Owner _Opt next = p->next;
+        struct item* _Owner next = p->next;
         p->next = 0;
         item_delete(p);
         p = next;

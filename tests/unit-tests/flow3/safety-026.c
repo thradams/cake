@@ -1,7 +1,7 @@
 #pragma safety enable
 
 /* returns a non-null pointer */
-int* f();
+int* _Nonnull f();
 
 int main()
 {

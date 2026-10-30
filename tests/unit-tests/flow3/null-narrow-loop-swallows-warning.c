@@ -4,14 +4,14 @@
 
 struct node
 {
-    struct node* _Opt next;
+    struct node* next;
 };
 
-struct node* _Opt get();
+struct node* get();
 
 void seq_first_only(void)
 {
-    struct node* _Opt p = get();
+    struct node* p = get();
     p = p->next; //lint 33 -> operator applied to a null pointer
     p = p->next; //lint 33 -> operator applied to a null pointer
 }
@@ -19,7 +19,7 @@ void seq_first_only(void)
 void loop_swallows_it_entirely(int n)
 {
     /* same access as seq_first_only, flagged even in the loop's increment */
-    for (struct node* _Opt p = get(); n > 0; p = p->next) // -> operator applied to a null pointer
+    for (struct node* p = get(); n > 0; p = p->next) // -> operator applied to a null pointer
     {
         n--;
     }

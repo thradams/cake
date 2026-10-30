@@ -1,7 +1,7 @@
 #pragma safety enable
 
 
-void * f();
+void * _Nonnull f();
 int main() {
-  void * _Owner _Opt p = 0;
+  void * _Owner p = 0;
 }

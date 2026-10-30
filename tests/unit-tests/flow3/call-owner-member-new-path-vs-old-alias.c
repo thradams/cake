@@ -8,7 +8,7 @@
 
 struct token
 {
-    struct token* _Owner _Opt next;
+    struct token* _Owner next;
     int type;
 };
 
@@ -17,14 +17,14 @@ void f(struct token* p);
 void new_path(struct token* p)
 {
     f(p);
-    struct token* _Opt q = p->next; /* ok: new path */
+    struct token* q = p->next; /* ok: new path */
     if (q)
         q->type = 1;
 }
 
 void old_alias(struct token* p)
 {
-    struct token* _Opt old = p->next;
+    struct token* old = p->next;
     f(p);
     if (old)
         old->type = 1; //lint 31 the old object may have been deleted
@@ -35,7 +35,7 @@ void one_path(struct token* p, int c)
 {
     if (c)
         f(p);
-    struct token* _Opt q = p->next; /* ok */
+    struct token* q = p->next; /* ok */
     if (q)
         q->type = 1;
 }
@@ -43,7 +43,7 @@ void one_path(struct token* p, int c)
 /* do-while: false positive 31 on ptk->next (the same loop as while does not warn) */
 void do_while_walk(struct token* first)
 {
-    struct token* _Opt ptk = first;
+    struct token* ptk = first;
     do
     {
         if (ptk == 0)

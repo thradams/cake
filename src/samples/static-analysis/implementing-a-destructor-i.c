@@ -4,7 +4,7 @@
 #include <string.h>
 
 struct X {
-    char *_Owner _Opt name;
+    char *_Owner name;
 };
 
 void x_destroy(struct X x)

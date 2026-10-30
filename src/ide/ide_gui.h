@@ -127,6 +127,8 @@ struct gui_theme
 
     uint32_t window_border_fg, window_border_bg, window_border_fg_dragging,
         window_border_fg_unfocused, window_close_bg;
+    uint32_t window_border_fg_docked;  /* a focused docked window's frame */
+    uint32_t window_border_fg_playground;  /* a focused window marked by gui_window_set_playground */
     enum gui_border_style window_border_style;  /* a focused/dragging <window>'s
                                                  * frame */
     enum gui_border_style window_border_style_unfocused;  /* an unfocused
@@ -530,6 +532,8 @@ void gui_window_free(struct gui_app* app, struct gui_node* win);
     top window.
 */
 void gui_window_set_ask_close(struct gui_node* win, int ask);
+/* win's focused frame uses the theme's window_border_fg_playground. */
+void gui_window_set_playground(struct gui_node* win, int playground);
 int gui_window_count(const struct gui_app* app);           /* open windows */
 struct gui_node* gui_window_at(const struct gui_app* app, int i);  /* 0 = bottom */
 

@@ -36,7 +36,7 @@
 #endif
 
 
-bool token_is_newline(const struct token* _Opt token)
+bool token_is_newline(const struct token* _Nullable token)
 {
     if (token == NULL)
         return false;
@@ -44,7 +44,7 @@ bool token_is_newline(const struct token* _Opt token)
     return token->type == TK_NEWLINE;
 }
 
-bool token_is_one_space(const struct token* _Opt token)
+bool token_is_one_space(const struct token* _Nullable token)
 {
     if (token == NULL)
         return false;
@@ -59,10 +59,10 @@ void print_literal2(const char* s);
 
 void token_list_clear(_Clear struct token_list* list)
 {
-    struct token* _Owner _Opt p = list->head;
+    struct token* _Owner p = list->head;
     while (p)
     {
-        struct token* _Owner _Opt next = p->next;
+        struct token* _Owner next = p->next;
         p->next = NULL;
         token_delete(p);
         p = next;
@@ -103,7 +103,7 @@ void token_list_pop_front(struct token_list* list)
     if (list->head == NULL)
         return;
 
-    struct token* _Owner _Opt p = list->head;
+    struct token* _Owner p = list->head;
     assert(p->prev == NULL);
 
     if (list->head == list->tail)
@@ -124,12 +124,12 @@ void token_list_pop_front(struct token_list* list)
     assert(list->head == NULL || list->head->prev == NULL);
 }
 
-struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)
+struct token* _Owner token_list_pop_front_get(struct token_list* list)
 {
     if (list->head == NULL)
         return NULL;
 
-    struct token* _Owner _Opt old_head = list->head;
+    struct token* _Owner old_head = list->head;
 
     list->head = old_head->next; // move head forward
 
@@ -156,7 +156,7 @@ void token_list_swap(struct token_list* a, struct token_list* b)
     *b = temp;
 }
 
-void token_delete(_Dtor struct token* _Owner _Opt p)
+void token_delete(_Dtor struct token* _Owner _Nullable p)
 {
     if (p)
     {
@@ -170,9 +170,9 @@ void token_delete(_Dtor struct token* _Owner _Opt p)
     }
 }
 
-void token_list_set_file(struct token_list* list, const struct token* _Opt filetoken, int line, int col)
+void token_list_set_file(struct token_list* list, const struct token* _Nullable filetoken, int line, int col)
 {
-    struct token* _Opt p = list->head;
+    struct token* p = list->head;
     while (p)
     {
         p->token_origin = filetoken;
@@ -182,25 +182,25 @@ void token_list_set_file(struct token_list* list, const struct token* _Opt filet
     }
 }
 
-void token_list_destroy(_Opt _Dtor struct token_list* list)
+void token_list_destroy(_Dtor struct token_list* list)
 {
-    struct token* _Owner _Opt p = list->head;
+    struct token* _Owner p = list->head;
     while (p)
     {
-        struct token* _Owner _Opt next = p->next;
+        struct token* _Owner next = p->next;
         p->next = NULL;
         token_delete(p);
         p = next;
     }
 }
 
-char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral)
+char* _Owner token_list_join_tokens(struct token_list* list, bool bliteral)
 {
     struct osstream ss = { 0 };
     if (bliteral)
         ss_fprintf(&ss, "\"");
     bool has_space = false;
-    struct token* _Opt current = list->head;
+    struct token* current = list->head;
 
     while (current)
     {
@@ -235,7 +235,7 @@ char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
 
-    char* _Owner _Opt cstr = ss.c_str;
+    char* _Owner cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -245,8 +245,8 @@ char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral)
 
 bool token_list_is_equal(const struct token_list* list_a, const struct token_list* list_b)
 {
-    const struct token* _Opt p_tka = list_a->head;
-    const struct token* _Opt p_tkb = list_b->head;
+    const struct token* p_tka = list_a->head;
+    const struct token* p_tkb = list_b->head;
 
     while (p_tka && p_tkb)
     {
@@ -263,7 +263,7 @@ bool token_list_is_equal(const struct token_list* list_a, const struct token_lis
     return p_tka == NULL && p_tkb == NULL;
 }
 
-struct token* token_list_add(struct token_list* list, struct token* _Owner pnew)
+struct token* _Nonnull token_list_add(struct token_list* list, struct token* _Owner pnew)
 {
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
@@ -392,6 +392,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_CAKE_CLEAR:
     case TK_KEYWORD_CAKE_VIEW:
     case TK_KEYWORD_CAKE_OPT:
+    case TK_KEYWORD_CAKE_NONNULL:
 
 
         /*extension compile time functions*/
@@ -421,7 +422,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
 
 
 
-bool token_is_final(const struct token* _Opt p)
+bool token_is_final(const struct token* _Nullable p)
 {
     if (p == NULL)
         return false;
@@ -437,9 +438,9 @@ bool token_is_blank(const struct token* p)
         p->type == TK_COMMENT;
 }
 
-struct token* _Opt token_list_clone_and_add(struct token_list* list, const struct token* pnew)
+struct token* token_list_clone_and_add(struct token_list* list, const struct token* pnew)
 {
-    struct token* _Owner _Opt clone = clone_token(pnew);
+    struct token* _Owner clone = clone_token(pnew);
 
     if (clone == NULL)
         return NULL;
@@ -497,13 +498,13 @@ void token_list_append_list(struct token_list* restrict dest, _Clear struct toke
 }
 
 
-struct token* _Owner _Opt clone_token(const struct token* p)
+struct token* _Owner clone_token(const struct token* p)
 {
-    _Opt struct token* _Owner _Opt token = calloc(1, sizeof * token);
+    _Nullable struct token* _Owner token = calloc(1, sizeof * token);
     if (token == NULL)
         return NULL;
 
-    char* _Owner _Opt lexeme = strdup(p->lexeme);
+    char* _Owner lexeme = strdup(p->lexeme);
     if (lexeme == NULL)
     {
         free(token);
@@ -529,8 +530,8 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 
     struct token_list r = { 0 };
 
-    struct token* _Opt before_first = first->prev;
-    struct token* _Owner _Opt after_last = last->next; /*MOVED*/
+    struct token* before_first = first->prev;
+    struct token* _Owner after_last = last->next; /*MOVED*/
 
     if (before_first)
     {
@@ -652,14 +653,14 @@ void print_token(bool color_enabled, const struct token* p_token)
         printf(COLOR_RESET);
 }
 
-void print_tokens(bool color_enabled, const struct token* _Opt p_token)
+void print_tokens(bool color_enabled, const struct token* _Nullable p_token)
 {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 
     if (color_enabled)
         printf(COLOR_RESET);
 
-    const struct token* _Opt current = p_token;
+    const struct token* current = p_token;
     while (current)
     {
         print_token(color_enabled, current);
@@ -717,7 +718,7 @@ bool token_is_find_definition_cursor(const struct token* p_token, const struct o
     return token_is_in_find_definition_file(p_token, options);
 }
 
-void print_position(const char* _Opt path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath)
+void print_position(const char* _Nullable path, int line, int col, enum diagnostic_ouput_format format, bool color_enabled, bool fullpath)
 {
     struct osstream ss = { 0 };
     ss_print_position(&ss,
@@ -740,13 +741,20 @@ void print_line_and_token(struct marker* p_marker, bool color_enabled)
     ss_close(&ss);
 }
 
+/* expanded tokens are not followed by blank tokens; their spacing is only a flag */
+static bool expanded_has_space(const struct token* p_token)
+{
+    return (p_token->flags & TK_FLAG_MACRO_EXPANDED) &&
+           (p_token->flags & (TK_FLAG_HAS_SPACE_BEFORE | TK_FLAG_HAS_NEWLINE_BEFORE));
+}
+
 static void ss_print_path(struct osstream* ss, const char* path, bool fullpath)
 {
     const char* p = path;
 
     if (!fullpath)
     {
-        const char* _Opt last = NULL;
+        const char* last = NULL;
         while (*p)
         {
             if (*p == '/' || *p == '\\')
@@ -771,7 +779,7 @@ static void ss_print_path(struct osstream* ss, const char* path, bool fullpath)
 }
 
 void ss_print_position(struct osstream* ss,
-                       const char* _Opt path,
+                       const char* _Nullable path,
                        int line, int col,
                        enum diagnostic_ouput_format format,
                        bool color_enabled,
@@ -800,7 +808,7 @@ void ss_print_position(struct osstream* ss,
 }
 
 void ss_print_diagnostic_header(struct osstream* ss,
-                                const char* _Opt path,
+                                const char* _Nullable path,
                                 int line, int col,
                                 enum diagnostic_ouput_format format,
                                 bool color_enabled,
@@ -857,7 +865,7 @@ void ss_print_line_and_token(struct osstream* ss,
 {
     try
     {
-        const struct token* _Opt p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
+        const struct token* p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
 
         if (p_token == NULL)
             throw;
@@ -878,8 +886,8 @@ void ss_print_line_and_token(struct osstream* ss,
             p_line_begin = p_line_begin->prev;
         }
 
-        const struct token* _Opt p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
-        const struct token* _Opt p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
+        const struct token* p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
+        const struct token* p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
 
         if (p_token_begin == NULL)
             throw;
@@ -895,7 +903,7 @@ void ss_print_line_and_token(struct osstream* ss,
             ss_fprintf(ss, LIGHTBLUE);
 
         bool in_expansion = false;
-        const struct token* _Opt p_item = p_line_begin;
+        const struct token* p_item = p_line_begin;
         while (p_item)
         {
             if (mark_expansion)
@@ -928,6 +936,9 @@ void ss_print_line_and_token(struct osstream* ss,
 
             if (!(p_item->flags & TK_FLAG_MACRO_EXPANDED) || expand_macro)
             {
+                if (expanded_has_space(p_item))
+                    ss_fprintf(ss, " ");
+
                 const char* p = p_item->lexeme;
 
                 if (p_item->type == TK_LINE_COMMENT)
@@ -1005,6 +1016,9 @@ void ss_print_line_and_token(struct osstream* ss,
 
             if (!expanded || expand_macro)
             {
+                if (expanded_has_space(p_item))
+                    ss_fprintf(ss, "%c", onoff && p_item != p_token_begin ? '~' : ' ');
+
                 const char* p = p_item->lexeme;
                 while (*p)
                 {
@@ -1128,7 +1142,7 @@ static void hexadecimal_digit_sequence(struct stream* stream)
     /*
      hexadecimal-digit-sequence:
      hexadecimal-digit
-     hexadecimal-digit ’_Opt hexadecimal-digit
+     hexadecimal-digit ’_Nullable hexadecimal-digit
     */
 
     stream_match(stream);
@@ -1567,7 +1581,7 @@ enum token_type parse_number(const char* lexeme, char suffix[4], _Out char errms
     U+10000 65536 | U+10FFFF 69631 | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx
 */
 
-const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Out unsigned int* c)
+const unsigned char* str_utf8_decode(const unsigned char* s, _Out unsigned int* c)
 {
     *c = 0; /* out */
 
@@ -1577,7 +1591,7 @@ const unsigned char* _Opt str_utf8_decode(const unsigned char* s, _Out unsigned 
         return NULL; /* end */
     }
 
-    const unsigned char* _Opt next = NULL;
+    const unsigned char* next = NULL;
     if (s[0] < 0x80)
     {
         *c = s[0];
@@ -1633,7 +1647,7 @@ static bool is_hex_digit(unsigned char c)
     return false;
 }
 
-const unsigned char* _Opt escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
+const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigned int* out_value)
 {
     /*
       caller must skip the / before calling this function
@@ -1779,7 +1793,7 @@ void token_list_remove_get_test()
     struct token_list r = {0};
     try
     {
-        struct token* _Opt _Owner pnew = calloc(1, sizeof * pnew);
+        struct token* _Owner pnew = calloc(1, sizeof * pnew);
         if (pnew == NULL) throw;
         
         token_list_add(&list, pnew); //lint 35 
@@ -1800,11 +1814,11 @@ void token_list_remove_get_test2()
     struct token_list r = {0};
     try
     {
-        struct token* _Owner _Opt pnew1 = calloc(1, sizeof * pnew1);
+        struct token* _Owner pnew1 = calloc(1, sizeof * pnew1);
         if (pnew1 == NULL) throw;
 
         token_list_add(&list, pnew1); //35 35 35 35 35 35 35
-        struct token* _Owner _Opt pnew2 = calloc(1, sizeof * pnew2);
+        struct token* _Owner pnew2 = calloc(1, sizeof * pnew2);
         if (pnew2 == NULL) throw;
 
         token_list_add(&list, pnew2); //lint 35 35
@@ -1907,9 +1921,9 @@ static bool rename_list_contains(const struct rename_list* list, const struct re
     return found;
 }
 
-void rename_record(struct options* options, const struct token* p_token, const struct token* _Opt p_declaration_name)
+void rename_record(struct options* options, const struct token* p_token, const struct token* _Nullable p_declaration_name)
 {
-    struct rename_list* _Opt list = options->p_rename_list;
+    struct rename_list* list = options->p_rename_list;
     if (list == NULL || p_declaration_name == NULL ||
         p_declaration_name->token_origin == NULL || p_token->token_origin == NULL ||
         (p_token->flags & TK_FLAG_MACRO_EXPANDED) ||
@@ -1921,15 +1935,15 @@ void rename_record(struct options* options, const struct token* p_token, const s
     if (list->pending_size == list->pending_capacity)
     {
         const int capacity = list->pending_capacity == 0 ? 16 : list->pending_capacity * 2;
-        struct rename_pending* _Owner _Opt p = realloc(list->pending, capacity * sizeof(struct rename_pending));
+        struct rename_pending* _Owner p = realloc(list->pending, capacity * sizeof(struct rename_pending));
         if (p == NULL)
             return;
         list->pending = p; //lint 26
         list->pending_capacity = capacity;
     }
 
-    char* _Owner _Opt file_copy = strdup(p_token->token_origin->lexeme);
-    char* _Owner _Opt declaration_file_copy = strdup(p_declaration_name->token_origin->lexeme);
+    char* _Owner file_copy = strdup(p_token->token_origin->lexeme);
+    char* _Owner declaration_file_copy = strdup(p_declaration_name->token_origin->lexeme);
     if (file_copy == NULL || declaration_file_copy == NULL)
     {
         free(file_copy);
@@ -1978,7 +1992,7 @@ bool rename_list_commit(struct rename_list* list, const struct options* options)
             if (list->size == list->capacity)
             {
                 const int capacity = list->capacity == 0 ? 16 : list->capacity * 2;
-                struct rename_item* _Owner _Opt p = realloc(list->data, capacity * sizeof(struct rename_item));
+                struct rename_item* _Owner p = realloc(list->data, capacity * sizeof(struct rename_item));
                 if (p == NULL)
                     break;
                 list->data = p; //lint 26
@@ -2006,7 +2020,7 @@ bool rename_list_commit(struct rename_list* list, const struct options* options)
 
 static void rename_pairs_swap(struct rename_list* list, struct rename_pairs* pairs)
 {
-    struct rename_pending* _Owner _Opt data = list->pending;
+    struct rename_pending* _Owner data = list->pending;
     const int size = list->pending_size;
     const int capacity = list->pending_capacity;
     list->pending = pairs->data;

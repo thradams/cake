@@ -1,7 +1,7 @@
 #pragma safety enable
 
 
-char* _Opt f()
+char* f()
 {
     //char* _Owner _Opt p = 0;    
     //return p;

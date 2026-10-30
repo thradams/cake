@@ -19,13 +19,13 @@
 union flow_alt_pool_node
 {
     struct flow_alternative alt;
-    union flow_alt_pool_node* _Opt next;
+    union flow_alt_pool_node* next;
 };
 
 struct flow_alt_pool
 {
-    union flow_alt_pool_node* _Opt free_list;
-    union flow_alt_pool_node* _Owner _Opt* _Owner _Opt blocks;
+    union flow_alt_pool_node* free_list;
+    union flow_alt_pool_node* _Owner _Nullable* _Owner blocks;
     int blocks_size;
     int blocks_capacity;
     int live_count; /* nodes handed out and not yet returned */
@@ -33,11 +33,11 @@ struct flow_alt_pool
 
 static struct flow_alt_pool g_flow_alt_pool = { 0 };
 
-static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_pool* pool)
+static struct flow_alternative* _Owner flow_alt_pool_alloc(struct flow_alt_pool* pool)
 {
     if (pool->free_list == NULL)
     {
-        union flow_alt_pool_node* _Owner _Opt block =
+        union flow_alt_pool_node* _Owner block =
             calloc(FLOW_ALT_POOL_BLOCK_NODES, sizeof(union flow_alt_pool_node));
         if (block == NULL)
             return NULL;
@@ -45,7 +45,7 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
         if (pool->blocks_size == pool->blocks_capacity)
         {
             int new_capacity = pool->blocks_capacity == 0 ? 8 : pool->blocks_capacity * 2;
-            union flow_alt_pool_node* _Owner _Opt* _Owner _Opt new_blocks =
+            union flow_alt_pool_node* _Owner _Nullable* _Owner new_blocks =
                 realloc(pool->blocks, new_capacity * sizeof(union flow_alt_pool_node*));
             if (new_blocks == NULL)
             {
@@ -83,7 +83,7 @@ static struct flow_alternative* _Opt _Owner flow_alt_pool_alloc(struct flow_alt_
         cast is the established idiom (see free-opt-owner-cast.c) for opting
         a pointer into the ownership contract at the use site.
     */
-    return (struct flow_alternative* _Opt _Owner) & node->alt;
+    return (struct flow_alternative* _Owner) & node->alt;
 }
 
 static void flow_alt_pool_free_all(_Clear struct flow_alt_pool* pool)
@@ -107,7 +107,7 @@ void flow_alternatives_pool_shutdown(void)
     flow_alt_pool_free_all(&g_flow_alt_pool);
 }
 
-static void flow_alt_pool_free(struct flow_alt_pool* pool, struct flow_alternative* _Owner _Opt p)
+static void flow_alt_pool_free(struct flow_alt_pool* pool, struct flow_alternative* _Owner _Nullable p)
 {
     if (p == NULL)
         return;
@@ -140,7 +140,7 @@ static bool flow_alternatives_grow(struct flow_alternatives* vs)
         else
             new_capacity = vs->capacity + vs->capacity / 2; /* +50% */
 
-        struct flow_alternative* _Owner _Opt* _Owner _Opt p =
+        struct flow_alternative* _Owner _Nullable* _Owner p =
             realloc(vs->data, (size_t)new_capacity * sizeof(struct flow_alternative*));
 
         if (p == NULL) throw;
@@ -181,7 +181,7 @@ void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alter
             throw;
         }
 
-        struct flow_alternative* _Opt _Owner p_new = flow_alt_pool_alloc(&g_flow_alt_pool);
+        struct flow_alternative* _Owner p_new = flow_alt_pool_alloc(&g_flow_alt_pool);
         if (p_new == NULL)
         {
             throw;
@@ -204,7 +204,7 @@ void flow_alternatives_push(struct flow_alternatives* vs, const struct flow_alte
             throw;
         }
 
-        struct flow_alternative* _Opt _Owner p_new = flow_alt_pool_alloc(&g_flow_alt_pool);
+        struct flow_alternative* _Owner p_new = flow_alt_pool_alloc(&g_flow_alt_pool);
         if (p_new == NULL)
         {
             throw;
@@ -220,11 +220,11 @@ void flow_alternatives_push(struct flow_alternatives* vs, const struct flow_alte
 
 struct flow_alt_sort_item
 {
-    const struct flow_alternative* p_alternative;
+    const struct flow_alternative* _Nonnull p_alternative;
     int index;
 };
 
-static int flow_alt_compare_ptr(const void* _Opt p_left, const void* _Opt p_right)
+static int flow_alt_compare_ptr(const void* _Nullable p_left, const void* _Nullable p_right)
 {
     int result = 0;
     if ((uintptr_t)p_left < (uintptr_t)p_right)
@@ -295,7 +295,7 @@ static int flow_alt_sort_item_compare(const void* p_left_void, const void* p_rig
     return result;
 }
 
-static int flow_branch_depth(const struct flow_branch* _Opt p)
+static int flow_branch_depth(const struct flow_branch* _Nullable p)
 {
     int depth = 0;
     for (; p; p = p->p_parent_map)
@@ -304,7 +304,7 @@ static int flow_branch_depth(const struct flow_branch* _Opt p)
 }
 
 /* The deepest map both a and b are under (NULL when they share none). */
-static const struct flow_branch* _Opt flow_branch_common_ancestor(const struct flow_branch* _Opt a, const struct flow_branch* _Opt b)
+static const struct flow_branch* flow_branch_common_ancestor(const struct flow_branch* _Nullable a, const struct flow_branch* _Nullable b)
 {
     int depth_a = flow_branch_depth(a);
     int depth_b = flow_branch_depth(b);
@@ -344,8 +344,8 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
         O(n log n): sort (alternative, index) pairs, mark every entry that equals
         its sorted predecessor, then compact keeping the original order.
     */
-    struct flow_alt_sort_item* _Owner _Opt items = NULL;
-    bool* _Owner _Opt is_duplicate = NULL;
+    struct flow_alt_sort_item* _Owner items = NULL;
+    bool* _Owner is_duplicate = NULL;
     try
     {
         if (vs->size < 2)
@@ -390,7 +390,7 @@ void flow_alternatives_remove_duplicates(struct flow_alternatives* vs)
             if (origins > FLOW_ALT_MAX_ORIGINS_PER_VALUE)
             {
                 int keep = items[group_begin].index;
-                const struct flow_branch* _Opt p_common = items[group_begin].p_alternative->p_origin_map;
+                const struct flow_branch* p_common = items[group_begin].p_alternative->p_origin_map;
                 for (int k = group_begin + 1; k < i; k++)
                 {
                     p_common = flow_branch_common_ancestor(p_common, items[k].p_alternative->p_origin_map);
@@ -487,7 +487,7 @@ bool flow_alternative_is_dead(const struct flow_alternative* alt)
         usually recorded in a map nested inside the dead arm (the assignment's
         own map), which is not flagged -- only the arm the fold killed is.
     */
-    for (const struct flow_branch* _Opt m = alt->p_origin_map; m != NULL; m = m->p_parent_map)
+    for (const struct flow_branch* m = alt->p_origin_map; m != NULL; m = m->p_parent_map)
     {
         if (m->is_unreachable)
         {
@@ -643,7 +643,7 @@ void flow_alternative_print(const struct flow_alternative* alt)
 {
     struct osstream ss = { 0 };
     flow_alternative_sprint(&ss, alt);
-    printf("%s", ss.c_str);
+    printf("%s", empty_if_null(ss.c_str));
     ss_close(&ss);
 }
 

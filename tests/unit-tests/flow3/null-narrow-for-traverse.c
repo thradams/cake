@@ -4,15 +4,15 @@
 
 struct node
 {
-    struct node* _Opt next;
+    struct node* next;
     int value;
 };
 
-struct node* _Opt get();
+struct node* get();
 
 void traverse(void)
 {
-    for (struct node* _Opt p = get(); p; p = p->next)
+    for (struct node* p = get(); p; p = p->next)
     {
         /* p narrowed to non-null by the for-condition -- safe to call p-> */
         int v = p->value;
@@ -22,7 +22,7 @@ void traverse(void)
 
 void traverse_unguarded(int n)
 {
-    for (struct node* _Opt p = get(); n > 0; p = p->next) // -> operator applied to a null pointer
+    for (struct node* p = get(); n > 0; p = p->next) // -> operator applied to a null pointer
     {
         n--;
     }

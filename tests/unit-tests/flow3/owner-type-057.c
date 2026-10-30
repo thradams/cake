@@ -2,10 +2,10 @@
 
 struct X
 {
-    char* _Owner _Opt p;
+    char* _Owner p;
 };
 
-char* _Owner _Opt strdup(const char* s);
+char* _Owner strdup(const char* s);
 
 int main()
 {

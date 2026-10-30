@@ -5,8 +5,8 @@
 struct token { int x; };
 
 struct declaration {
-    struct token* first_token;
-    struct token* last_token; /* non-nullable */
+    struct token* _Nonnull first_token;
+    struct token* _Nonnull last_token; /* non-nullable */
 };
 
 void make(int kind, struct token* t)

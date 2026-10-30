@@ -2,7 +2,7 @@
 
 
 
-void* f();
+void* _Nonnull f();
 int main()
 {
     //cannot assign a non-owner to owner

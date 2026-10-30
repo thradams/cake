@@ -2,11 +2,11 @@
 
 /* `if (p)` on a non-_Opt p keeps a path where the body never ran and .name stays _Uninitialized; an uninitialized owner owns nothing, so free(p) is not a leak */
 
-_Uninitialized void * _Owner malloc(int i);
+_Uninitialized void * _Nonnull _Owner malloc(int i);
 void free( void * _Owner _Opt p);
 
 struct X {
-  char * _Owner name;
+  char * _Nonnull _Owner name;
 };
 
 int main() {

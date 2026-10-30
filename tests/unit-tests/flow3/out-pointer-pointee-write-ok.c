@@ -1,7 +1,7 @@
 #pragma safety enable
 
 
-void construct(int* _Out* pp, int* v)
+void construct(int* _Nonnull _Out* pp, int* v)
 {
     *pp = v;
 }

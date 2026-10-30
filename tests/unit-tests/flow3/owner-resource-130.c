@@ -1,11 +1,11 @@
 #pragma safety enable
 
 
-_Uninitialized void* _Owner malloc(unsigned long size);
+_Uninitialized void* _Nonnull _Owner malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);
 
 struct X {
-    char* _Owner _Opt text;
+    char* _Owner text;
 };
 
 void f(struct X* _Owner p1, struct X* _Out _Owner* p2)
@@ -19,12 +19,12 @@ int main()
     if (p1)
     {
         p1->text = 0;
-        struct X* _Owner _Opt p2 = 0;
+        struct X* _Owner p2 = 0;
         f(p1, &p2);
 
         //warning: pointer may be null (p2)
 
-        free(p2->text);
+        free(p2->text); //lint 33
 
         free(p2);
     }

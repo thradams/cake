@@ -2,11 +2,11 @@
 
 
 void free(void* _Owner _Opt p);
-char* _Owner _Opt strdup(const char* s);
+char* _Owner strdup(const char* s);
 
 struct X
 {
-    const char* _Owner _Opt text;
+    const char* _Owner text;
     int i;
 };
 
@@ -37,7 +37,7 @@ void freed_first_is_fine(void)
 {
     struct X x = { 0 };
     x.text = strdup("a");
-    free((void* _Owner _Opt)x.text);
+    free((void* _Owner)x.text);
     x.text = 0;
     hard_clearing(&x);
 }

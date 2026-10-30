@@ -2,7 +2,7 @@
 
 /* a _Dtor call on one member ends only that member, later access to sibling members must not warn (codegen_visit_ctx_destroy) */
 
-struct hash_map { int* _Owner _Opt data; };
+struct hash_map { int* _Owner data; };
 void hashmap_destroy(_Dtor struct hash_map* map);
 
 struct ctx {
@@ -22,7 +22,7 @@ void destroy_members_one_by_one(_Dtor struct ctx* ctx)
 /* genuine reuse of the destroyed member is still caught: its contents are uninitialized (30), the storage itself still exists */
 struct node { int x; };
 void destroy_node(_Dtor struct node* n);
-struct holder { struct node* _Owner a; };
+struct holder { struct node* _Nonnull _Owner a; };
 
 int use_after_destroy_same_member_warns(_Dtor struct holder* h)
 {

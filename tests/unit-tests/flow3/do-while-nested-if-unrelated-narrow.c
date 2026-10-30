@@ -5,7 +5,7 @@
 
 struct token
 {
-    struct token* _Owner _Opt next;
+    struct token* _Owner next;
     int flags;
     int type;
 };
@@ -15,7 +15,7 @@ void f(struct token* p);
 void use(struct token* first_token, struct token* last_token)
 {
     int opened = 0;
-    struct token* _Opt ptk = first_token;
+    struct token* ptk = first_token;
     do
     {
         if (ptk == NULL)
@@ -41,7 +41,7 @@ void use(struct token* first_token, struct token* last_token)
 void use_after_loop(struct token* first_token, struct token* last_token)
 {
     int opened = 0;
-    struct token* _Opt ptk = first_token;
+    struct token* ptk = first_token;
     do
     {
         if (ptk == NULL)

@@ -1,7 +1,7 @@
 /* a struct copied by value carries its pointers without the const of where it came from */
 
 struct item { int value; };
-struct holder { struct item* item; };
+struct holder { struct item* _Nonnull item; };
 struct plain { int a; int b; };
 
 void take(struct holder h);

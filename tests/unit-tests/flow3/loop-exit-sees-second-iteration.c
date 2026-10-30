@@ -5,14 +5,14 @@
 
 /* the loop exit also gets a "left after two or more iterations" arm, so `if (b != 0)` after the loop is not always false (tokenizer.c #line) */
 
-struct token { int type; struct token* _Opt next; };
+struct token { int type; struct token* next; };
 
-void with_for(struct token* _Opt head)
+void with_for(struct token* _Nullable head)
 {
-    struct token* _Opt a = 0;
-    struct token* _Opt b = 0;
+    struct token* a = 0;
+    struct token* b = 0;
 
-    for (struct token* _Opt p = head; p; p = p->next)
+    for (struct token* p = head; p; p = p->next)
     {
         if (a == 0)
         {
@@ -31,11 +31,11 @@ void with_for(struct token* _Opt head)
     }
 }
 
-void with_while(struct token* _Opt head)
+void with_while(struct token* _Nullable head)
 {
-    struct token* _Opt a = 0;
-    struct token* _Opt b = 0;
-    struct token* _Opt p = head;
+    struct token* a = 0;
+    struct token* b = 0;
+    struct token* p = head;
 
     while (p)
     {

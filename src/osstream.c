@@ -39,7 +39,7 @@ static int reserve(struct osstream* stream, int size)
     int errorcode = 0;
     if (size > stream->capacity)
     {
-        void* _Owner _Opt pnew = realloc(stream->c_str, (size + 1) * sizeof(char));
+        void* _Owner pnew = realloc(stream->c_str, (size + 1) * sizeof(char));
         if (pnew)
         {
             stream->c_str = pnew; //lint 26 (realloc)
@@ -134,4 +134,9 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
     va_end(args);
 
     return size;
+}
+
+const char* _Nonnull empty_if_null(const char* _Nullable s)
+{
+    return s ? s : "";
 }

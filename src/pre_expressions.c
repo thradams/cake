@@ -116,7 +116,7 @@ static int ppnumber_to_longlong(struct preprocessor_ctx* ctx, const struct token
   into another so the head of the input list is the current.
   We could use the same concept here removing current.
 */
-static struct token* _Opt pre_match(struct preprocessor_ctx* ctx)
+static struct token* pre_match(struct preprocessor_ctx* ctx)
 {
     if (ctx->current == NULL)
         return NULL;
@@ -136,7 +136,7 @@ static struct object char_constant_to_value(const char* s, char error_message[ /
 {
     error_message[0] = '\0';
 
-    const unsigned char* _Opt p = (const unsigned char*)s;
+    const unsigned char* p = (const unsigned char*)s;
     const unsigned long long
     wchar_max_value = integer128_to_ull(target_unsigned_max(target, target->wchar_t_type));
 

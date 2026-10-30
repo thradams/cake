@@ -10,9 +10,9 @@
 
 struct flow_key_alternatives
 {
-    const struct object* p_obj_key; /*key*/
+    const struct object* _Nonnull p_obj_key; /*key*/
     struct flow_alternatives alternatives;
-    struct flow_key_alternatives* _Opt _Owner next;
+    struct flow_key_alternatives* _Owner next;
 };
 
 enum flow_branch_kind
@@ -62,13 +62,13 @@ struct flow_branch_implied_facts
 
 struct flow_branch
 {
-    struct flow_key_alternatives* _Owner _Opt* _Owner _Opt buckets;
+    struct flow_key_alternatives* _Owner _Nullable* _Owner buckets;
     int num_of_buckets;
     int num_of_entries;
 
-    struct flow_branch* _Opt p_parent_map;
+    struct flow_branch* p_parent_map;
     enum flow_branch_kind kind;
-    const struct expression* _Opt p_branch_expr;
+    const struct expression* p_branch_expr;
     bool is_unreachable;
     int branch_id;
     int child_count;
@@ -83,67 +83,67 @@ struct flow_branch
     struct flow_branch_implied_facts implied_facts;
 
     /* what a side of an if outside the code decides, ready to print: "p == null", "q != p" */
-    char* _Owner _Opt label;
+    char* _Owner label;
     bool same_object_of_parameters; /* reported as W_FLOW_PARAM_MAY_ALIAS */
 };
 
 struct flow_branch_arena
 {
-    struct flow_branch* _Owner _Opt * _Owner _Opt  data;
+    struct flow_branch* _Owner _Nullable * _Owner  data;
     int size;
     int capacity;
 };
 
 struct flow_allocated_object_arena
 {
-    struct object*  _Owner _Opt * _Owner _Opt data;
+    struct object*  _Owner _Nullable * _Owner data;
     int size;
     int capacity;
 };
 
 void flow_branch_arena_clear(_Clear struct flow_branch_arena* a);
-struct flow_branch* _Opt flow_branch_arena_new(struct flow_branch_arena* a, struct flow_branch* _Opt parent, enum flow_branch_kind kind);
-struct flow_branch* _Opt flow_branch_arena_new_dead(struct flow_branch_arena* a, struct flow_branch* parent, enum flow_branch_kind kind);
+struct flow_branch* flow_branch_arena_new(struct flow_branch_arena* a, struct flow_branch* _Nullable parent, enum flow_branch_kind kind);
+struct flow_branch* flow_branch_arena_new_dead(struct flow_branch_arena* a, struct flow_branch* parent, enum flow_branch_kind kind);
 
 void flow_allocated_object_arena_clear(_Clear struct flow_allocated_object_arena* a);
-struct object* _Opt flow_allocated_object_arena_new(struct flow_allocated_object_arena* a);
+struct object* flow_allocated_object_arena_new(struct flow_allocated_object_arena* a);
 
-struct flow_key_alternatives* _Opt flow_branch_search_up(struct flow_branch* _Opt m, const struct object* obj);
-struct flow_key_alternatives* _Opt flow_branch_find_add(struct flow_branch* _Opt m, const struct object* obj);
-void flow_branch_remove(struct flow_branch* _Opt m, const struct object* obj);
+struct flow_key_alternatives* flow_branch_search_up(struct flow_branch* _Nullable m, const struct object* obj);
+struct flow_key_alternatives* flow_branch_find_add(struct flow_branch* _Nullable m, const struct object* obj);
+void flow_branch_remove(struct flow_branch* _Nullable m, const struct object* obj);
 
 /*
     Every entry of the maps from `first` up the parent chain, stopping before
     `stop` (NULL: up to the root).
       struct flow_branch_entries it = flow_branch_entries_begin(first, stop);
-      for (const struct flow_key_alternatives* _Opt e; (e = flow_branch_entries_next(&it)) != NULL;)
+      for (const struct flow_key_alternatives* e; (e = flow_branch_entries_next(&it)) != NULL;)
 */
 struct flow_branch_entries
 {
-    const struct flow_branch* _Opt map;
-    const struct flow_branch* _Opt stop;
+    const struct flow_branch* map;
+    const struct flow_branch* stop;
     int bucket;
-    const struct flow_key_alternatives* _Opt entry;
+    const struct flow_key_alternatives* entry;
 };
-struct flow_branch_entries flow_branch_entries_begin(const struct flow_branch* _Opt first, const struct flow_branch* _Opt stop);
-const struct flow_key_alternatives* _Opt flow_branch_entries_next(struct flow_branch_entries* it);
+struct flow_branch_entries flow_branch_entries_begin(const struct flow_branch* _Nullable first, const struct flow_branch* _Nullable stop);
+const struct flow_key_alternatives* flow_branch_entries_next(struct flow_branch_entries* it);
 
-void flow_branch_set_object_moved(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
-void flow_branch_set_object_zero(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
-void flow_branch_set_object_uninitialized(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
-void flow_branch_set_object_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled, bool release_owned_pointees, bool reach_pointees);
-void flow_branch_set_reachable_any_n(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token, bool nullable_enabled);
-void flow_branch_set_object_lifetime_ended(struct flow_branch* _Opt m, const struct object* obj, const struct token* _Opt p_token);
-void flow_branch_apply_dtor_or_clear_effect(struct flow_branch* _Opt m, const struct object* obj, bool is_clear, const struct token* _Opt p_token);
+void flow_branch_set_object_moved(struct flow_branch* _Nullable m, const struct object* obj, const struct token* _Nullable p_token);
+void flow_branch_set_object_zero(struct flow_branch* _Nullable m, const struct object* obj, const struct token* _Nullable p_token);
+void flow_branch_set_object_uninitialized(struct flow_branch* _Nullable m, const struct object* obj, const struct token* _Nullable p_token);
+void flow_branch_set_object_any_n(struct flow_branch* _Nullable m, const struct object* obj, const struct token* _Nullable p_token, bool nullable_enabled, bool release_owned_pointees, bool reach_pointees);
+void flow_branch_set_reachable_any_n(struct flow_branch* _Nullable m, const struct object* obj, const struct token* _Nullable p_token, bool nullable_enabled);
+void flow_branch_set_object_lifetime_ended(struct flow_branch* _Nullable m, const struct object* obj, const struct token* _Nullable p_token);
+void flow_branch_apply_dtor_or_clear_effect(struct flow_branch* _Nullable m, const struct object* obj, bool is_clear, const struct token* _Nullable p_token);
 
 bool flow_branch_arm_has_entries(const struct flow_branch* arm, const struct flow_branch* parent);
 void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch* const arms[], int num_arms);
 void flow_branch_merge_a_b(struct flow_branch* parent, const struct flow_branch* a, const struct flow_branch* b);
-void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_branch* _Opt p_src,
-                                    const struct flow_branch* _Opt p_retag_origin,
+void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_branch* _Nullable p_src,
+                                    const struct flow_branch* _Nullable p_retag_origin,
                                     bool full_state, bool join_reached_before);
 
-void flow_branch_name_to_string(const struct flow_branch* _Opt map, struct osstream* ss);
+void flow_branch_name_to_string(const struct flow_branch* _Nullable map, struct osstream* ss);
 /* the objects static_debug(expr) shows */
 struct flow_debug_filter
 {
@@ -151,26 +151,24 @@ struct flow_debug_filter
     int count;
 };
 
-void flow_branch_debug_print(const struct flow_branch* _Opt map, bool colors, const struct flow_debug_filter* _Opt p_filter);
-void flow_branch_raw_dump(const struct flow_branch* _Opt map, const struct flow_branch_arena* arena, bool colors, const struct flow_debug_filter* _Opt p_filter);
-int flow_alternative_truth(struct flow_branch* _Opt map, const struct flow_alternative* alt, int depth);
-int flow_object_truth(struct flow_branch* _Opt map, const struct object* p_object, int depth);
+void flow_branch_debug_print(const struct flow_branch* _Nullable map, bool colors, const struct flow_debug_filter* _Nullable p_filter);
+void flow_branch_raw_dump(const struct flow_branch* _Nullable map, const struct flow_branch_arena* arena, bool colors, const struct flow_debug_filter* _Nullable p_filter);
 
 
-struct osstream flow_explain_origin(const struct flow_branch* _Opt map);
+struct osstream flow_explain_origin(const struct flow_branch* _Nullable map);
 
-struct flow_branch* _Opt flow_branch_arena_new_branch(struct flow_branch_arena* a, struct flow_branch* _Opt parent, bool is_true, const struct expression* _Opt p_expr);
-const struct flow_branch* _Opt flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Opt new_origin);
+struct flow_branch* flow_branch_arena_new_branch(struct flow_branch_arena* a, struct flow_branch* _Nullable parent, bool is_true, const struct expression* _Nullable p_expr);
+const struct flow_branch* flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Nullable new_origin);
 int flow_new_branch_id(void);
-void flow_tag_branch_pair(struct flow_branch* _Opt p_true, struct flow_branch* _Opt p_false);
-void flow_branch_set_label(struct flow_branch* _Opt m, const char* _Opt label);
+void flow_tag_branch_pair(struct flow_branch* _Nullable p_true, struct flow_branch* _Nullable p_false);
+void flow_branch_set_label(struct flow_branch* _Nullable m, const char* _Nullable label);
 bool flow_branch_kind_is_entry_side(enum flow_branch_kind kind);
-bool flow_branch_is_under_same_object(const struct flow_branch* _Opt p_map);
+bool flow_branch_is_under_same_object(const struct flow_branch* _Nullable p_map);
 
 
 struct object_set
 {
-    const struct object** _Owner _Opt items;
+    const struct object** _Owner items;
     int size;
     int capacity;
 
@@ -181,7 +179,7 @@ struct object_set
         exists purely so object_set_add doesn't have to linearly rescan it.
         See the comment on object_set_add for why this exists.
     */
-    const struct object* _Opt* _Owner _Opt table;
+    const struct object* _Nullable* _Owner table;
     int table_capacity;
 };
 

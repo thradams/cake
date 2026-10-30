@@ -2,7 +2,7 @@
 
 /* an unresolved `v[i]` of scalar type is seeded ANY, so `s->current[0] == '\n'` does not fold and the else branch is reachable (tokenizer.c stream_match) */
 
-struct stream { const char* current; int line; int col; };
+struct stream { const char* _Nonnull current; int line; int col; };
 
 void stream_step(struct stream* s)
 {

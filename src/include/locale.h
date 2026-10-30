@@ -77,8 +77,8 @@
     #endif
     };
 
-    char* _Opt setlocale(int category, const char* _Opt locale);
-    struct lconv* localeconv(void);
+    char* setlocale(int category, const char* _Nullable locale);
+    struct lconv* _Nonnull localeconv(void);
 
 #else
     #include_next <locale.h>

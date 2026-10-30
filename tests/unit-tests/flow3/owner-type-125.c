@@ -1,10 +1,10 @@
 #pragma safety enable
 
 struct X {
-    char* _Owner _Opt name;
+    char* _Owner name;
 };
 
-struct X* _Owner make();
+struct X* _Nonnull _Owner make();
 void del(struct X* _Owner _Opt p);
 
 int main()

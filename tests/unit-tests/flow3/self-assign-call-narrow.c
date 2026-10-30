@@ -6,15 +6,15 @@
 
 struct token
 {
-    char* _Owner lexeme;
+    char* _Nonnull _Owner lexeme;
 };
 
 struct parser_ctx
 {
-    struct token* _Opt current;
+    struct token* current;
 };
 
-const unsigned char* decode(const unsigned char* s, unsigned int* c);
+const unsigned char* _Nonnull decode(const unsigned char* s, unsigned int* c);
 
 void f(const struct parser_ctx* ctx)
 {
@@ -25,7 +25,7 @@ void f(const struct parser_ctx* ctx)
             throw;
         }
 
-        const unsigned char* _Opt p = (const unsigned char*)ctx->current->lexeme;
+        const unsigned char* p = (const unsigned char*)ctx->current->lexeme;
 
         if (p[0] == 'u' && p[1] == '8')
         {

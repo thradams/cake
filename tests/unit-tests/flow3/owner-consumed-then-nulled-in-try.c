@@ -6,14 +6,14 @@
 
 struct E { int x; };
 
-struct E* _Owner _Opt tail(struct E* _Owner p);
-struct E* _Owner _Opt make(void);
+struct E* _Owner tail(struct E* _Owner p);
+struct E* _Owner make(void);
 void del(struct E* _Owner _Opt p);
 int cond(void);
 
-struct E* _Owner _Opt consume_then_throw(void)
+struct E* _Owner consume_then_throw(void)
 {
-    struct E* _Owner _Opt p = NULL;
+    struct E* _Owner p = NULL;
     try
     {
         p = make();
@@ -39,9 +39,9 @@ struct E* _Owner _Opt consume_then_throw(void)
 }
 
 /* control: the same shape without the intervening throw */
-struct E* _Owner _Opt consume_no_intervening_throw(void)
+struct E* _Owner consume_no_intervening_throw(void)
 {
-    struct E* _Owner _Opt p = NULL;
+    struct E* _Owner p = NULL;
     try
     {
         p = make();

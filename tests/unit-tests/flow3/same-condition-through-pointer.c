@@ -6,7 +6,7 @@ void set(int* p);
 int arrow(const struct S* s)
 {
     int i = 0;
-    int* _Opt p = 0;
+    int* p = 0;
     if (s->x > 2) { p = &i; }
     if (s->x > 2) { i = *p; }
     return i;
@@ -15,7 +15,7 @@ int arrow(const struct S* s)
 int deref(const int* s)
 {
     int i = 0;
-    int* _Opt p = 0;
+    int* p = 0;
     if (*s > 2) { p = &i; }
     if (*s > 2) { i = *p; }
     return i;
@@ -24,7 +24,7 @@ int deref(const int* s)
 int pointer_changed(const struct S* s, const struct S* t)
 {
     int i = 0;
-    int* _Opt p = 0;
+    int* p = 0;
     if (s->x > 2) { p = &i; }
     s = t;
     if (s->x > 2) { i = *p; } //lint 33 possible null pointer dereference
@@ -34,7 +34,7 @@ int pointer_changed(const struct S* s, const struct S* t)
 int member_assigned(struct S* s)
 {
     int i = 0;
-    int* _Opt p = 0;
+    int* p = 0;
     if (s->x > 2) { p = &i; }
     s->x = 0;
     s->x = 5;
@@ -45,7 +45,7 @@ int member_assigned(struct S* s)
 int member_incremented(struct S* s)
 {
     int i = 0;
-    int* _Opt p = 0;
+    int* p = 0;
     if (s->x > 2) { p = &i; }
     s->x++;
     if (s->x > 2) { i = *p; } //lint 33 possible null pointer dereference
@@ -55,7 +55,7 @@ int member_incremented(struct S* s)
 int compound_assigned(int* s)
 {
     int i = 0;
-    int* _Opt p = 0;
+    int* p = 0;
     if (*s > 2) { p = &i; }
     *s += 1;
     if (*s > 2) { i = *p; } //lint 33 possible null pointer dereference
@@ -66,7 +66,7 @@ int compound_assigned(int* s)
 int written_by_call(int c)
 {
     int i = 0;
-    int* _Opt p = 0;
+    int* p = 0;
     if (c > 2) { p = &i; }
     set(&c);
     if (c > 2) { i = *p; } //lint 33 possible null pointer dereference
@@ -76,7 +76,7 @@ int written_by_call(int c)
 int written_through_alias(int c)
 {
     int i = 0;
-    int* _Opt p = 0;
+    int* p = 0;
     int* pc = &c;
     if (c > 2) { p = &i; }
     *pc = 5;
@@ -86,20 +86,20 @@ int written_through_alias(int c)
 
 /* written_typedef_name in expressions.c: w is only set inside the loop, and the
    pointee member p->name is only tracked there, so nothing says which side ran */
-struct decl { const char* _Opt name; };
-const struct decl* _Opt first(void);
-const struct decl* _Opt next(const struct decl* p);
-const char* _Opt lookup(const char* name);
+struct decl { const char* name; };
+const struct decl* first(void);
+const struct decl* next(const struct decl* p);
+const char* lookup(const char* name);
 int strcmp(const char* a, const char* b);
 void out(const char* s);
 
 void set_on_some_paths(int is_pointer)
 {
-    const char* _Opt written = 0;
-    const char* _Opt matched = 0;
+    const char* written = 0;
+    const char* matched = 0;
     if (!is_pointer)
     {
-        const struct decl* _Opt p = first();
+        const struct decl* p = first();
         for (int level = 0; p != 0 && level < 8; level++)
         {
             if (p->name != 0)

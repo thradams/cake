@@ -2,19 +2,19 @@
 
 /* FIXED: `d = calloc(...)` in assignment form retypes the void pointee like the initializer form, so `if (d->m)` narrows a real member (parser.c declaration_core) */
 
-_Clear void* _Owner _Opt calloc(unsigned long n, unsigned long size);
-void free(void* _Owner _Opt p);
+_Clear void* _Owner calloc(unsigned long n, unsigned long size);
+void free(void* _Owner _Nullable p);
 
 struct token { int type; };
-struct decl { struct token* _Opt lint_token; };
+struct decl { struct token* lint_token; };
 
-int set_it(struct token* _Opt* out);
+int set_it(struct token* _Nullable* out);
 void use(struct token* t);
 
 /* The parser.c shape: declared null, assigned from calloc inside the body. */
 void assigned_from_calloc(void)
 {
-    struct decl* _Owner _Opt d = 0;
+    struct decl* _Owner d = 0;
     d = calloc(1, sizeof *d);
     if (d == 0) return;
 
@@ -31,7 +31,7 @@ void assigned_from_calloc(void)
 /* control: the initializer form, must behave identically */
 void initialized_from_calloc_ok(void)
 {
-    struct decl* _Owner _Opt d = calloc(1, sizeof *d);
+    struct decl* _Owner d = calloc(1, sizeof *d);
     if (d == 0) return;
 
     set_it(&d->lint_token);

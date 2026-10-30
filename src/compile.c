@@ -35,9 +35,9 @@
 #include "codegen.h"
 #include <time.h>
 
-static char* _Opt strrchr2(const char* s, int c)
+static char* strrchr2(const char* s, int c)
 {
-    const char* _Opt last = NULL;
+    const char* last = NULL;
     unsigned char ch = (unsigned char)c;
 
     while (*s)
@@ -127,9 +127,9 @@ static int collect_system_include_dirs(struct json_value* dirs)
 
     /* built by tcc (default target is a tcc target): its own dirs, the indented lines after "include:" in -print-search-dirs */
 #ifdef _WIN32
-    FILE* _Owner _Opt fp = _popen("tcc -print-search-dirs", "r");
+    FILE* _Owner fp = _popen("tcc -print-search-dirs", "r");
 #else
-    FILE* _Owner _Opt fp = popen("tcc -print-search-dirs", "r");
+    FILE* _Owner fp = popen("tcc -print-search-dirs", "r");
 #endif
     if (fp == NULL)
         return errno;
@@ -234,7 +234,7 @@ static int collect_system_include_dirs(struct json_value* dirs)
     const char* command = "echo | clang -v -E - 2>&1";
 #endif
 
-    FILE* _Owner _Opt fp = popen(command, "r");
+    FILE* _Owner fp = popen(command, "r");
     if (fp == NULL)
         return errno;
 
@@ -263,7 +263,7 @@ static int collect_system_include_dirs(struct json_value* dirs)
                 clang labels macOS framework search paths with a trailing
                 " (framework directory)" - it is not part of the path.
             */
-            char* _Opt framework_tag = strstr(p, " (framework directory)");
+            char* framework_tag = strstr(p, " (framework directory)");
             if (framework_tag != NULL)
                 *framework_tag = '\0';
 
@@ -342,10 +342,10 @@ static int collect_system_include_dirs(struct json_value* dirs)
 */
 int generate_config_file(const char* configpath, bool color_disabled)
 {
-    struct json_value* _Opt _Owner root = NULL;
+    struct json_value* _Owner root = NULL;
 
     /* Start from whatever is already there, so only include_dirs changes. */
-    char* _Owner _Opt existing = read_file(configpath, true);
+    char* _Owner existing = read_file(configpath, true);
     if (existing)
     {
         root = json_parse(existing, NULL);
@@ -378,7 +378,7 @@ int generate_config_file(const char* configpath, bool color_disabled)
         Replaces any existing array - json_set_array() overwrites a member of
         the same name rather than adding a second one.
     */
-    struct json_value* _Opt dirs = json_set_array(root, "include_dirs");
+    struct json_value* dirs = json_set_array(root, "include_dirs");
     if (dirs == NULL)
     {
         json_delete(root);
@@ -416,7 +416,7 @@ int generate_config_file(const char* configpath, bool color_disabled)
 */
 static void find_definition_to_report(const struct parser_ctx* ctx, struct report* report)
 {
-    const struct token* _Opt p = ctx->p_find_definition;
+    const struct token* p = ctx->p_find_definition;
     if (p == NULL)
         return;
 
@@ -477,9 +477,9 @@ int compile_one_file(const char* file_name,
 
     struct ast ast = { 0 };
 
-    const char* _Owner _Opt p_output_string = NULL;
+    const char* _Owner p_output_string = NULL;
 
-    _Opt struct parser_ctx ctx = { .p_input_list = &ast.token_list };
+    _Nullable struct parser_ctx ctx = { .p_input_list = &ast.token_list };
 
     struct tokenizer_ctx tctx = { 0 };
     struct token_list tokens = { 0 };
@@ -487,7 +487,7 @@ int compile_one_file(const char* file_name,
     tctx.options = *options;
     ctx.options = *options;
     ctx.p_report = report;
-    char* _Owner _Opt content = NULL;
+    char* _Owner content = NULL;
 
     try
     {
@@ -522,7 +522,7 @@ int compile_one_file(const char* file_name,
                 snprintf(sarif_file_name, sizeof sarif_file_name, "%s.cake.sarif", file_name);
             }
 
-            ctx.sarif_file = (FILE * _Owner _Opt) fopen(sarif_file_name, "w");
+            ctx.sarif_file = fopen(sarif_file_name, "w");
             if (ctx.sarif_file)
             {
                 const char* begin_sarif =
@@ -549,7 +549,7 @@ int compile_one_file(const char* file_name,
         if (tctx.n_errors > 0)
             throw;
 
-        const char* _Opt builtin = ctx.options.platform.dialect_builtins;
+        const char* builtin = ctx.options.platform.dialect_builtins;
         if (builtin && builtin[0] != '\0')
         {
             struct token_list builtin_tokens = tokenizer(&tctx, builtin, "builtins", 1, TK_FLAG_NONE);
@@ -596,7 +596,7 @@ int compile_one_file(const char* file_name,
                 if (p_output_string)
                     printf("%s", p_output_string);
 
-                FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
+                FILE* _Owner outfile = fopen(out_file_name, "w");
                 if (outfile)
                 {
                     if (p_output_string)
@@ -669,7 +669,7 @@ int compile_one_file(const char* file_name,
                     throw;
                 }
 
-                FILE* _Owner _Opt outfile = fopen(out_file_name, "w");
+                FILE* _Owner outfile = fopen(out_file_name, "w");
                 if (outfile)
                 {
 #if defined(__CATALINA__)
@@ -755,7 +755,7 @@ int compile_one_file(const char* file_name,
     token_list_destroy(&tokens);
 
     parser_ctx_destroy(&ctx);
-    free((void* _Owner _Opt)p_output_string);
+    free((void* _Owner)p_output_string);
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
@@ -786,7 +786,7 @@ static int compile_many_files(const char* file_name,
     struct report* report)
 {
     const char* const file_name_name = basename(file_name);
-    const char* _Opt const file_name_extension = strrchr2((char*)file_name_name, '.');
+    const char* const file_name_extension = strrchr2((char*)file_name_name, '.');
 
     if (file_name_extension == NULL)
     {
@@ -798,14 +798,14 @@ static int compile_many_files(const char* file_name,
     char path[FS_MAX_PATH] = { 0 };
     snprintf(path, sizeof path, "%s", file_name);
     dirname(path);
-    DIR* _Owner _Opt dir = opendir(path);
+    DIR* _Owner dir = opendir(path);
 
     if (dir == NULL)
     {
         return errno;
     }
 
-    struct dirent* _Opt dp;
+    struct dirent* dp;
     while ((dp = readdir(dir)) != NULL)
     {
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
@@ -821,7 +821,7 @@ static int compile_many_files(const char* file_name,
         else
         {
             const char* const file_name_iter = basename(dp->d_name);
-            const char* _Opt const file_extension = strrchr2((char*)file_name_iter, '.');
+            const char* const file_extension = strrchr2((char*)file_name_iter, '.');
 
             if (file_name_extension &&
                 file_extension &&
@@ -941,7 +941,7 @@ void print_report(const struct report* report)
 
 static bool path_is_header(const char* path)
 {
-    const char* _Opt dot = strrchr(path, '.');
+    const char* dot = strrchr(path, '.');
     return dot && (strcmp(dot, ".h") == 0 || strcmp(dot, ".H") == 0);
 }
 
@@ -984,12 +984,12 @@ static int find_definition_counterpart(const char* const* files, int count, cons
 static bool find_definition_sibling(const char* file, char* out, int out_size)
 {
     snprintf(out, out_size, "%s", file);
-    char* _Opt dot = strrchr(basename(out), '.');
+    char* dot = strrchr(basename(out), '.');
     if (dot == NULL || strcmp(dot, ".c") == 0 || (int)(dot - out) + 3 > out_size)
         return false;
     strcpy(dot, ".c");
 
-    FILE* _Owner _Opt f = fopen(out, "rb");
+    FILE* _Owner f = fopen(out, "rb");
     if (f == NULL)
         return false;
     fclose(f);
@@ -1124,7 +1124,7 @@ static int rename_item_compare(const void* a, const void* b)
 static bool rename_apply_file(const struct rename_list* list, int begin, int end, const char* new_name)
 {
     const char* file = list->data[begin].file; //lint 33
-    char* _Owner _Opt content = read_file_binary(file);
+    char* _Owner content = read_file_binary(file);
     if (content == NULL)
     {
         printf("rename: cannot read '%s'\n", file);
@@ -1162,7 +1162,7 @@ static bool rename_apply_file(const struct rename_list* list, int begin, int end
     if (ok)
     {
         ss_fprintf(&out, "%s", copied);
-        FILE* _Owner _Opt f = fopen(file, "wb");
+        FILE* _Owner f = fopen(file, "wb");
         if (f)
         {
             written = fwrite(out.c_str ? out.c_str : "", 1, (size_t)out.size, f) == (size_t)out.size;
@@ -1189,13 +1189,13 @@ static bool rename_apply_file(const struct rename_list* list, int begin, int end
 static void find_usages_print_file(const struct rename_list* list, int begin, int end, const struct options* options)
 {
     const char* file = list->data[begin].file; //lint 33
-    char* _Owner _Opt content = read_file_binary(file);
+    char* _Owner content = read_file_binary(file);
 
     char text[300];
     snprintf(text, sizeof text, "usage of '%s'", list->old_name);
 
     struct osstream ss = { 0 };
-    const char* _Opt line_start = content;
+    const char* line_start = content;
     int line = 1;
     for (int i = begin; i < end; i++)
     {
@@ -1343,7 +1343,7 @@ static void rename_run(const char* const* files, int count, struct options* opti
       a file is undecided when its occurrences only link to positions kept by
       files after it: its pairs are kept and decided again in phase 3
     */
-    struct rename_pairs* _Owner _Opt undecided = calloc(count, sizeof(struct rename_pairs));
+    struct rename_pairs* _Owner undecided = calloc(count, sizeof(struct rename_pairs));
     for (int i = 0; i < count; i++)
     {
         if (only_cursor_file && i != cursor_index)
@@ -1438,7 +1438,7 @@ int compile(int argc, const char** argv, struct report* report)
     int no_files = 0;
 
     /* -find-definition: the files are compiled by find_definition_run() after the loop */
-    const char* find_definition_files[256] = { 0 };
+    const char* _Nullable find_definition_files[256] = { 0 };
     int find_definition_count = 0;
 
     struct global_unused_list unused_functions_state = { 0 };
@@ -1585,7 +1585,7 @@ int compile(int argc, const char** argv, struct report* report)
         if (find_definition_count > 0)
         {
             char fullpath[FS_MAX_PATH] = { 0 };
-            full_path_or_copy(find_definition_files[0], fullpath);
+            full_path_or_copy(find_definition_files[0], fullpath); //lint 35 (find_definition_count > 0)
             snprintf(options.find_definition_file, sizeof options.find_definition_file, "%s", fullpath);
             struct report report_local = { 0 };
             compile_one_file(fullpath, &options, "", argc, argv, &report_local);
@@ -1628,7 +1628,7 @@ int compile(int argc, const char** argv, struct report* report)
  * given a string s, produce argv by modifying the input string
  * return argc
  */
-static int strtoargv(char* s, int n, const char* argv[ /* n */])
+static int strtoargv(char* s, int n, const char* _Nullable argv[ /* n */])
 {
     int argvc = 0;
     char* p = s;
@@ -1652,15 +1652,15 @@ static int strtoargv(char* s, int n, const char* argv[ /* n */])
     return argvc;
 }
 
-const char* _Owner _Opt compile_source(const char* pszoptions, const char* content, struct report* report)
+const char* _Owner compile_source(const char* pszoptions, const char* content, struct report* report)
 {
-    const char* argv[100] = { 0 };
+    const char* _Nullable argv[100] = { 0 };
     char string[200] = { 0 };
     snprintf(string, sizeof string, "exepath %s", pszoptions);
 
     const int argc = strtoargv(string, 100, argv);
 
-    const char* _Owner _Opt s = NULL;
+    const char* _Owner s = NULL;
 
     struct preprocessor_ctx prectx = { 0 };
     struct ast ast = { 0 };
@@ -1715,7 +1715,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
             if (codegen_error != 0)
             {
                 report->error_count++;
-                free((void* _Owner _Opt)s);
+                free((void* _Owner)s);
                 s = NULL;
                 throw;
             }
@@ -1732,7 +1732,7 @@ const char* _Owner _Opt compile_source(const char* pszoptions, const char* conte
     return s;
 }
 
-const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt path, const char* content, struct report* report)
+const char* _Owner cake_format(const char* pszoptions, const char* _Nullable path, const char* content, struct report* report)
 {
     const char* real_filename = (path != NULL && path[0] != '\0') ? path : "c:/main.c";
 
@@ -1745,7 +1745,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
      * that trusts report->error_count == 0, like this one used to, would
      * then print that truncated token list instead of bailing out.
      */
-    const char* argv[100] = { 0 };
+    const char* _Nullable argv[100] = { 0 };
     char string[200] = { 0 };
     snprintf(string, sizeof string, "exepath %s", pszoptions);
     const int argc = strtoargv(string, 100, argv);
@@ -1761,7 +1761,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
     tctx.options = options;
     struct preprocessor_ctx prectx = { 0 };
     struct token_list list = { 0 };
-    const char* _Owner _Opt s = NULL;
+    const char* _Owner s = NULL;
 
     try
     {
@@ -1769,7 +1769,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         if (tctx.n_errors > 0)
             throw;
 
-        const char* _Opt builtin = options.platform.dialect_builtins;
+        const char* builtin = options.platform.dialect_builtins;
         if (builtin && builtin[0] != '\0')
         {
             /* level 1 - see the identical comment in compile_one_file() above. */
@@ -1795,7 +1795,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
         if (prectx.n_errors > 0)
             throw;
 
-        _Opt struct parser_ctx ctx = { .p_input_list = &ast.token_list };
+        _Nullable struct parser_ctx ctx = { .p_input_list = &ast.token_list };
         ctx.options = options;
         ctx.p_report = report;
 
@@ -1818,7 +1818,7 @@ const char* _Owner _Opt cake_format(const char* pszoptions, const char* _Opt pat
     return s;
 }
 
-char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
+char* _Owner CompileText(const char* pszoptions, const char* content)
 {
     /*
      * This function is called by the web playground
@@ -1828,7 +1828,7 @@ char* _Owner _Opt CompileText(const char* pszoptions, const char* content)
     printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
 
     struct report report = { 0 };
-    char* _Owner _Opt s = (char* _Owner _Opt)compile_source(pszoptions, content, &report);
+    char* _Owner s = (char* _Owner)compile_source(pszoptions, content, &report);
 
     return s;
 }

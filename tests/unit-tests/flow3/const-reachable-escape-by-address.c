@@ -1,7 +1,7 @@
 /* taking the address of something reached through const lets it out like copying the pointer */
 
 struct item { int value; };
-struct node { struct item* item; };
+struct node { struct item* _Nonnull item; };
 
 void set(int* p);
 
@@ -16,7 +16,7 @@ void pass_address(const struct node* node)
     set(&node->item->value); //lint 120
 }
 
-const int* read_address(const struct node* node)
+const int* _Nonnull read_address(const struct node* node)
 {
     return &node->item->value;
 }

@@ -7,7 +7,7 @@ struct X { int i; };
 void zero(int a)
 {
     struct X x = { 0 };
-    struct X* _Opt q = &x;
+    struct X* q = &x;
     if (a) q = 0;
     q->i = 1; //lint 33
 }
@@ -15,7 +15,7 @@ void zero(int a)
 void null_pointer_constant(int a)
 {
     struct X x = { 0 };
-    struct X* _Opt q = &x;
+    struct X* q = &x;
     if (a) q = nullptr;
     int k = q->i; //lint 33
     (void)k;
@@ -24,7 +24,7 @@ void null_pointer_constant(int a)
 void cast(int a)
 {
     struct X x = { 0 };
-    struct X* _Opt q = &x;
+    struct X* q = &x;
     if (a) q = (void*)0;
     q->i = 1; //lint 33
 }
@@ -33,7 +33,7 @@ void cast(int a)
 void same_condition(int a)
 {
     struct X x = { 0 };
-    struct X* _Opt q = 0;
+    struct X* q = 0;
     if (a) q = &x;
     if (a) q->i = 1;
 }

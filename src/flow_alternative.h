@@ -47,21 +47,21 @@ struct flow_alternative
     {
         unsigned long long u;
         signed long long i;
-        const struct object* _Opt p;
+        const struct object* p;
     } value;
 
     enum flow_value_kind value_kind;             /* tag of the union */
     enum flow_relation value_relation;           /* relation with the value*/
     enum flow_imaginary imaginary;               /* imaginary part: MOVED, ENDED, ABSENT, NONE */
 
-    const struct flow_branch* _Opt p_origin_map;    /* which flow map arm set this value; */
+    const struct flow_branch* p_origin_map;    /* which flow map arm set this value; */
 
     /*
         For a value kept by narrowing a condition: the origin of the value it was
         narrowed from (narrowing re-tags p_origin_map with the arm). Like
         p_origin_map, the value only exists on paths through it. NULL otherwise.
     */
-    const struct flow_branch* _Opt p_narrowed_from;
+    const struct flow_branch* p_narrowed_from;
 
     /*
         The narrowing contradicted the value it came from (`!= 0` reaching the
@@ -69,7 +69,7 @@ struct flow_alternative
         entry is not empty; code that asks which paths a value exists on skips it.
     */
     bool contradicted;
-    const struct token* _Opt p_origin_token;     /* Where this state was established. */
+    const struct token* p_origin_token;     /* Where this state was established. */
 };
 
 bool flow_value_is_same(const struct flow_alternative* a, const struct flow_alternative* b);
@@ -88,11 +88,11 @@ bool flow_alt_set_interval(struct flow_alternative* alt, long long lo, long long
 bool flow_alt_negate(const struct flow_alternative* in, struct flow_alternative* out);
 bool flow_alternative_can_be_zero(const struct flow_alternative* alt);
 
-void print_object_ptr(struct osstream* ss, const struct object* _Opt p, bool is_parent);
+void print_object_ptr(struct osstream* ss, const struct object* _Nullable p, bool is_parent);
 
 struct flow_alternatives
 {
-    struct flow_alternative* _Owner _Opt* _Owner _Opt data;
+    struct flow_alternative* _Owner _Nullable* _Owner data;
     int size;
     int capacity;
 };

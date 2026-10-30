@@ -55,6 +55,10 @@ const struct gui_theme ide_theme_ambar = {
     .box_border_style = GUI_BORDER_DOUBLE,
 
     .window_border_fg = GUI_RGB(0xE8, 0xE4, 0xDA),
+
+    .window_border_fg_docked = GUI_RGB(0xE8, 0xE4, 0xDA),
+
+    .window_border_fg_playground = GUI_RGB(0xF5, 0xA6, 0x23),
     .window_border_bg = GUI_RGB(0x2F, 0x2F, 0x35),
     .window_border_fg_dragging = GUI_RGB(0xF5, 0xC2, 0x42),
     .window_border_fg_unfocused = GUI_RGB(0x65, 0x65, 0x65),
@@ -217,9 +221,9 @@ const struct gui_theme ide_theme_ambar = {
 };
 
 const struct gui_theme ide_theme_dark = {
-    .desktop_bg = GUI_RGB(0x1E, 0x1E, 0x1E),
+    .desktop_bg = GUI_RGB(0x1C, 0x1C, 0x1C),
 
-    .btn_bg = GUI_RGB(0x3F, 0x3F, 0x46),
+    .btn_bg = GUI_RGB(0x4A, 0x4A, 0x52),
     .btn_bg_hot = GUI_RGB(0x00, 0x7A, 0xCC),
     .btn_bg_active = GUI_RGB(0x00, 0x5A, 0x9E),
     .btn_fg = GUI_RGB(0xF1, 0xF1, 0xF1),
@@ -231,7 +235,7 @@ const struct gui_theme ide_theme_dark = {
     .hotkey_bg_hot = GUI_RGB(0x1C, 0x97, 0xEA),
 
     .menu_fg = GUI_RGB(0xF1, 0xF1, 0xF1),
-    .menu_bg = GUI_RGB(0x2D, 0x2D, 0x30),
+    .menu_bg = GUI_RGB(0x26, 0x26, 0x26),
     .menu_fg_sel = GUI_RGB(0xFF, 0xFF, 0xFF),
     .menu_bg_sel = GUI_RGB(0x00, 0x7A, 0xCC),
     .menu_item_fg = GUI_RGB(0xF1, 0xF1, 0xF1),
@@ -240,19 +244,23 @@ const struct gui_theme ide_theme_dark = {
     .menu_item_bg_hot = GUI_RGB(0x00, 0x7A, 0xCC),
     .menu_item_shortcut_fg = GUI_RGB(0x9C, 0xDC, 0xFE),
     .menu_item_fg_disabled = GUI_RGB(0x65, 0x65, 0x65),
-    .menu_border_fg = GUI_RGB(0x3F, 0x3F, 0x46),  /* dark gray, not bright white */
+    .menu_border_fg = GUI_RGB(0x45, 0x45, 0x45),  /* dark gray, not bright white */
     .menu_border_bg = GUI_RGB(0x25, 0x25, 0x26),
     .menu_border_style = GUI_BORDER_SINGLE,
 
     .box_fg = GUI_RGB(0xF1, 0xF1, 0xF1),
-    .box_bg = GUI_RGB(0x25, 0x25, 0x26),
+    .box_bg = GUI_RGB(0x28, 0x28, 0x28),
     .box_border_style = GUI_BORDER_DOUBLE,
 
-    .window_border_fg = GUI_RGB(0xF1, 0xF1, 0xF1),
-    .window_border_bg = GUI_RGB(0x2D, 0x2D, 0x30),
+    .window_border_fg = GUI_RGB(0x3A, 0xA0, 0xF0),
+
+    .window_border_fg_docked = GUI_RGB(0x8C, 0x82, 0xF5),
+
+    .window_border_fg_playground = GUI_RGB(0xF5, 0xA6, 0x23),
+    .window_border_bg = GUI_RGB(0x28, 0x28, 0x28),
     .window_border_fg_dragging = GUI_RGB(0x00, 0x7A, 0xCC),
-    .window_border_fg_unfocused = GUI_RGB(0x65, 0x65, 0x65),
-    .window_border_style = GUI_BORDER_DOUBLE,
+    .window_border_fg_unfocused = GUI_RGB(0x5A, 0x5A, 0x5A),
+    .window_border_style = GUI_BORDER_SINGLE,
     .window_border_style_unfocused = GUI_BORDER_SINGLE,
     .window_border_style_docked = GUI_BORDER_SINGLE,  /* Output/Folder panels -
                                                        * a lighter frame than
@@ -261,16 +269,16 @@ const struct gui_theme ide_theme_dark = {
     .window_border_style_docked_unfocused = GUI_BORDER_SINGLE,
     .window_close_bg = GUI_RGB(0xE8, 0x11, 0x23),
     .window_fg = GUI_RGB(0xF1, 0xF1, 0xF1),
-    .window_bg = GUI_RGB(0x25, 0x25, 0x26),  /* VS's actual docked-panel
+    .window_bg = GUI_RGB(0x28, 0x28, 0x28),  /* VS's actual docked-panel
                                              * (Git Changes/Folder/Solution
                                              * Explorer) body color */
-    .modal_border_fg = GUI_RGB(0xF1, 0xF1, 0xF1),
-    .modal_border_bg = GUI_RGB(0x25, 0x25, 0x26),
+    .modal_border_fg = GUI_RGB(0x6E, 0x6E, 0x6E),
+    .modal_border_bg = GUI_RGB(0x1F, 0x1F, 0x1F),
     .modal_border_style = GUI_BORDER_DOUBLE,
     .modal_fg = GUI_RGB(0xF1, 0xF1, 0xF1),
-    .modal_bg = GUI_RGB(0x25, 0x25, 0x26),  /* VS's actual Find/Replace and
+    .modal_bg = GUI_RGB(0x1F, 0x1F, 0x1F),  /* VS's actual Find/Replace and
                                             * other dialog body color */
-    .label_fg = GUI_RGB(0xFF, 0xFF, 0x55),
+    .label_fg = GUI_RGB(0xF1, 0xF1, 0xF1),
     .scrollbar_bg = GUI_RGB(0x2D, 0x2D, 0x30),  /* matches the window border */
     .scrollbar_thumb_bg = GUI_RGB(0x42, 0x42, 0x42),
     .scrollbar_thumb_hot_bg = GUI_RGB(0x6E, 0x6E, 0x6E),
@@ -338,11 +346,11 @@ const struct gui_theme ide_theme_dark = {
     .editor_function_fg = GUI_RGB(0xDC, 0xDC, 0xAA),  /* soft yellow - VS Code
                                                        * Dark's actual function-
                                                        * name color */
-    .editor_output_bg = GUI_RGB(0x18, 0x18, 0x18),    /* one step darker than
+    .editor_output_bg = GUI_RGB(0x28, 0x28, 0x28),    /* one step darker than
                                                        * editor_bg (#1E1E1E) -
                                                        * VS Code Dark's recessed
                                                        * panel look for Output */
-    .editor_output_fg = GUI_RGB(0xD4, 0xD4, 0xD4),    /* same as editor_fg - the
+    .editor_output_fg = GUI_RGB(0xF1, 0xF1, 0xF1),    /* same as editor_fg - the
                                                        * dark panel keeps the
                                                        * plain light default */
 
@@ -376,11 +384,11 @@ const struct gui_theme ide_theme_dark = {
         classic theme's cyan, selection reuses the same #007ACC accent as
         every other "selected" state in this theme.
     */
-    .panel_fg = GUI_RGB(0x93, 0x93, 0x93),
-    .listbox_fg = GUI_RGB(0x93, 0x93, 0x93),  /* dimmer than editor_fg - see
+    .panel_fg = GUI_RGB(0xFA, 0xFA, 0xFA),
+    .listbox_fg = GUI_RGB(0xFA, 0xFA, 0xFA),  /* dimmer than editor_fg - see
                                               * the Ambar theme's own note */
-    .panel_bg = GUI_RGB(0x1E, 0x1E, 0x1E),
-    .listbox_bg = GUI_RGB(0x1E, 0x1E, 0x1E),
+    .panel_bg = GUI_RGB(0x28, 0x28, 0x28),
+    .listbox_bg = GUI_RGB(0x28, 0x28, 0x28),
     .listbox_sel_fg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .listbox_sel_bg = GUI_RGB(0x00, 0x7A, 0xCC),
     .listbox_sel_inactive_fg = GUI_RGB(0xD4, 0xD4, 0xD4),
@@ -456,6 +464,8 @@ const struct gui_theme ide_theme_white = {
         behind it.
     */
     .window_border_fg = GUI_RGB(0x99, 0xB4, 0xD1),
+    .window_border_fg_docked = GUI_RGB(0x99, 0xB4, 0xD1),
+    .window_border_fg_playground = GUI_RGB(0xF5, 0xA6, 0x23),
     .window_border_bg = GUI_RGB(0xF0, 0xF0, 0xF0),
     .window_border_fg_dragging = GUI_RGB(0x00, 0x78, 0xD7),
     .window_border_fg_unfocused = GUI_RGB(0xC8, 0xC8, 0xC8),
@@ -674,6 +684,8 @@ const struct gui_theme ide_theme_raspberry_pi = {
     .box_bg = GUI_RGB(0xFF, 0xFF, 0xFF),
     .box_border_style = GUI_BORDER_DOUBLE,
     .window_border_fg = GUI_RGB(0xC4, 0xC4, 0xC4),
+    .window_border_fg_docked = GUI_RGB(0xC4, 0xC4, 0xC4),
+    .window_border_fg_playground = GUI_RGB(0xF5, 0xA6, 0x23),
     .window_border_bg = GUI_RGB(0xED, 0xED, 0xED),
     .window_border_fg_dragging = GUI_RGB(0x87, 0x91, 0x9B),
     .window_border_fg_unfocused = GUI_RGB(0xC8, 0xC8, 0xC8),
@@ -800,6 +812,10 @@ const struct gui_theme ide_theme_nebula = {
     .box_border_style = GUI_BORDER_DOUBLE,
 
     .window_border_fg = GUI_RGB(0xC0, 0xCA, 0xF5),
+
+    .window_border_fg_docked = GUI_RGB(0xC0, 0xCA, 0xF5),
+
+    .window_border_fg_playground = GUI_RGB(0xF5, 0xA6, 0x23),
     .window_border_bg = GUI_RGB(0x1F, 0x22, 0x33),
     .window_border_fg_dragging = GUI_RGB(0x7A, 0xA2, 0xF7),
     .window_border_fg_unfocused = GUI_RGB(0x56, 0x5F, 0x89),
@@ -969,6 +985,10 @@ const struct gui_theme ide_theme_xcode_dark = {
     .box_border_style = GUI_BORDER_DOUBLE,
 
     .window_border_fg = GUI_RGB(0xC7, 0xC7, 0xCC),
+
+    .window_border_fg_docked = GUI_RGB(0xC7, 0xC7, 0xCC),
+
+    .window_border_fg_playground = GUI_RGB(0xF5, 0xA6, 0x23),
     .window_border_bg = GUI_RGB(0x2D, 0x2E, 0x33),
     .window_border_fg_dragging = GUI_RGB(0x0A, 0x84, 0xFF),
     .window_border_fg_unfocused = GUI_RGB(0x63, 0x63, 0x66),
@@ -1126,6 +1146,10 @@ const struct gui_theme ide_theme_nebula2 = {
     .box_border_style = GUI_BORDER_SINGLE,
 
     .window_border_fg = GUI_RGB(0x89, 0xB4, 0xFA),
+
+    .window_border_fg_docked = GUI_RGB(0x89, 0xB4, 0xFA),
+
+    .window_border_fg_playground = GUI_RGB(0xF5, 0xA6, 0x23),
     .window_border_bg = GUI_RGB(0x18, 0x18, 0x25),
     .window_border_fg_dragging = GUI_RGB(0xB4, 0xBE, 0xFE),
     .window_border_fg_unfocused = GUI_RGB(0x45, 0x47, 0x5A),

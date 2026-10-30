@@ -572,7 +572,7 @@ int parse_target(const char* targetstr, struct platform* p_platform)
     return 0;
 }
 
-const char* _Opt target_name(int i)
+const char* target_name(int i)
 {
     static const char* const names[] = {
         "default", "x86_64-linux-gnu-gcc", "i686-pc-windows-msvc", "x86_64-pc-windows-msvc",
@@ -592,7 +592,7 @@ void print_target_options()
     printf("\n");
 }
 
-static bool str_is(const char* _Opt a, const char* b)
+static bool str_is(const char* _Nullable a, const char* b)
 {
     return a != NULL && strcmp(a, b) == 0;
 }

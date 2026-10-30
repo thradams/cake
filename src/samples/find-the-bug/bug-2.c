@@ -5,10 +5,10 @@
 #include <string.h>
 
 struct X {
-  char *_Owner _Opt name;
+  char *_Owner name;
 };
 
-void delete(struct X * _Owner _Opt p)
+void delete(struct X * _Owner _Nullable p)
 {
     if (p)
     {
@@ -19,7 +19,7 @@ void delete(struct X * _Owner _Opt p)
 
 int main()
 {
-    struct X * _Owner _Opt p = calloc(1, sizeof * p);
+    struct X * _Owner p = calloc(1, sizeof * p);
     if (p)
     {
         p->name = strdup("a");

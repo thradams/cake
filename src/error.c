@@ -30,7 +30,7 @@ void throw_break_point()
     */
 }
 
-const char* get_posix_error_message(int error)
+const char* _Nonnull get_posix_error_message(int error)
 {
     switch (error)
     {

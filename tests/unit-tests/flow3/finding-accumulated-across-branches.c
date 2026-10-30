@@ -7,7 +7,7 @@ int g;
 
 void null_on_five_branches(int a, int b, int c, int d, int e)
 {
-    int* _Opt p = &g;
+    int* p = &g;
     if (a) p = 0;
     else if (b) p = 0;
     else if (c) p = 0;
@@ -18,7 +18,7 @@ void null_on_five_branches(int a, int b, int c, int d, int e)
 
 void null_on_one_branch(int a)
 {
-    int* _Opt p = &g;
+    int* p = &g;
     if (a) p = 0;
     use(p); //lint 35
 }

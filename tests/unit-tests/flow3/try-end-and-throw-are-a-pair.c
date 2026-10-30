@@ -1,14 +1,14 @@
 #pragma safety enable
 
-void* _Owner _Opt calloc(unsigned long n, unsigned long s);
-struct node { int* first; };
+void* _Owner calloc(unsigned long n, unsigned long s);
+struct node { int* _Nonnull first; };
 void node_delete(_Dtor struct node* _Owner _Opt p);
-int* get(void);
+int* _Nonnull get(void);
 int fail(void);
 
-struct node* _Owner _Opt make(void)
+struct node* _Owner make(void)
 {
-    struct node* _Owner _Opt p = 0;
+    struct node* _Owner p = 0;
     try
     {
         p = calloc(1, sizeof *p);

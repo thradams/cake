@@ -4,7 +4,7 @@
 
 void pointer_null(void)
 {
-    int* _Opt e = 0;
+    int* e = 0;
     while (e)
     {
         *e = 1; //lint 68
@@ -22,7 +22,7 @@ void value_zero(void)
 
 void body_breaks(void)
 {
-    int* _Opt e = 0;
+    int* e = 0;
     while (e)
     {
         *e = 1; //lint 68

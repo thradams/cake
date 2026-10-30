@@ -4,8 +4,8 @@
 
 struct X
 {
-    int* _Owner _Opt name;
-    int* _Owner _Opt surname;
+    int* _Owner name;
+    int* _Owner surname;
 };
 
 void free(void* _Owner _Opt p);
@@ -28,13 +28,13 @@ void assign1(struct X* _Owner _Opt p)
     {
         free(p->name);
         /* forgot to free p->surname */
-        void* _Owner _Opt v = p; //lint 29 owner object (.surname) not moved (opt-mem-nonnull see line 51)
+        void* _Owner v = p; //lint 29 owner object (.surname) not moved (opt-mem-nonnull see line 51)
         free(v); //lint 29 owner object (.surname) not moved (opt-mem-nonnull see line 51)
     }
 }
 
 /* Erasure through a return. */
-void* _Owner _Opt detach1(struct X* _Owner _Opt p)
+void* _Owner detach1(struct X* _Owner _Opt p)
 {
     if (p)
     {

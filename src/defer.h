@@ -14,27 +14,27 @@
 
 struct defer_visit_ctx
 {
-    struct secondary_block* _Opt catch_secondary_block_opt;
-    struct parser_ctx * const  ctx;
+    struct secondary_block* catch_secondary_block_opt;
+    struct parser_ctx * _Nonnull const  ctx;
     _View struct ast ast;    
-    struct defer_scope* _Owner _Opt tail_block;
+    struct defer_scope* _Owner tail_block;
     int parameter_list;
 
         
     /* special visit to find labels-- */
     bool searching_label_mode;    
-    const char* _Opt label_name;
-    struct label* _Opt p_label;
+    const char* label_name;
+    struct label* p_label;
     /*-------------------------------*/
 
-    struct declaration* _Opt p_declaration;
+    struct declaration* p_declaration;
 
     /* body of a function literal (it has no declaration) */
-    struct compound_statement* _Opt p_function_literal_body;
+    struct compound_statement* p_function_literal_body;
 };
 
 void defer_visit_ctx_destroy(_Dtor struct defer_visit_ctx* p);
 void defer_start_visit_declaration(struct defer_visit_ctx* ctx, struct declaration* p_declaration);
 void defer_start_visit_compound_statement(struct defer_visit_ctx* ctx,
                                            struct compound_statement* p_compound_statement,
-                                           struct parameter_list* _Opt p_parameter_list);
+                                           struct parameter_list* _Nullable p_parameter_list);

@@ -5,7 +5,7 @@
 int f(int c)
 {
     int i = 0;
-    int* _Opt p = 0;
+    int* p = 0;
 
     if (c > 2) p = &i;
     if (c > 2) i = *p;   /* clean: same predicate proves p is non-null here */
@@ -18,7 +18,7 @@ struct point { int x, y; };
 
 int g(int c, struct point pt)
 {
-    struct point* _Opt p = 0;
+    struct point* p = 0;
 
     if (c > 2) p = &pt;
     if (c > 2) return p->x;   /* clean */

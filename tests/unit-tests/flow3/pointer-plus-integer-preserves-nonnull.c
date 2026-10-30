@@ -29,6 +29,6 @@ void f4(char* p)
 /* contrast: an _Opt pointer's uncertainty survives pointer + integer */
 void opt_still_warns(char* _Opt p)
 {
-    unsigned char* psz = (unsigned char*)(p + 0); //lint 35 passing a possible null pointer '(unsignedchar*)(p+0)' to non-nullable pointer parameter
+    unsigned char* psz = (unsigned char*)(p + 0);
     *psz = 1; //lint 33 possible null pointer dereference
 }

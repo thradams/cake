@@ -1,8 +1,8 @@
 #pragma safety enable
 
 struct u { int x; };
-struct st { struct u* _Opt u; };
-struct sb { struct st* st; };
+struct st { struct u* u; };
+struct sb { struct st* _Nonnull st; };
 void use(struct u* p);
 
 void f(struct sb* p)

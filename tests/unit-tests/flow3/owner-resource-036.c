@@ -3,7 +3,7 @@
 
 void free(void * _Owner _Opt p);
 struct X {
-    char * _Owner text;
+    char * _Nonnull _Owner text;
 };
 
 void x_destroy(_Dtor struct X *  x) {

@@ -1,7 +1,7 @@
 #pragma safety enable
 
 /* issue #515 */
-struct S { int* q; };
+struct S { int* _Nonnull q; };
 
 int f(void)
 {

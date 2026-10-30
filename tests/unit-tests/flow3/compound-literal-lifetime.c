@@ -2,10 +2,10 @@
 
 /* issue 489: a block-scope compound literal's lifetime ends at the end of the enclosing block */
 
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt ptr);
+char* _Owner strdup(const char* s);
+void free(void* _Owner _Nullable ptr);
 
-struct X { char* _Owner _Opt name; };
+struct X { char* _Owner name; };
 
 void take(struct X x)
 {
@@ -23,7 +23,7 @@ void leaks(void)
 void moved_member(void)
 {
     struct X* p = &(struct X){ strdup("a") };
-    char* _Owner _Opt s = p->name;
+    char* _Owner s = p->name;
     free(s);
 }
 
@@ -50,7 +50,7 @@ void static_literal(void)
 /* must NOT warn: static variables are not ended at the end of the block */
 void static_variable(void)
 {
-    static char* _Owner _Opt s = 0;
+    static char* _Owner _Nullable s = 0;
     free(s);
     s = strdup("a");
 }

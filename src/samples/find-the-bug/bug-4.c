@@ -6,8 +6,8 @@
 #include <string.h>
 
 struct X {
-  char *_Owner _Opt name;
-  char *_Owner _Opt surname;
+  char *_Owner name;
+  char *_Owner surname;
 };
 
 void change(struct X * p)

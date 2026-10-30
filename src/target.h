@@ -52,23 +52,23 @@ enum object_type
 
 struct platform
 {
-    const char* _Opt name;   /* a zeroed struct options has none until fill_options */
+    const char* name;   /* a zeroed struct options has none until fill_options */
 
     /*
         __CAKE_TARGET_COMPILER_<compiler>, __CAKE_TARGET_OS_<os>, __CAKE_TARGET_ARCH_<arch>;
         NULL defines nothing
     */
-    const char* _Opt compiler;
-    const char* _Opt os;
-    const char* _Opt arch;
+    const char* compiler;
+    const char* os;
+    const char* arch;
 
-    const char* _Opt predefined_macros;
-    const char* _Opt dialect_builtins;
+    const char* predefined_macros;
+    const char* dialect_builtins;
 
     /* code gen flags; false is the GCC behavior */
-    const char* _Opt code_thread_local_spelling;
-    const char* _Opt code_alignas_spelling_fmt;  /* must have one %d */
-    const char* _Opt code_alloca_spelling;
+    const char* code_thread_local_spelling;
+    const char* code_alignas_spelling_fmt;  /* must have one %d */
+    const char* code_alloca_spelling;
     bool code_msvc_like_atomics;                    /* atomics use _Interlocked* */
     bool code_tcc_like_atomics;                     /* atomics use tcc's lock; neither = __atomic_* */
     bool code_msvc_like_no_member_packed;           /* no __attribute__((packed)) on a member */
@@ -139,7 +139,7 @@ struct platform
 int parse_target(const char* targetstr, struct platform* p_platform);
 void print_target_options();
 /* the i-th name parse_target accepts, NULL past the last */
-const char* _Opt target_name(int i);
+const char* target_name(int i);
 void platform_default(_Out struct platform* p);
 
 bool platform_os_is(const struct platform* p_platform, const char* os);

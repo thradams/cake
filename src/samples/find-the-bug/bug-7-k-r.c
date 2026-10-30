@@ -13,12 +13,12 @@
 #include <string.h>
 
 struct nlist {          /* table entry: */
-    struct nlist *next; /* next entry in chain */
-    char *name;  /* defined name */
-    char *defn;  /* replacement text */
+    struct nlist * next; /* next entry in chain */
+    char * name;  /* defined name */
+    char * defn;  /* replacement text */
 };
 
-struct nlist *lookup(char *s);
+struct nlist * lookup(char *s);
 
 /* hash:  form hash value for string s */
 unsigned hash(char *s);
@@ -29,11 +29,11 @@ unsigned hash(char *s);
 static struct nlist *hashtab[HASHSIZE]; /* pointer table */
 
 /*1* lookup: look for s in hashtab */
-struct nlist *lookup(char *);
+struct nlist * lookup(char *);
 
 
 /* install:  put (name, defn) in hashtab */
-struct nlist *install(char *name, char *defn)
+struct nlist * install(char *name, char *defn)
 {
     struct nlist *np;
     unsigned hashval;

@@ -46,5 +46,8 @@
     #endif
 
 #else
+    #if defined(_WIN32)
+        int* _Nonnull _errno(void);
+    #endif
     #include_next <stddef.h>
 #endif

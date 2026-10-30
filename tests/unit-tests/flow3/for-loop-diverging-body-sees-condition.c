@@ -4,7 +4,7 @@
 
 struct X { int i; };
 
-void narrowing_reaches_body(struct X* _Opt p)
+void narrowing_reaches_body(struct X* _Nullable p)
 {
     for (; p != 0;)
     {
@@ -13,7 +13,7 @@ void narrowing_reaches_body(struct X* _Opt p)
     }
 }
 
-void narrowing_reaches_body_while(struct X* _Opt p)
+void narrowing_reaches_body_while(struct X* _Nullable p)
 {
     while (p != 0)
     {

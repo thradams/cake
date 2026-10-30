@@ -4,8 +4,8 @@
 
 #define NULL ((void*)0)
 
-struct token { struct token* _Opt next; struct token* _Opt prev; };
-struct list { struct token* _Opt head; struct token* _Opt tail; };
+struct token { struct token* next; struct token* prev; };
+struct list { struct token* head; struct token* tail; };
 
 /* The else (head became NULL) is reachable. */
 void pop_front(struct list* list)
@@ -13,7 +13,7 @@ void pop_front(struct list* list)
     if (list->head == NULL)
         return;
 
-    struct token* _Opt old = list->head;
+    struct token* old = list->head;
     list->head = old->next;              /* _Opt member -> possibly null */
 
     if (list->head != NULL)

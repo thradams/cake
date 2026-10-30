@@ -2,11 +2,11 @@
 
 
 
-_Uninitialized void* _Owner _Opt malloc(unsigned size);
+_Uninitialized void* _Owner malloc(unsigned size);
 void free(void* _Owner _Opt  ptr);
 
 int main() {
-   void * _Owner _Opt p = malloc(1);
+   void * _Owner p = malloc(1);
    do{
       free(p);
    }

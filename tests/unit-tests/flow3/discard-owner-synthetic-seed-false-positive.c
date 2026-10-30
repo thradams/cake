@@ -3,29 +3,29 @@
 
 /* overwriting an _Owner member reached through a plain pointer parameter warns even when the move is legitimate: unknown is treated as possibly live, not as safe */
 
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt p);
+char* _Owner strdup(const char* s);
+void free(void* _Owner _Nullable p);
 
 struct token
 {
-    char* _Owner lexeme;
+    char* _Nonnull _Owner lexeme;
 };
 
 struct declarator
 {
-    struct token* name_opt;
+    struct token* _Nonnull name_opt;
 };
 
 struct init_declarator
 {
-    struct declarator* p_declarator;
+    struct declarator* _Nonnull p_declarator;
 };
 
 int rename_identifier(struct init_declarator* p_init_declarator, const char* new_name)
 {
     try
     {
-        char* _Opt _Owner temp = strdup(new_name);
+        char* _Owner temp = strdup(new_name);
         if (temp == NULL) throw;
         /* warns by design: lexeme's incoming state is unknown, see the file comment */
         p_init_declarator->p_declarator->name_opt->lexeme = temp; //lint 26 assignment discards _Owner '.lexeme' without releasing it first

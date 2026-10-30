@@ -2,7 +2,7 @@
 
 // one report per argument, not one per loop path.
 
-struct X { int* _Owner _Opt p; };
+struct X { int* _Owner p; };
 
 void destroy(_Dtor struct X* x);
 

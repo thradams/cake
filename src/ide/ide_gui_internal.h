@@ -84,6 +84,7 @@ struct window_props
     int modal;                 /* blocks input to everything under it */
     int free_on_close;         /* a message box: freed when it closes */
     int ask_close;             /* the close icon fires the id and does not close */
+    int playground;            /* framed in window_border_fg_playground */
 };
 
 /* The open windows, bottom to top. */

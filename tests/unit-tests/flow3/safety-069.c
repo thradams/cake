@@ -6,7 +6,7 @@ struct X {
 
 void f2()
 {
-    struct X* _Opt p = 0;
+    struct X* p = 0;
     {
         struct X x = {0};
         p = &x;

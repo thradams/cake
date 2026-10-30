@@ -1,7 +1,7 @@
 #pragma safety enable
 #pragma flow enable
 
-struct X { char* name; };
+struct X { char* _Nonnull name; };
 
 struct X return_struct()
 {

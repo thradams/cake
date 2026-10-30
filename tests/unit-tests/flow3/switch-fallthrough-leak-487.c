@@ -1,12 +1,12 @@
 #pragma safety enable
 
-void* _Owner _Opt malloc(unsigned long n);
+void* _Owner malloc(unsigned long n);
 void free(void* _Owner _Opt p);
 
 /* issue 487: the state of case 1 falls through into case 2 */
 void f(int c)
 {
-    char* _Owner _Opt p = 0;
+    char* _Owner p = 0;
     switch (c)
     {
         case 1:
@@ -22,7 +22,7 @@ void f(int c)
 /* no fall-through: no warning */
 void g(int c)
 {
-    char* _Owner _Opt p = 0;
+    char* _Owner p = 0;
     switch (c)
     {
         case 1:
@@ -41,7 +41,7 @@ void g(int c)
 /* if/else where both arms return: no fall-through into case 2 */
 void h(int c, int d)
 {
-    char* _Owner _Opt p = 0;
+    char* _Owner p = 0;
     switch (c)
     {
         case 1:

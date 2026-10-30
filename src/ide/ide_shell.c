@@ -3980,6 +3980,7 @@ static void copts_open(struct ide* ide, struct compiler_settings* s, const char*
     c->settings = s;
     c->edit = *s;
     gui_set_label(c->window, title);
+    gui_window_set_playground(c->window, s == &ide->global_options);
     copts_fill_configs(ide, config_index(ide, s));
     copts_show(ide);
     show_resizable_dialog(ide, c->window, COPTS_COLS, COPTS_ROWS, c->pages);
@@ -8289,7 +8290,10 @@ static void open_playground(struct ide* ide)
     open_file(ide, path);
     struct doc* d = find_doc(ide, path);
     if (d)
+    {
         gui_set_label(d->window, "Playground");
+        gui_window_set_playground(d->window, 1);
+    }
 }
 
 /*

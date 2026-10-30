@@ -4,7 +4,7 @@
 
 void free(void* _Owner _Opt p);
 
-struct list { int* _Owner _Opt head; };
+struct list { int* _Owner head; };
 
 struct list g;
 

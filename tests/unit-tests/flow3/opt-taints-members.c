@@ -4,7 +4,7 @@
 
 struct X
 {
-    char* p_not_opt; /* not _Opt -- non-null by its own declared type */
+    char* _Nonnull p_not_opt; /* not _Opt -- non-null by its own declared type */
 };
 
 void through_opt_pointee(_Opt struct X* p)
@@ -18,8 +18,8 @@ void through_plain(struct X* p)
     *p->p_not_opt = 'a'; // ok: pointee has no _Opt taint, member stays non-null by contract
 }
 
-/* `_Dtor _Opt struct X* p` and `_Dtor struct X* p` are equivalent: a _Dtor pointee is already permissive */
-void destroy_x1(_Dtor _Opt struct X* p) { (void)p; }
+/* `_Dtor struct X* p` and `_Dtor struct X* p` are equivalent: a _Dtor pointee is already permissive */
+void destroy_x1(_Dtor _Nullable struct X* p) { (void)p; } //lint 122
 void destroy_x2(_Dtor struct X* p) { (void)p; }
 
 /* _View taints members the same way for ownership: every _Owner member of a _View object is a view */

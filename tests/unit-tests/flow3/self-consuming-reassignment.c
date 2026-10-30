@@ -6,14 +6,14 @@
 
 struct E { int x; };
 
-struct E* _Owner _Opt tail(struct E* _Owner p);
-struct E* _Owner _Opt make(void);
+struct E* _Owner tail(struct E* _Owner p);
+struct E* _Owner make(void);
 void del(struct E* _Owner _Opt p);
 
 /* The plain form: consume and reassign, no branching in between. */
 void self_consume_ok(void)
 {
-    struct E* _Owner _Opt p = make();
+    struct E* _Owner p = make();
     if (p == NULL)
         return;
 
@@ -25,7 +25,7 @@ void self_consume_ok(void)
 /* Same, with the result checked before use. */
 void self_consume_checked_ok(void)
 {
-    struct E* _Owner _Opt p = make();
+    struct E* _Owner p = make();
     if (p == NULL)
         return;
 
@@ -39,7 +39,7 @@ void self_consume_checked_ok(void)
 /* parse-loop shape: the zero-iteration arm must not be reported as use-after-end of the object the body consumed (origin filter in flow3_object_leaves_in_state) */
 void self_consume_loop_ok(int n)
 {
-    struct E* _Owner _Opt p = make();
+    struct E* _Owner p = make();
     if (p == NULL)
         return;
 

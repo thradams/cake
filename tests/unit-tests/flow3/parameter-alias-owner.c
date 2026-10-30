@@ -5,7 +5,7 @@
 void free(void* _Owner _Opt ptr);
 
 struct Y { int i; };
-struct X { struct Y* _Owner _Opt pY; };
+struct X { struct Y* _Owner pY; };
 
 /*
     entry flow:
@@ -30,7 +30,7 @@ void freed_through_alias(struct X* p1, struct X* p2)
     p1 = new();
     p2 = new();
 */
-struct Z { struct Y* _Owner _Opt pY; };
+struct Z { struct Y* _Owner pY; };
 void different_types_owner(struct X* p1, struct Z* p2)
 {
     if (p2->pY)

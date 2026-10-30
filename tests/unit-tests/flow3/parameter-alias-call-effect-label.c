@@ -2,7 +2,7 @@
 
 /* a call through one parameter changes the object of the other only when they are the same: the warning says so (in case src == dest), and restrict removes it */
 
-struct B { int* _Opt p; };
+struct B { int* p; };
 void touch(struct B* b);
 
 /*
@@ -35,7 +35,7 @@ void call_then_pass(struct B* dest, struct B* src)
     }
 }
 
-struct F { void (* _Opt fn)(void); };
+struct F { void (* fn)(void); };
 void touch_f(struct F* f);
 
 /* must warn, labeled: calling the function pointer read through src */

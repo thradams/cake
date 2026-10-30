@@ -15,8 +15,8 @@ struct defer_list_item;
 
 struct defer_list
 {
-    struct defer_list_item* _Opt _Owner head;
-    struct defer_list_item* _Opt tail;
+    struct defer_list_item* _Owner head;
+    struct defer_list_item* tail;
 };
 
 
@@ -133,8 +133,8 @@ struct argument_expression_list
         assignment-expression
         argument-expression-list , assignment-expression
     */
-    struct argument_expression* _Owner _Opt head;
-    struct argument_expression* _Opt tail;
+    struct argument_expression* _Owner head;
+    struct argument_expression* tail;
 };
 
 void argument_expression_list_destroy(_Dtor struct argument_expression_list* p);
@@ -149,21 +149,21 @@ struct generic_association
     */
 
     struct type type;
-    struct type_name* _Owner _Opt p_type_name;
-    struct expression* _Owner expression;
+    struct type_name* _Owner p_type_name;
+    struct expression* _Nonnull _Owner expression;
 
-    struct token* first_token;
-    struct token* last_token;
+    struct token* _Nonnull first_token;
+    struct token* _Nonnull last_token;
 
-    struct generic_association* _Owner _Opt next;
+    struct generic_association* _Owner next;
 };
 
-void generic_association_delete(_Dtor struct generic_association* _Owner _Opt p);
+void generic_association_delete(_Dtor struct generic_association* _Owner _Nullable p);
 
 struct generic_assoc_list
 {
-    struct generic_association* _Owner _Opt head;
-    struct generic_association* _Opt tail;
+    struct generic_association* _Owner head;
+    struct generic_association* tail;
 };
 
 void generic_assoc_list_add(struct generic_assoc_list* p, struct generic_association* _Owner item);
@@ -189,19 +189,17 @@ struct generic_selection
     */
 
 
-    struct expression* _Owner _Opt expression;
-    struct type_name* _Owner _Opt type_name;
-    /*
-    * Points to the matching expression
-    */
-    struct expression* _Opt p_view_selected_expression;
+    struct expression* _Owner expression;
+    struct type_name* _Owner type_name;
+    
+    struct expression* p_view_selected_expression; /* Points to the matching expression */
 
     struct generic_assoc_list generic_assoc_list;
-    struct token* first_token;
-    struct token* last_token;
+    struct token* _Nonnull first_token;
+    struct token* _Nonnull last_token;
 };
 
-void generic_selection_delete(_Dtor struct generic_selection* _Owner _Opt p);
+void generic_selection_delete(_Dtor struct generic_selection* _Owner _Nullable p);
 
 /*
   offsetof member-designator (n3958):
@@ -218,9 +216,9 @@ void generic_selection_delete(_Dtor struct generic_selection* _Owner _Opt p);
 */
 struct offsetof_designator
 {
-    struct token* first_token;
-    struct token* _Opt identifier;
-    struct expression* _Owner _Opt index;
+    struct token* _Nonnull first_token;
+    struct token* identifier;
+    struct expression* _Owner index;
 
     /*
         identifier node: byte offset of the member inside its struct/union
@@ -229,10 +227,10 @@ struct offsetof_designator
     size_t member_offset;
     size_t element_size;
 
-    struct offsetof_designator* _Owner _Opt next;
+    struct offsetof_designator* _Owner next;
 };
 
-void offsetof_designator_delete(_Dtor struct offsetof_designator* _Owner _Opt p);
+void offsetof_designator_delete(_Dtor struct offsetof_designator* _Owner _Nullable p);
 
 struct expression
 {
@@ -240,31 +238,31 @@ struct expression
 
     struct object object;
 
-    struct type_name* _Owner _Opt type_name;
+    struct type_name* _Owner type_name;
 
-    struct storage_class_specifiers * _Owner _Opt p_storage_class_specifiers;
-    struct braced_initializer* _Owner _Opt braced_initializer;
-    struct compound_statement* _Owner _Opt compound_statement; //function literal (lambda)
-    struct generic_selection* _Owner _Opt generic_selection; //_Generic
-    struct static_assertion * _Owner _Opt static_assertion; //_Generic
-    struct token* first_token;
-    struct token* last_token;
+    struct storage_class_specifiers * _Owner p_storage_class_specifiers;
+    struct braced_initializer* _Owner braced_initializer;
+    struct compound_statement* _Owner compound_statement; //function literal (lambda)
+    struct generic_selection* _Owner generic_selection; //_Generic
+    struct static_assertion * _Owner static_assertion; //_Generic
+    struct token* _Nonnull first_token;
+    struct token* _Nonnull last_token;
     
     /* EXPR_UNARY_GCC__BUILTIN_OFFSETOF */
-    struct offsetof_designator* _Owner _Opt offsetof_member_designator;
+    struct offsetof_designator* _Owner offsetof_member_designator;
 
     /*if expression is an identifier it points to its declaration*/
-    struct declarator* _Opt declarator;
-    struct init_declarator* _Opt p_init_declarator;
+    struct declarator* declarator;
+    struct init_declarator* p_init_declarator;
 
     int member_index; //used in post_fix .
 
     /*se for EXPR_POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
-    struct expression* _Owner _Opt condition_expr;
-    struct expression* _Owner _Opt left;
-    struct expression* _Owner _Opt right;
+    struct expression* _Owner condition_expr;
+    struct expression* _Owner left;
+    struct expression* _Owner right;
 
     bool is_assignment_expression;
 
@@ -278,19 +276,19 @@ void check_malloc_size_multiple_of_sizeof(const struct parser_ctx* ctx,
                                           const struct type* p_pointer_type,
                                           const struct expression* p_right_expression);
 
-void expression_delete(_Dtor struct expression* _Owner _Opt p);
+void expression_delete(_Dtor struct expression* _Owner _Nullable p);
 
 /*cake extension*/
-struct expression* _Owner _Opt checked_expression(struct parser_ctx* ctx, bool is_discarded);
+struct expression* _Owner checked_expression(struct parser_ctx* ctx, bool is_discarded);
 
-struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx, bool is_discarded);
-struct expression* _Owner _Opt expression(struct parser_ctx* ctx, bool is_discarded);
-struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant, bool is_discarded);
+struct expression* _Owner assignment_expression(struct parser_ctx* ctx, bool is_discarded);
+struct expression* _Owner expression(struct parser_ctx* ctx, bool is_discarded);
+struct expression* _Owner constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant, bool is_discarded);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 
 
 bool expression_is_lvalue(const struct expression* expr);
-void expression_mark_discarded_write(const struct expression* _Opt p_expression);
+void expression_mark_discarded_write(const struct expression* _Nullable p_expression);
 
 bool expression_has_side_effects(const struct expression* expr);
 
@@ -311,4 +309,4 @@ void check_assigment(const struct parser_ctx* ctx,
 struct marker expression_to_marker(const struct expression* p_expression);
 
 void flow_expression_to_string(const struct expression* p_expression, struct osstream* oss);
-const struct expression* skip_parenthesis(const struct expression* expr);
+const struct expression* _Nonnull skip_parenthesis(const struct expression* expr);

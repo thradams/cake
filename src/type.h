@@ -115,7 +115,7 @@ enum type_qualifier_flags
 
     TYPE_QUALIFIER_CAKE_OWNER = 1 << 4,
     TYPE_QUALIFIER_CAKE_VIEW = 1 << 5,
-    TYPE_QUALIFIER_CAKE_OPT = 1 << 6,
+    TYPE_QUALIFIER_CAKE_NULLABLE = 1 << 6,
 
     TYPE_QUALIFIER_CAKE_DTOR = 1 << 7,
     TYPE_QUALIFIER_CAKE_CTOR = 1 << 8,
@@ -133,6 +133,8 @@ enum type_qualifier_flags
       they belong to the adjusted pointer, not to the element (6.7.6.3p7)
     */
     TYPE_QUALIFIER_ARRAY_BRACKET = 1 << 14,
+
+    TYPE_QUALIFIER_CAKE_NONNULL = 1 << 15,
 
 };
 
@@ -231,8 +233,8 @@ enum assigment_type
 
 struct type_list
 {
-    struct type* _Owner _Opt head;
-    struct type* _Opt tail;
+    struct type* _Owner head;
+    struct type* tail;
 };
 
 void type_list_destroy(_Dtor struct type_list* p_type_list);
@@ -246,8 +248,8 @@ struct param_list
 {
     bool is_var_args;
     bool is_void;
-    struct param* _Owner _Opt head;
-    struct param* _Opt tail;
+    struct param* _Owner head;
+    struct param* tail;
 };
 
 void param_list_destroy(_Dtor struct param_list* p);
@@ -264,16 +266,16 @@ struct type
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
 
-    const char* _Owner _Opt name_opt;
+    const char* _Owner name_opt;
 
-    struct struct_or_union_specifier* _Opt struct_or_union_specifier;
-    const struct enum_specifier* _Opt enum_specifier;
+    struct struct_or_union_specifier* struct_or_union_specifier;
+    const struct enum_specifier* enum_specifier;
 
     /*to find the complete array size*/  
-    struct declarator* _Opt p_declarator_opt;
+    struct declarator* p_declarator_opt;
 
     //Expression used as array size. Can be constant or not constant (VLA)
-    const struct expression* _Opt p_array_num_elements_expression;
+    const struct expression* p_array_num_elements_expression;
     /*
       id/number of local variable to store the vm
     */
@@ -282,7 +284,7 @@ struct type
     /*
       This is the function where the vm type variable exists
     */
-    struct declarator* _Opt p_current_function_opt;
+    struct declarator* p_current_function_opt;
 
     /*
     * array_num_elements is zero when p_array_num_elements_expression is null
@@ -304,15 +306,19 @@ struct type
     bool address_of;
 
     struct param_list params;
-    struct type* _Owner _Opt next;
+    struct type* _Owner next;
 };
 
-const struct param_list* _Opt type_get_func_or_func_ptr_params(const struct type* p_type);
+const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type);
+
+struct parameter_declaration;
 
 struct param
 {
     struct type type;
-    struct param* _Owner _Opt next;
+    /* the declaration that made it; its compile_assert is checked at each call */
+    const struct parameter_declaration* p_parameter_declaration;
+    struct param* _Owner next;
 };
 
 void print_type(struct osstream* ss, const  struct type* type, const struct platform* target);
@@ -322,7 +328,7 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
 
-void type_destroy(_Opt _Dtor struct type* p_type);
+void type_destroy(_Dtor struct type* p_type);
 
 struct type type_common(const struct type* p_type1, const struct type* p_type2, const struct platform* target);
 struct type get_array_item_type(const struct type* p_type);
@@ -338,7 +344,7 @@ bool type_is_enumerator(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 bool type_is_array_of_unknown_size(const struct type* p_type);
 bool type_has_different_array_parameter_size(const struct type* a, const struct type* b);
-const struct type* _Opt type_get_complete_array(const struct type* p_type);
+const struct type* type_get_complete_array(const struct type* p_type);
 
 bool type_is_out(const struct type* p_type);
 bool type_is_dtor(const struct type* p_type);
@@ -351,8 +357,7 @@ bool type_is_volatile_recursive(const struct type* p_type);
 bool type_is_pointed_void(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);
 bool type_is_const_or_constexpr(const struct type* p_type);
-bool type_is_nullable(const struct type* p_type, bool nullable_enabled);
-bool type_is_view(const struct type* p_type);
+bool type_is_nullable(const struct type* p_type, bool nullable_enabled);bool type_is_view(const struct type* p_type);
 
 bool type_is_owner(const struct type* p_type);
 
@@ -479,7 +484,7 @@ enum sizeof_result
 
 enum sizeof_result type_get_sizeof(const struct type* p_type, size_t* size, const struct platform* target);
 
-enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, struct type* _Opt p_member_type_out, const struct platform* target);
+enum sizeof_result type_get_offsetof(const struct type* p_type, const char* member, size_t* size, struct type* _Nullable p_member_type_out, const struct platform* target);
 
 void type_get_integer_range(const struct type* p_type, const struct platform* target, long long* min, unsigned long long* max);
 

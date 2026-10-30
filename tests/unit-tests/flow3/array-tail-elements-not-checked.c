@@ -1,11 +1,11 @@
 #pragma safety enable
 
-/* TEMPORARY: null non-_Opt members reached by walking an array's elements are not reported (labels[100] + labels_size idiom) */
+/* TEMPORARY: null non-_Nullable members reached by walking an array's elements are not reported (labels[100] + labels_size idiom) */
 
 struct label_state
 {
-    const char* label_name;      /* non-_Opt: null is a contract violation */
-    struct label_state* next;    /* non-_Opt */
+    const char* _Nonnull label_name;      /* non-_Nullable: null is a contract violation */
+    struct label_state* _Nonnull next;    /* non-_Nullable */
 };
 
 struct ctx
@@ -16,7 +16,7 @@ struct ctx
 
 struct plain
 {
-    const char* name;            /* non-_Opt */
+    const char* _Nonnull name;            /* non-_Nullable */
 };
 
 void take_ctx(struct ctx* p);
@@ -30,7 +30,7 @@ void passes_whole_array(void)
     take_ctx(&c);
 }
 
-/* NOT dismissed: a zeroed non-_Opt member of a plain struct. */
+/* NOT dismissed: a zeroed non-_Nullable member of a plain struct. */
 void passes_plain_struct(void)
 {
     struct plain p = { 0 };

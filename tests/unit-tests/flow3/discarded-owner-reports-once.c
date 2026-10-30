@@ -22,7 +22,7 @@ struct blob
 {
 
 
-    char* _Owner _Opt data;
+    char* _Owner data;
 
 
     int len;
@@ -43,13 +43,13 @@ struct holder
 {
 
 
-    char* _Owner _Opt first;
+    char* _Owner first;
 
 
-    char* _Owner _Opt second;
+    char* _Owner second;
 
 
-    char* _Owner _Opt third;
+    char* _Owner third;
 
 
     int tag;
@@ -82,10 +82,10 @@ struct outer
 struct holder make_holder(void);
 
 
-char* _Owner _Opt dup(const char* s);
+char* _Owner dup(const char* s);
 
 
-void del_str(char* _Owner _Opt s);
+void del_str(char* _Owner _Nullable s);
 
 
 

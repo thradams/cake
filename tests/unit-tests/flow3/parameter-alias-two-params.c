@@ -5,7 +5,7 @@
 #define NULL ((void*)0)
 
 struct Y { int i; };
-struct X { struct Y* _Opt pY; };
+struct X { struct Y* pY; };
 
 /*
     entry flow:
@@ -63,7 +63,7 @@ void two_params_restrict(struct X* restrict p1, struct X* restrict p2, struct Y*
     p1 = new();
     p2 = new();
 */
-struct Z { struct Y* _Opt pY; };
+struct Z { struct Y* pY; };
 void different_types(struct X* p1, struct Z* p2, struct Y* y)
 {
     p2->pY = y;

@@ -6,14 +6,14 @@ struct token { int line; };
 
 struct marker
 {
-    struct token* p_token_begin;
-    struct token* p_token_end;
+    struct token* _Nonnull p_token_begin;
+    struct token* _Nonnull p_token_end;
 };
 
 struct expression
 {
-    struct token* first_token;
-    struct token* last_token;
+    struct token* _Nonnull first_token;
+    struct token* _Nonnull last_token;
 };
 
 /* the original false positive: returning the aggregate must not report "uninitialized" */

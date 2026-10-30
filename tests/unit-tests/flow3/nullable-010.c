@@ -1,9 +1,9 @@
 #pragma safety enable
 #pragma flow enable
 
-struct X { char* name; };
+struct X { char* _Nonnull name; };
 
-struct X * f()
+struct X * _Nonnull f()
 {
     struct X* p;
     {

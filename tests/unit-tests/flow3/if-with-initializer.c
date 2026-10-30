@@ -4,18 +4,18 @@
 
 struct node
 {
-    struct node* _Opt next;
+    struct node* next;
     int value;
 };
 
-struct node* _Opt get();
-struct node* _Opt get_a();
-struct node* _Opt get_b();
-struct node* _Opt get_next(struct node* _Opt p);
+struct node* get();
+struct node* get_a();
+struct node* get_b();
+struct node* get_next(struct node* _Nullable p);
 
 void true_branch_narrowed(void)
 {
-    if (struct node* _Opt p = get())
+    if (struct node* p = get())
     {
         /* p narrowed non-null by the initializer acting as the condition */
         int v = p->value;
@@ -25,7 +25,7 @@ void true_branch_narrowed(void)
 
 void false_branch_is_null(void)
 {
-    if (struct node* _Opt p = get())
+    if (struct node* p = get())
     {
         int v = p->value; // safe
         (void)v;
@@ -40,7 +40,7 @@ void false_branch_is_null(void)
 void explicit_condition_negated(void)
 {
     /* with an explicit condition `p == 0` the narrowing follows the condition: p null in the true branch, non-null in else */
-    if (struct node* _Opt p = get(); p == 0)
+    if (struct node* p = get(); p == 0)
     {
         return;
     }
@@ -53,7 +53,7 @@ void explicit_condition_negated(void)
 
 void early_return_idiom(void)
 {
-    if (struct node* _Opt p = get())
+    if (struct node* p = get())
     {
         int v = p->value; // safe
         (void)v;
@@ -64,12 +64,12 @@ void early_return_idiom(void)
 
 void else_if_chain(void)
 {
-    if (struct node* _Opt p = get_a())
+    if (struct node* p = get_a())
     {
         int v = p->value; // safe -- p narrowed by its own if
         (void)v;
     }
-    else if (struct node* _Opt q = get_b())
+    else if (struct node* q = get_b())
     {
         int v = q->value; // safe -- q narrowed by its own else-if
         (void)v;

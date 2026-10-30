@@ -1,6 +1,6 @@
 #pragma safety enable
 
-void* f();
+void* _Nonnull f();
 
 int main()
 {

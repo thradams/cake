@@ -2,12 +2,12 @@
 
 
 
-_Uninitialized void * _Owner _Opt malloc(int sz);
+_Uninitialized void * _Owner malloc(int sz);
 void free( void * _Owner _Opt p);
 
 
 void f(int i) {   
-    void * _Owner _Opt p = 0;
+    void * _Owner p = 0;
     if (i)
     {
         if (i)

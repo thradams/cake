@@ -5,12 +5,12 @@
 #include <string.h>
 
 struct person {
-    char* _Opt _Owner name;
+    char* _Owner name;
 };
 
 void set(struct person* p, char* name) {
     free(p->name);
-    char* _Opt _Owner temp = strdup(name);
+    char* _Owner temp = strdup(name);
     if (temp == NULL) return;
     p->name = temp;
     /*may leave this function with p->name uninitialized!*/

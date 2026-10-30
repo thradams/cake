@@ -4,7 +4,7 @@ void g(int i);
 
 void null_subscript_as_argument(void)
 {
-    char* _Opt p = 0;
+    char* p = 0;
     g(p[0]); //lint 33
 }
 

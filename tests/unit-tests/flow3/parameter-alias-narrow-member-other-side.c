@@ -2,8 +2,8 @@
 
 /* on the side input == d, input points to *d: testing input->head narrows *d's head, and the head of *input (not reached on that side) keeps its side; it must not come back as the token the call ended */
 
-struct token { int type; struct token* _Owner _Opt next; };
-struct token_list { struct token* _Owner _Opt head; struct token* _Opt tail; };
+struct token { int type; struct token* _Owner next; };
+struct token_list { struct token* _Owner head; struct token* tail; };
 void consume(struct token_list* dest, struct token_list* input);
 void consume_opt(struct token_list* _Opt dest, struct token_list* input);
 void consume_restrict(struct token_list* restrict dest, struct token_list* restrict input);

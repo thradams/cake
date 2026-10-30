@@ -1,15 +1,15 @@
 #pragma safety enable
 
 void free(void* _Owner _Opt p);
-char* _Owner _Opt strdup(const char* s);
+char* _Owner strdup(const char* s);
 
 struct Y {
-    char* _Owner _Opt text;
+    char* _Owner text;
 };
 
 struct X {
     
-    struct Y* _Owner pY;
+    struct Y* _Nonnull _Owner pY;
 };
 
 void f(struct X* _Opt pX)

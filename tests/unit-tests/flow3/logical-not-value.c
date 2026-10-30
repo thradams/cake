@@ -21,7 +21,7 @@ void int_not(const struct options* o)
 }
 
 /* Narrowing through `!` still works. */
-void narrow(int* _Opt p)
+void narrow(int* _Nullable p)
 {
     if (!(p == 0))
         *p = 1;                  /* ok: p narrowed non-null */

@@ -4,7 +4,7 @@
 
 struct item { int v; };
 
-struct list { struct item* _Owner _Opt head; };
+struct list { struct item* _Owner head; };
 
 void ok_no_loop(struct list* l, struct item* _Owner p_item)
 {

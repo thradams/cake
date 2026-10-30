@@ -30,7 +30,7 @@
         ? **(t**)((ap += sizeof(__int64)) - sizeof(__int64))             \
         :  *(t* )((ap += sizeof(__int64)) - sizeof(__int64)))
             /* ap cannot be used after va_end; setting it to null would assign null
-               to a va_list that is not _Opt (warning 35) */
+               to a va_list that is not _Nullable (warning 35) */
             #define va_end(ap) ((void)(ap))
 
         #else /* x86 */
@@ -65,7 +65,7 @@
     #if defined(_WIN32)
         /*
            The msvc va_end (x86 and x64) is __crt_va_end, ((void)(ap = (va_list)0)):
-           null assigned to a va_list that is not _Opt (warning 35). ap cannot
+           null assigned to a va_list that is not _Nullable (warning 35). ap cannot
            be used after va_end, so setting it to null does nothing. The x64
            va_start is in cake's vadefs.h.
         */

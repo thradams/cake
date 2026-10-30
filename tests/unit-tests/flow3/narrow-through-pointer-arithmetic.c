@@ -4,7 +4,7 @@
 
 struct osstream
 {
-    char* _Opt c_str;
+    char* c_str;
     int size;
 };
 

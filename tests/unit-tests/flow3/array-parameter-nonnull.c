@@ -1,7 +1,7 @@
 #pragma safety enable
 #define NULL ((void*)0)
 
-/* array parameters decay to non-_Opt pointers: non-null on entry, literal null argument warns */
+/* array parameters decay to non-_Nullable pointers: non-null on entry, literal null argument warns */
 
 void f(int a[])
 {

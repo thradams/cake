@@ -1,10 +1,10 @@
 #pragma safety enable
 
 struct X {
-  int * _Opt p;
+  int * p;
 };
 
-struct X * make();
+struct X * _Nonnull make();
 
 void f(struct X *p,  int * p2);
 

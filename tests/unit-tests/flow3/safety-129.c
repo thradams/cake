@@ -1,10 +1,10 @@
 #pragma safety enable
 
 struct X {
-    int* _Opt pi;
+    int* pi;
 };
 
-int* f();
+int* _Nonnull f();
 int main(struct X* _Opt pX)
 {
     if (pX)

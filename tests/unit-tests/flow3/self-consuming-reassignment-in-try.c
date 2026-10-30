@@ -6,15 +6,15 @@
 
 struct E { int x; };
 
-struct E* _Owner _Opt tail(struct E* _Owner p);
-struct E* _Owner _Opt make(void);
+struct E* _Owner tail(struct E* _Owner p);
+struct E* _Owner make(void);
 void del(struct E* _Owner _Opt p);
 int maybe(void);
 
 /* the expressions.c shape: several throws reach one catch, one after the self-consuming reassignment */
-struct E* _Owner _Opt consume_in_try(void)
+struct E* _Owner consume_in_try(void)
 {
-    struct E* _Owner _Opt p = make();
+    struct E* _Owner p = make();
     try
     {
         if (p == NULL)
@@ -40,7 +40,7 @@ struct E* _Owner _Opt consume_in_try(void)
 /* same bug through goto: the accumulated join becomes the live map */
 void consume_then_goto(void)
 {
-    struct E* _Owner _Opt p = make();
+    struct E* _Owner p = make();
     if (p == NULL)
         return;
 
@@ -59,7 +59,7 @@ cleanup:
 /* control 1: break is clean, its join is merged with replace semantics at loop exit */
 void consume_then_break_ok(void)
 {
-    struct E* _Owner _Opt p = make();
+    struct E* _Owner p = make();
     if (p == NULL)
         return;
 
@@ -80,9 +80,9 @@ void consume_then_break_ok(void)
 }
 
 /* control 2: no try/catch, no join, clean */
-struct E* _Owner _Opt consume_no_try_ok(void)
+struct E* _Owner consume_no_try_ok(void)
 {
-    struct E* _Owner _Opt p = make();
+    struct E* _Owner p = make();
     if (p == NULL)
         return NULL;
 

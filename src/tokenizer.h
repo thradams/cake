@@ -21,14 +21,14 @@
 
 struct include_dir
 {
-    const char* _Owner path;
-    struct include_dir* _Owner _Opt next;
+    const char* _Nonnull _Owner path;
+    struct include_dir* _Owner next;
 };
 
 struct include_dir_list
 {
-    struct include_dir* _Owner _Opt head;
-    struct include_dir* _Opt tail;
+    struct include_dir* _Owner head;
+    struct include_dir* tail;
 };
 
 /*
@@ -37,11 +37,11 @@ struct include_dir_list
 */
 struct include_listener
 {
-    void (*callback)(void* _Opt data, const char* source_file, const char* included_file);
+    void (* _Nonnull callback)(void* _Nullable data, const char* source_file, const char* included_file);
 
     /* optional: called when each source file is done, with its error count */
-    void (*_Opt file_done)(void* _Opt data, const char* source_file, int error_count);
-    void* _Opt data;
+    void (* file_done)(void* _Nullable data, const char* source_file, int error_count);
+    void* data;
 };
 
 enum preprocessor_ctx_flags
@@ -65,7 +65,7 @@ struct preprocessor_ctx
     /*options -copy-headers*/
     struct hash_map copy_headers;
     
-    struct token* _Opt current;
+    struct token* current;
     struct token_list input_list;
     unsigned int count_macro_value;
     bool conditional_inclusion;
@@ -73,7 +73,7 @@ struct preprocessor_ctx
     int n_errors;    
 
     /* -find-definition: the #define of the macro name under the cursor; the parser does not run then */
-    const struct token* _Opt p_find_definition;
+    const struct token* p_find_definition;
 
     /* -rename phase 2: options.rename_old_name was seen in active code */
     bool rename_old_name_found;
@@ -82,14 +82,14 @@ struct preprocessor_ctx
     bool preprocessor_auto_complete_done;
 
     /* NULL unless the caller asked for includes (see struct include_listener) */
-    const struct include_listener* _Opt include_listener;
-    const char* _Opt source_file;
+    const struct include_listener* include_listener;
+    const char* source_file;
 };
 
 void preprocessor_ctx_destroy( _Dtor struct preprocessor_ctx* p);
 
-void pre_unexpected_end_of_file(const struct token* _Opt p_token, struct preprocessor_ctx* ctx);
-bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Opt p_token, const char* fmt, ...);
+void pre_unexpected_end_of_file(const struct token* _Nullable p_token, struct preprocessor_ctx* ctx);
+bool preprocessor_diagnostic(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* _Nullable p_token, const char* fmt, ...);
 
 
 struct tokenizer_ctx
@@ -99,34 +99,34 @@ struct tokenizer_ctx
     int n_errors;    
 };
 
-struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
+struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* _Nullable filename_opt, int level, enum token_flags addflags);
 void add_standard_macros(struct preprocessor_ctx* ctx, const struct platform* target);
-struct include_dir* _Opt include_dir_add(struct include_dir_list* list, const char* path);
+struct include_dir* include_dir_add(struct include_dir_list* list, const char* path);
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 struct token_list copy_replacement_list(const struct preprocessor_ctx* ctx, const struct token_list* list);
 
 void token_list_append_list(struct token_list* restrict dest, _Clear struct token_list* restrict source);
 void print_list(bool color_enabled, struct token_list* list);
-void token_list_destroy(_Opt _Dtor struct token_list* list);
+void token_list_destroy(_Dtor struct token_list* list);
 bool token_is_blank(const struct token* p);
 void token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);
-struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list);
+struct token* _Owner token_list_pop_front_get(struct token_list* list);
 void remove_line_continuation(char* s);
 bool token_list_is_equal(const struct token_list* list_a, const struct token_list* list_b);
 void token_list_insert_before(struct token_list* token_list, struct token* after, struct token_list* append_list);
-struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
+struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* _Nullable filename_opt, int level, enum token_flags addflags);
 
 void print_code_as_we_see(const struct token_list* list, bool remove_comments);
-const char* _Owner _Opt get_code_as_compiler_see(const struct token_list* list);
+const char* _Owner get_code_as_compiler_see(const struct token_list* list);
 
-const char* _Owner _Opt get_code_as_we_see(const struct token_list* list, bool remove_comments);
+const char* _Owner get_code_as_we_see(const struct token_list* list, bool remove_comments);
 
-void print_tokens(bool color_enabled, const struct token* _Opt p_token);
+void print_tokens(bool color_enabled, const struct token* _Nullable p_token);
 void print_preprocessed(const struct token* p_token);
-const char* _Owner _Opt print_preprocessed_to_string(const struct token* p_token);
-const char* _Owner _Opt print_preprocessed_to_string2(const struct token* _Opt p_token);
+const char* _Owner print_preprocessed_to_string(const struct token* p_token);
+const char* _Owner print_preprocessed_to_string2(const struct token* _Nullable p_token);
 void preprocessor_mark_predefined_macros(struct preprocessor_ctx* ctx);
 
 /*
@@ -143,8 +143,8 @@ enum global_unused_kind
 struct global_unused_entry
 {
     enum global_unused_kind kind;
-    char* _Owner name;
-    char* _Owner file;
+    char* _Nonnull _Owner name;
+    char* _Nonnull _Owner file;
     int line;
     bool used;            /* true if used in at least one file seen so far */
     bool has_definition;  /* true if defined (in a file that is reported) in at least one file so far */
@@ -152,12 +152,12 @@ struct global_unused_entry
 
 struct global_unused_list
 {
-    struct global_unused_entry* _Owner _Opt data;
+    struct global_unused_entry* _Owner data;
     int size;
     int capacity;
 
     /* only macros defined under this directory (the common directory of the files) are reported */
-    char* _Owner _Opt root_dir;
+    char* _Owner root_dir;
 };
 
 void global_unused_functions_clear(_Clear struct global_unused_list* p);
@@ -168,9 +168,9 @@ void global_unused_register(struct global_unused_list* p, enum global_unused_kin
 /* registers the macros of the file just preprocessed */
 void preprocessor_register_unused_macros(const struct preprocessor_ctx* ctx, struct global_unused_list* p);
 
-const char* get_token_name(enum token_type tk);
-const char* get_diagnostic_friendly_token_name(enum token_type tk);
-const char* get_diagnostic_token_text(const struct token* _Opt p_token);
+const char* _Nonnull get_token_name(enum token_type tk);
+const char* _Nonnull get_diagnostic_friendly_token_name(enum token_type tk);
+const char* _Nonnull get_diagnostic_token_text(const struct token* _Nullable p_token);
 void print_all_macros(const struct preprocessor_ctx* prectx);
 
 

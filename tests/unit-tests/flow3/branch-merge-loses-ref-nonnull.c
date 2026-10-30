@@ -5,8 +5,8 @@
 #define NULL ((void*)0)
 
 
-_Clear void* _Owner _Opt calloc(int n, int s);
-void free(void* _Owner _Opt p);
+_Clear void* _Owner calloc(int n, int s);
+void free(void* _Owner _Nullable p);
 
 struct s { int a; int b; };
 
@@ -15,10 +15,10 @@ void use(int* p);
 /* A single branch is fine on its own. */
 void one_branch_ok(void)
 {
-    struct s* _Owner _Opt obj = calloc(1, sizeof * obj);
+    struct s* _Owner obj = calloc(1, sizeof * obj);
     if (obj == NULL) return;
 
-    int* _Opt p = &obj->a;
+    int* p = &obj->a;
 
     _Assert(p != NULL);
     use(p); /* ok: no warning */
@@ -29,10 +29,10 @@ void one_branch_ok(void)
 /* merging arms that assign p to different members of the same _Owner object must keep the non-null fact */
 void merged_branches_bug(int cond)
 {
-    struct s* _Owner _Opt obj = calloc(1, sizeof * obj);
+    struct s* _Owner obj = calloc(1, sizeof * obj);
     if (obj == NULL) return;
 
-    int* _Opt p = NULL;
+    int* p = NULL;
 
     if (cond)
         p = &obj->a;

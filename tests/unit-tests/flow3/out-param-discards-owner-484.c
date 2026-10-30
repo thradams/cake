@@ -2,10 +2,10 @@
 
 /* _Out overwrites the pointee: like `*x = t;`, owners alive in it are lost (issue #484). */
 
-struct X { char * _Owner _Opt name; };
+struct X { char * _Owner name; };
 
-void* memcpy(_Out void* dest, const void* src, int count);
-char * _Owner _Opt strdup(const char* s);
+void* _Nonnull memcpy(_Out void* dest, const void* src, int count);
+char * _Owner strdup(const char* s);
 void free(void* _Owner _Opt p);
 
 void f1(struct X * x)

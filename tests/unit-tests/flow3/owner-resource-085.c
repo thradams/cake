@@ -2,7 +2,7 @@
 
 
 void free( void* _Owner ptr);
-_Uninitialized void* _Owner malloc(int size);
+_Uninitialized void* _Nonnull _Owner malloc(int size);
 
 int main()
 {

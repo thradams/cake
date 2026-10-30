@@ -1,16 +1,16 @@
 #pragma safety enable
 
 
-_Uninitialized void* _Owner _Opt malloc(int i);
+_Uninitialized void* _Owner malloc(int i);
 void free(void* _Owner p);
 
 struct X {
-    char* _Owner name;
+    char* _Nonnull _Owner name;
 };
 
 int main()
 {
-    struct X* _Owner _Opt p = malloc(sizeof * p);
+    struct X* _Owner p = malloc(sizeof * p);
 
     //object 'p' may not be empty
 

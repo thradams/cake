@@ -7,11 +7,11 @@
 
 struct object
 {
-    struct object* _Opt next;
-    struct object* _Opt parent;
+    struct object* next;
+    struct object* parent;
 };
 
-struct object* _Opt next_subobject(struct object* _Opt it)
+struct object* next_subobject(struct object* _Nullable it)
 {
     if (it == 0)
         return 0;
@@ -21,7 +21,7 @@ struct object* _Opt next_subobject(struct object* _Opt it)
         if (it == 0)
             break;
 
-        struct object* _Opt next = it->next;
+        struct object* next = it->next;
         if (next != 0)
         {
             it = next;

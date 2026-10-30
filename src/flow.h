@@ -10,8 +10,8 @@
 
 struct flow_label_state
 {
-    const char* label_name;
-    struct flow_branch* p_flow_branch;
+    const char* _Nonnull label_name;
+    struct flow_branch* _Nonnull p_flow_branch;
 };
 
 /*
@@ -38,9 +38,10 @@ enum flow_pointee_effect_kind
 
 struct flow_deferred_pointee_effect
 {
-    const struct object* _Opt pointee;
+    const struct object* pointee;
     enum flow_pointee_effect_kind kind;
-    const struct token* _Opt p_token; /* where the call is, for the state it sets */
+    const struct token* p_token; /* where the call is, for the state it sets */
+    int pointee_nullability; /* the parameter's pointee pointer after the call: 0 not a pointer, 1 non-null, 2 may be null */
 
     /*
         The pointer value the pointee came from: its origin, the object whose
@@ -48,8 +49,8 @@ struct flow_deferred_pointee_effect
         argument are alternatives (the pointer points to one of them) and are
         applied in pointer target arms; the others all happen.
     */
-    const struct flow_branch* _Opt p_target_origin;
-    const struct object* _Opt p_pointer_object;
+    const struct flow_branch* p_target_origin;
+    const struct object* p_pointer_object;
     int argument_serial;
 };
 
@@ -57,13 +58,13 @@ struct flow_deferred_pointee_effect
 
 struct flow_restrict_argument
 {
-    const struct object* _Opt pointee;
+    const struct object* pointee;
     int argument_serial;
     bool is_restrict; /* the parameter receiving it is restrict */
     bool is_owner; /* the parameter receiving it is _Owner */
     bool is_pointee_const; /* the parameter receiving it points to const */
-    const struct expression* _Opt p_argument;
-    const struct flow_branch* _Opt p_same_object_side; /* the pointee is the argument's only on this side */
+    const struct expression* p_argument;
+    const struct flow_branch* p_same_object_side; /* the pointee is the argument's only on this side */
 };
 
 #define FLOW_MAX_RESTRICT_ARGUMENTS 64
@@ -78,9 +79,10 @@ struct flow_restrict_argument
 /* Where one alternative supporting a finding came from (see flow_explain_alternative). */
 struct flow_finding_sample
 {
-    const struct token* _Opt p_origin_token;
-    const struct flow_branch* _Opt p_origin_map;
-    const struct flow_branch* _Opt p_path_map; /* the branch path explained */
+    const struct token* p_origin_token;
+    const struct flow_branch* p_origin_map;
+    const struct flow_branch* p_path_map; /* the branch path explained */
+    const struct flow_branch* p_use_map; /* the branch where the finding was seen */
 };
 
 /*
@@ -92,7 +94,7 @@ struct flow_finding_sample
 */
 struct flow_reported_finding
 {
-    const struct object* _Opt p_object; /* NULL marks the end of the used entries */
+    const struct object* p_object; /* NULL marks the end of the used entries */
     int line;
     int diagnostic_id;
 
@@ -101,13 +103,13 @@ struct flow_reported_finding
     int count; /* alternatives supporting the finding */
     int sample_count;
     struct flow_finding_sample samples[FLOW_FINDING_MAX_SAMPLES];
-    const struct flow_branch* _Opt p_same_object_side; /* the same-object side of the alternatives, when all have one */
+    const struct flow_branch* p_same_object_side; /* the same-object side of the alternatives, when all have one */
     bool has_plain; /* an alternative on no same-object side supports it */
 };
 
 struct flow_ctx
 {
-    struct parser_ctx* const ctx;
+    struct parser_ctx* _Nonnull const ctx;
 
     /*
         Arguments whose call may have changed what is reachable from them
@@ -117,16 +119,16 @@ struct flow_ctx
     const struct expression* call_effect_arguments[64];
     int call_effect_arguments_count;
 
-    struct type* _Opt p_return_type;
+    struct type* p_return_type;
     int parameter_list;
 
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
 
     /* the expression being visited as a condition (see flow_visit_condition) */
-    const struct expression* _Opt p_condition;
+    const struct expression* p_condition;
 
     /* the expression whose value an _Owner destination takes: a ?: moves its owner arm only then */
-    const struct expression* _Opt p_owner_sink;
+    const struct expression* p_owner_sink;
 
     /*
        Which pass over the innermost enclosing loop body is running:
@@ -143,16 +145,16 @@ struct flow_ctx
     clock_t function_start_time; /* see flow_start_visit_declaration */
     bool stopped; /* the analysis of the current function was stopped, see flow_check_limits */
 
-    struct flow_branch* _Opt p_throw_join_map;  /*map where throws are joined*/
+    struct flow_branch* p_throw_join_map;  /*map where throws are joined*/
     bool throw_join_reached;    /* a throw reached p_throw_join_map */
     bool break_join_reached;    /* a break reached p_break_join_map */
     bool continue_join_reached; /* a continue reached p_continue_join_map */
-    struct flow_branch* _Opt p_break_join_map;  /*map where breaks are joined*/
-    struct flow_branch* _Opt p_continue_join_map;  /*map where continues are joined*/
-    struct flow_branch* _Opt p_initial_map;     /*map snapshot of the original state*/
-    const struct object* _Opt p_switch_obj_key;
+    struct flow_branch* p_break_join_map;  /*map where breaks are joined*/
+    struct flow_branch* p_continue_join_map;  /*map where continues are joined*/
+    struct flow_branch* p_initial_map;     /*map snapshot of the original state*/
+    const struct object* p_switch_obj_key;
     bool switch_is_constant;                       /* the switch condition is known at compile time */
-    const struct label* _Opt p_switch_live_label;  /* the label a constant switch jumps to */
+    const struct label* p_switch_live_label;  /* the label a constant switch jumps to */
     bool switch_case_dead;                         /* the current case of a constant switch is never reached */
     
 
@@ -176,13 +178,13 @@ struct flow_ctx
 
     struct flow_allocated_object_arena allocated_object_arena;
     struct flow_branch_arena flow_branch_arena;
-    struct flow_branch* _Opt p_current_flow_branch;
+    struct flow_branch* p_current_flow_branch;
 
     /*
         Findings accumulated or already reported, so one fact is reported once
         (see flow_finding_record); cleared per assignment.
     */
-    struct flow_reported_finding* _Owner _Opt p_reported_findings; /* FLOW_MAX_REPORTED_FINDINGS entries, allocated on first use */
+    struct flow_reported_finding* _Owner p_reported_findings; /* FLOW_MAX_REPORTED_FINDINGS entries, allocated on first use */
     int findings_depth; /* nested assignment checks sharing p_reported_findings */
     struct osstream findings_text; /* pending messages, each ending in '\0' */
 
@@ -191,11 +193,11 @@ struct flow_ctx
      * can call flow_check_params_at_function_exit on every return path.
      * NULL outside of a function body.
      */
-    struct declaration* _Opt p_current_function_declaration;
+    struct declaration* p_current_function_declaration;
 
     /* pointees of the restrict parameters of the function: the result cannot point into them */
-    const struct object* _Opt restrict_pointees[16];
-    const struct declarator* _Opt restrict_parameters[16];
+    const struct object* _Nullable restrict_pointees[16];
+    const struct declarator* _Nullable restrict_parameters[16];
     int restrict_pointees_count;
 
 
@@ -208,10 +210,10 @@ struct flow_ctx
      * same fact. NULL/0 when nothing is pending consumption. See the
      * comment above the EXPR_UNARY_CONTENT lifetime check itself.
      */
-    const struct object* _Opt p_pending_ended_report_obj;
+    const struct object* p_pending_ended_report_obj;
 
     /* origin of the REF being followed as an assignment source; its values must be compatible */
-    const struct flow_branch* _Opt p_source_ref_origin;
+    const struct flow_branch* p_source_ref_origin;
 
     /* inside `a = b`: an unknown b overwrites the old value of a with ANY */
     bool assignment_overwrites;
@@ -222,7 +224,7 @@ struct flow_ctx
      * visit invalidates the array for an unknown index while the REF
      * alternatives of its own operand are still in the map.
      */
-    const struct expression* _Opt p_subscript_being_written;
+    const struct expression* p_subscript_being_written;
     int pending_ended_report_line;
 };
 
