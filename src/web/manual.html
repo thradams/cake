@@ -618,7 +618,7 @@ file untouched.</p>
 <h3 id="toc_5">2.3 Cake&#39;s Own Headers and <code>#include_next</code></h3>
 
 <p>Cake ships its own directory of annotated standard headers (<code>stdlib.h</code>,
-<code>string.h</code>, <code>stdio.h</code>, and the rest), carrying <code>_Owner</code>/<code>_Opt</code> and the other
+<code>string.h</code>, <code>stdio.h</code>, and the rest), carrying <code>_Owner</code>/<code>_Nullable</code> and the other
 ownership annotations described in 11.9. This directory is added to the
 search path ahead of the real system include directories, so <code>#include
 &lt;stdlib.h&gt;</code> resolves to Cake&#39;s annotated header first.</p>
@@ -952,7 +952,7 @@ Generate <code>cake.json</code> with the include directories of the current syst
 Run Cake&#39;s built-in flow analysis pass, including null checks (same as <code>#pragma flow enable</code>).</p>
 
 <p><strong><code>-safety</code></strong><br>
-Cake contracts are checked: <code>_Owner</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Out</code>, <code>_Opt</code>... and pointers without <code>_Opt</code> are non-null. Also turns on <code>-flow</code> (same as <code>#pragma safety enable</code>). Without it the annotations are ignored, like empty macros.</p>
+Cake contracts are checked: <code>_Owner</code>, <code>_View</code>, <code>_Dtor</code>, <code>_Out</code>, <code>_Nullable</code>, <code>_Nonnull</code>... (parameters are non-null by default, results may be null). Also turns on <code>-flow</code> (same as <code>#pragma safety enable</code>). Without it the annotations are ignored, like empty macros.</p>
 
 <p><strong><code>-const-literal</code></strong><br>
 Treat string literals as <code>const char[]</code> rather than <code>char[]</code>.</p>
@@ -2866,10 +2866,10 @@ int arr[BIT(unsigned int, 2)];   /* ok - integer constant expression */
 <!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
-int * _Opt f();
+int * _Nullable f();
 void func() {
     
-    int* _Opt p = f();
+    int* _Nullable p = f();
     p = p ? (static_debug(p), p) : 0;
 }
 </code></pre>
@@ -2974,8 +2974,8 @@ int main() {
 
 <pre><code class="language-c">#pragma safety enable
 
-void* _Owner _Opt malloc(unsigned long size);
-void free(void* _Owner _Opt ptr);
+void* _Owner _Nullable malloc(unsigned long size);
+void free(void* _Owner _Nullable ptr);
 
 int main() {
     try {
@@ -3337,7 +3337,7 @@ instead of being rejected as a non-constant address.</p>
 
 <p><strong><code>_Owner</code></strong> — This pointer or variable is responsible for freeing the object.</p>
 
-<p><strong><code>_Opt</code></strong> — This pointer may be null (optional).</p>
+<p><strong><code>_Nullable</code></strong> — This pointer may be null (optional).</p>
 
 <p><strong><code>_View</code></strong> — This pointer borrows the object without owning it.</p>
 

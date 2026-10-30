@@ -524,6 +524,8 @@ void f(void)
 }
 </code></pre>
 
+<p>The <code>_Owner</code> on <code>f</code> can be left out. <code>fopen</code> returns an owner, and a local initialized with it must take the responsibility, or the file would be lost; so <code>FILE* f = fopen(&quot;a.txt&quot;, &quot;r&quot;);</code> declares an owner too. This holds only for the result of a call: a local initialized from an owner <em>object</em> is a view of it, not an owner (A5.3), so <code>g</code> above keeps its <code>_Owner</code>.</p>
+
 <p>Assignment between owners <em>moves</em> the responsibility: after <code>g = f</code>, it is <code>g</code> that must be closed, and <code>f</code> must not be. Passing an argument to an <code>_Owner</code> parameter, as in <code>fclose(g)</code>, is also a move. After <code>fclose</code> the file no longer exists, so using <code>f</code> again is a mistake:</p>
 
 <!-- runnable -->

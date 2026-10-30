@@ -2368,6 +2368,13 @@ static const char* _Nonnull clang_query_operator_value(const struct platform* ta
         return "0";
     }
 
+    /* cake has _Nullable / _Nonnull: keep SDK headers from defining them empty */
+    if ((strcmp(op, "__has_feature") == 0 || strcmp(op, "__has_extension") == 0) &&
+        strcmp(arg, "nullability") == 0)
+    {
+        return "1";
+    }
+
     /*
         __has_feature / __has_extension / __has_attribute /
         __has_cpp_attribute / __has_declspec_attribute / __has_warning /
