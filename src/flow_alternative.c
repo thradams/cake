@@ -79,11 +79,10 @@ static struct flow_alternative* _Owner flow_alt_pool_alloc(struct flow_alt_pool*
     pool->live_count++;
     /*
         Not actually heap-owned -- recycled from the pool above and returned
-        to it by flow_alt_pool_release, never freed individually. The _Owner
-        cast is the established idiom (see free-opt-owner-cast.c) for opting
-        a pointer into the ownership contract at the use site.
+        to it by flow_alt_pool_release, never freed individually. It enters the ownership
+        contract here, at the use site, with the lint below.
     */
-    return (struct flow_alternative* _Owner) & node->alt;
+    return &node->alt; //lint 78
 }
 
 static void flow_alt_pool_free_all(_Clear struct flow_alt_pool* pool)
@@ -552,108 +551,6 @@ bool flow_value_is_false(const struct flow_alternative* a)
         break;
     }
     return false;
-}
-
-void flow_alternative_sprint(struct osstream* ss, const struct flow_alternative* alt)
-{
-    switch (alt->value_relation)
-    {
-        case FLOW_RELATION_EQUAL:
-            ss_fprintf(ss, "== ");
-        break;
-        case FLOW_RELATION_NOT_EQUAL:
-            ss_fprintf(ss, "!= ");
-        break;
-        case FLOW_RELATION_ANY:
-            ss_fprintf(ss, "ANY ");
-        break;
-        case FLOW_RELATION_UNINITIALIZED:
-            ss_fprintf(ss, "UNINIT ");
-        break;
-        case FLOW_RELATION_GREATER:
-            ss_fprintf(ss, "> ");
-        break;
-        case FLOW_RELATION_GREATER_EQUAL:
-            ss_fprintf(ss, ">= ");
-        break;
-        case FLOW_RELATION_LESS:
-            ss_fprintf(ss, "< ");
-        break;
-        case FLOW_RELATION_LESS_EQUAL:
-            ss_fprintf(ss, "<= ");
-        break;
-    }
-
-    switch (alt->value_kind)
-    {
-        case FLOW_VALUE_KIND_SIGNED:
-        {
-            if (alt->value.i == UNINITIALIZED_VALUE ||
-            alt->value.i == ANY_VALUE)
-            {
-                //ss_fprintf(ss, "%llx", alt->value.i);
-            }
-            else
-            {
-                ss_fprintf(ss, "%lld", alt->value.i);
-            }
-        }
-        break;
-        case FLOW_VALUE_KIND_UNSIGNED:
-        {
-            ss_fprintf(ss, "%lluu", alt->value.u);
-        }
-        break;
-
-        case FLOW_VALUE_KIND_PTR:
-        {
-            print_object_ptr(ss, alt->value.p, false);
-            break;
-        }
-        case FLOW_VALUE_KIND_REF:
-        {
-            ss_fprintf(ss, "ref ");
-            print_object_ptr(ss, alt->value.p, false);
-            break;
-        }
-    }
-
-    if (alt->imaginary == FLOW_IMAGINARY_MOVED)
-    {
-        ss_fprintf(ss, " MOVED");
-    }
-
-    if (alt->imaginary == FLOW_IMAGINARY_ENDED)
-    {
-        ss_fprintf(ss, " ENDED");
-    }
-
-    ss_fprintf(ss, " line %d", flow_alternative_line(alt));
-
-    if (alt->p_origin_map)
-    {
-        struct osstream name_ss = { 0 };
-        flow_branch_name_to_string(alt->p_origin_map, &name_ss);
-        ss_fprintf(ss, " \"%s\"", name_ss.c_str ? name_ss.c_str : "");
-        ss_close(&name_ss);
-    }
-}
-
-void flow_alternative_print(const struct flow_alternative* alt)
-{
-    struct osstream ss = { 0 };
-    flow_alternative_sprint(&ss, alt);
-    printf("%s", empty_if_null(ss.c_str));
-    ss_close(&ss);
-}
-
-void flow_alternatives_print(const struct flow_alternatives* alternatives)
-{
-    for (int i = 0; i < alternatives->size; i++)
-    {
-        printf("  ");
-        flow_alternative_print(alternatives->data[i]); //lint 33
-    }
 }
 
 bool flow_alt_to_interval(const struct flow_alternative* alt, long long* lo, long long* hi)

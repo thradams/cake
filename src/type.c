@@ -652,14 +652,14 @@ void param_list_destroy(_Dtor struct param_list* p)
 
 void type_destroy_one(_Dtor struct type* p_type)
 {
-    free((void* _Owner)p_type->name_opt);
+    free(p_type->name_opt);
     param_list_destroy(&p_type->params);
     assert(p_type->next == NULL);
 } //lint 29 assert line 648
 
 void type_destroy(_Dtor struct type* p_type)
 {
-    free((void* _Owner)p_type->name_opt);
+    free(p_type->name_opt);
     param_list_destroy(&p_type->params);
 
     struct type* _Owner item = p_type->next;
@@ -980,6 +980,17 @@ bool type_is_owner(const struct type* p_type)
     }
 
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER;
+}
+
+/* any level was written with a typedef name: `my_int* p` */
+bool type_has_typedef(const struct type* p_type)
+{
+    for (const struct type* p = p_type; p != NULL; p = p->next)
+    {
+        if (p->storage_class_specifier_flags & STORAGE_SPECIFIER_CAKE_FROM_TYPEDEF)
+            return true;
+    }
+    return false;
 }
 
 bool type_is_nullable(const struct type* p_type, bool nullable_enabled)
@@ -2124,7 +2135,7 @@ struct type get_array_item_type(const struct type* p_type)
         }
 
         free(r.next); //lint 29 29 29 
-        free((void* _Owner) r.name_opt);
+        free(r.name_opt);
         param_list_destroy(&r.params);
         return r2;
     }
@@ -5412,7 +5423,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             *p_nt = type_dup(&p_atomic_type_specifier->type);
 
-            free((void* _Owner)p_nt->name_opt);
+            free(p_nt->name_opt);
             p_nt->name_opt = NULL;
             if (pdeclarator->name_opt)
             {
@@ -5448,8 +5459,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             /* the typedef storage belongs to the typedef name, not to this declarator */
             nt.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_TYPEDEF;
+            nt.storage_class_specifier_flags |= STORAGE_SPECIFIER_CAKE_FROM_TYPEDEF;
 
-            free((void* _Owner)nt.name_opt);
+            free(nt.name_opt);
             nt.name_opt = NULL;
             if (pdeclarator->name_opt)
             {
@@ -5572,7 +5584,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 throw;
             }
 
-            free((void* _Owner) list.head->name_opt);
+            free(list.head->name_opt);
             list.head->name_opt = temp;
         }
 
@@ -5631,7 +5643,7 @@ void type_remove_names(struct type* p_type)
     {
         if (p->name_opt)
         {
-            free((void* _Owner)p->name_opt);
+            free(p->name_opt);
             p->name_opt = NULL;
         }
         p = p->next;

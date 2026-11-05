@@ -5834,7 +5834,16 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
     }
 
     if (!ends_with_jump)
-        il_print_defer_list(ctx, &local, &p_compound_statement->defer_list, p_compound_statement->last_token);
+    {
+        if (p_compound_statement->last_token)
+        {
+            il_print_defer_list(ctx, &local, &p_compound_statement->defer_list, p_compound_statement->last_token);
+        }
+        else
+        {
+           assert(0);
+        }
+    }
 
     ctx->indentation--;
 
@@ -5934,7 +5943,16 @@ static void codegen_visit_compound_statement_2(const char* _Nullable var_name, s
     }
 
     if (!ends_with_jump)
-        il_print_defer_list(ctx, &local, &p_compound_statement->defer_list, p_compound_statement->last_token);
+    {
+        if (p_compound_statement->last_token)
+        {
+          il_print_defer_list(ctx, &local, &p_compound_statement->defer_list, p_compound_statement->last_token);
+        }
+        else
+        {
+          assert(0);
+        }
+    }
 
     ctx->indentation--;
 

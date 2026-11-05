@@ -37,7 +37,7 @@ void freed_first_is_fine(void)
 {
     struct X x = { 0 };
     x.text = strdup("a");
-    free((void* _Owner)x.text);
+    free((void*)x.text);
     x.text = 0;
     hard_clearing(&x);
 }

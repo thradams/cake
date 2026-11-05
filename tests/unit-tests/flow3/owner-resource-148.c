@@ -11,5 +11,5 @@ struct X {
 int main()
 {
     //warning: cannot assign a temporary owner to non-owner object. 
-    struct X* p = (struct X* _Owner) malloc(1); //lint 79 30 temporary owner to non-owner; pointee uninitialized
+    struct X* p = (struct X*) malloc(1); //lint 79 30 temporary owner to non-owner; pointee uninitialized
 }

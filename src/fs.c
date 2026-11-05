@@ -754,6 +754,9 @@ static const char file_stdbool_h[] = {
 static const char file_stdckdint_h[] = {
 #include "include/stdckdint.h.include"
 , 0 };
+static const char file_stddefer_h[] = {
+#include "include/stddefer.h.include"
+, 0 };
 static const char file_stddef_h[] = {
 #include "include/stddef.h.include"
 , 0 };
@@ -879,6 +882,10 @@ char* _Nonnull _Owner read_file(const char* path, bool append_newline)
     else if (strcmp(path, "c:/stdckdint.h") == 0)
     {
         return strdup(file_stdckdint_h);
+    }
+    else if (strcmp(path, "c:/stddefer.h") == 0)
+    {
+        return strdup(file_stddefer_h);
     }
     else if (strcmp(path, "c:/stddef.h") == 0)
     {

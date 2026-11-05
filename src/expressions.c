@@ -1379,19 +1379,22 @@ static void check_printf_conversion(const struct parser_ctx* ctx,
                 The fixed-width types have no portable conversion of their own,
                 so the answer is the macro, not a specifier.
             */
-            diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+            const struct marker expr_marker = expression_to_marker(p_arg->expression);
+            diagnostic(W_FORMAT, ctx, NULL, &expr_marker,
                        "format for %s is \"%%\" %s, not '%%%s%c'",
                        type_text, suggestion, length_text, conv);
         }
         else if (suggestion != NULL)
         {
-            diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+            const struct marker expr_marker = expression_to_marker(p_arg->expression);
+            diagnostic(W_FORMAT, ctx, NULL, &expr_marker,
                        "format for %s is '%s', not '%%%s%c'",
                        type_text, suggestion, length_text, conv);
         }
         else
         {
-            diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+            const struct marker expr_marker = expression_to_marker(p_arg->expression);
+            diagnostic(W_FORMAT, ctx, NULL, &expr_marker,
                        "'%%%s%c' expects %s, not %s",
                        length_text, conv, expected, type_text);
         }
@@ -1454,7 +1457,8 @@ static void check_fmt(const struct parser_ctx* ctx,
             }
             if (!type_is_integer(&p_arg->expression->object.type))
             {
-                diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+                const struct marker expr_marker = expression_to_marker(p_arg->expression);
+                diagnostic(W_FORMAT, ctx, NULL, &expr_marker,
                            "field width should have type int");
             }
             p_arg = p_arg->next;
@@ -1481,7 +1485,8 @@ static void check_fmt(const struct parser_ctx* ctx,
                 }
                 if (!type_is_integer(&p_arg->expression->object.type))
                 {
-                    diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+                    const struct marker expr_marker = expression_to_marker(p_arg->expression);
+                    diagnostic(W_FORMAT, ctx, NULL, &expr_marker,
                                "field precision should have type int");
                 }
                 p_arg = p_arg->next;
@@ -1560,7 +1565,8 @@ static void check_fmt(const struct parser_ctx* ctx,
 
     if (p_arg != NULL)
     {
-        diagnostic(W_FORMAT, ctx, p_arg->expression->first_token, NULL,
+        const struct marker expr_marker = expression_to_marker(p_arg->expression);
+        diagnostic(W_FORMAT, ctx, NULL, &expr_marker,
                    "too many arguments for format string");
     }
 }
@@ -1813,7 +1819,8 @@ static void check_const_reachable_write(const struct parser_ctx* ctx, const stru
         ss_name.size -= 2;
         ss_name.c_str[ss_name.size] = '\0';
     }
-    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_lvalue->first_token, NULL,
+    const struct marker expr_marker = expression_to_marker(p_lvalue);
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, NULL, &expr_marker,
                "'const' qualifier on '%s' does not propagate to '%s'",
                ss_const.c_str ? ss_const.c_str : "", ss_name.c_str ? ss_name.c_str : "");
     ss_close(&ss_name);
@@ -1889,7 +1896,8 @@ static void check_const_reachable_argument(const struct parser_ctx* ctx,
     struct osstream ss_const = { 0 };
     flow_expression_to_string(p_argument, &ss_name);
     expression_const_name(p_const, &ss_const);
-    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_argument->first_token, NULL,
+    const struct marker expr_marker = expression_to_marker(p_argument);
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, NULL, &expr_marker,
                "'const' qualifier on '%s' does not propagate to '%s', passed to a non-const parameter",
                ss_const.c_str ? ss_const.c_str : "", ss_name.c_str ? ss_name.c_str : "");
     ss_close(&ss_name);
@@ -1916,7 +1924,8 @@ static void check_const_reachable_struct_copy(const struct parser_ctx* ctx,
     struct osstream ss_const = { 0 };
     flow_expression_to_string(p_src, &ss_name);
     expression_const_name(p_const, &ss_const);
-    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_src->first_token, NULL,
+    const struct marker expr_marker = expression_to_marker(p_src);
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, NULL, &expr_marker,
                assignment_type == ASSIGMENT_TYPE_RETURN ? "'const' qualifier on '%s' does not propagate to the pointers in '%s', returned by value" :
                assignment_type == ASSIGMENT_TYPE_PARAMETER ? "'const' qualifier on '%s' does not propagate to the pointers in '%s', passed by value" :
                "'const' qualifier on '%s' does not propagate to the pointers in '%s', copied by value",
@@ -1947,7 +1956,8 @@ static void check_const_reachable_copy(const struct parser_ctx* ctx,
     struct osstream ss_const = { 0 };
     flow_expression_to_string(p_src, &ss_name);
     expression_const_name(p_const, &ss_const);
-    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, p_src->first_token, NULL,
+    const struct marker expr_marker = expression_to_marker(p_src);
+    diagnostic(W_CONST_REACHABLE_MODIFIED, ctx, NULL, &expr_marker,
                assignment_type == ASSIGMENT_TYPE_RETURN ?
                    "'const' qualifier on '%s' does not propagate to '%s', returned as a non-const pointer" :
                    "'const' qualifier on '%s' does not propagate to '%s', copied to a non-const pointer",
@@ -7169,12 +7179,28 @@ struct expression* _Owner cast_expression(struct parser_ctx* ctx, bool is_discar
                                "cannot cast to an array type");
                 }
 
-                if (ctx->options.safety_enabled &&
-                    type_is_pointer(&p_expression_node->object.type) &&
-                    (p_expression_node->object.type.type_qualifier_flags & (TYPE_QUALIFIER_CAKE_NULLABLE | TYPE_QUALIFIER_CAKE_NONNULL)))
+                /* a cast keeps the operand's annotations (see below), writing one is an error */
+                /*
+                    The written tokens, not the type: inner pointer levels are nullable by
+                    default, and a typedef may carry annotations.
+                */
+                for (const struct token* p_cast_token = open_parenthesis_token;
+                     p_cast_token != NULL && p_cast_token != ctx->current;
+                     p_cast_token = p_cast_token->next)
                 {
-                    diagnostic(W_REDUNDANT_NULLABILITY, ctx, p_expression_node->first_token, NULL,
-                               "redundant nullability in a cast: flow tracks the value");
+                    if (p_cast_token->type == TK_KEYWORD_CAKE_OUT ||
+                        p_cast_token->type == TK_KEYWORD_CAKE_OWNER ||
+                        p_cast_token->type == TK_KEYWORD_CAKE_DTOR ||
+                        p_cast_token->type == TK_KEYWORD_CAKE_UNINITIALIZED ||
+                        p_cast_token->type == TK_KEYWORD_CAKE_CLEAR ||
+                        p_cast_token->type == TK_KEYWORD_CAKE_VIEW ||
+                        p_cast_token->type == TK_KEYWORD_CAKE_OPT ||
+                        p_cast_token->type == TK_KEYWORD_CAKE_NONNULL)
+                    {
+                        diagnostic(C_ERROR_ANNOTATION_IN_CAST, ctx, p_cast_token, NULL,
+                                   "a cast cannot have ownership or nullability annotations: it keeps those of its operand");
+                        break;
+                    }
                 }
 
                 if (!is_first_of_unary_expression(ctx))
@@ -7280,7 +7306,8 @@ struct expression* _Owner cast_expression(struct parser_ctx* ctx, bool is_discar
                             {
                                 struct osstream ss = { 0 };
                                 print_type_no_names(&ss, &p_expression_node->left->object.type, &ctx->options.platform);
-                                diagnostic(C_ERROR_NULLPTR_CAST_ERROR, ctx, p_expression_node->left->first_token, NULL, "cannot cast '%s' to nullptr_t", ss.c_str ? ss.c_str : "");
+                                const struct marker expr_marker = expression_to_marker(p_expression_node->left);
+                                diagnostic(C_ERROR_NULLPTR_CAST_ERROR, ctx, NULL, &expr_marker, "cannot cast '%s' to nullptr_t", ss.c_str ? ss.c_str : "");
                                 ss_close(&ss);
                             }
                         }
@@ -7288,6 +7315,25 @@ struct expression* _Owner cast_expression(struct parser_ctx* ctx, bool is_discar
 
                     type_destroy(&p_expression_node->object.type);
                     p_expression_node->object.type = make_type_using_declarator(ctx, p_expression_node->type_name->abstract_declarator);
+
+                    /*
+                        A cast changes the type only: `(void*)p` keeps p's _Owner and nullability.
+                        const is not kept, removing it is a normal use of a cast.
+                    */
+                    if (type_is_pointer(&p_expression_node->object.type) &&
+                        type_is_pointer(&p_expression_node->left->object.type))
+                    {
+                        const struct type* p_operand_type = &p_expression_node->left->object.type;
+                        p_expression_node->object.type.type_qualifier_flags |=
+                            p_operand_type->type_qualifier_flags &
+                            (TYPE_QUALIFIER_CAKE_NULLABLE | TYPE_QUALIFIER_CAKE_NONNULL | TYPE_QUALIFIER_CAKE_OWNER);
+                        if (p_operand_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OWNER)
+                        {
+                            /* still a temporary: `int* p = (int*)malloc(1)` loses the ownership */
+                            p_expression_node->object.type.storage_class_specifier_flags |=
+                                p_operand_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN;
+                        }
+                    }
 
                     if (type_is_same(&p_expression_node->object.type, &p_expression_node->left->object.type, true))
                     {
@@ -7299,22 +7345,43 @@ struct expression* _Owner cast_expression(struct parser_ctx* ctx, bool is_discar
                         }
                         else
                         {
-                            if (
-                                (p_expression_node->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) ||
-                                (p_expression_node->left->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF)
-                                )
+                            /*
+                            * if any level of any side comes from a typedef, no warning:
+                            * the types may be the same only on this target
+                            */
+                            const struct expression* p_operand = skip_parenthesis(p_expression_node->left);
+
+                            /*
+                            * enum to or from an integer: the base type of the enum is not fixed
+                            * and `A | B` holds more than the enumerators.
+                            */
+                            const bool enum_conversion =
+                                (type_is_enum(&p_expression_node->object.type) && !type_is_enumerator(&p_expression_node->object.type)) !=
+                                (type_is_enum(&p_operand->object.type) && !type_is_enumerator(&p_operand->object.type));
+
+                            /* the type of a computed value depends on the promotions of the target */
+                            const bool computed_value =
+                                !type_is_pointer(&p_expression_node->object.type) &&
+                                p_operand->expression_type != EXPR_PRIMARY_DECLARATOR &&
+                                p_operand->expression_type != EXPR_POSTFIX_FUNCTION_CALL &&
+                                p_operand->expression_type != EXPR_POSTFIX_ARRAY &&
+                                p_operand->expression_type != EXPR_POSTFIX_DOT &&
+                                p_operand->expression_type != EXPR_POSTFIX_ARROW &&
+                                p_operand->expression_type != EXPR_UNARY_CONTENT;
+
+                            /* reached through const: the cast says it is intended (warning 120) */
+                            if (!type_is_void(&p_expression_node->object.type) && /* (void)f(); */
+                                !enum_conversion &&
+                                !computed_value &&
+                                pointer_value_reached_through_const(p_operand) == NULL &&
+                                !type_has_typedef(&p_expression_node->object.type) &&
+                                !type_has_typedef(&p_expression_node->left->object.type))
                             {
-                                /*
-                                * if any of them are typedef, no warning
-                                */
-                            }
-                            else
-                            {
-                                // diagnostic(W_CAST_TO_SAME_TYPE,
-                                // ctx,
-                                // p_expression_node->first_token,
-                                // NULL,
-                                // "casting to the same type");
+                                diagnostic(W_CAST_TO_SAME_TYPE,
+                                           ctx,
+                                           p_expression_node->first_token,
+                                           NULL,
+                                           "casting to the same type");
                             }
                         }
                     }
@@ -9424,7 +9491,8 @@ struct expression* _Owner checked_expression(struct parser_ctx* ctx, bool is_dis
 
             if (!type_is_scalar(&p_expression_node->object.type))
             {
-                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, p_expression_node->first_token, NULL, "left operand must have scalar type");
+                const struct marker expr_marker = expression_to_marker(p_expression_node);
+                diagnostic(C_ERROR_LEFT_IS_NOT_SCALAR, ctx, NULL, &expr_marker, "left operand must have scalar type");
             }
 
             struct expression* _Owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
@@ -10176,7 +10244,8 @@ struct expression* _Owner conditional_expression(struct parser_ctx* ctx, bool is
                             struct osstream ss_b = { 0 };
                             print_type_no_names(&ss_a, &left_type, &ctx->options.platform);
                             print_type_no_names(&ss_b, &right_type, &ctx->options.platform);
-                            diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL,
+                            const struct marker expr_marker = expression_to_marker(p_conditional_expression->condition_expr);
+                            diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx, NULL, &expr_marker,
                                        "incompatible operand types in conditional expression ('%s' and '%s')",
                                        ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
                             ss_close(&ss_a);
@@ -10218,7 +10287,8 @@ struct expression* _Owner conditional_expression(struct parser_ctx* ctx, bool is
                             struct osstream ss_b = { 0 };
                             print_type_no_names(&ss_a, &left_type, &ctx->options.platform);
                             print_type_no_names(&ss_b, &right_type, &ctx->options.platform);
-                            diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, NULL,
+                            const struct marker expr_marker = expression_to_marker(p_conditional_expression->condition_expr);
+                            diagnostic(W_ERROR_INCOMPATIBLE_TYPES, ctx, NULL, &expr_marker,
                                        "incompatible operand types in conditional expression ('%s' and '%s')",
                                        ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
                             ss_close(&ss_a);
@@ -10401,7 +10471,8 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
             {
                 struct osstream ss_name = { 0 };
                 flow_expression_to_string(p_b_expression, &ss_name);
-                diagnostic(W_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, NULL,
+                const struct marker expr_marker = expression_to_marker(p_b_expression);
+                diagnostic(W_NON_OWNER_TO_OWNER_ASSIGN, ctx, NULL, &expr_marker,
                            assignment_type == ASSIGMENT_TYPE_PARAMETER ?
                                "passing non-owner '%s' to an owner parameter" :
                                "assigning non-owner '%s' to an owner",
@@ -10429,7 +10500,8 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
             {
                 struct osstream ss_name = { 0 };
                 flow_expression_to_string(p_b_expression, &ss_name);
-                diagnostic(W_MOVE_FROM_CONST_OWNER, ctx, p_b_expression->first_token, NULL,
+                const struct marker expr_marker = expression_to_marker(p_b_expression);
+                diagnostic(W_MOVE_FROM_CONST_OWNER, ctx, NULL, &expr_marker,
                            "cannot move from const owner '%s'",
                            ss_name.c_str ? ss_name.c_str : "");
                 ss_close(&ss_name);
@@ -10452,7 +10524,8 @@ static void extended_check_assigment(const struct parser_ctx* ctx,
             {
                 struct osstream ss_name = { 0 };
                 flow_expression_to_string(p_b_expression, &ss_name);
-                diagnostic(W_USING_TEMPORARY_OWNER, ctx, p_b_expression->first_token, NULL,
+                const struct marker expr_marker = expression_to_marker(p_b_expression);
+                diagnostic(W_USING_TEMPORARY_OWNER, ctx, NULL, &expr_marker,
                            assignment_type == ASSIGMENT_TYPE_PARAMETER ?
                                "passing temporary owner '%s' to a non-owner parameter" :
                                "assigning temporary owner '%s' to a non-owner",
@@ -10634,7 +10707,8 @@ void check_assigment(const struct parser_ctx* ctx,
                     // p = false;
                     // p = 1-1;
                     // p = '\0';
-                    diagnostic(W_UNSUAL_NULL_POINTER_CONSTANT, ctx, p_b_expression->first_token, NULL, "unusual expression/type used as null pointer constant");
+                    const struct marker expr_marker = expression_to_marker(p_b_expression);
+                    diagnostic(W_UNSUAL_NULL_POINTER_CONSTANT, ctx, NULL, &expr_marker, "unusual expression/type used as null pointer constant");
                 }
             }
             else
@@ -10644,10 +10718,11 @@ void check_assigment(const struct parser_ctx* ctx,
                     struct osstream ss_b = { 0 };
                     print_type_no_names(&ss_a, p_a_type, &ctx->options.platform);
                     print_type_no_names(&ss_b, p_b_type, &ctx->options.platform);
+                    const struct marker expr_marker = expression_to_marker(p_b_expression);
                     if (type_is_empty(p_b_type))
-                        diagnostic(C_ERROR_INT_TO_POINTER, ctx, p_b_expression->first_token, NULL, "cannot convert non-pointer to pointer '%s'", ss_a.c_str ? ss_a.c_str : "");
+                        diagnostic(C_ERROR_INT_TO_POINTER, ctx, NULL, &expr_marker, "cannot convert non-pointer to pointer '%s'", ss_a.c_str ? ss_a.c_str : "");
                     else
-                        diagnostic(C_ERROR_INT_TO_POINTER, ctx, p_b_expression->first_token, NULL, "cannot convert non-pointer '%s' to pointer '%s'", ss_b.c_str ? ss_b.c_str : "", ss_a.c_str ? ss_a.c_str : "");
+                        diagnostic(C_ERROR_INT_TO_POINTER, ctx, NULL, &expr_marker, "cannot convert non-pointer '%s' to pointer '%s'", ss_b.c_str ? ss_b.c_str : "", ss_a.c_str ? ss_a.c_str : "");
                     ss_close(&ss_a);
                     ss_close(&ss_b);
                 }
@@ -10711,7 +10786,8 @@ void check_assigment(const struct parser_ctx* ctx,
                 struct osstream ss_b = { 0 };
                 print_type_no_names(&ss_a, p_a_type, &ctx->options.platform);
                 print_type_no_names(&ss_b, p_b_type, &ctx->options.platform);
-                diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx, p_b_expression->first_token, NULL, "incompatible enum types: '%s' from '%s'", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+                const struct marker expr_marker = expression_to_marker(p_b_expression);
+                diagnostic(W_INCOMPATIBLE_ENUN_TYPES, ctx, NULL, &expr_marker, "incompatible enum types: '%s' from '%s'", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
                 ss_close(&ss_a);
                 ss_close(&ss_b);
             }
@@ -10788,7 +10864,8 @@ void check_assigment(const struct parser_ctx* ctx,
             struct osstream ss_b = { 0 };
             print_type_no_names(&ss_a, p_a_type, &ctx->options.platform);
             print_type_no_names(&ss_b, p_b_type, &ctx->options.platform);
-            diagnostic(W_POINTER_TO_INT, ctx, p_b_expression->first_token, NULL, "pointer to integer conversion: '%s' from '%s'", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
+            const struct marker expr_marker = expression_to_marker(p_b_expression);
+            diagnostic(W_POINTER_TO_INT, ctx, NULL, &expr_marker, "pointer to integer conversion: '%s' from '%s'", ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "");
             ss_close(&ss_a);
             ss_close(&ss_b);
         }
@@ -10854,10 +10931,13 @@ void check_assigment(const struct parser_ctx* ctx,
             *
             *   const int *p;
             *   void *q = p;   // discards const
+            *
+            * Not reported for void* _Owner: free(s) with const char* s releases
+            * the object, it does not write to it through the pointer.
             */
             struct type b_pointed = type_remove_pointer(&b_type_lvalue);
             struct type a_pointed = type_remove_pointer(p_a_type);
-            if (type_is_const(&b_pointed) && !type_is_const(&a_pointed))
+            if (type_is_const(&b_pointed) && !type_is_const(&a_pointed) && !type_is_owner(p_a_type))
             {
                 diagnostic(W_DISCARDED_QUALIFIERS, ctx,
                            p_b_expression->first_token, NULL,
@@ -10982,7 +11062,8 @@ void check_assigment(const struct parser_ctx* ctx,
                         if (p_source_declarator && p_source_declarator->name_opt)
                             snprintf(see_line, sizeof see_line, " (see line %d)", p_source_declarator->name_opt->line);
 
-                        diagnostic(W_DISCARDED_QUALIFIERS, ctx, p_b_expression->first_token, NULL,
+                        const struct marker expr_marker = expression_to_marker(p_b_expression);
+                        diagnostic(W_DISCARDED_QUALIFIERS, ctx, NULL, &expr_marker,
                                    assignment_type == ASSIGMENT_TYPE_PARAMETER ? "discarding const qualifier in argument: '%s' from '%s'%s" : "discarding const qualifier: '%s' from '%s'%s",
                                    ss_a.c_str ? ss_a.c_str : "", ss_b.c_str ? ss_b.c_str : "", see_line);
                         ss_close(&ss_a);

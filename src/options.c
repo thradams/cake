@@ -184,6 +184,8 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case C_ERROR_LABEL_NOT_DEFINED:
         return 1;
 
+    case C_ERROR_DTOR_ONLY_ON_PARAMETER:
+    case C_ERROR_UNINITIALIZED_ONLY_ON_RESULT:
     case W_FLOW_NULLABLE_TO_NON_NULLABLE:
     case W_FLOW_MISSING_DTOR:
     case W_FLOW_UNINITIALIZED:

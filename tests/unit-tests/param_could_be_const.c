@@ -84,7 +84,7 @@ void addr_of_member_to_non_const(struct X* p) { gi(&p->i); }
 void alias(struct X* p) { struct X* q = p; q->i = 1; }
 void store_in_global(struct X* p) { g_ptr = p; }
 struct X* returned(struct X* p) { return p; }
-void cast_away(struct X* p) { g((struct X*)p); (void)p->i; }
+void cast_away(struct X* p) { g((struct X*)p); (void)p->i; } //lint 61
 void variadic(struct X* p) { printf("%p", (void*)p); (void)p->i; }
 void conditional(struct X* p, int c) { struct X* q = c ? p : g_ptr; g(q); (void)p->i; }
 

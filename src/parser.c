@@ -1021,7 +1021,7 @@ static void diagnostic_print(const struct diagnostic_item* e, struct parser_ctx*
     {
         if (ctx->sarif_entries > 0)
             fprintf(ctx->sarif_file, "   ,\n");
-        ((struct parser_ctx*)ctx)->sarif_entries++;
+        ctx->sarif_entries++;
         fputs(e->sarif_text, ctx->sarif_file);
     }
 
@@ -1793,7 +1793,7 @@ struct declarator* find_declarator(const struct parser_ctx* ctx, const char* lex
         {
             assert(p_entry->data.p_init_declarator != NULL);
             struct init_declarator* p_init_declarator = p_entry->data.p_init_declarator;
-            return (struct declarator*)p_init_declarator->p_declarator; //lint 33 assert line 1790
+            return p_init_declarator->p_declarator; //lint 33 assert line 1790
         }
         else if (p_entry->type == TAG_TYPE_DECLARATOR)
         {
@@ -4343,7 +4343,7 @@ struct declaration_specifier* _Owner declaration_specifier(struct parser_ctx* ct
 struct init_declarator* _Nonnull _Owner init_declarator_add_ref(struct init_declarator* p)
 {
     p->has_shared_ownership = true;
-    return (struct init_declarator* _Owner)p;
+    return p; //lint 78
 }
 
 void init_declarator_delete(struct init_declarator* _Owner _Nullable p)
@@ -4713,6 +4713,11 @@ struct init_declarator* _Owner init_declarator(struct parser_ctx* ctx,
         struct declarator* p_previous_declarator = find_declarator(ctx, declarator_name, &out_scope);
         if (p_previous_declarator)
         {
+            if (out_scope == NULL)
+            {
+               assert(0); 
+               throw;
+            }
             p_init_declarator->p_declarator->p_complete_declarator = p_previous_declarator;
 
             /* noreturn on any declaration applies to calls through the previous one */
@@ -5267,6 +5272,19 @@ struct init_declarator* _Owner init_declarator(struct parser_ctx* ctx,
                     t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_AUTO;
 
                     type_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
+
+                    /* same as a local with a written type: nullable, and owner of a call result */
+                    if (type_is_pointer(&t) &&
+                        is_automatic_variable(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags))
+                    {
+                        t.type_qualifier_flags |= TYPE_QUALIFIER_CAKE_NULLABLE;
+                    }
+                    const struct type* p_initializer_type = &p_init_declarator->initializer->assignment_expression->object.type;
+                    if (type_is_owner(p_initializer_type) &&
+                        (p_initializer_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN))
+                    {
+                        t.type_qualifier_flags |= TYPE_QUALIFIER_CAKE_OWNER;
+                    }
 
                     type_visit_to_mark_anonymous(&t);
                     type_swap(&p_init_declarator->p_declarator->object.type, &t);
@@ -5952,7 +5970,7 @@ struct typeof_specifier* _Owner typeof_specifier(struct parser_ctx* ctx)
 
         type_visit_to_mark_anonymous(&p_typeof_specifier->type);
 
-        free((void* _Owner)p_typeof_specifier->type.name_opt);
+        free(p_typeof_specifier->type.name_opt);
         p_typeof_specifier->type.name_opt = NULL;
 
         if (ctx->current == NULL)
@@ -6817,7 +6835,7 @@ struct struct_or_union_specifier* get_complete_struct_or_union_specifier(const s
 struct struct_or_union_specifier* _Nonnull _Owner struct_or_union_specifier_add_ref(struct struct_or_union_specifier* p)
 {
     p->has_shared_ownership = true;
-    return (struct struct_or_union_specifier* _Owner) p;
+    return p; //lint 78
 }
 
 bool struct_or_union_specifier_is_union(const struct struct_or_union_specifier* p)
@@ -8273,7 +8291,7 @@ const struct enumerator* find_enumerator_by_value(const struct parser_ctx* ctx, 
 struct enum_specifier* _Nonnull _Owner enum_specifier_add_ref(struct enum_specifier* p)
 {
     p->has_shared_ownership = true;
-    return (struct enum_specifier* _Owner)p;
+    return p; //lint 78
 }
 
 void enum_specifier_delete(struct enum_specifier* _Owner _Nullable p)
@@ -8798,7 +8816,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
 struct enumerator* _Nonnull _Owner enumerator_add_ref(struct enumerator* p)
 {
     p->has_shared_ownership = true;
-    return (struct enumerator* _Owner) p;
+    return p; //lint 78
 }
 
 void enumerator_delete(struct enumerator* _Owner _Nullable p)
@@ -9233,7 +9251,7 @@ struct function_specifier* _Owner function_specifier(struct parser_ctx* ctx)
 struct declarator* _Nonnull _Owner declarator_add_ref(struct declarator* p)
 {
     p->has_shared_ownership = true;
-    return (struct declarator* _Owner)p;
+    return p; //lint 78
 }
 
 void declarator_delete(struct declarator* _Owner _Nullable p)
@@ -9286,12 +9304,45 @@ struct declarator* _Owner declarator(struct parser_ctx* ctx,
 
         p_declarator->first_token_opt = ctx->current;
         p_declarator->pointer = pointer_opt(ctx);
+
+        /* _View in the specifiers of a pointer declarator qualifies the pointed type */
+        if (p_declarator->pointer != NULL && ctx->options.safety_enabled)
+        {
+            const enum type_qualifier_flags specifier_flags =
+                p_declaration_specifiers_opt != NULL ? p_declaration_specifiers_opt->type_qualifier_flags :
+                p_specifier_qualifier_list_opt != NULL ? p_specifier_qualifier_list_opt->type_qualifier_flags :
+                TYPE_QUALIFIER_NONE;
+            if (specifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
+            {
+                diagnostic(C_ERROR_VIEW_ON_POINTED_TYPE, ctx, p_declarator->first_token_opt, NULL,
+                           "_View cannot be used on the pointed type: a pointer without _Owner is already a view");
+            }
+        }
+
+        /* a member is neither a parameter nor a result */
+        if (p_declarator->pointer != NULL &&
+            ctx->options.safety_enabled &&
+            !abstract_acceptable &&
+            p_specifier_qualifier_list_opt != NULL)
+        {
+            if (p_specifier_qualifier_list_opt->type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR)
+            {
+                diagnostic(C_ERROR_DTOR_ON_MEMBER, ctx, p_declarator->first_token_opt, NULL,
+                           "_Dtor cannot be used on a member: it may be used only on the pointed type of a parameter");
+            }
+            else if (p_specifier_qualifier_list_opt->type_qualifier_flags & TYPE_QUALIFIER_CAKE_UNINIT)
+            {
+                diagnostic(C_ERROR_UNINITIALIZED_ON_MEMBER, ctx, p_declarator->first_token_opt, NULL,
+                           "_Uninitialized cannot be used on a member: it may be used only on the pointed type of a result");
+            }
+        }
+
         p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list_opt, p_declaration_specifiers_opt, abstract_acceptable, pp_token_name_opt);
         if (p_declarator->direct_declarator == NULL) throw;
 
         if (pp_token_name_opt && *pp_token_name_opt)
         {
-            free((void* _Owner)p_declarator->object.member_designator);
+            free(p_declarator->object.member_designator);
             p_declarator->object.member_designator = strdup((*pp_token_name_opt)->lexeme);
         }
 
@@ -10364,7 +10415,7 @@ struct parameter_declaration* _Owner parameter_declaration(struct parser_ctx* ct
 
         if (p_parameter_declaration->declarator->name_opt)
         {
-            free((void* _Owner)p_parameter_declaration->declarator->object.member_designator);
+            free(p_parameter_declaration->declarator->object.member_designator);
             p_parameter_declaration->declarator->object.member_designator = strdup(p_parameter_declaration->declarator->name_opt->lexeme);
         }
 

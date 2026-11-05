@@ -352,7 +352,7 @@
 <a href="#toc_60">60 Null pointer constant to non-nullable pointer (not emitted)</a>
 </li>
 <li>
-<a href="#toc_61">61 Cast to same type (not emitted)</a>
+<a href="#toc_61">61 Cast to same type</a>
 </li>
 <li>
 <a href="#toc_62">62 Too many initializers</a>
@@ -966,6 +966,24 @@
 <li>
 <a href="#toc_263">2390 Construct not supported by the target</a>
 </li>
+<li>
+<a href="#toc_264">2400 Annotation in a cast</a>
+</li>
+<li>
+<a href="#toc_265">2410 _Dtor only on a parameter</a>
+</li>
+<li>
+<a href="#toc_266">2420 _Uninitialized only on a result</a>
+</li>
+<li>
+<a href="#toc_267">2430 _View on a pointed type</a>
+</li>
+<li>
+<a href="#toc_268">2440 _Dtor on a member</a>
+</li>
+<li>
+<a href="#toc_269">2450 _Uninitialized on a member</a>
+</li>
 </ul>
 <h2 id="toc_0">Warnings</h2>
 
@@ -1142,6 +1160,8 @@ int main(void) { //warning 11: not following correct brace style {
 conditional is qualified with the qualifiers of <em>both</em> referenced types, so a
 const operand makes the whole result const.</p>
 
+<p>Converting to <code>void* _Owner</code> is not reported: <code>free(s)</code> with <code>const char* _Owner s</code> releases the object, it does not write to it.</p>
+
 <p><strong>Not reported:</strong> an explicit cast that removes the qualifier
 (<code>g((struct X*)p)</code>). That is legal C -- the cast is the author taking
 responsibility -- so no diagnostic is possible, and none of the const checks
@@ -1280,6 +1300,26 @@ int main() {
     destroyX(&amp;x); //double free
 }
 
+</code></pre>
+
+<p>Returning a pointer to uninitialized storage also warns, unless the return
+type is declared <code>_Uninitialized</code>.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+_Uninitialized void* _Owner malloc(unsigned int size);
+
+int* _Owner f(void)
+{
+    return malloc(sizeof(int)); //warning 30: passing a possibly uninitialized object &#39;*malloc(sizeof(int))&#39;
+}
+
+_Uninitialized int* _Owner g(void)
+{
+    return malloc(sizeof(int));
+}
 </code></pre>
 
 <h3 id="toc_31">31 Lifetime has ended (flow)</h3>
@@ -1652,9 +1692,22 @@ int main()
 
 <p>Reserved (<code>W_NULLABLE_TO_NON_NULLABLE</code>). Not emitted by the current compiler.</p>
 
-<h3 id="toc_61">61 Cast to same type (not emitted)</h3>
+<h3 id="toc_61">61 Cast to same type</h3>
 
-<p>Reserved (<code>W_CAST_TO_SAME_TYPE</code>). Not emitted by the current compiler.</p>
+<p>The cast does nothing: the operand already has this type. Not reported inside
+macros, when any side comes from a typedef, in a conversion between an enum and
+an integer, or for a computed non-pointer value, because the types may be the
+same only on this target.
+Also not reported for a pointer reached through a <code>const</code> object: the cast says
+it is intended (warning 120).</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">void f(int i)
+{
+    int a = (int)i; //warning 61: casting to the same type
+}
+</code></pre>
 
 <h3 id="toc_62">62 Too many initializers</h3>
 
@@ -4087,5 +4140,84 @@ when an output is produced.</p>
 <!-- runnable -->
 
 <pre><code class="language-c">_BitInt(100) x; //error 2390: _BitInt(100) needs a 128-bit integer, not available on this target
+</code></pre>
+
+<h3 id="toc_263">2400 Annotation in a cast</h3>
+
+<p>A cast changes the type only: it keeps the <code>_Owner</code> and nullability of its
+operand, so <code>(void*)p</code> is still <code>_Owner</code> when <code>p</code> is. Writing an annotation in a
+cast is an error. To convert a non-owner to an owner, use <code>//lint 78</code> at the
+assignment.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(void* p)
+{
+    void* a = (void* _Owner)p; //error 2400: a cast cannot have ownership or nullability annotations: it keeps those of its operand
+}
+</code></pre>
+
+<h3 id="toc_264">2410 _Dtor only on a parameter</h3>
+
+<p><code>_Dtor</code> says the callee destroys the pointed object, so it may be used only on the pointed type of a parameter.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+struct X { int i; };
+void x_destroy(_Dtor struct X* p);
+_Dtor struct X* f(void); //error 2410: _Dtor may be used only on the pointed type of a parameter
+</code></pre>
+
+<h3 id="toc_265">2420 _Uninitialized only on a result</h3>
+
+<p><code>_Uninitialized</code> says the returned object holds nothing yet, so it may be used only on the pointed type of a result.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+struct X { int i; };
+_Uninitialized struct X* x_alloc(void);
+void f(_Uninitialized struct X* p); //error 2420: _Uninitialized may be used only on the pointed type of a result
+</code></pre>
+
+<h3 id="toc_266">2430 _View on a pointed type</h3>
+
+<p><code>_View</code> describes an object that does not own its owner members. A pointer without <code>_Owner</code> is already a view, so <code>_View</code> cannot be used on the pointed type.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+struct X { char* _Owner text; };
+void by_view(_View struct X x);
+void f(_View struct X* p); //error 2430: _View cannot be used on the pointed type: a pointer without _Owner is already a view
+</code></pre>
+
+<h3 id="toc_267">2440 _Dtor on a member</h3>
+
+<p><code>_Dtor</code> may be used only on the pointed type of a parameter (see 2410), so it cannot be used on a member.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+struct Y { int i; };
+struct X {
+    _Dtor struct Y* p; //error 2440: _Dtor cannot be used on a member: it may be used only on the pointed type of a parameter
+};
+</code></pre>
+
+<h3 id="toc_268">2450 _Uninitialized on a member</h3>
+
+<p><code>_Uninitialized</code> may be used only on the pointed type of a result (see 2420), so it cannot be used on a member.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+struct Y { int i; };
+struct X {
+    _Uninitialized struct Y* p; //error 2450: _Uninitialized cannot be used on a member: it may be used only on the pointed type of a result
+};
 </code></pre>
 </article></body></html>

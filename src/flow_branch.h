@@ -136,14 +136,12 @@ void flow_branch_set_reachable_any_n(struct flow_branch* _Nullable m, const stru
 void flow_branch_set_object_lifetime_ended(struct flow_branch* _Nullable m, const struct object* obj, const struct token* _Nullable p_token);
 void flow_branch_apply_dtor_or_clear_effect(struct flow_branch* _Nullable m, const struct object* obj, bool is_clear, const struct token* _Nullable p_token);
 
-bool flow_branch_arm_has_entries(const struct flow_branch* arm, const struct flow_branch* parent);
 void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch* const arms[], int num_arms);
 void flow_branch_merge_a_b(struct flow_branch* parent, const struct flow_branch* a, const struct flow_branch* b);
 void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_branch* _Nullable p_src,
                                     const struct flow_branch* _Nullable p_retag_origin,
                                     bool full_state, bool join_reached_before);
 
-void flow_branch_name_to_string(const struct flow_branch* _Nullable map, struct osstream* ss);
 /* the objects static_debug(expr) shows */
 struct flow_debug_filter
 {
@@ -151,11 +149,8 @@ struct flow_debug_filter
     int count;
 };
 
-void flow_branch_debug_print(const struct flow_branch* _Nullable map, bool colors, const struct flow_debug_filter* _Nullable p_filter);
 void flow_branch_raw_dump(const struct flow_branch* _Nullable map, const struct flow_branch_arena* arena, bool colors, const struct flow_debug_filter* _Nullable p_filter);
 
-
-struct osstream flow_explain_origin(const struct flow_branch* _Nullable map);
 
 struct flow_branch* flow_branch_arena_new_branch(struct flow_branch_arena* a, struct flow_branch* _Nullable parent, bool is_true, const struct expression* _Nullable p_expr);
 const struct flow_branch* flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Nullable new_origin);

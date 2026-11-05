@@ -21,7 +21,7 @@ void test_then_cast(struct S* s0)
 {
     struct S* c = complete(s0);
     if (c && c->head)
-        use((struct L*)c->head);
+        use((struct L*)c->head); //lint 61
 }
 
 /* must warn: h->s is not tested */

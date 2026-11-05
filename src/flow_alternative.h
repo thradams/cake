@@ -80,8 +80,6 @@ bool flow_alternative_is_zero(const struct flow_alternative* alt);
 bool flow_value_is_false(const struct flow_alternative* a);
 bool flow_value_is_true(const struct flow_alternative* a);
 bool flow_alternative_is_dead(const struct flow_alternative* alt);
-void flow_alternative_sprint(struct osstream* ss, const struct flow_alternative* alt);
-void flow_alternative_print(const struct flow_alternative* alt);
 
 bool flow_alt_to_interval(const struct flow_alternative* alt, long long* lo, long long* hi);
 bool flow_alt_set_interval(struct flow_alternative* alt, long long lo, long long hi);
@@ -102,7 +100,6 @@ void flow_alternatives_append(struct flow_alternatives* dst, const struct flow_a
 void flow_alternatives_add(struct flow_alternatives* vs, const struct flow_alternative* p_alternative);
 void flow_alternatives_push(struct flow_alternatives* vs, const struct flow_alternative* p_alternative);
 void flow_alternatives_remove_duplicates(struct flow_alternatives* vs);
-void flow_alternatives_print(const struct flow_alternatives* alternatives);
 
 void flow_alternatives_pool_shutdown(void);
 int flow_alternatives_live_count(void);

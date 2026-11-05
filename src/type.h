@@ -160,6 +160,13 @@ enum storage_class_specifier_flags
     STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD = 1 << 14,
 
     STORAGE_SPECIFIER_BITFIELD = 1 << 15,
+
+    /*
+      this level was written with a typedef name: `my_int x;`
+      Not STORAGE_SPECIFIER_TYPEDEF, which means the declarator is a typedef:
+      `typedef int my_int;`. A declarator can have both.
+    */
+    STORAGE_SPECIFIER_CAKE_FROM_TYPEDEF = 1 << 16,
 };
 
 bool is_automatic_variable(enum storage_class_specifier_flags f);
@@ -357,6 +364,7 @@ bool type_is_volatile_recursive(const struct type* p_type);
 bool type_is_pointed_void(const struct type* p_type);
 bool type_is_constexpr(const struct type* p_type);
 bool type_is_const_or_constexpr(const struct type* p_type);
+bool type_has_typedef(const struct type* p_type);
 bool type_is_nullable(const struct type* p_type, bool nullable_enabled);bool type_is_view(const struct type* p_type);
 
 bool type_is_owner(const struct type* p_type);

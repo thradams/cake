@@ -5,7 +5,7 @@
 _Uninitialized void* _Owner malloc(unsigned long size);
 void free(void* _Owner _Opt p);
 
-int* _Owner f(int c)
+_Uninitialized int* _Owner f(int c)
 {
     int* _Owner p = malloc(sizeof * p);
     try

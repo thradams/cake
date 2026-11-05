@@ -17,7 +17,6 @@ void k(int* _Nullable p);
 void use(int* p)
 {
     int* _Nullable a = p; //lint 122
-    int* b = (int* _Nullable)p; //lint 122
     int* _Nonnull c = p;
 }
 

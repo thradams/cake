@@ -167,9 +167,9 @@ void* _Owner hashmap_remove(struct hash_map* map, const char* key, enum tag* _Nu
                     *p_type_opt = p_entry->type;
 
                 void* _Owner p = p_entry->data.p_declarator; //moved
-                free((void* _Owner)p_entry->key);
+                free(p_entry->key);
 
-                free((void* _Owner)p_entry);
+                free(p_entry); //lint 78
 
                 map->size--;
 
@@ -308,7 +308,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
             p_new_entry->key = temp_key;
             p_new_entry->hash = hash;
 
-            p_new_entry->data.p_declarator = (void* _Owner)p;
+            p_new_entry->data.p_declarator = p; //lint 78
 
             p_new_entry->type = type;
             p_new_entry->next = map->table[index];
@@ -369,7 +369,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set* ite
 #pragma CAKE diagnostic pop
 
             result = 1;
-            pentry->data.p_declarator = (void* _Owner)p;
+            pentry->data.p_declarator = p; //lint 78
             pentry->type = type;
         }
     }

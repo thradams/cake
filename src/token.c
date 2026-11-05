@@ -553,7 +553,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 
     last->next = NULL; /*MOVED*/
 
-    r.head = (struct token* _Owner)first;
+    r.head = first; //lint 78
     first->prev = NULL;
     r.tail = last;
 

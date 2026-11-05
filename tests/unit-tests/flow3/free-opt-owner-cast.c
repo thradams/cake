@@ -13,5 +13,5 @@ struct object
 
 void object_destroy(_Dtor struct object* p)
 {
-    free((void* _Owner)p->member_designator); /* ok: free accepts null */
+    free((void*)p->member_designator); /* ok: free accepts null */
 }

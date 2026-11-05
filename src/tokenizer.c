@@ -115,7 +115,7 @@ void include_dir_list_destroy(_Dtor struct include_dir_list* list)
     while (p)
     {
         struct include_dir* _Owner next = p->next;
-        free((void* _Owner)p->path);
+        free(p->path);
         free(p);
         p = next;
     }
@@ -770,7 +770,7 @@ void macro_parameters_delete(_Dtor struct macro_parameter* _Owner _Nullable para
     while (p)
     {
         struct macro_parameter* _Owner p_next = p->next;
-        free((void* _Owner)p->name);
+        free(p->name);
         free(p);
         p = p_next;
     }
@@ -810,12 +810,12 @@ void macro_delete(struct macro* _Owner _Nullable macro)
         while (p_macro_parameter)
         {
             struct macro_parameter* _Owner p_next = p_macro_parameter->next;
-            free((void* _Owner)p_macro_parameter->name);
+            free(p_macro_parameter->name);
             free(p_macro_parameter);
             p_macro_parameter = p_next;
         }
 
-        free((void* _Owner) macro->name);
+        free(macro->name);
         free(macro);
     }
 }
@@ -1459,7 +1459,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx,
     try
     {
 #ifndef MOCKFILES
-        file = (FILE * _Owner)fopen(filename_opt, "rb");
+        file = (FILE *)fopen(filename_opt, "rb");
         if (file == NULL)
         {
             preprocessor_diagnostic(C_ERROR_FILE_NOT_FOUND, ctx, position, "file '%s' not found", filename_opt);
@@ -3217,7 +3217,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     is_include_next);
 
                 bool has_include = s != NULL;
-                free((void* _Owner)s);
+                free(s);
 
                 struct token* _Owner p_new_token = calloc(1, sizeof * p_new_token);
                 if (p_new_token == NULL)
@@ -4759,7 +4759,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list list = tokenizer(&tctx, content, full_path_result, level + 1, TK_FLAG_NONE);
-                free((void* _Owner)content);
+                free(content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1);
                 token_list_append_list(&r, &list2);
@@ -5215,7 +5215,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             /* #undef names the macro: -find-definition / -rename */
             find_definition_macro(ctx, input_list->head, find_macro(ctx, input_list->head->lexeme));
 
-            struct macro* _Owner macro = (struct macro* _Owner) hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
+            struct macro* _Owner macro = (struct macro*) hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
             if (macro)
             {
@@ -6648,7 +6648,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
             r = tokenizer(&tctx, result, "", 0, TK_FLAG_MACRO_EXPANDED);
             struct token_list list3 = copy_replacement_list_core(ctx, &r, true);
             token_list_swap(&list3, &r);
-            free((void* _Owner)result);
+            free(result);
 
             token_list_destroy(&list2);
             token_list_destroy(&list3);
@@ -8213,7 +8213,7 @@ void print_preprocessed(const struct token* p_token)
     if (s)
     {
         printf("%s", s);
-        free((void* _Owner)s);
+        free(s);
     }
 }
 
@@ -8441,7 +8441,7 @@ void print_preprocessed_to_file(const struct token* p_token, const char* filenam
         if (s)
         {
             fprintf(f, "%s", s);
-            free((void* _Owner)s);
+            free(s);
         }
         fclose(f);
     }
@@ -8521,7 +8521,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
         printf("TEST 0 FAILED\n");
         result = 1;
     }
-    free((void* _Owner _Nullable)s);
+    free(s);
     token_list_destroy(&r);
     token_list_destroy(&list);
     preprocessor_ctx_destroy(&ctx);
@@ -8573,7 +8573,7 @@ bool test_preprocessor_in_out_match(const char* input, const char* output)
         res = false;
     }
 
-    free((void* _Owner _Nullable)result);
+    free(result);
     token_list_destroy(&r);
     token_list_destroy(&list);
     preprocessor_ctx_destroy(&ctx);
@@ -9433,7 +9433,7 @@ int test_predefined_macros()
     {
 
     }
-    free((void* _Owner _Nullable)result);
+    free(result);
     token_list_destroy(&list2);
     token_list_destroy(&list);
     preprocessor_ctx_destroy(&prectx);
@@ -9482,7 +9482,7 @@ void test_counter()
 
     assert(strcmp(result ? result : "", output) == 0);
 
-    free((void* _Owner _Nullable)result);
+    free(result);
     token_list_destroy(&r);
     token_list_destroy(&list);
     preprocessor_ctx_destroy(&ctx);
@@ -9611,7 +9611,7 @@ int test_line_continuation()
     {
     }
 
-    free((void* _Owner _Nullable)result);
+    free(result);
     token_list_destroy(&list2);
     token_list_destroy(&list);
     preprocessor_ctx_destroy(&prectx);

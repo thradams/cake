@@ -336,7 +336,7 @@ void object_destroy(_Dtor struct object* p)
     assert(p->next == NULL);
 
     type_destroy(&p->type);
-    free((void* _Owner)p->member_designator);
+    free(p->member_designator);
 
     struct object* _Owner item = p->members.head;
     while (item)
@@ -1408,7 +1408,7 @@ struct object* _Owner make_object_ptr_core(const struct type* p_type,
                     }
                     p_member_obj->parent = p_object;
 
-                    free((void* _Owner)p_member_obj->member_designator);
+                    free(p_member_obj->member_designator);
                     p_member_obj->member_designator = strdup(buffer);
                     object_list_push(&p_object->members, p_member_obj);
                 }
@@ -1514,7 +1514,7 @@ struct object* _Owner make_object_ptr_core(const struct type* p_type,
 
                         p_member_obj->parent = p_object;
 
-                        free((void* _Owner)p_member_obj->member_designator);
+                        free(p_member_obj->member_designator);
                         p_member_obj->member_designator = strdup(buffer);
                         object_list_push(&p_object->members, p_member_obj);
                     }
@@ -1538,7 +1538,7 @@ struct object* _Owner make_object_ptr_core(const struct type* p_type,
                     if (p_member_obj == NULL)
                         throw;
 
-                    free((void* _Owner)p_member_obj->member_designator);
+                    free(p_member_obj->member_designator);
                     p_member_obj->member_designator = strdup(buffer);
 
                     p_member_obj->parent = p_object;

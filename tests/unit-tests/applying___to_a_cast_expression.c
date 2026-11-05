@@ -3,6 +3,6 @@
 
 int main() {
     int x = 5;
-    int *p = &(int)x; //lint 1220 // Error: Cannot take the address of a cast expression
+    int *p = &(int)x; //lint 1220 61 // Error: Cannot take the address of a cast expression
     return 0;
 }

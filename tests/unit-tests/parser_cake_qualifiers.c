@@ -9,5 +9,5 @@ void f(const char* _Opt s) {
    /* The resulting expression must be char * _Opt _Owner */
    p  = s ? strdup(s) : 0;
 
-   free((void* _Owner)p);
+   free((void*)p);
 }

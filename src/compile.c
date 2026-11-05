@@ -69,13 +69,13 @@ int fill_preprocessor_options(int argc, const char* const* argv, struct preproce
         if (argv[i][1] == 'I')
         {
             const char* dir = argv[i] + 2;
-            if (*dir == '\0' && i + 1 < argc)
+            if (*dir == '\0' && i + 1 < argc) //lint 33 
             {
                 /* `-I dir` (space-separated), same as `-Idir` */
                 i++;
                 dir = argv[i];
             }
-            include_dir_add(&prectx->include_dir, dir);
+            include_dir_add(&prectx->include_dir, dir); //lint 35
             continue;
         }
         if (argv[i][1] == 'D')
@@ -755,7 +755,7 @@ int compile_one_file(const char* file_name,
     token_list_destroy(&tokens);
 
     parser_ctx_destroy(&ctx);
-    free((void* _Owner)p_output_string);
+    free(p_output_string);
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
@@ -1715,7 +1715,7 @@ const char* _Owner compile_source(const char* pszoptions, const char* content, s
             if (codegen_error != 0)
             {
                 report->error_count++;
-                free((void* _Owner)s);
+                free(s);
                 s = NULL;
                 throw;
             }
@@ -1828,7 +1828,7 @@ char* _Owner CompileText(const char* pszoptions, const char* content)
     printf(WHITE "Cake " CAKE_VERSION COLOR_RESET "\n");
 
     struct report report = { 0 };
-    char* _Owner s = (char* _Owner)compile_source(pszoptions, content, &report);
+    char* _Owner s = (char*)compile_source(pszoptions, content, &report);
 
     return s;
 }
