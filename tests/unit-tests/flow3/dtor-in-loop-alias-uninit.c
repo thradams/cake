@@ -21,5 +21,5 @@ struct E* _Nonnull _Owner g(struct E* _Owner p)
 
     /* FALSE POSITIVE, to be fixed: p->i is uninitialized only after d(n), where p does not point to n */
     if (p->i) {} //lint 30
-    return p; //lint 30 30
+    return p;
 }

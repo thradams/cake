@@ -969,21 +969,6 @@
 <li>
 <a href="#toc_264">2400 Annotation in a cast</a>
 </li>
-<li>
-<a href="#toc_265">2410 _Dtor only on a parameter</a>
-</li>
-<li>
-<a href="#toc_266">2420 _Uninitialized only on a result</a>
-</li>
-<li>
-<a href="#toc_267">2430 _View on a pointed type</a>
-</li>
-<li>
-<a href="#toc_268">2440 _Dtor on a member</a>
-</li>
-<li>
-<a href="#toc_269">2450 _Uninitialized on a member</a>
-</li>
 </ul>
 <h2 id="toc_0">Warnings</h2>
 
@@ -1300,26 +1285,6 @@ int main() {
     destroyX(&amp;x); //double free
 }
 
-</code></pre>
-
-<p>Returning a pointer to uninitialized storage also warns, unless the return
-type is declared <code>_Uninitialized</code>.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-
-_Uninitialized void* _Owner malloc(unsigned int size);
-
-int* _Owner f(void)
-{
-    return malloc(sizeof(int)); //warning 30: passing a possibly uninitialized object &#39;*malloc(sizeof(int))&#39;
-}
-
-_Uninitialized int* _Owner g(void)
-{
-    return malloc(sizeof(int));
-}
 </code></pre>
 
 <h3 id="toc_31">31 Lifetime has ended (flow)</h3>
@@ -4157,67 +4122,5 @@ void f(void* p)
 {
     void* a = (void* _Owner)p; //error 2400: a cast cannot have ownership or nullability annotations: it keeps those of its operand
 }
-</code></pre>
-
-<h3 id="toc_264">2410 _Dtor only on a parameter</h3>
-
-<p><code>_Dtor</code> says the callee destroys the pointed object, so it may be used only on the pointed type of a parameter.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-struct X { int i; };
-void x_destroy(_Dtor struct X* p);
-_Dtor struct X* f(void); //error 2410: _Dtor may be used only on the pointed type of a parameter
-</code></pre>
-
-<h3 id="toc_265">2420 _Uninitialized only on a result</h3>
-
-<p><code>_Uninitialized</code> says the returned object holds nothing yet, so it may be used only on the pointed type of a result.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-struct X { int i; };
-_Uninitialized struct X* x_alloc(void);
-void f(_Uninitialized struct X* p); //error 2420: _Uninitialized may be used only on the pointed type of a result
-</code></pre>
-
-<h3 id="toc_266">2430 _View on a pointed type</h3>
-
-<p><code>_View</code> describes an object that does not own its owner members. A pointer without <code>_Owner</code> is already a view, so <code>_View</code> cannot be used on the pointed type.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-struct X { char* _Owner text; };
-void by_view(_View struct X x);
-void f(_View struct X* p); //error 2430: _View cannot be used on the pointed type: a pointer without _Owner is already a view
-</code></pre>
-
-<h3 id="toc_267">2440 _Dtor on a member</h3>
-
-<p><code>_Dtor</code> may be used only on the pointed type of a parameter (see 2410), so it cannot be used on a member.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-struct Y { int i; };
-struct X {
-    _Dtor struct Y* p; //error 2440: _Dtor cannot be used on a member: it may be used only on the pointed type of a parameter
-};
-</code></pre>
-
-<h3 id="toc_268">2450 _Uninitialized on a member</h3>
-
-<p><code>_Uninitialized</code> may be used only on the pointed type of a result (see 2420), so it cannot be used on a member.</p>
-
-<!-- runnable -->
-
-<pre><code class="language-c">#pragma safety enable
-struct Y { int i; };
-struct X {
-    _Uninitialized struct Y* p; //error 2450: _Uninitialized cannot be used on a member: it may be used only on the pointed type of a result
-};
 </code></pre>
 </article></body></html>

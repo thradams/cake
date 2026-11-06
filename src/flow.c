@@ -2853,7 +2853,7 @@ static void flow_check_object_access(struct flow_ctx* ctx,
                 accept_merged_arms &&
                 (p_alternative->imaginary == FLOW_IMAGINARY_MOVED ||
                  (p_alternative->imaginary == FLOW_IMAGINARY_NONE && p_alternative->value_relation == FLOW_RELATION_UNINITIALIZED)) &&
-                flow_origins_compatible(p_origin_filter, p_alternative->p_origin_map);
+                flow_branch_is_ancestor_or_self(p_origin_filter, p_alternative->p_origin_map);
 
             if (!flow_branch_is_ancestor_or_self(p_alternative->p_origin_map, p_origin_filter) && !merged_state)
             {
@@ -3861,16 +3861,14 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     const bool source_uninit = type_is_uninit(&p_expression->object.type) || type_is_pointed_uninit(&p_expression->object.type);
 
                     /*
-                        On return the caller may read the pointee unless the return type says
-                        it is _Uninitialized, whatever the source is declared (issue #531).
-                        INIT_PARAMETER stays checked unless the callee is _Out.
+                        Returning a pointer does not read its pointee: no uninitialized finding
+                        on return. INIT_PARAMETER stays checked unless the callee is _Out.
                     */
-                    const bool uninit_accepted =
-                        init_type == INIT_RETURN ? type_is_pointed_uninit(&p_object_dest->type) : source_uninit;
                     const bool check_unitialized =
                         !flow_dest_pointee_is_ctor(&p_object_dest->type) &&
                         (init_type != INIT_PARAMETER || flow_param_reads_pointee(ctx, &p_object_dest->type)) &&
-                        !uninit_accepted;
+                        !source_uninit &&
+                        init_type != INIT_RETURN;
 
                     /*
                         An argument also sees states from arms merged after the pointer was
@@ -3883,7 +3881,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                         (!type_is_owner(&p_object_dest->type) && !flow_dest_pointee_is_ctor(&p_object_dest->type));
 
                     flow_check_object_access(ctx, ss2.c_str ? ss2.c_str : "", NULL, p_expression, p_src_alternative->value.p,
-                                             check_unitialized, p_src_alternative->p_origin_map, is_argument || init_type == INIT_RETURN, dtor_here, NULL, check_moved, false, true, true);
+                                             check_unitialized, p_src_alternative->p_origin_map, is_argument, dtor_here, NULL, check_moved, false, true, true);
                 }
 
                 /*
@@ -13314,11 +13312,6 @@ static void flow_check_write_qualifier_parameters(const struct flow_ctx* ctx, st
             p_current_parameter_type = p_current_parameter_type->next)
     {
         flow_check_write_qualifier_placement(ctx, &p_current_parameter_type->type, p_token);
-        if (type_is_pointer(&p_current_parameter_type->type) && type_is_pointed_uninit(&p_current_parameter_type->type))
-        {
-            diagnostic(C_ERROR_UNINITIALIZED_ONLY_ON_RESULT, ctx->ctx, p_token, NULL,
-                       "_Uninitialized may be used only on the pointed type of a result");
-        }
     }
 }
 
@@ -13326,31 +13319,6 @@ static void flow_check_write_qualifier_declarator(const struct flow_ctx* ctx, st
 {
     struct token* p_token = p_declarator->first_token_opt ? p_declarator->first_token_opt : p_declarator->name_opt;
     flow_check_write_qualifier_placement(ctx, &p_declarator->object.type, p_token);
-
-    const struct type* p_type = &p_declarator->object.type;
-    const bool is_function = type_is_function(p_type);
-    if (is_function && p_type->next != NULL)
-    {
-        p_type = p_type->next;
-    }
-
-    if (type_is_pointer(p_type))
-    {
-        if (type_is_pointed_dtor(p_type))
-        {
-            diagnostic(C_ERROR_DTOR_ONLY_ON_PARAMETER, ctx->ctx, p_token, NULL,
-                       "_Dtor may be used only on the pointed type of a parameter");
-        }
-        else if (!is_function &&
-                 type_is_pointed_uninit(p_type) &&
-                 p_declarator->declaration_specifiers != NULL &&
-                 (p_declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CAKE_UNINIT))
-        {
-            /* only when written here: 'auto p = malloc(1);' inherits it */
-            diagnostic(C_ERROR_UNINITIALIZED_ONLY_ON_RESULT, ctx->ctx, p_token, NULL,
-                       "_Uninitialized may be used only on the pointed type of a result");
-        }
-    }
 }
 
 void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)

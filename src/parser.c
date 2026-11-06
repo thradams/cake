@@ -5273,19 +5273,6 @@ struct init_declarator* _Owner init_declarator(struct parser_ctx* ctx,
 
                     type_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
 
-                    /* same as a local with a written type: nullable, and owner of a call result */
-                    if (type_is_pointer(&t) &&
-                        is_automatic_variable(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags))
-                    {
-                        t.type_qualifier_flags |= TYPE_QUALIFIER_CAKE_NULLABLE;
-                    }
-                    const struct type* p_initializer_type = &p_init_declarator->initializer->assignment_expression->object.type;
-                    if (type_is_owner(p_initializer_type) &&
-                        (p_initializer_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN))
-                    {
-                        t.type_qualifier_flags |= TYPE_QUALIFIER_CAKE_OWNER;
-                    }
-
                     type_visit_to_mark_anonymous(&t);
                     type_swap(&p_init_declarator->p_declarator->object.type, &t);
                     type_destroy(&t);
@@ -9304,39 +9291,6 @@ struct declarator* _Owner declarator(struct parser_ctx* ctx,
 
         p_declarator->first_token_opt = ctx->current;
         p_declarator->pointer = pointer_opt(ctx);
-
-        /* _View in the specifiers of a pointer declarator qualifies the pointed type */
-        if (p_declarator->pointer != NULL && ctx->options.safety_enabled)
-        {
-            const enum type_qualifier_flags specifier_flags =
-                p_declaration_specifiers_opt != NULL ? p_declaration_specifiers_opt->type_qualifier_flags :
-                p_specifier_qualifier_list_opt != NULL ? p_specifier_qualifier_list_opt->type_qualifier_flags :
-                TYPE_QUALIFIER_NONE;
-            if (specifier_flags & TYPE_QUALIFIER_CAKE_VIEW)
-            {
-                diagnostic(C_ERROR_VIEW_ON_POINTED_TYPE, ctx, p_declarator->first_token_opt, NULL,
-                           "_View cannot be used on the pointed type: a pointer without _Owner is already a view");
-            }
-        }
-
-        /* a member is neither a parameter nor a result */
-        if (p_declarator->pointer != NULL &&
-            ctx->options.safety_enabled &&
-            !abstract_acceptable &&
-            p_specifier_qualifier_list_opt != NULL)
-        {
-            if (p_specifier_qualifier_list_opt->type_qualifier_flags & TYPE_QUALIFIER_CAKE_DTOR)
-            {
-                diagnostic(C_ERROR_DTOR_ON_MEMBER, ctx, p_declarator->first_token_opt, NULL,
-                           "_Dtor cannot be used on a member: it may be used only on the pointed type of a parameter");
-            }
-            else if (p_specifier_qualifier_list_opt->type_qualifier_flags & TYPE_QUALIFIER_CAKE_UNINIT)
-            {
-                diagnostic(C_ERROR_UNINITIALIZED_ON_MEMBER, ctx, p_declarator->first_token_opt, NULL,
-                           "_Uninitialized cannot be used on a member: it may be used only on the pointed type of a result");
-            }
-        }
-
         p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list_opt, p_declaration_specifiers_opt, abstract_acceptable, pp_token_name_opt);
         if (p_declarator->direct_declarator == NULL) throw;
 

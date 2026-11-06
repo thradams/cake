@@ -197,7 +197,6 @@ static const char* user_cflags = "";   /* -cflags "..." */
       " -D_DEFAULT_SOURCE "  \
       " -Wno-unknown-pragmas " \
       " -Wno-multichar "     \
-      " -Wno-incompatible-pointer-types-discards-qualifiers " \
       " -std=c17 "
 
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */
@@ -842,7 +841,7 @@ static void build_cake89(const char* test_flag)
 #if (defined PLATFORM_LINUX || defined PLATFORM_MACOS) && defined COMPILER_CLANG
 
     char* cmd89 = calloc(2000, sizeof(char));
-    snprintf(cmd89, 2000, "clang -Wno-multichar -Wno-incompatible-pointer-types-discards-qualifiers %s -o " CKC89_NAME " " CAKE_SOURCE_FILES, test_flag);
+    snprintf(cmd89, 2000, "clang -Wno-multichar %s -o " CKC89_NAME " " CAKE_SOURCE_FILES, test_flag);
     execute_cmd(cmd89);
     free(cmd89);
 
