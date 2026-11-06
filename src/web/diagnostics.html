@@ -1263,6 +1263,20 @@ int main() {}
 
 </code></pre>
 
+<p>It is also issued when the pointee of a returned pointer may be uninitialized on some path but the return type does not declare it <code>_Uninitialized</code>.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+_Uninitialized void * _Owner malloc(unsigned int size);
+
+int * _Owner f() { return malloc(sizeof(int)); } //warning 30: may be uninitialized, but the return type is not _Uninitialized
+_Uninitialized int * _Owner g() { return malloc(sizeof(int)); }
+int main() {}
+
+</code></pre>
+
 <!-- runnable -->
 
 <pre><code class="language-c">

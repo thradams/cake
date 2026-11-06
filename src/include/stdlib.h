@@ -156,6 +156,11 @@
     unsigned long long strtoull(char const* _String, char** _Nullable _EndPtr, int _Radix);
     float strtof(char const* _String, char** _Nullable _EndPtr);
 
+    [[noreturn]] void abort(void);
+    [[noreturn]] void exit(int status);
+    [[noreturn]] void _Exit(int status);
+    [[noreturn]] void quick_exit(int status);
+
     #ifdef _WIN32
         char* _fullpath(char* _Nullable absPath, const char* relPath, size_t maxLength);
     #endif

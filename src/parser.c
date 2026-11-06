@@ -981,8 +981,8 @@ void scope_list_pop(struct scope_list* list)
         if (list->tail == list->head)
         {
             assert(list->tail != NULL);
-            list->tail->next = NULL; //lint 33 assert line 982
-            list->tail->previous = NULL; //lint 33 assert line 982
+            list->tail->next = NULL;
+            list->tail->previous = NULL;
         }
     }
     p->next = NULL; //lint 33 assert line 970
@@ -5223,7 +5223,7 @@ struct init_declarator* _Owner init_declarator(struct parser_ctx* ctx,
                 */
                 assert(p_init_declarator->p_declarator->declaration_specifiers != NULL);
 
-                if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+                if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO) //lint 33 assert line 5224
                 {
 
                     if (p_init_declarator->p_declarator->direct_declarator &&
@@ -7298,7 +7298,7 @@ struct struct_or_union_specifier* _Owner struct_or_union_specifier(struct parser
         }
     }
 
-    return p_struct_or_union_specifier; //lint 90 BUG: false positive, the delete at the catch is followed by = NULL
+    return p_struct_or_union_specifier; 
 }
 
 struct member_declarator* _Owner member_declarator(

@@ -92,7 +92,7 @@ void token_list_pop_back(struct token_list* list)
         list->tail->next = NULL;        //lint 33
         if (list->tail == list->head)
         {
-            list->tail->prev = NULL;    //lint 33 assert line 89
+            list->tail->prev = NULL;
         }
     }
     assert(list->head == NULL || list->head->prev == NULL);

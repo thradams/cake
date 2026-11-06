@@ -197,6 +197,7 @@ static const char* user_cflags = "";   /* -cflags "..." */
       " -D_DEFAULT_SOURCE "  \
       " -Wno-unknown-pragmas " \
       " -Wno-multichar "     \
+      " -Wno-incompatible-pointer-types-discards-qualifiers " \
       " -std=c17 "
 
 #endif /* (PLATFORM_LINUX || PLATFORM_MACOS) && COMPILER_CLANG */

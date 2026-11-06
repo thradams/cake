@@ -179,6 +179,7 @@ struct flow_ctx
     struct flow_allocated_object_arena allocated_object_arena;
     struct flow_branch_arena flow_branch_arena;
     struct flow_branch* p_current_flow_branch;
+    int next_branch_id;
 
     /*
         Findings accumulated or already reported, so one fact is reported once

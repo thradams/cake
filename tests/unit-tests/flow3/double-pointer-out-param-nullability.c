@@ -12,7 +12,7 @@ struct map_entry* find_variables(const char* lexeme, struct scope* _Nullable* _N
 /* BAD: inner non-nullable, forwarded to a callee that writes NULL -> warns. */
 struct map_entry* forward_bad(const char* lexeme, struct scope* _Nonnull* _Nullable pp)
 {
-    return find_variables(lexeme, pp); //lint 54 35
+    return find_variables(lexeme, pp); //lint 54
 }
 
 /* GOOD: inner _Nullable matches the callee -> clean. */

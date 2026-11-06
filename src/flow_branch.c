@@ -1189,12 +1189,12 @@ void flow_branch_merge_arms(struct flow_branch* parent, const struct flow_branch
                         tagged.p_origin_map = arms[j];
 
                         /*
-                            A value of a same-object side (p2->pY when p2 == p1) keeps that
-                            side as its narrowed-from map: it still exists only there.
+                            A value from an arm merged before this fork (a catch, a same-object
+                            side) keeps that arm as its narrowed-from map: it still exists only there.
                         */
-                        if (tagged.p_narrowed_from == NULL &&
-                            a2->p_origin_map != NULL &&
-                            flow_branch_is_under_same_object(a2->p_origin_map))
+                        if ((tagged.p_narrowed_from == NULL ||
+                             (flow_branch_is_under_same_object(a2->p_origin_map) && !flow_branch_is_under_same_object(tagged.p_narrowed_from))) &&
+                            a2->p_origin_map != NULL)
                         {
                             bool origin_on_chain = false;
                             for (const struct flow_branch* m = parent; m != NULL && !origin_on_chain; m = m->p_parent_map)
@@ -1445,8 +1445,6 @@ void flow_branch_accumulate_into_join(struct flow_branch* p_join, struct flow_br
     object_set_destroy(&objs);
 }
 
-static int g_flow_next_branch_id = 0;
-
 struct flow_branch* flow_branch_arena_new_branch(struct flow_branch_arena* a,
                                                        struct flow_branch* _Nullable parent, bool is_true, const struct expression* _Nullable p_expr)
 {
@@ -1482,20 +1480,6 @@ const struct flow_branch* flow_alternative_narrowed_provenance(const struct flow
         provenance = alt->p_narrowed_from;
     }
     return provenance;
-}
-
-int flow_new_branch_id(void)
-{
-    return ++g_flow_next_branch_id;
-}
-
-void flow_tag_branch_pair(struct flow_branch* _Nullable p_true, struct flow_branch* _Nullable p_false)
-{
-    if (p_true == NULL || p_false == NULL || p_true == p_false)
-        return; /* folded/degenerate pair -- no real branch */
-    int id = ++g_flow_next_branch_id;
-    p_true->branch_id = id;
-    p_false->branch_id = id;
 }
 
 /* a copy of label, a ready string printed as it is */

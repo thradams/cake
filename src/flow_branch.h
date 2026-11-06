@@ -154,8 +154,6 @@ void flow_branch_raw_dump(const struct flow_branch* _Nullable map, const struct 
 
 struct flow_branch* flow_branch_arena_new_branch(struct flow_branch_arena* a, struct flow_branch* _Nullable parent, bool is_true, const struct expression* _Nullable p_expr);
 const struct flow_branch* flow_alternative_narrowed_provenance(const struct flow_alternative* alt, const struct flow_branch* _Nullable new_origin);
-int flow_new_branch_id(void);
-void flow_tag_branch_pair(struct flow_branch* _Nullable p_true, struct flow_branch* _Nullable p_false);
 void flow_branch_set_label(struct flow_branch* _Nullable m, const char* _Nullable label);
 bool flow_branch_kind_is_entry_side(enum flow_branch_kind kind);
 bool flow_branch_is_under_same_object(const struct flow_branch* _Nullable p_map);

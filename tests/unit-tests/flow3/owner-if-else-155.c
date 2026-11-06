@@ -8,7 +8,7 @@ struct X {
     char* _Nonnull _Owner name;
 };
 
-struct X* _Owner F(int i)
+_Uninitialized struct X* _Owner F(int i)
 {
 
     struct X* _Owner p1 = 0;

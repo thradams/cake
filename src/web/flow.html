@@ -380,7 +380,7 @@
 
 <p><em>Ownership, nullability and initialization, written down and checked</em></p>
 
-<p>The examples were checked with Cake 0.15.28.</p>
+<p>The examples were checked with Cake 0.17.03.</p>
 
 <h2 id="toc_1">Preface</h2>
 
@@ -408,18 +408,17 @@
 <pre><code class="language-c">struct point* find_point(int id);
 </code></pre>
 
-<p>Can you use the pointer it returns without testing it? If you assume it is never null and you are wrong, the program may crash where it uses the pointer. If you assume it may be null and you are wrong, you wrote a test that never fails. We are choosing the default, the reading used when the declaration says nothing, and the better default is the one whose mistake costs less: for a result, <em>it may be null</em>.</p>
+<p>Can you use the pointer it returns without testing it? Assume it is never null and be wrong, and the program may crash. Assume it may be null and be wrong, and you wrote a test that never fails. The default, the reading used when the declaration says nothing, should be the one whose mistake costs less: for a result, <em>it may be null</em>.</p>
 
 <p>Now a second declaration, and again you cannot see the body:</p>
 
 <pre><code class="language-c">void point_print(struct point* p);
 </code></pre>
 
-<p>Can you pass it a null pointer? If you assume it accepts null and you are wrong, the program may crash inside <code>point_print</code>, if it uses <code>p</code> without testing it. If you assume it needs a valid pointer and you are wrong, you tested before the call when you did not have to. Choosing the default the same way, the better reading for a parameter is: <em>do not pass null</em>.</p>
+<p>Can you pass it a null pointer? Assume it accepts null and be wrong, and the program may crash inside <code>point_print</code>. Assume it needs a valid pointer and be wrong, and you wrote a test you did not need. So for a parameter the default is: <em>do not pass null</em>.</p>
 
-<p>So what comes out of a function may be null, and what goes in must not be. To say otherwise, the declaration uses <code>_Nullable</code> on a parameter or <code>_Nonnull</code> on a result. These defaults are also the ones that need the fewest annotations: most parameters are never null and most results may be. In Cake&#39;s own sources, about 87% of pointer parameters are non-null and about 90% of pointer results may be null, and moving to these defaults removed about 72% of the nullability annotations.</p>
-
-<p>A member is like a result: it was written somewhere else, and you read it later. A local variable needs no rule at all, because the analysis sees every assignment to it.</p>
+<p>So what comes out of a function may be null, and what goes in must not be. To say otherwise, a declaration uses <code>_Nullable</code> on a parameter or <code>_Nonnull</code> on a result.
+A member is like a result: it was written somewhere else. A local variable needs no rule, because the analysis sees every assignment to it.</p>
 
 <table>
 <thead>
@@ -433,28 +432,28 @@
 <tbody>
 <tr>
 <td>parameter</td>
-<td>non-null</td>
+<td><code>_Nonnull</code> for the caller; inside the function it starts non-null and is <code>_Nullable</code>, like a local</td>
 <td><code>_Nullable</code></td>
 </tr>
 <tr>
 <td>result</td>
-<td>may be null</td>
+<td><code>_Nullable</code></td>
 <td><code>_Nonnull</code></td>
 </tr>
 <tr>
 <td>member</td>
-<td>may be null</td>
+<td><code>_Nullable</code></td>
 <td><code>_Nonnull</code></td>
 </tr>
 <tr>
 <td>local variable</td>
-<td>followed by the analysis</td>
-<td></td>
+<td><code>_Nullable</code></td>
+<td><code>_Nonnull</code></td>
 </tr>
 </tbody>
 </table>
 
-<p>Here is a member that promises more than the default:</p>
+<p>A <code>_Nonnull</code> member creates an expectation: when the object goes into a function or comes out of one, that member is not null.</p>
 
 <!-- runnable -->
 
@@ -477,8 +476,6 @@ void g(struct person* p)
     p-&gt;name = 0;               /* warning 35 null assigned to non-nullable */
 }
 </code></pre>
-
-<p>A <em>nullable</em> pointer may be null; a <em>non-nullable</em> pointer is never null. That is the whole idea, and it is surprisingly far-reaching. <code>f</code> can use <code>p-&gt;name</code> without a test because the declaration of <code>struct person</code> promises it is there; <code>g</code> breaks that promise, and is told so. <code>nickname</code> says nothing, so it may be null, and every reader must test it.</p>
 
 <h3 id="toc_4">1.2 Testing Before Use</h3>
 
@@ -524,7 +521,7 @@ void f(void)
 }
 </code></pre>
 
-<p>The <code>_Owner</code> on <code>f</code> can be left out. <code>fopen</code> returns an owner, and a local initialized with it must take the responsibility, or the file would be lost; so <code>FILE* f = fopen(&quot;a.txt&quot;, &quot;r&quot;);</code> declares an owner too. This holds only for the result of a call: a local initialized from an owner <em>object</em> is a view of it, not an owner (A5.3), so <code>g</code> above keeps its <code>_Owner</code>.</p>
+<p>The <code>_Owner</code> on <code>f</code> is required. Without it, <code>FILE* f = fopen(&quot;a.txt&quot;, &quot;r&quot;);</code> assigns a temporary owner to a non-owner (warning 79). <code>auto</code> does not help: <code>auto f = fopen(&quot;a.txt&quot;, &quot;r&quot;);</code> does not declare an owner (A5.7). A local initialized from an owner <em>object</em> is a view of it, not an owner (A5.3), so <code>g</code> above keeps its <code>_Owner</code>.</p>
 
 <p>Assignment between owners <em>moves</em> the responsibility: after <code>g = f</code>, it is <code>g</code> that must be closed, and <code>f</code> must not be. Passing an argument to an <code>_Owner</code> parameter, as in <code>fclose(g)</code>, is also a move. After <code>fclose</code> the file no longer exists, so using <code>f</code> again is a mistake:</p>
 
@@ -541,11 +538,11 @@ void f(void)
     FILE* _Owner f = fopen(&quot;a.txt&quot;, &quot;r&quot;);
     if (f == 0) return;
     fclose(f);
-    fclose(f); /* warning 32 &#39;f&#39; was moved */
+    fclose(f); /* warning 31 lifetime of &#39;*f&#39; has ended, warning 32 &#39;f&#39; was moved */
 }
 </code></pre>
 
-<p><strong>Experiment 1-1.</strong> In the example above, the first <code>fclose(f)</code> is removed. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp0eXBlZGVmIHN0cnVjdCBfRklMRSBGSUxFOwpGSUxFKiBfT3duZXIgX09wdCBmb3Blbihjb25zdCBjaGFyKiBuYW1lLCBjb25zdCBjaGFyKiBtb2RlKTsKaW50IGZjbG9zZShGSUxFKiBfT3duZXIgcCk7Cgp2b2lkIGYodm9pZCkKewogICAgRklMRSogX093bmVyIF9PcHQgZiA9IGZvcGVuKCJhLnR4dCIsICJyIik7CiAgICBpZiAoZiA9PSAwKSByZXR1cm47CiAgICBmY2xvc2UoZik7Cn0K&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
+<p><strong>Experiment 1-1.</strong> In the example above, the first <code>fclose(f)</code> is removed. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp0eXBlZGVmIHN0cnVjdCBfRklMRSBGSUxFOwpGSUxFKiBfT3duZXIgZm9wZW4oY29uc3QgY2hhciogbmFtZSwgY29uc3QgY2hhciogbW9kZSk7CmludCBmY2xvc2UoRklMRSogX093bmVyIHApOwoKdm9pZCBmKHZvaWQpCnsKICAgIEZJTEUqIF9Pd25lciBmID0gZm9wZW4oImEudHh0IiwgInIiKTsKICAgIGlmIChmID09IDApIHJldHVybjsKICAgIGZjbG9zZShmKTsKfQo%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
 <p>So is forgetting to move it at all:</p>
 
@@ -650,7 +647,7 @@ int main()
 }
 </code></pre>
 
-<p><strong>Experiment 1-2.</strong> In the example above, the declaration of <code>g</code> is changed to <code>void g(const struct X* p)</code>. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIGZyZWUodm9pZCogX093bmVyIF9PcHQgcCk7CgpzdHJ1Y3QgWCB7IGNoYXIqIF9Pd25lciBfT3B0IHRleHQ7IH07CgpzdHJ1Y3QgWCBmKCk7CnZvaWQgZyhjb25zdCBzdHJ1Y3QgWCogcCk7CgppbnQgbWFpbigpCnsKICAgIHN0cnVjdCBYIHggPSBmKCk7CiAgICBjaGFyKiBfT3B0IHAgPSB4LnRleHQ7CiAgICBnKCZ4KTsKICAgIGlmIChwKQogICAgewogICAgICAgIGNoYXIgYyA9ICpwOwogICAgfQogICAgZnJlZSh4LnRleHQpOwp9Cg%3D%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
+<p><strong>Experiment 1-2.</strong> In the example above, the declaration of <code>g</code> is changed to <code>void g(const struct X* p)</code>. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIGZyZWUodm9pZCogX093bmVyIF9OdWxsYWJsZSBwKTsKCnN0cnVjdCBYIHsgY2hhciogX093bmVyIHRleHQ7IH07CgpzdHJ1Y3QgWCBmKCk7CnZvaWQgZyhjb25zdCBzdHJ1Y3QgWCogcCk7CgppbnQgbWFpbigpCnsKICAgIHN0cnVjdCBYIHggPSBmKCk7CiAgICBjaGFyKiBwID0geC50ZXh0OwogICAgZygmeCk7CiAgICBpZiAocCkKICAgIHsKICAgICAgICBjaGFyIGMgPSAqcDsKICAgIH0KICAgIGZyZWUoeC50ZXh0KTsKfQo%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
 <p>If <code>g</code> is declared <code>void g(const struct X* p)</code>, it promises not to touch <code>x</code>, and the warning goes away. We will come back to this in Chapter 4.</p>
 
@@ -809,7 +806,7 @@ void f2(void)
 }
 </code></pre>
 
-<p><strong>Experiment 2-1.</strong> In <code>f2</code>, <code>p.name</code> is set before <code>use(&amp;p)</code>. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgpzdHJ1Y3QgcGVyc29uIHsKICAgIGNvbnN0IGNoYXIqIG5hbWU7CiAgICBjb25zdCBjaGFyKiBfT3B0IG5pY2tuYW1lOwp9OwoKdm9pZCB1c2UoY29uc3Qgc3RydWN0IHBlcnNvbiogcCk7Cgp2b2lkIGYxKHZvaWQpCnsKICAgIHN0cnVjdCBwZXJzb24gcCA9IHt9OyAvKiBvaywgcC5uYW1lIGlzIG51bGwgZm9yIG5vdyAqLwogICAgcC5uYW1lID0gIkFuYSI7CiAgICB1c2UoJnApOyAgICAgICAgICAgICAgLyogb2sgKi8KfQoKdm9pZCBmMih2b2lkKQp7CiAgICBzdHJ1Y3QgcGVyc29uIHAgPSB7fTsKICAgIHAubmFtZSA9ICJCaWEiOwogICAgdXNlKCZwKTsKfQo%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
+<p><strong>Experiment 2-1.</strong> In <code>f2</code>, <code>p.name</code> is set before <code>use(&amp;p)</code>. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgpzdHJ1Y3QgcGVyc29uIHsKICAgIGNvbnN0IGNoYXIqIF9Ob25udWxsIG5hbWU7CiAgICBjb25zdCBjaGFyKiBuaWNrbmFtZTsKfTsKCnZvaWQgdXNlKGNvbnN0IHN0cnVjdCBwZXJzb24qIHApOwoKdm9pZCBmMSh2b2lkKQp7CiAgICBzdHJ1Y3QgcGVyc29uIHAgPSB7fTsgLyogb2ssIHAubmFtZSBpcyBudWxsIGZvciBub3cgKi8KICAgIHAubmFtZSA9ICJBbmEiOwogICAgdXNlKCZwKTsgICAgICAgICAgICAgIC8qIG9rICovCn0KCnZvaWQgZjIodm9pZCkKewogICAgc3RydWN0IHBlcnNvbiBwID0ge307CiAgICBwLm5hbWUgPSAiQmlhIjsKICAgIHVzZSgmcCk7Cn0K&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
 <h2 id="toc_14">Chapter 3 - Ownership</h2>
 
@@ -917,7 +914,7 @@ void x_delete(struct X* _Owner p)
 }
 </code></pre>
 
-<p><strong>Experiment 3-1.</strong> In <code>x_delete</code>, the two calls to <code>free</code> are swapped. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIGZyZWUodm9pZCogX093bmVyIF9PcHQgcCk7CgpzdHJ1Y3QgWCB7IGNoYXIqIF9Pd25lciBfT3B0IHRleHQ7IH07Cgp2b2lkIHhfZGVsZXRlX2JhZChzdHJ1Y3QgWCogX093bmVyIHApCnsKICAgIGZyZWUocCk7ICAgICAgIC8qIHdhcm5pbmcgMjkgJ3AtPnRleHQnIHN0aWxsIG93bnMgaXRzIHJlc291cmNlICovCn0KCnZvaWQgeF9kZWxldGUoc3RydWN0IFgqIF9Pd25lciBwKQp7CiAgICBmcmVlKHApOyAgICAgICAvKiB0aGUgbWVtb3J5ICovCiAgICBmcmVlKHAtPnRleHQpOyAvKiB0aGUgb2JqZWN0ICovCn0K&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
+<p><strong>Experiment 3-1.</strong> In <code>x_delete</code>, the two calls to <code>free</code> are swapped. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIGZyZWUodm9pZCogX093bmVyIF9OdWxsYWJsZSBwKTsKCnN0cnVjdCBYIHsgY2hhciogX093bmVyIHRleHQ7IH07Cgp2b2lkIHhfZGVsZXRlX2JhZChzdHJ1Y3QgWCogX093bmVyIHApCnsKICAgIGZyZWUocCk7ICAgICAgIC8qIHdhcm5pbmcgMjkgJ3AtPnRleHQnIHN0aWxsIG93bnMgaXRzIHJlc291cmNlICovCn0KCnZvaWQgeF9kZWxldGUoc3RydWN0IFgqIF9Pd25lciBwKQp7CiAgICBmcmVlKHApOyAgICAgICAvKiB0aGUgbWVtb3J5ICovCiAgICBmcmVlKHAtPnRleHQpOyAvKiB0aGUgb2JqZWN0ICovCn0K&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
 <h3 id="toc_19">3.5 Heap Objects Must Have an Owner</h3>
 
@@ -1082,9 +1079,9 @@ struct X* _Owner x_create(const char* name, const char* email)
 }
 </code></pre>
 
-<p><strong>Experiment 4-1.</strong> In the example above, <code>x_destroy(p);</code> is removed from the second error path. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgpfQ2xlYXIgdm9pZCogX093bmVyIF9PcHQgY2FsbG9jKHVuc2lnbmVkIGxvbmcgbiwgdW5zaWduZWQgbG9uZyBzaXplKTsKY2hhciogX093bmVyIF9PcHQgc3RyZHVwKGNvbnN0IGNoYXIqIHMpOwp2b2lkIGZyZWUodm9pZCogX093bmVyIF9PcHQgcCk7CgpzdHJ1Y3QgWCB7CiAgICBjaGFyKiBfT3duZXIgbmFtZTsKICAgIGNoYXIqIF9Pd25lciBlbWFpbDsKfTsKCnZvaWQgeF9kZXN0cm95KF9EdG9yIHN0cnVjdCBYKiBwKQp7CiAgICBmcmVlKHAtPm5hbWUpOyAgICAvKiBvaywgbWF5IGJlIG51bGwgKi8KICAgIGZyZWUocC0%2BZW1haWwpOyAgIC8qIG9rLCBtYXkgYmUgbnVsbCAqLwp9CgpzdHJ1Y3QgWCogX093bmVyIF9PcHQgeF9jcmVhdGUoY29uc3QgY2hhciogbmFtZSwgY29uc3QgY2hhciogZW1haWwpCnsKICAgIHN0cnVjdCBYKiBfT3duZXIgX09wdCBwID0gY2FsbG9jKDEsIHNpemVvZiAqIHApOwogICAgaWYgKHAgPT0gMCkKICAgICAgICByZXR1cm4gMDsKCiAgICBjaGFyKiBfT3duZXIgX09wdCBzID0gc3RyZHVwKG5hbWUpOwogICAgaWYgKHMgPT0gMCkKICAgIHsKICAgICAgICBmcmVlKHApOwogICAgICAgIHJldHVybiAwOwogICAgfQogICAgcC0%2BbmFtZSA9IHM7CgogICAgcyA9IHN0cmR1cChlbWFpbCk7CiAgICBpZiAocyA9PSAwKQogICAgewogICAgICAgIGZyZWUocCk7CiAgICAgICAgcmV0dXJuIDA7CiAgICB9CiAgICBwLT5lbWFpbCA9IHM7CgogICAgcmV0dXJuIHA7Cn0K&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
+<p><strong>Experiment 4-1.</strong> In the example above, <code>x_destroy(p);</code> is removed from the second error path. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgpfQ2xlYXIgdm9pZCogX093bmVyIGNhbGxvYyh1bnNpZ25lZCBsb25nIG4sIHVuc2lnbmVkIGxvbmcgc2l6ZSk7CmNoYXIqIF9Pd25lciBzdHJkdXAoY29uc3QgY2hhciogcyk7CnZvaWQgZnJlZSh2b2lkKiBfT3duZXIgX051bGxhYmxlIHApOwoKc3RydWN0IFggewogICAgY2hhciogX05vbm51bGwgX093bmVyIG5hbWU7CiAgICBjaGFyKiBfTm9ubnVsbCBfT3duZXIgZW1haWw7Cn07Cgp2b2lkIHhfZGVzdHJveShfRHRvciBzdHJ1Y3QgWCogcCkKewogICAgZnJlZShwLT5uYW1lKTsgICAgLyogb2ssIG1heSBiZSBudWxsICovCiAgICBmcmVlKHAtPmVtYWlsKTsgICAvKiBvaywgbWF5IGJlIG51bGwgKi8KfQoKc3RydWN0IFgqIF9Pd25lciB4X2NyZWF0ZShjb25zdCBjaGFyKiBuYW1lLCBjb25zdCBjaGFyKiBlbWFpbCkKewogICAgc3RydWN0IFgqIF9Pd25lciBwID0gY2FsbG9jKDEsIHNpemVvZiAqIHApOwogICAgaWYgKHAgPT0gMCkKICAgICAgICByZXR1cm4gMDsKCiAgICBjaGFyKiBfT3duZXIgcyA9IHN0cmR1cChuYW1lKTsKICAgIGlmIChzID09IDApCiAgICB7CiAgICAgICAgZnJlZShwKTsKICAgICAgICByZXR1cm4gMDsKICAgIH0KICAgIHAtPm5hbWUgPSBzOwoKICAgIHMgPSBzdHJkdXAoZW1haWwpOwogICAgaWYgKHMgPT0gMCkKICAgIHsKICAgICAgICBmcmVlKHApOwogICAgICAgIHJldHVybiAwOwogICAgfQogICAgcC0%2BZW1haWwgPSBzOwoKICAgIHJldHVybiBwOwp9Cg%3D%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
-<p><strong>Experiment 4-2.</strong> In the same example, <code>x_destroy</code> takes a plain <code>struct X* p</code> instead of <code>_Dtor struct X* p</code>. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgpfQ2xlYXIgdm9pZCogX093bmVyIF9PcHQgY2FsbG9jKHVuc2lnbmVkIGxvbmcgbiwgdW5zaWduZWQgbG9uZyBzaXplKTsKY2hhciogX093bmVyIF9PcHQgc3RyZHVwKGNvbnN0IGNoYXIqIHMpOwp2b2lkIGZyZWUodm9pZCogX093bmVyIF9PcHQgcCk7CgpzdHJ1Y3QgWCB7CiAgICBjaGFyKiBfT3duZXIgbmFtZTsKICAgIGNoYXIqIF9Pd25lciBlbWFpbDsKfTsKCnZvaWQgeF9kZXN0cm95KHN0cnVjdCBYKiBwKQp7CiAgICBmcmVlKHAtPm5hbWUpOyAgICAvKiBvaywgbWF5IGJlIG51bGwgKi8KICAgIGZyZWUocC0%2BZW1haWwpOyAgIC8qIG9rLCBtYXkgYmUgbnVsbCAqLwp9CgpzdHJ1Y3QgWCogX093bmVyIF9PcHQgeF9jcmVhdGUoY29uc3QgY2hhciogbmFtZSwgY29uc3QgY2hhciogZW1haWwpCnsKICAgIHN0cnVjdCBYKiBfT3duZXIgX09wdCBwID0gY2FsbG9jKDEsIHNpemVvZiAqIHApOwogICAgaWYgKHAgPT0gMCkKICAgICAgICByZXR1cm4gMDsKCiAgICBjaGFyKiBfT3duZXIgX09wdCBzID0gc3RyZHVwKG5hbWUpOwogICAgaWYgKHMgPT0gMCkKICAgIHsKICAgICAgICBmcmVlKHApOwogICAgICAgIHJldHVybiAwOwogICAgfQogICAgcC0%2BbmFtZSA9IHM7CgogICAgcyA9IHN0cmR1cChlbWFpbCk7CiAgICBpZiAocyA9PSAwKQogICAgewogICAgICAgIHhfZGVzdHJveShwKTsgLyogb2ssIHAtPmVtYWlsIGlzIHN0aWxsIG51bGwgKi8KICAgICAgICBmcmVlKHApOwogICAgICAgIHJldHVybiAwOwogICAgfQogICAgcC0%2BZW1haWwgPSBzOwoKICAgIHJldHVybiBwOwp9Cg%3D%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
+<p><strong>Experiment 4-2.</strong> In the same example, <code>x_destroy</code> takes a plain <code>struct X* p</code> instead of <code>_Dtor struct X* p</code>. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgpfQ2xlYXIgdm9pZCogX093bmVyIGNhbGxvYyh1bnNpZ25lZCBsb25nIG4sIHVuc2lnbmVkIGxvbmcgc2l6ZSk7CmNoYXIqIF9Pd25lciBzdHJkdXAoY29uc3QgY2hhciogcyk7CnZvaWQgZnJlZSh2b2lkKiBfT3duZXIgX051bGxhYmxlIHApOwoKc3RydWN0IFggewogICAgY2hhciogX05vbm51bGwgX093bmVyIG5hbWU7CiAgICBjaGFyKiBfTm9ubnVsbCBfT3duZXIgZW1haWw7Cn07Cgp2b2lkIHhfZGVzdHJveShzdHJ1Y3QgWCogcCkKewogICAgZnJlZShwLT5uYW1lKTsgICAgLyogb2ssIG1heSBiZSBudWxsICovCiAgICBmcmVlKHAtPmVtYWlsKTsgICAvKiBvaywgbWF5IGJlIG51bGwgKi8KfQoKc3RydWN0IFgqIF9Pd25lciB4X2NyZWF0ZShjb25zdCBjaGFyKiBuYW1lLCBjb25zdCBjaGFyKiBlbWFpbCkKewogICAgc3RydWN0IFgqIF9Pd25lciBwID0gY2FsbG9jKDEsIHNpemVvZiAqIHApOwogICAgaWYgKHAgPT0gMCkKICAgICAgICByZXR1cm4gMDsKCiAgICBjaGFyKiBfT3duZXIgcyA9IHN0cmR1cChuYW1lKTsKICAgIGlmIChzID09IDApCiAgICB7CiAgICAgICAgZnJlZShwKTsKICAgICAgICByZXR1cm4gMDsKICAgIH0KICAgIHAtPm5hbWUgPSBzOwoKICAgIHMgPSBzdHJkdXAoZW1haWwpOwogICAgaWYgKHMgPT0gMCkKICAgIHsKICAgICAgICB4X2Rlc3Ryb3kocCk7IC8qIG9rLCBwLT5lbWFpbCBpcyBzdGlsbCBudWxsICovCiAgICAgICAgZnJlZShwKTsKICAgICAgICByZXR1cm4gMDsKICAgIH0KICAgIHAtPmVtYWlsID0gczsKCiAgICByZXR1cm4gcDsKfQo%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
 <h3 id="toc_24">4.4 Reset: <code>_Clear</code></h3>
 
@@ -1161,7 +1158,7 @@ void f(void)
 
 <h3 id="toc_26">4.6 Putting Annotations Together</h3>
 
-<p>Annotations combine, and each keeps its own meaning. <code>_Uninitialized struct X* _Owner _Nullable F(void)</code> returns a pointer that may be null, that the caller must free, and whose object holds nothing yet. That is a precise description of <code>malloc</code>.</p>
+<p>Annotations combine, and each keeps its own meaning. <code>_Uninitialized struct X* _Owner F(void)</code> returns a pointer that may be null, that the caller must free, and whose object holds nothing yet. That is a precise description of <code>malloc</code>.</p>
 
 <h3 id="toc_27">4.7 Parameters That May Be the Same Object: <code>restrict</code></h3>
 
@@ -1194,7 +1191,9 @@ The implementation is then not checked for that case. The check moves to the cal
 
 <!-- runnable -->
 
-<pre><code class="language-c">struct X { int i; };
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int i; };
 
 void copy(struct X* restrict dest, const struct X* src);
 
@@ -1293,7 +1292,7 @@ void f(int x)
 
 <h3 id="toc_32">5.3 Loops</h3>
 
-<p>A loop that may run zero times may leave a variable unset. When the first test of the condition is known to be true, the loop runs at least once, and the analysis knows it.</p>
+<p>A loop that may run zero times may leave a variable unset. The analysis does not use a first test known to be true: <code>h &lt; 1</code> below is treated like <code>h &lt; n</code>.</p>
 
 <!-- runnable -->
 
@@ -1305,7 +1304,7 @@ void g(int n)
 {
     char* p;
     for (int h = 0; h &lt; 1; h++) p = &quot;&quot;;
-    f(p);
+    f(p); /* warning 30 */
 }
 
 void h(int n)
@@ -1336,7 +1335,7 @@ void f(int a, int b)
 }
 </code></pre>
 
-<p><strong>Experiment 5-1.</strong> Three more <code>else if</code> branches set <code>p</code> to null. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIHVzZShpbnQqIHApOwppbnQgZzsKCnZvaWQgZihpbnQgYSwgaW50IGIsIGludCBjLCBpbnQgZCwgaW50IGUpCnsKICAgIGludCogX09wdCBwID0gJmc7CiAgICBpZiAoYSkgcCA9IDA7CiAgICBlbHNlIGlmIChiKSBwID0gMDsKICAgIGVsc2UgaWYgKGMpIHAgPSAwOwogICAgZWxzZSBpZiAoZCkgcCA9IDA7CiAgICBlbHNlIGlmIChlKSBwID0gMDsKICAgIHVzZShwKTsgLyogd2FybmluZyAzNSAqLwp9Cg%3D%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
+<p><strong>Experiment 5-1.</strong> Three more <code>else if</code> branches set <code>p</code> to null. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIHVzZShpbnQqIHApOwppbnQgZzsKCnZvaWQgZihpbnQgYSwgaW50IGIsIGludCBjLCBpbnQgZCwgaW50IGUpCnsKICAgIGludCogcCA9ICZnOwogICAgaWYgKGEpIHAgPSAwOwogICAgZWxzZSBpZiAoYikgcCA9IDA7CiAgICBlbHNlIGlmIChjKSBwID0gMDsKICAgIGVsc2UgaWYgKGQpIHAgPSAwOwogICAgZWxzZSBpZiAoZSkgcCA9IDA7CiAgICB1c2UocCk7IC8qIHdhcm5pbmcgMzUgKi8KfQo%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
 <h3 id="toc_34">5.5 The Entry Flow</h3>
 
@@ -1408,14 +1407,15 @@ else p3 = new();
 
 <pre><code class="language-c">p1 = new();
 p2 = new();
-``` A pointer parameter and a file scope
-object the function uses have the same `if (same)`.
+</code></pre>
 
-A call has the same entry flow for its result, made at the call instead of
-at the root of the function:
+<p>A pointer parameter and a file scope
+object the function uses have the same <code>if (same)</code>.</p>
 
-```c
-int* find(int* p);
+<p>A call has the same entry flow for its result, made at the call instead of
+at the root of the function:</p>
+
+<pre><code class="language-c">int* find(int* p);
 int* r = find(a);
 /* is */
 if (/* r and a are the same */) r = a;
@@ -1515,7 +1515,7 @@ struct box { char* _Owner text; };
 void box_copy(struct box* dest, const struct box* source)
 {
     free(dest-&gt;text);
-    dest-&gt;text = source-&gt;text ? strdup(source-&gt;text) : nullptr; /* warning 31 */
+    dest-&gt;text = source-&gt;text ? strdup(source-&gt;text) : nullptr; /* warning 100 */
 }
 </code></pre>
 
@@ -1598,7 +1598,7 @@ void f(int* _Owner _Nullable p)
 }
 </code></pre>
 
-<p><strong>Experiment 6-1.</strong> In the example above, the <code>/* lint 26 (realloc) */</code> comment is removed. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkKiBfT3duZXIgX09wdCByZWFsbG9jKHZvaWQqIF9PcHQgcCwgdW5zaWduZWQgbG9uZyBzaXplKTsKdm9pZCBmcmVlKHZvaWQqIF9Pd25lciBfT3B0IHApOwoKdm9pZCBmKGludCogX093bmVyIF9PcHQgcCkKewogICAgaW50KiBfT3duZXIgX09wdCBxID0gcmVhbGxvYyhwLCAxMCAqIHNpemVvZihpbnQpKTsKICAgIGlmIChxID09IDApCiAgICB7CiAgICAgICAgZnJlZShwKTsgLyogZmFpbGVkOiBwIHN0aWxsIG93bnMgdGhlIG1lbW9yeSAqLwogICAgICAgIHJldHVybjsKICAgIH0KICAgIHAgPSBxOwogICAgZnJlZShwKTsKfQo%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
+<p><strong>Experiment 6-1.</strong> In the example above, the <code>/* lint 26 (realloc) */</code> comment is removed. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkKiBfT3duZXIgcmVhbGxvYyh2b2lkKiBfTnVsbGFibGUgcCwgdW5zaWduZWQgbG9uZyBzaXplKTsKdm9pZCBmcmVlKHZvaWQqIF9Pd25lciBfTnVsbGFibGUgcCk7Cgp2b2lkIGYoaW50KiBfT3duZXIgX051bGxhYmxlIHApCnsKICAgIGludCogX093bmVyIHEgPSByZWFsbG9jKHAsIDEwICogc2l6ZW9mKGludCkpOwogICAgaWYgKHEgPT0gMCkKICAgIHsKICAgICAgICBmcmVlKHApOyAvKiBmYWlsZWQ6IHAgc3RpbGwgb3ducyB0aGUgbWVtb3J5ICovCiAgICAgICAgcmV0dXJuOwogICAgfQogICAgcCA9IHE7CiAgICBmcmVlKHApOwp9Cg%3D%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
 <h3 id="toc_38">6.2 What the Analysis Assumes About <code>const</code></h3>
 
@@ -1607,6 +1607,54 @@ void f(int* _Owner _Nullable p)
 <p>Warning 120 reports an implementation that breaks this: writing <code>p-&gt;m-&gt;x</code> through <code>const p</code>, or letting <code>p-&gt;m</code> out as non-<code>const</code> (passed, copied, returned, or inside a struct copied by value). <code>void*</code> follows the same rule: <code>memset</code> takes <code>void*</code>, the source of <code>memcpy</code> takes <code>const void*</code>. An explicit cast is taken as intended.</p>
 
 <p>A move is a write too: it changes the owner&#39;s state. Moving <code>p-&gt;head</code> from <code>const struct list* p</code> is warning 99; moving <code>p-&gt;head-&gt;next</code> is warning 120. This applies only to <code>const</code> reached through a pointer: a <code>const</code> object of our own still moves its owners when its lifetime ends.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct node { int value; };
+struct list { struct node* head; int count; };
+
+void read_list(const struct list* p);
+
+int f(struct list* p)
+{
+    p-&gt;count = 0;
+    if (p-&gt;head)
+    {
+        read_list(p);
+        return p-&gt;head-&gt;value; /* ok, nothing reachable from *p changed */
+    }
+    return 0;
+}
+</code></pre>
+
+<p>The implementation is checked for it:</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+
+struct Z { char* _Owner text; int i; };
+struct Y { struct Z* _Nonnull z; char* _Owner text; };
+
+void write(const struct Y* p)
+{
+    p-&gt;z-&gt;i = 1;      /* warning 120 writes through const p */
+}
+
+void move(const struct Y* p)
+{
+    free(p-&gt;text);    /* warning 99 moves from const p */
+} /* warning 72 &#39;p-&gt;text&#39; was moved but never reassigned */
+
+void move_deep(const struct Y* p)
+{
+    free(p-&gt;z-&gt;text); /* warning 120 moves through const p */
+}
+</code></pre>
 
 <p>A function that hands out something reachable from a <code>const</code> argument as non-<code>const</code> (like <code>strchr</code>) should come in two versions: <code>T* find(const C*)</code> and <code>const T* find_const(const C*)</code>.</p>
 
@@ -1662,61 +1710,475 @@ void f(int n, int* p)
 
 <ul>
 <li>A1.1 <strong>Valid</strong>: the object and every object reachable from it are fully initialized, their non-nullable pointer members are non-null, and no owner among them is moved. For example, &quot;<code>*p</code> is valid&quot; is a statement about <code>*p</code> and everything that can be reached through <code>p</code>: its members, the objects they point to, and so on.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int i; };
+void use(struct X* p);
+
+void f(void)
+{
+    struct X x;
+    use(&amp;x); /* warning 30: x is not valid */
+}
+</code></pre>
+
+<ul>
 <li>A1.2 <strong>Uninitialized</strong>: the object holds no value and no resources.</li>
-<li>A1.3 <strong>Nullable / non-nullable</strong>: parameters are non-nullable unless declared <code>_Nullable</code>; results and members are nullable unless declared <code>_Nonnull</code>; local variables are nullable unless declared <code>_Nonnull</code>. Below the top level of a type, a pointer (reached through another pointer) is nullable unless declared <code>_Nonnull</code>.</li>
+<li>A1.3 <strong>Nullable / non-nullable</strong>: a parameter is like a local variable, except that the caller must pass it non-null unless it is declared <code>_Nullable</code>; results and members are nullable unless declared <code>_Nonnull</code>; local variables are nullable unless declared <code>_Nonnull</code>. Below the top level of a type, a pointer (reached through another pointer) is nullable unless declared <code>_Nonnull</code>.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int* find(void);
+
+void f(int* p)
+{
+    *p = 1;         /* ok: a parameter is non-nullable */
+    int* r = find();
+    *r = 1;         /* warning 33: possible null dereference, find() may return null */
+}
+</code></pre>
+
+<ul>
 <li>A1.4 <strong>Empty</strong>: uninitialized, null or moved.</li>
 </ul>
 
 <h3 id="toc_44">A2. Plain parameters: <code>struct X* p</code></h3>
 
 <ul>
-<li>A2.1 The implementation assumes <code>p</code> is not null, <code>*p</code> is valid, and <code>p</code> does not own <code>*p</code>. The non-null contract holds at entry only: inside the function <code>p</code> is a local, and assigning null to it is allowed (the analysis follows its value).</li>
+<li>A2.1 The implementation assumes the caller passed a non-null <code>p</code>, that <code>*p</code> is valid, and that <code>p</code> does not own <code>*p</code>. From there on <code>p</code> is a <code>_Nullable</code> local variable whose state is checked by the flow analysis: assigning null to it is allowed.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int* p)
+{
+    *p = 1;
+    p = 0; /* ok: p is a local here */
+}
+</code></pre>
+
+<ul>
 <li>A2.2 At every exit <code>*p</code> is valid.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+struct X { char* _Owner text; };
+
+void f(struct X* p)
+{
+    free(p-&gt;text);
+} /* warning 72: *p must be valid at exit */
+</code></pre>
+
+<ul>
 <li>A2.3 The caller must pass a non-null pointer to a valid object. After the call it must assume every object reachable from <code>*p</code> may have changed, and that its pointers into them are no longer valid.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void change(int* p);
+
+void f(int* _Nullable q)
+{
+    change(q); /* warning 35: q may be null */
+}
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { char* text; };
+void change(struct X* p);
+
+void f(struct X* p)
+{
+    if (p-&gt;text)
+    {
+        change(p);
+        p-&gt;text[0] = &#39;a&#39;; /* warning 33: the call may have changed it */
+    }
+}
+</code></pre>
+
+<ul>
 <li>A2.4 With <code>const</code>, the analysis assumes that nothing reachable from <code>*p</code> is written or moved, so what the caller knew still holds (6.2). C protects only <code>*p</code>, so the implementation is checked for writes that break this assumption, and for pointers reachable from <code>*p</code> that leave as non-<code>const</code> (passed, <code>void*</code> included; copied, also as <code>&amp;p-&gt;m-&gt;x</code>; returned; or inside a struct copied by value) (warning 120).</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct Y { int* _Nonnull m; };
+
+void f(const struct Y* p)
+{
+    *p-&gt;m = 1; /* warning 120: writes through const p */
+}
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct Y { int* _Nonnull m; };
+
+int* f(const struct Y* p)
+{
+    return p-&gt;m; /* warning 120: leaves as non-const */
+}
+</code></pre>
 
 <h3 id="toc_45">A3. Results: <code>struct X* F(void)</code></h3>
 
 <ul>
 <li>A3.1 The result may be null (with <code>_Nonnull</code> it is not null) and <code>*result</code> is valid. The caller does not own it.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int i; };
+struct X* find(void);
+
+void f(void)
+{
+    struct X* a = find();
+    a-&gt;i = 1; /* warning 33: the result may be null */
+}
+</code></pre>
+
+<ul>
 <li>A3.2 The implementation must return a value on every path: reaching the closing <code>}</code> of a non-void function leaves the result uninitialized (warning 98). <code>main</code> is the exception, its end returns 0.</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int f(int c)
+{
+    if (c) { return 1; }
+} /* warning 98 */
+</code></pre>
 
 <h3 id="toc_46">A4. <code>_Nullable</code> and <code>_Nonnull</code></h3>
 
 <ul>
 <li>A4.1 On a nullable parameter or result, null may be passed or returned, and the receiver must test before use.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int* _Nullable q)
+{
+    *q = 1; /* warning 33: test before use */
+}
+</code></pre>
+
+<ul>
 <li>A4.2 On a nullable member, readers must test before use and writers may store null.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int* next; };
+
+void f(struct X* x)
+{
+    *x-&gt;next = 1; /* warning 33: test before use */
+}
+</code></pre>
+
+<ul>
 <li>A4.3 On a <code>_Nonnull</code> member, result or local, null cannot be stored or returned.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int* next; int* _Nonnull head; };
+
+void f(struct X* x)
+{
+    x-&gt;next = 0; /* ok */
+    x-&gt;head = 0; /* warning 35 */
+}
+</code></pre>
+
+<ul>
 <li>A4.4 Writing the default of the declaration (<code>_Nullable</code> on a result, member or local; <code>_Nonnull</code> on a parameter) is redundant (warning 122).</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int* _Nonnull p); /* warning 122: already the default */
+</code></pre>
+
+<ul>
 <li>A4.5 Nullability is part of the type only below the top level (<code>T* _Nullable* p</code>); at the top level it is a contract of the declaration.</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int* _Nullable* pp)
+{
+    *pp = 0; /* ok: *pp is nullable */
+}
+</code></pre>
 
 <h3 id="toc_47">A5. Assignment <code>a = b</code></h3>
 
 <ul>
 <li>A5.1 <code>a</code> and its owner members must be empty.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+char* _Owner make(void);
+
+void f(void)
+{
+    char* _Owner a = make();
+    char* _Owner b = make();
+    a = b; /* warning 26: a still owns its object */
+    free(a);
+}
+</code></pre>
+
+<ul>
 <li>A5.2 <code>b</code> must be valid (A1.1).</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(void)
+{
+    int i;
+    int j = i; /* warning 30: b must be valid */
+}
+</code></pre>
+
+<ul>
 <li>A5.3 When <code>a</code> is an owner, <code>b</code> must be an owner too (or a null pointer constant); a view cannot be assigned to an owner. Owner to owner moves <code>b</code>. Owner to non-owner makes <code>a</code> a view of the object <code>b</code> still owns.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+void f(char* view)
+{
+    char* _Owner c = view; /* warning 78: a view cannot become an owner */
+    free(c);
+}
+</code></pre>
+
+<ul>
 <li>A5.4 <code>= {}</code> may leave non-nullable members null until they are set and before the object is used.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int* _Nonnull n; };
+
+void f(int* p)
+{
+    struct X x = {}; /* ok: n is set before use */
+    x.n = p;
+}
+</code></pre>
+
+<ul>
 <li>A5.5 Passing an argument and returning a value follow the same rules, with the parameter or the result as <code>a</code>. There <code>a</code> is a new object, uninitialized, so A5.1 always holds.</li>
 <li>A5.6 A move changes only which owner must release the object. After <code>a = b</code> between owners, the object is still alive and may be read through <code>b</code>. After <code>b</code> is passed to an <code>_Owner</code> parameter, the lifetime of the object may have ended and it must not be used through <code>b</code>.</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+char* _Owner make(void);
+void sink(char* _Owner _Nullable p);
+
+void f(void)
+{
+    char* _Owner a = make();
+    sink(a);
+    if (a) { char c = a[0]; } /* warning 31: its lifetime may have ended */
+}
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+char* _Owner make(void);
+
+void f(void)
+{
+    char* _Owner a = make();
+    char* _Owner b = a;
+    if (a) { char c = a[0]; } /* ok: the object is alive */
+    free(b);
+}
+</code></pre>
+
+<ul>
+<li>A5.7 A local declared with <code>auto</code> has its type inferred from the initializer. It does not become an owner: the result of a call that returns an owner is warning 79, and a written type with <code>_Owner</code> is needed. A nullable initializer is warning 35. As in C, <code>const</code> at the top level is not kept.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner _Nullable p);
+
+void f(void)
+{
+    auto p = malloc(1); /* warning 79, warning 35 */
+    free(p);            /* warning 78 */
+}
+</code></pre>
 
 <h3 id="toc_48">A6. <code>_Out</code></h3>
 
 <ul>
 <li>A6.1 <code>*p</code> is uninitialized at entry and must be fully initialized on every exit. Owner members not created are null.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int i; };
+
+void f(_Out struct X* p)
+{
+    int j = p-&gt;i; /* warning 30: nothing is set at entry */
+    p-&gt;i = 1;
+}
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int i; int j; };
+
+void f(_Out struct X* p)
+{
+    p-&gt;i = 1;
+} /* warning 71: p-&gt;j was not set */
+</code></pre>
+
+<ul>
 <li>A6.2 The caller must pass <code>*p</code> empty (A1.4).</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+struct X { char* _Owner text; };
+void init(_Out struct X* p);
+
+void f(void)
+{
+    struct X a;
+    init(&amp;a);
+    init(&amp;a); /* warning 26: a.text is not empty */
+    free(a.text);
+}
+</code></pre>
 
 <h3 id="toc_49">A7. <code>_Dtor</code></h3>
 
 <ul>
 <li>A7.1 The caller must pass a valid object (A1.1), with one exception: its non-nullable pointer members may be null, so a partially constructed object is accepted. The implementation assumes the same.</li>
-<li>A7.2 At every exit every owner member of <code>*p</code> is moved.- A7.3 After the call <code>*p</code> is uninitialized and its memory is still the caller&#39;s.</li>
+<li>A7.2 At every exit every owner member of <code>*p</code> is moved.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { char* _Owner text; };
+
+void f(_Dtor struct X* p)
+{
+} /* warning 29: p-&gt;text was not moved */
+</code></pre>
+
+<ul>
+<li>A7.3 After the call <code>*p</code> is uninitialized and its memory is still the caller&#39;s.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { char* _Owner text; };
+void x_dtor(_Dtor struct X* p);
+
+void f(void)
+{
+    struct X x = {};
+    x_dtor(&amp;x);
+    char* t = x.text; /* warning 30: uninitialized after the call */
+}
+</code></pre>
+
+<ul>
 <li>A7.4 <code>_Dtor</code> cannot be combined with <code>const</code>.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int i; };
+void f(const _Dtor struct X* p); /* error 1930 */
+</code></pre>
+
+<ul>
 <li>A7.5 <code>_Dtor</code> may be used only on the pointed type of a parameter.</li>
 </ul>
 
@@ -1724,34 +2186,262 @@ void f(int n, int* p)
 
 <ul>
 <li>A8.1 On a parameter, the caller must pass a valid object (A1.1), without the exception of A7.1. At every exit every owner member is moved and every member is zero.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int i; };
+
+void f(_Clear struct X* p)
+{
+} /* warning 69: p-&gt;i is not zero */
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+struct X { char* _Owner text; };
+
+void f(_Clear struct X* p)
+{
+    free(p-&gt;text);
+    p-&gt;text = 0; /* ok: moved and zero */
+}
+</code></pre>
+
+<ul>
 <li>A8.2 On a result, every member of <code>*result</code> is zero.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+struct X { char* _Owner text; };
+_Clear struct X* _Owner x_new(void);
+
+void f(void)
+{
+    struct X* _Owner p = x_new();
+    if (p)
+    {
+        if (p-&gt;text) { free(p-&gt;text); } /* warning 68: p-&gt;text is zero */
+        free(p);
+    }
+}
+</code></pre>
+
+<ul>
 <li>A8.3 <code>_Clear</code> may be used only on the pointed type of a parameter or of a result (as in <code>calloc</code>).</li>
 <li>A8.4 <code>_Clear</code> cannot be combined with <code>const</code>.</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+struct X { int i; };
+void f(const _Clear struct X* p); /* error 1930 */
+</code></pre>
 
 <h3 id="toc_51">A9. <code>_Uninitialized</code></h3>
 
 <ul>
 <li>A9.1 <code>_Uninitialized</code> may be used only on the pointed type of a result: <code>*result</code> is uninitialized.</li>
+<li>A9.2 A function may return a pointer to possibly uninitialized storage only if its result is declared <code>_Uninitialized</code>; otherwise the caller may read <code>*result</code> (warning 30). A <code>void*</code> result has no pointee to read and is not reported.</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+_Uninitialized void* _Owner malloc(unsigned long size);
+
+int* _Owner f(void)
+{
+    return malloc(sizeof(int)); /* warning 30 */
+}
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+_Uninitialized void* _Owner malloc(unsigned long size);
+
+_Uninitialized int* _Owner f(void)
+{
+    return malloc(sizeof(int)); /* ok: the result says so */
+}
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+_Uninitialized void* _Owner malloc(unsigned long size);
+
+int* _Owner f(int c)
+{
+    int* _Owner p = malloc(sizeof(int));
+    if (p == 0) { return 0; }
+    if (c) { *p = 1; }
+    return p; /* warning 30: not set on one path */
+}
+</code></pre>
 
 <h3 id="toc_52">A10. <code>_View</code></h3>
 
 <ul>
 <li>A10.1 An object declared <code>_View</code> does not own its owner members: assigning to it, or passing it by value, moves nothing, and the source still owns them. Without <code>_View</code>, they are moved.</li>
-<li>A10.2 <code>_View</code> cannot be used on a pointer: a pointer without <code>_Owner</code> is already a view.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+struct X { char* _Owner text; };
+void by_view(_View struct X x);
+
+void f(struct X x)
+{
+    by_view(x);
+    free(x.text); /* ok: x still owns it */
+}
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+struct X { char* _Owner text; };
+void by_value(struct X x);
+
+void f(struct X x)
+{
+    by_value(x);
+    free(x.text); /* warning 32: without _View it was moved */
+}
+</code></pre>
+
+<ul>
+<li>A10.2 <code>_View</code> cannot be used on a pointer or on its pointed type (<code>int* _View p</code>, error 640; <code>_View int* p</code>, error 2430): a pointer without <code>_Owner</code> is already a view.</li>
 <li>A10.3 <code>_View</code> may be used wherever an object is declared: parameters, local and file-scope variables, and members (for example <code>_View struct X x2 = x;</code>).</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+struct X { char* _Owner text; };
+
+void f(struct X x)
+{
+    _View struct X v = x; /* ok: moves nothing */
+    free(x.text);
+}
+</code></pre>
 
 <h3 id="toc_53">A11. <code>_Owner</code></h3>
 
 <ul>
 <li>A11.1 An <code>_Owner</code> parameter must be moved on every exit; the argument is moved.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(char* _Owner p)
+{
+} /* warning 29: p must be moved */
+</code></pre>
+
+<ul>
 <li>A11.2 An <code>_Owner</code> result must be moved by the caller.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner make(void);
+
+void f(void)
+{
+    make(); /* warning 9 */
+}
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner make(void);
+
+void f(void)
+{
+    char* _Owner p = make();
+} /* warning 29: p must be moved */
+</code></pre>
+
+<ul>
 <li>A11.3 An object owns what its <code>_Owner</code> members point to; they must be moved before the object is destroyed.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+char* _Owner make(void);
+struct X { char* _Owner text; };
+
+void f(void)
+{
+    struct X x = { .text = make() };
+} /* warning 29: x owns its text */
+</code></pre>
+
+<ul>
 <li>A11.4 <code>_Owner</code> may be used wherever an object is declared: local and file-scope variables, members, parameters and results. It is not limited to pointers (<code>_Owner int</code> for a file descriptor).</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+_Owner int open_fd(void);
+void close_fd(_Owner int fd);
+
+void f(void)
+{
+    _Owner int fd = open_fd(); /* ok: not only pointers */
+    close_fd(fd);
+}
+</code></pre>
+
+<ul>
 <li>A11.5 A move changes the owner&#39;s state, so it is a write: an owner that is <code>const</code> through a pointer cannot be moved (warning 99), nor an owner reachable from a <code>const</code> object (warning 120, 6.2). A <code>const</code> object of our own (local, parameter by value) still moves its owners at the end of its lifetime.</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+void f(char* _Owner const* p)
+{
+    free(*p); /* warning 99: const owner cannot be moved */
+}
+</code></pre>
 
 <h3 id="toc_54">A12. Combination</h3>
 
@@ -1764,20 +2454,151 @@ void f(int n, int* p)
 <ul>
 <li>A13.1 A cast changes the type only: it keeps the top-level <code>_Owner</code> and nullability of its operand; <code>const</code> is not kept.</li>
 <li>A13.2 Writing a Cake annotation at any level of a cast (<code>_Owner</code>, <code>_View</code>, <code>_Nullable</code>, <code>_Nonnull</code>, <code>_Dtor</code>, <code>_Ctor</code>, <code>_Uninitialized</code>, <code>_Clear</code>) is an error (2400). To convert a non-owner to an owner, use <code>//lint 78</code> at the assignment.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+void f(int* p)
+{
+    void* _Owner o = (void* _Owner)p; /* error 2400 */
+    free(o);
+}
+</code></pre>
+
+<ul>
 <li>A13.3 A cast does not create or end ownership: <code>(void*)p</code> of an owner is still that owner, so passing it to an owner parameter moves <code>p</code>; <code>(void*)p</code> of a non-owner is still a non-owner, and a cast of a temporary owner is still a temporary owner, which must be moved (warning 79 when assigned to a non-owner).</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void free(void* _Owner _Nullable p);
+void f(int* p)
+{
+    free((void*)p); /* warning 78: still a non-owner */
+}
+</code></pre>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void* _Owner make(void);
+
+void f(void)
+{
+    void* v = (int*)make(); /* warning 79: still a temporary owner */
+}
+</code></pre>
 
 <h3 id="toc_56">A14. Flow analysis</h3>
 
 <ul>
 <li>A14.1 The analysis runs on one function at a time. A call is described only by the declaration of the callee.</li>
 <li>A14.2 A file-scope object is not a parameter, but to each function it behaves as if it were one that does not appear in the parameter list. At entry it holds any value allowed by its type, and at every exit its contract must hold again.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int* _Nullable g;
+
+void f(void)
+{
+    *g = 1; /* warning 33: g holds any value of its type */
+}
+</code></pre>
+
+<ul>
 <li>A14.3 At each point, every object has a set of possible states. Each state comes from at least one path. A diagnostic must be reported when some state supports it and must not be reported when none does.</li>
 <li>A14.4 Where paths meet, the set is the union of the arriving sets. A path that left by <code>return</code>, <code>break</code>, <code>continue</code>, <code>goto</code>, <code>throw</code> or a noreturn call does not arrive.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int* _Nullable p)
+{
+    if (p == 0) { return; }
+    *p = 1; /* ok: the null path does not arrive */
+}
+</code></pre>
+
+<ul>
 <li>A14.5 In the true branch of a condition only the states where it can be true remain; in the false branch, only those where it can be false.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int* _Nullable p)
+{
+    if (p) { *p = 1; } /* ok: only non-null remains */
+    else { *p = 2; }   /* warning 33 */
+}
+</code></pre>
+
+<ul>
 <li>A14.6 Code no path reaches must be reported with warning 68, and its effects must not reach any later point. Code nested in it (the body of an <code>if</code> or a loop inside unreachable code) is unreachable too: nothing in it is reported, and warning 68 is reported once, at the start of the outer unreachable code. The body of a loop whose condition never holds is unreachable code.</li>
-<li>A14.7 When the first test of a loop condition is true in every state, the zero-iteration path must not exist. A <code>do</code> body runs at least once.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void use(int i);
+
+void f(void)
+{
+    return;
+    use(1); /* warning 68 */
+}
+</code></pre>
+
+<ul>
+<li>A14.7 A first test of a loop condition known to be true does not remove the zero-iteration path. A <code>do</code> body runs at least once.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void use(int i);
+
+void f(void)
+{
+    int i;
+    do { i = 1; } while (0);
+    use(i); /* ok: the body ran */
+}
+</code></pre>
+
+<ul>
 <li>A14.8 A fact supported by several paths is reported once.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int* opt(void);
+
+void f(int c)
+{
+    int* p = opt();
+    if (c) { p = 0; }
+    *p = 1; /* warning 33: both paths arrive, one report */
+}
+</code></pre>
+
+<ul>
 <li>A14.9 An implementation that stops analysing a function must report warning 97 once and nothing else in that function.</li>
 </ul>
 
@@ -1791,58 +2612,66 @@ void f(int n, int* p)
 
 <ul>
 <li>when the destination pointee is mutable, <code>_Nullable</code> and <code>_Owner</code> must match exactly at every level;</li>
-<li>when the destination pointee is <code>const</code> (read only, as in <code>int * _Nullable const *</code>), it may add <code>_Nullable</code> but not remove it;</li>
-<li>when the destination pointee is <code>_Out</code> (write only), it may remove <code>_Nullable</code> but not add it: <code>char * _Out _Nullable *</code> cannot receive <code>&amp;s</code> when <code>s</code> is <code>char *</code>, because null may be stored in <code>s</code> (issue #523).</li>
+<li>when the destination pointee is <code>const</code> (read only, as in <code>int * const *</code>), it may add <code>_Nullable</code> but not remove it;</li>
+<li>when the destination pointee is <code>_Out</code> (write only), it may remove <code>_Nullable</code> but not add it: <code>char * _Out *</code> cannot receive <code>char * _Nonnull *</code>, because null may be stored there (issue #523);</li>
+<li><code>&amp;local</code>, a parameter included, is not checked here: the local is nullable and the flow analysis follows its value. As an argument, it is checked against the parameter: <code>&amp;q</code> passed to <code>int * _Nonnull *</code> is warning 35 when <code>q</code> may be null.</li>
 </ul></li>
 <li>A15.3 A function pointer may point to a function that accepts more and promises more: each parameter of the function may add <code>_Nullable</code> (<code>void (*pf)(int *p)</code> may point to <code>void f(int * _Nullable p)</code>, but not the opposite), and its result may remove <code>_Nullable</code>. <code>_Owner</code> on parameters and results must match exactly.</li>
-<li>A15.4 A <code>[[nodiscard]]</code> function pointer may point to a function that is not <code>[[nodiscard]]</code>; a pointer without <code>[[nodiscard]]</code> cannot point to a <code>[[nodiscard]]</code> function. This is only between function types: the result of a call is a value, so <code>struct X * _Owner _Nullable p = malloc(sizeof *p);</code> is fine even though <code>malloc</code> is <code>[[nodiscard]]</code>.</li>
+<li>A15.4 A <code>[[nodiscard]]</code> function pointer may point to a function that is not <code>[[nodiscard]]</code>; a pointer without <code>[[nodiscard]]</code> cannot point to a <code>[[nodiscard]]</code> function. This is only between function types: the result of a call is a value, so <code>struct X * _Owner p = malloc(sizeof *p);</code> is fine even though <code>malloc</code> is <code>[[nodiscard]]</code>.</li>
 <li>A15.5 <code>[[noreturn]]</code>/<code>_Noreturn</code> must match exactly.</li>
-<li>A15.6 Only <code>_Nullable</code> and <code>_Owner</code> (and, between functions, <code>[[nodiscard]]</code> and <code>[[noreturn]]</code>) are compared. <code>_Clear</code>, <code>_Uninitialized</code>, <code>_Dtor</code> and <code>_View</code> describe the state of an object and are not part of compatibility: <code>struct X * _Owner _Nullable p = calloc(1, sizeof *p);</code> is fine with <code>_Clear void * _Owner _Nullable calloc(...)</code>. <code>const</code> and <code>_Out</code> only select the A15.2 rule.</li>
+<li>A15.6 Only <code>_Nullable</code> and <code>_Owner</code> (and, between functions, <code>[[nodiscard]]</code> and <code>[[noreturn]]</code>) are compared. <code>_Clear</code>, <code>_Uninitialized</code>, <code>_Dtor</code> and <code>_View</code> describe the state of an object and are not part of compatibility: <code>struct X * _Owner p = calloc(1, sizeof *p);</code> is fine with <code>_Clear void * _Owner calloc(...)</code>. <code>const</code> and <code>_Out</code> only select the A15.2 rule.</li>
 <li>A15.7 These rules apply only when the extensions are on (<code>#pragma safety enable</code>); otherwise compatibility is the one in C23 6.2.7.</li>
-<li>A15.8 In <code>c ? a : b</code> the <code>_Nullable</code> of the result value is decided by the flow analysis, per branch (<code>p ? p : 0</code> may be null, <code>p ? p : q</code> is not), and <code>_Owner</code> stays in the type. Below the value, <code>a</code> and <code>b</code> point to shared objects, so <code>_Nullable</code> and <code>_Owner</code> must match at every pointee level: <code>c ? (int * _Nullable *) pp1 : (int **) pp2</code> is incompatible.</li>
+<li>A15.8 In <code>c ? a : b</code> the <code>_Nullable</code> of the result value is decided by the flow analysis, per branch (<code>p ? p : 0</code> may be null, <code>p ? p : q</code> is not), and <code>_Owner</code> stays in the type. Below the value, <code>a</code> and <code>b</code> point to shared objects, so <code>_Nullable</code> and <code>_Owner</code> must match at every pointee level: with <code>int ** n</code> and <code>int * _Nonnull * nn</code>, <code>c ? n : nn</code> is incompatible.</li>
 </ul>
 
 <p>Examples. Each line says what could go wrong if it were accepted.</p>
 
+<!-- runnable -->
+
 <pre><code class="language-c">#pragma safety enable
 
-void f_ptr(int * p);
-void f_opt(int * _Nullable p);
-int * g_opt(void);
-int * _Nonnull g_nonnull(void);
-void get(char * _Out _Owner _Nullable * p);
-void free(void * _Owner _Nullable p);
+void f_ptr(int* p);
+void f_opt(int* _Nullable p);
+int* g_opt(void);
+int* _Nonnull g_nonnull(void);
+void get(char* _Out _Owner* p);
+void take(int* _Nonnull* p);
+void free(void* _Owner _Nullable p);
 
-void examples(int * p, int * _Nullable q, int * _Owner o, int c)
+void examples(int* _Nullable q, int* _Owner o, int* _Nonnull* nn, int** n, char* _Owner _Nonnull* ps, int c)
 {
     /* A15.1 the copied value */
-    int * a = q;                 /* flow: warning 35, q may be null here           */
-    int * b = o;                 /* ok: b is a view of what o owns                 */
+    int* _Nonnull a = q;         /* warning 35: q may be null here */
+    int* b = o;                  /* ok: b is a view of what o owns */
 
     /* A15.2 through a pointer: *pp is shared with the source */
-    int * _Nullable * pp1 = &amp;p;       /* error: *pp1 = NULL would make p null           */
-    int ** pp2 = &amp;q;             /* error: *pp2 is read as non-null, q may be null */
-    int * _Nullable const * pp3 = &amp;p; /* ok: read only, a non-null p is a valid _Nullable    */
-    int * const * pp4 = &amp;q;      /* error: read as non-null, q may be null         */
+    int** pp1 = nn;              /* warning 54: *pp1 = 0 would break *nn */
+    int* _Nonnull* pp2 = n;      /* warning 54: *pp2 is read as non-null, *n may be null */
+    int* const* pp3 = nn;        /* ok: read only, a non-null *nn is a valid nullable */
+    int* _Nonnull const* pp4 = n; /* warning 54: read as non-null, *n may be null */
+    get(ps);                     /* warning 54: get may store null in *ps, warning 26: *ps is not empty */
 
-    char * _Owner s;
-    get(&amp;s);                     /* error: get may store null in s                 */
-    free(s);
+    /* A15.2 &amp;local: the flow analysis follows the local */
+    int* l = 0;
+    int** pp5 = &amp;l;              /* ok */
+    take(&amp;l);                    /* warning 35: take does not accept null in *p */
 
     /* A15.3 function pointers: calls through pf go to the function */
-    void (*pf1)(int * p) = f_opt;      /* ok: f_opt accepts more than pf1 passes */
-    void (*pf2)(int * _Nullable p) = f_ptr; /* error: pf2(NULL) would reach f_ptr     */
-    int * _Nullable (*pg1)(void) = g_nonnull; /* ok: g_nonnull promises more          */
-    int * (*pg2)(void) = g_opt;          /* error: g_opt may return null         */
+    void (*pf1)(int* p) = f_opt; /* ok: f_opt accepts more than pf1 passes */
+    void (*pf2)(int* _Nullable p) = f_ptr; /* warning 54: pf2(0) would reach f_ptr */
+    int* (*pg1)(void) = g_nonnull; /* ok: g_nonnull promises more */
+    int* _Nonnull (*pg2)(void) = g_opt; /* warning 54: g_opt may return null */
 
     /* A15.8 ?: the value is decided by flow, branch by branch */
-    int * r1 = q ? q : p;        /* ok: q is not null in the first branch          */
-    int * r2 = q ? q : 0;        /* flow: warning 35, the second branch is null    */
-    int * _Nullable * r3 = c ? pp1 : &amp;p; /* error: int * _Nullable * and int ** share *r3    */
+    int* _Nonnull r1 = q ? q : g_nonnull(); /* ok: q is not null in the first branch */
+    int* _Nonnull r2 = q ? q : 0; /* warning 35: the second branch is null */
+    int** r3 = c ? n : nn;       /* warning 54: int** and int* _Nonnull* share *r3 */
 
     free(o);
 }
 </code></pre>
+
+<!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 
@@ -1853,7 +2682,7 @@ void attributes(void)
 {
     /* A15.4 the caller through the pointer must keep every promise of the function */
     [[nodiscard]] int (*pn1)(void) = h; /* ok: the result is used, h does not care */
-    int (*pn2)(void) = h_nd;            /* error: pn2() would discard h_nd&#39;s result */
+    int (*pn2)(void) = h_nd;            /* warning 54: pn2() would discard h_nd&#39;s result */
 }
 </code></pre>
 
@@ -1868,8 +2697,55 @@ only this hypothesis supports is reported as warning 100, with its message.
 When that diagnostic is warning 101 (the two parameters reach a <code>restrict</code>
 parameter of a call), warning 100 asks to add <code>restrict</code> to one of them or
 to handle them being equal.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void copy(int* restrict d, const int* s);
+
+void f(int* a, int* b)
+{
+    a[0] = 1;
+    b[0] = 1;
+    copy(a, b); /* warning 100: may be the same object */
+}
+</code></pre>
+
+<ul>
 <li>A16.3 <code>restrict</code> on either parameter of a pair says they never point to the same object: there is no hypothesis for the pair. Two <code>_Owner</code> parameters never point to the same object either: each owns its object, and the caller cannot pass one owner twice. Two parameters that only read through <code>const</code> (neither <code>_Owner</code>) have no hypothesis either: the same object changes nothing for them.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void copy(int* restrict d, const int* s);
+
+void f(int* restrict a, const int* b)
+{
+    copy(a, b); /* ok */
+}
+</code></pre>
+
+<ul>
 <li>A16.4 The caller may pass the same object to two parameters, unless one of them is <code>restrict</code>. With <code>restrict</code> the caller is checked: two arguments of the call that may point to the same object, or one into the object of the other (<code>&amp;x-&gt;y</code> and <code>x</code>), by the values the analysis knows for them, must be reported with warning 101.</li>
+</ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void copy(int* restrict d, const int* s);
+
+void f(int* a)
+{
+    copy(a, a); /* warning 101 */
+}
+</code></pre>
+
+<ul>
 <li>A16.5 A pointer parameter may also point to a file scope object the function uses (<code>f(&amp;g)</code>), when the object has the pointed type. For each such parameter and object there is a hypothesis that the parameter points to the object, as in A16.2. The parser records the file scope objects each function uses. <code>restrict</code> and <code>_Owner</code> parameters have no such hypothesis: an <code>_Owner</code> cannot own a file scope object.</li>
 <li>A16.6 A non-owner pointer returned by a call may be a new object or one of
 the objects the call&#39;s pointer arguments point to, when the pointed type
@@ -1881,6 +2757,16 @@ by the callee and is not considered.</li>
 <li>A16.7 A function must not return a pointer to the object of a <code>restrict</code>
 parameter, or into it: warning 102.</li>
 </ul>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int* f(int* restrict p)
+{
+    return p; /* warning 102 */
+}
+</code></pre>
 
 <h2 id="toc_59">Appendix B - Hypotheses</h2>
 

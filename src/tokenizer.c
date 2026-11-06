@@ -4105,11 +4105,11 @@ def-line:
                     p_macro_parameter->name = temp3;
                     struct macro_parameter* p_last = macro->parameters;
                     assert(p_last != NULL);
-                    while (p_last->next)
+                    while (p_last->next) //lint 33 assert line 4107
                     {
-                        p_last = p_last->next;
+                        p_last = p_last->next; //lint 33 assert line 4107
                     }
-                    p_last->next = p_macro_parameter;
+                    p_last->next = p_macro_parameter; //lint 33 assert line 4107
 
                     match_token_level(&r, input_list, '...', level, ctx);
                 }
@@ -5127,11 +5127,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         p_macro_parameter->name = temp3;
                         struct macro_parameter* p_last = macro->parameters;
                         assert(p_last != NULL);
-                        while (p_last->next)
+                        while (p_last->next) //lint 33 assert line 5129
                         {
-                            p_last = p_last->next;
+                            p_last = p_last->next; //lint 33 assert line 5129
                         }
-                        p_last->next = p_macro_parameter;
+                        p_last->next = p_macro_parameter; //lint 33 assert line 5129
 
                         match_token_level(&r, input_list, '...', level, ctx);
                     }

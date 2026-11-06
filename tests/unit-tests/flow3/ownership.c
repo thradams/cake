@@ -148,7 +148,7 @@ void test_nonnull_to_opt(int* p)
     accepts_opt(p); // ok
 }
 
-int* _Owner f(int c)
+_Uninitialized int* _Owner f(int c)
 {
     int* _Owner p = malloc(sizeof * p);
     try
@@ -171,7 +171,7 @@ void test_assign_owner_leak(void)
     a = b; //lint 26 expected warning
 } //lint 29 owner object (.text) not moved (call-opt-nonnull see line 167)
 
-int* test_return_owner_as_nonowner(void)
+_Uninitialized int* test_return_owner_as_nonowner(void)
 {
     int* _Owner p = malloc(sizeof(int)); // owner object (p) not moved (call-opt-nonnull see line 173)
     return p; //lint 29 owner object (p) not moved (call-opt-nonnull see line 173)

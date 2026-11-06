@@ -686,6 +686,10 @@ bool flow_alt_negate(const struct flow_alternative* in,
 
 bool flow_alternative_can_be_zero(const struct flow_alternative* alt)
 {
+    /* no path has it (see flow_alternative) */
+    if (alt->contradicted)
+        return false;
+
     if (flow_alternative_is_zero(alt))
     {
         return true;
