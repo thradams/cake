@@ -7,7 +7,7 @@ struct X {
     char* _Nonnull _Owner text;
 };
 
-void x_delete(struct X* _Owner  _Opt p);
+void x_delete(struct X* _Owner  _Nullable p);
 
 int main()
 {

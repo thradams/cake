@@ -2,7 +2,7 @@
 
 
 _Uninitialized void* _Owner malloc(int i);
-void free(void* _Owner _Opt);
+void free(void* _Owner _Nullable);
 
 struct X {
     char* _Owner name;

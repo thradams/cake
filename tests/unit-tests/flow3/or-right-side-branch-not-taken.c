@@ -3,7 +3,7 @@
 struct s { int x; };
 void d(_Dtor struct s* p);
 
-void f(struct s* _Opt p, int c)
+void f(struct s* _Nullable p, int c)
 {
     if (c)
     {
@@ -13,7 +13,7 @@ void f(struct s* _Opt p, int c)
     _Assert(p == 0 || p->x == 0); /* no warning 30 */
 }
 
-void g(struct s* _Opt p, int c)
+void g(struct s* _Nullable p, int c)
 {
     if (c)
     {

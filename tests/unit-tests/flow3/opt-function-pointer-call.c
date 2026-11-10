@@ -1,11 +1,11 @@
 #pragma safety enable
 
-int f(int (* _Opt fp)(void))
+int f(int (* _Nullable fp)(void))
 {
     return fp(); //lint 33
 }
 
-int g(int (* _Opt fp)(void))
+int g(int (* _Nullable fp)(void))
 {
     if (fp)
         return fp();

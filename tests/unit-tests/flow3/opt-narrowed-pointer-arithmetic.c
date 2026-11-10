@@ -1,6 +1,6 @@
 #pragma safety enable
 
-void f(const char* _Opt s, int len)
+void f(const char* _Nullable s, int len)
 {
     if (s && len >= 2)
     {

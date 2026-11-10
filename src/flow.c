@@ -3570,29 +3570,45 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 flow_branch_find_add(ctx->p_current_flow_branch, p_object_dest);
             if (e == NULL) throw;
             /* like &array[0] when the array is known, so its lifetime can be checked (issue #210) */
-            const struct object* p_array = NULL;
+            struct flow_alternatives decayed = { 0 };
             const struct flow_key_alternatives* p_src_alternatives = flow_branch_search_up(ctx->p_current_flow_branch, p_object_src);
             for (int i = 0; p_src_alternatives != NULL && i < p_src_alternatives->alternatives.size; i++)
             {
-                if (p_src_alternatives->alternatives.data[i]->value_kind == FLOW_VALUE_KIND_REF &&
-                        p_src_alternatives->alternatives.data[i]->value.p != NULL) //lint 33
+                const struct flow_alternative* p_src_alt = p_src_alternatives->alternatives.data[i]; //lint 33
+                if (p_src_alt->value_kind != FLOW_VALUE_KIND_REF || p_src_alt->value.p == NULL)
                 {
-                    p_array = p_src_alternatives->alternatives.data[i]->value.p; //lint 33
-                    break;
+                    continue;
                 }
+                /* each array on its own path (c ? a : b) */
+                const struct object* p_array = p_src_alt->value.p;
+                struct flow_alternative a =
+                {
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = p_array->members.head},
+                    .value_relation = p_array->members.head ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_expression->first_token
+                };
+                flow_alternatives_add(&decayed, &a);
+            }
+
+            if (decayed.size == 0)
+            {
+                struct flow_alternative a =
+                {
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = NULL},
+                    .value_relation = FLOW_RELATION_NOT_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_expression->first_token
+                };
+                flow_alternatives_add(&decayed, &a);
             }
 
             flow_alternatives_clear(&e->alternatives);
-            struct flow_alternative a =
-            {
-                .value_kind = FLOW_VALUE_KIND_PTR,
-                .value = {.p = p_array ? p_array->members.head : NULL},
-                .value_relation = (p_array && p_array->members.head) ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .p_origin_map = ctx->p_current_flow_branch,
-                .p_origin_token = p_expression->first_token
-            };
-            flow_alternatives_add(&e->alternatives, &a);
+            e->alternatives = decayed; /* move */
             return;
         }
 
@@ -3756,6 +3772,32 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 ss_close(&ss);
                 ss_close(&name_ss);
                 continue;
+            }
+
+            if (init_type == INIT_PARAMETER &&
+                    type_is_array(&p_object_dest->type) &&
+                    p_object_dest->type.array_num_elements > 0 &&
+                    p_src_alternative->value_kind == FLOW_VALUE_KIND_PTR &&
+                    p_src_alternative->value.p != NULL)
+            {
+                /* p points to a[k]: the callee may use a[k] .. a[k + n - 1] */
+                size_t element_index = 0;
+                const struct object* p_array = object_get_array_of_element(p_src_alternative->value.p, &element_index);
+                if (p_array != NULL && p_array->type.array_num_elements > 0)
+                {
+                    const long long available = (long long)p_array->type.array_num_elements - (long long)element_index;
+                    const long long required = (long long)p_object_dest->type.array_num_elements;
+                    if (available < required)
+                    {
+                        struct osstream size_ss = { 0 };
+                        ss_fprintf(&size_ss, "only %lld element(s) from the argument pointer, but the parameter array size is %lld",
+                                   available, required);
+                        flow_finding_record(ctx, p_object_src, W_FLOW_ARGUMENT_SMALLER_THAN_ARRAY_PARAMETER, &marker,
+                                            p_src_alternative, p_src_alternative->p_origin_map,
+                                            size_ss.c_str ? size_ss.c_str : "");
+                        ss_close(&size_ss);
+                    }
+                }
             }
 
             if (p_src_alternative->value_kind == FLOW_VALUE_KIND_REF)
@@ -7164,6 +7206,70 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                         {
                             const enum flow_value_kind base_kind = base->value_kind; /* lint 33 68 BUG in flow */
 
+                            /* the base points into an array: a[j] + k is a[j + k] */
+                            const struct object* p_base_array = NULL;
+                            size_t base_index = 0;
+                            if (base_kind == FLOW_VALUE_KIND_PTR && base->value.p != NULL)
+                            {
+                                p_base_array = object_get_array_of_element(base->value.p, &base_index);
+                            }
+                            else if (base_kind == FLOW_VALUE_KIND_REF && base->value.p != NULL &&
+                                     type_is_array(&base->value.p->type))
+                            {
+                                /* array decay: a + k */
+                                p_base_array = base->value.p;
+                                base_index = 0;
+                            }
+
+                            if (p_base_array != NULL)
+                            {
+                                const struct flow_alternative* p_offset = base == lval ? rval : lval;
+                                const bool offset_is_known =
+                                    p_offset->value_relation == FLOW_RELATION_EQUAL &&
+                                    (p_offset->value_kind == FLOW_VALUE_KIND_SIGNED || p_offset->value_kind == FLOW_VALUE_KIND_UNSIGNED);
+                                const long long offset = !offset_is_known ? 0 :
+                                    p_offset->value_kind == FLOW_VALUE_KIND_SIGNED ? p_offset->value.i : (long long)p_offset->value.u;
+                                const long long new_index = (long long)base_index + (op == '-' ? -offset : offset);
+
+                                /* a pointer outside a[0] .. a + N (one past the end) is undefined behavior */
+                                long long offset_lo = 0, offset_hi = 0;
+                                if (!ctx->expression_is_not_evaluated &&
+                                    flow_alt_to_interval(p_offset, &offset_lo, &offset_hi))
+                                {
+                                    const long long array_size = (long long)p_base_array->type.array_num_elements;
+                                    const long long index_lo = (long long)base_index + (op == '-' ? -offset_hi : offset_lo);
+                                    const long long index_hi = (long long)base_index + (op == '-' ? -offset_lo : offset_hi);
+                                    if (array_size > 0 && (index_lo > array_size || index_hi < 0))
+                                    {
+                                        flow_finding_record(ctx, &p_result->object, W_FLOW_OUT_OF_BOUNDS, &marker,
+                                                            p_offset, p_offset->p_origin_map,
+                                                            index_hi < 0 ? "pointer arithmetic goes before the start of the array" :
+                                                                           "pointer arithmetic goes past the end of the array");
+                                    }
+                                }
+
+                                struct object* p_new_element = NULL;
+                                if (offset_is_known &&
+                                    new_index >= 0 &&
+                                    new_index < (long long)p_base_array->type.array_num_elements)
+                                {
+                                    p_new_element = object_get_member(p_base_array, (size_t)new_index);
+                                }
+
+                                /* unknown or one past the end: a non-null pointer of unknown target */
+                                struct flow_alternative a =
+                                {
+                                    .value_kind = FLOW_VALUE_KIND_PTR,
+                                    .value = {.p = p_new_element },
+                                    .value_relation = p_new_element != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
+                                    .imaginary = FLOW_IMAGINARY_NONE,
+                                    .p_origin_map = p_pair_origin,
+                                    .p_origin_token = p_value_token
+                                };
+                                flow_alternatives_add(&result_alts, &a);
+                                continue;
+                            }
+
                             if (base_kind == FLOW_VALUE_KIND_PTR)
                             {
                                 /* Keep the pointer alternative, on the path of the pair. */
@@ -7978,8 +8084,24 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
 
             case EXPR_PRIMARY_STRING_LITERAL:
             {
-                /* Seed a string literal as a definite-nonzero SIGNED placeholder, not FLOW_VALUE_KIND_PTR (which crashes flow_check_object_access on its synthetic char members) -- object_to_signed_long_long has no real integer for an array object, which would read as NULL. */
-                if (!flow_set_object_signed(ctx, &p_expression->object, 1, FLOW_RELATION_EQUAL, p_expression->first_token)) throw;
+                /* the literal is a static const array made on demand: decay points into it */
+                struct object* p_literal = flow_allocated_object_arena_new(&ctx->allocated_object_arena);
+                if (p_literal == NULL) throw;
+                make_object(&p_expression->object.type, p_literal, MAKE_STATE_ANY, &ctx->ctx->options.platform);
+
+                struct flow_key_alternatives* p_entry = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
+                if (p_entry == NULL) throw;
+                flow_alternatives_clear(&p_entry->alternatives);
+                struct flow_alternative a =
+                {
+                    .value_kind = FLOW_VALUE_KIND_REF,
+                    .value = {.p = p_literal},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_expression->first_token
+                };
+                flow_alternatives_add(&p_entry->alternatives, &a);
             }
             break;
 
@@ -8226,6 +8348,71 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 continue;
                             }
                             flow_check_dereferenced_value(ctx, p_expression, p_value, p_left_alt->p_origin_map, &marker);
+
+                            /* p points to a[k]: p[i] is a[k + i] */
+                            size_t element_index = 0;
+                            const struct object* p_array =
+                                !ctx->expression_is_not_evaluated &&
+                                p_value->value_kind == FLOW_VALUE_KIND_PTR &&
+                                p_value->value.p != NULL ?
+                                object_get_array_of_element(p_value->value.p, &element_index) : NULL;
+                            if (p_array == NULL || p_array->type.array_num_elements == 0)
+                            {
+                                continue;
+                            }
+                            const long long array_size = (long long)p_array->type.array_num_elements;
+
+                            if (object_has_constant_value(&p_expression->right->object)) //lint 33 assert line 7200
+                            {
+                                const long long index = object_to_signed_long_long(&p_expression->right->object);
+                                const long long position = (long long)element_index + index;
+                                if (position >= array_size || position < 0)
+                                {
+                                    flow_finding_record(ctx, &p_expression->object, W_FLOW_OUT_OF_BOUNDS, &marker,
+                                                        p_value, p_value->p_origin_map,
+                                                        position < 0 ? "pointer index is before the start of the array" :
+                                                                       "pointer index is past the end of the array");
+                                }
+                                continue;
+                            }
+
+                            /* each index value on its own path */
+                            const struct flow_key_alternatives* p_index_alternatives =
+                                flow_branch_search_up(ctx->p_current_flow_branch, &p_expression->right->object); //lint 33 assert line 7200
+                            for (int k = 0; p_index_alternatives != NULL && k < p_index_alternatives->alternatives.size; k++)
+                            {
+                                const struct flow_alternative* p_index_alt = p_index_alternatives->alternatives.data[k]; //lint 33
+                                const bool index_is_ref = p_index_alt->value_kind == FLOW_VALUE_KIND_REF && p_index_alt->value.p != NULL;
+                                const struct flow_key_alternatives* p_index_values = index_is_ref ?
+                                    flow_branch_search_up(ctx->p_current_flow_branch, p_index_alt->value.p) : NULL;
+                                const int index_values_size = index_is_ref ? (p_index_values ? p_index_values->alternatives.size : 0) : 1;
+
+                                for (int m = 0; m < index_values_size; m++)
+                                {
+                                    const struct flow_alternative* p_index_value = index_is_ref ? p_index_values->alternatives.data[m] : p_index_alt; //lint 33
+                                    if (index_is_ref && !flow_ref_sees_value(p_index_alt, p_index_value))
+                                    {
+                                        continue;
+                                    }
+                                    long long index_lo = 0, index_hi = 0;
+                                    if (!flow_alt_to_interval(p_index_value, &index_lo, &index_hi))
+                                    {
+                                        continue;
+                                    }
+                                    if ((long long)element_index + index_lo >= array_size)
+                                    {
+                                        flow_finding_record(ctx, &p_expression->object, W_FLOW_OUT_OF_BOUNDS, &marker,
+                                                            p_index_value, p_index_value->p_origin_map,
+                                                            "pointer index is past the end of the array");
+                                    }
+                                    else if ((long long)element_index + index_hi < 0)
+                                    {
+                                        flow_finding_record(ctx, &p_expression->object, W_FLOW_OUT_OF_BOUNDS, &marker,
+                                                            p_index_value, p_index_value->p_origin_map,
+                                                            "pointer index is before the start of the array");
+                                    }
+                                }
+                            }
                         }
                     }
                     flow_findings_end(ctx);
@@ -8922,7 +9109,30 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 are dropped. A copy taken before the increment keeps the old pointee.
                             */
                             struct flow_alternative a = *alt;
-                            if (alt->value_relation == FLOW_RELATION_EQUAL &&
+                            size_t element_index = 0;
+                            const struct object* p_array = alt->value.p != NULL ?
+                                object_get_array_of_element(alt->value.p, &element_index) : NULL;
+                            if (p_array != NULL)
+                            {
+                                /* a[j]++ is a[j + 1]; outside the array the target is unknown */
+                                const long long new_index = (long long)element_index + (is_increment ? 1 : -1);
+                                if (!ctx->expression_is_not_evaluated &&
+                                    (new_index < 0 || new_index > (long long)p_array->type.array_num_elements))
+                                {
+                                    /* a + N (one past the end) is valid; beyond it, undefined behavior */
+                                    flow_finding_record(ctx, &p_expression->object, W_FLOW_OUT_OF_BOUNDS, &operand_marker,
+                                                        alt, alt->p_origin_map,
+                                                        new_index < 0 ? "pointer arithmetic goes before the start of the array" :
+                                                                        "pointer arithmetic goes past the end of the array");
+                                }
+                                struct object* p_new_element =
+                                    new_index >= 0 && new_index < (long long)p_array->type.array_num_elements ?
+                                    object_get_member(p_array, (size_t)new_index) : NULL;
+                                a.value.p = p_new_element;
+                                a.value_relation = p_new_element != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL;
+                                a.p_origin_token = p_expression->first_token;
+                            }
+                            else if (alt->value_relation == FLOW_RELATION_EQUAL &&
                             alt->value.p != NULL &&
                             type_is_pointer(&p_operand->object.type)) //lint 33 assert line 7947, 7952
                             {
@@ -8946,7 +9156,8 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 }
                             }
                             flow_alternatives_add(&new_var_alts, &a);
-                            flow_alternatives_add(&new_result_alts, &a);
+                            /* p++ yields the old pointer */
+                            flow_alternatives_add(&new_result_alts, is_postfix ? alt : &a);
                         }
                         else if (type_is_pointer(&p_operand->object.type)) //lint 33 assert line 7947, 7952
                         {
@@ -10208,6 +10419,19 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             const struct flow_alternative* a = e->alternatives.data[i]; //lint 33
 
                             if (a->value_kind == FLOW_VALUE_KIND_REF &&
+                                a->value.p != NULL &&
+                                type_is_array(&a->value.p->type))
+                            {
+                                /* an array arm decays to its own element 0 */
+                                struct flow_alternative decayed = *a;
+                                decayed.value_kind = FLOW_VALUE_KIND_PTR;
+                                decayed.value.p = a->value.p->members.head;
+                                decayed.value_relation = a->value.p->members.head ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL;
+                                flow_alternatives_add(&result, &decayed);
+                                continue;
+                            }
+
+                            if (a->value_kind == FLOW_VALUE_KIND_REF &&
                             a->value.p != NULL)
                             {
                                 const struct flow_key_alternatives* p_target =
@@ -10291,7 +10515,6 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_UNARY_GCC__BUILTIN_VA_ARG:
             break;
             case EXPR_UNARY_GCC__BUILTIN_OFFSETOF:
-            case EXPR_UNARY_CONSTEVAL:
             break;
 
         }

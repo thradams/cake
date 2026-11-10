@@ -176,7 +176,7 @@ enum diagnostic_id {
     W_FLOW_PARAM_MAY_ALIAS = 100, /* the function has an error when two pointer parameters point to the same object */
     W_FLOW_RESTRICT_ARGUMENTS_ALIAS = 101, /* arguments of a restrict parameter may point to the same object */
     W_FLOW_RESTRICT_PARAMETER_RETURNED = 102, /* the function returns a pointer into the object of a restrict parameter */
-    W_UNUSED_WARNING_103 = 103,
+    W_FLOW_ARGUMENT_SMALLER_THAN_ARRAY_PARAMETER = 103, /* pointer argument reaches fewer elements than the array parameter size */
     W_UNUSED_WARNING_104 = 104,
     W_UNUSED_WARNING_105 = 105,
     W_UNUSED_WARNING_106 = 106,

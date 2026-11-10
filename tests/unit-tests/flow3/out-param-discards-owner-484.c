@@ -6,7 +6,7 @@ struct X { char * _Owner name; };
 
 void* _Nonnull memcpy(_Out void* dest, const void* src, int count);
 char * _Owner strdup(const char* s);
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 void f1(struct X * x)
 {

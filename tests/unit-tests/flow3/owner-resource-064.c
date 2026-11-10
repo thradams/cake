@@ -2,7 +2,7 @@
 
 /* same as owner-resource-063.c: the goto path never freed p, the leak is reported */
 
-void free(void* _Owner _Opt ptr);
+void free(void* _Owner _Nullable ptr);
 _Uninitialized void* _Owner malloc(int size);
 
 void f(int condition)

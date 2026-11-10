@@ -5238,13 +5238,6 @@ bool is_first_of_unary_expression(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if (ctx->current->type == TK_KEYWORD_CONST)
-    {
-        struct token* ahead = parser_look_ahead(ctx);
-        if (ahead && ahead->type == '(')
-            return true; // const(expr)
-    }
-
     return first_of_postfix_expression(ctx) ||
         ctx->current->type == '++' ||
         ctx->current->type == '--' ||
@@ -6762,37 +6755,6 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
 
         }
 
-        else if (ctx->current->type == TK_KEYWORD_CONST) /* new keyword consteval?? */
-        {
-            struct expression* _Owner new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) throw;
-
-            new_expression->expression_type = EXPR_UNARY_CONSTEVAL;
-            new_expression->first_token = ctx->current;
-
-            parser_match(ctx);
-
-            if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
-            new_expression->right = constant_expression(ctx, true, is_discarded);
-
-            if (parser_match_tk(ctx, ')') != 0)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
-            struct token* p_previous_token = parser_get_previous_token(ctx);
-            if (p_previous_token == NULL)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
-            new_expression->last_token = p_previous_token;
-            return new_expression;
-        }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
 

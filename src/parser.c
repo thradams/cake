@@ -1688,12 +1688,6 @@ bool first_of_type_qualifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if (ctx->current->type == TK_KEYWORD_CONST)
-    {
-        struct token* ahead = parser_look_ahead(ctx);
-        if (ahead && ahead->type == '(')
-            return false; // expression const(expr)
-    }
     return first_of_type_qualifier_token(ctx->current);
 }
 
@@ -9660,6 +9654,10 @@ struct array_declarator* _Owner array_declarator(struct direct_declarator* _Owne
         if (first_of_type_qualifier(ctx))
         {
             p_array_declarator->type_qualifier_list_opt = type_qualifier_list(ctx);
+            if (p_array_declarator->type_qualifier_list_opt == NULL)
+            {
+                throw;
+            }
         }
 
         if (ctx->current == NULL)
@@ -9909,6 +9907,12 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
     struct pointer* _Owner p_pointer = NULL;
     try
     {
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
         struct token* calling_convention = NULL;
         struct token* ahead = parser_look_ahead(ctx);
         if (ahead != NULL && ahead->type == '*')
@@ -9916,13 +9920,17 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
             /* 
             * typedef void (__fastcall *pf)();
             */
-            if (ctx->current != NULL &&
-                (ctx->current->type == TK_KEYWORD_MSVC__STDCALL ||
+            if ((ctx->current->type == TK_KEYWORD_MSVC__STDCALL ||
                     ctx->current->type == TK_KEYWORD_MSVC__CDECL ||
                     ctx->current->type == TK_KEYWORD_MSVC__FASTCALL))
             {
                 calling_convention = ctx->current;
                 parser_match(ctx);
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    throw;
+                }
             }
         }
 
@@ -9931,7 +9939,7 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
             SDK headers declare them unconditionally; treated as a plain
             pointer to the function type.
         */
-        if (ctx->current != NULL && (ctx->current->type == '*' || ctx->current->type == '^'))
+        if (ctx->current->type == '*' || ctx->current->type == '^')
         {
             p_pointer = calloc(1, sizeof(struct pointer));
             if (p_pointer == NULL)
@@ -9943,13 +9951,21 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
             p = p_pointer;
             check_pointer_style(ctx, ctx->current);
             parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             p_pointer->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             if (first_of_type_qualifier(ctx))
             {
-                assert(ctx->current != NULL);
-
                 /* without -annotations _View is ignored, like an empty macro */
                 if (ctx->current->type == TK_KEYWORD_CAKE_VIEW && ctx->options.safety_enabled)
                 {
@@ -9962,10 +9978,20 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
                 else
                 {
                     p_pointer->type_qualifier_list_opt = type_qualifier_list(ctx);
+                    if (p_pointer->type_qualifier_list_opt == NULL)
+                    {
+                        throw;
+                    }
                 }
             }
 
-            if (ctx->current != NULL && ctx->current->type == '*')
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (ctx->current->type == '*')
             {
                 /* pointer_opt consumes all the remaining '*' */
                 p_pointer->pointer = pointer_opt(ctx);
@@ -10035,7 +10061,13 @@ struct type_qualifier_list* _Owner type_qualifier_list(struct parser_ctx* ctx)
         type_qualifier_list_add(p_type_qualifier_list, p_type_qualifier);
         p_type_qualifier = NULL; /* MOVED */
 
-        while (ctx->current != NULL && first_of_type_qualifier(ctx))
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+        while (first_of_type_qualifier(ctx))
         {
             p_type_qualifier = type_qualifier(ctx);
             if (p_type_qualifier == NULL)
@@ -10044,10 +10076,18 @@ struct type_qualifier_list* _Owner type_qualifier_list(struct parser_ctx* ctx)
             p_type_qualifier_list->flags |= p_type_qualifier->flags;
             type_qualifier_list_add(p_type_qualifier_list, p_type_qualifier);
             p_type_qualifier = NULL; /* MOVED */
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
         }
     }
     catch
     {
+        type_qualifier_list_delete(p_type_qualifier_list);
+        p_type_qualifier_list = NULL;
     }
 
     return p_type_qualifier_list;

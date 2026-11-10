@@ -163,6 +163,7 @@ void object_default_initialization(struct object* p_object, bool is_constant);
 
 const struct object* object_get_member_const(const struct object* p_object, size_t index);
 struct object* object_get_member(const struct object* p_object, size_t index);
+const struct object* _Nullable object_get_array_of_element(const struct object* p_object, size_t* p_index);
 
 int make_object_with_member_designator(const struct type* p_type, struct object* obj, const char* member_designator, enum make_state make_state, const struct platform* target);
 int make_object(const struct type* p_type, struct object* obj, enum make_state make_state, const struct platform* target);

@@ -2,7 +2,7 @@
 
 
 _Uninitialized void* _Owner malloc(int i);
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 int rand();
 
 int main()

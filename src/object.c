@@ -1043,6 +1043,28 @@ struct object* object_get_member(const struct object* p_object, size_t index)
     return (struct object*)object_get_member_const(p_object, index);
 }
 
+/* when p_object is an element of an array, returns the array and the element index */
+const struct object* _Nullable object_get_array_of_element(const struct object* p_object, size_t* p_index)
+{
+    const struct object* p_array = NULL;
+    const struct object* p_parent = p_object->parent;
+    if (p_parent != NULL && p_parent != p_object && type_is_array(&p_parent->type))
+    {
+        size_t index = 0;
+        for (const struct object* it = p_parent->members.head; it != NULL; it = it->next)
+        {
+            if (it == p_object)
+            {
+                p_array = p_parent;
+                *p_index = index;
+                break;
+            }
+            index++;
+        }
+    }
+    return p_array;
+}
+
 int object_set(
     struct parser_ctx* ctx,
     struct object* to,

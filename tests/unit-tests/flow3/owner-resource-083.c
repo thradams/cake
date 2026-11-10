@@ -1,8 +1,8 @@
 #pragma safety enable
 
-void free(void *_Owner _Opt p);
+void free(void *_Owner _Nullable p);
 
-void f(int* _Opt _Owner p)
+void f(int* _Nullable _Owner p)
 {
    int * _Owner p2 = p;   
    //assert_state(p, "null, moved");

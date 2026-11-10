@@ -4,7 +4,7 @@
 
 struct X { int i; void* p; };
 _Clear void* _Owner calloc(int i, int sz);
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 int main()
 {

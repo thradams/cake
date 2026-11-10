@@ -1702,6 +1702,19 @@ void f(int n, int* p)
 }
 </code></pre>
 
+<p>A string literal is an array of constant size, as if it were a <code>static const</code> array. A pointer to it is checked against that size.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(void)
+{
+    const char* s = &quot;abc&quot;;
+    char c = s[5]; /* warning 70: past the end of &quot;abc&quot; */
+}
+</code></pre>
+
 <h2 id="toc_42">Appendix A - Rules</h2>
 
 <p>This appendix states the rules more precisely.</p>
