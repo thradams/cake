@@ -1613,17 +1613,7 @@ void flow_branch_raw_dump(const struct flow_branch* _Nullable map, const struct 
                     const struct flow_alternative* a = e->alternatives.data[i]; //lint 33
                     printf("      [%d] { value_kind=%s ", i, kinds[a->value_kind]);
                     if (a->value_kind == FLOW_VALUE_KIND_PTR || a->value_kind == FLOW_VALUE_KIND_REF)
-                    {
                         printf("value.p=%s%p%s", c_dim, (const void*)a->value.p, c_off);
-                        size_t element_index = 0;
-                        const struct object* p_array = a->value.p != NULL ? object_get_array_of_element(a->value.p, &element_index) : NULL;
-                        if (p_array != NULL)
-                        {
-                            printf(" %s(element %zu of \"%s\"[%zu])%s", c_dim, element_index,
-                                   p_array->member_designator ? p_array->member_designator : "",
-                                   p_array->type.array_num_elements, c_off);
-                        }
-                    }
                     else if (a->value_kind == FLOW_VALUE_KIND_UNSIGNED)
                         printf("value.u=%llu", a->value.u);
                     else

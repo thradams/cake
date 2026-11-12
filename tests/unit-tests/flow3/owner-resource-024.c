@@ -1,6 +1,6 @@
 #pragma safety enable
 
-void free(void* _Owner _Nullable p);
+void free(void* _Owner _Opt p);
 char* _Owner strdup(const char* s);
 
 
@@ -12,7 +12,7 @@ struct X {
 
 struct X makex();
 void clear(struct X* p);
-void f(struct X* _Nullable pX)
+void f(struct X* _Opt pX)
 {
     struct X x = makex(); // owner object (x.text) not moved (root see line 17)
     clear(&x); // passing a possible uninitialized object  '(*&x).text' (see line 17)

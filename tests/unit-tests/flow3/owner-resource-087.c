@@ -2,7 +2,7 @@
 
 
 _Clear void * _Owner calloc(int i, int sz);
-void free( void * _Owner _Nullable p);
+void free( void * _Owner _Opt p);
 
 struct X { int i; };
 struct Y { struct X * _Owner p; };

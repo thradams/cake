@@ -12,7 +12,7 @@ void x_destroy(_Dtor struct X*  p)
     free(p->text);
 }
 
-void x_delete(struct X* _Owner _Nullable p)
+void x_delete(struct X* _Owner _Opt p)
 {
     if (p)
     {

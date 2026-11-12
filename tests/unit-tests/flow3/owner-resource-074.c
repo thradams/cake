@@ -3,7 +3,7 @@
 /* x is _Uninitialized and its owner members never assigned: an uninitialized owner owns nothing, free(x) is clean */
 
 _Uninitialized void* _Nonnull _Owner malloc(unsigned long size);
-void free(void* _Owner _Nullable ptr);
+void free(void* _Owner _Opt ptr);
 
 struct Y {
   char * _Nonnull _Owner p0;

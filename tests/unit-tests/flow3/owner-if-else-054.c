@@ -2,7 +2,7 @@
 
     
 _Clear void * _Owner calloc(int i, int n);
-void free(void * _Owner _Nullable p);
+void free(void * _Owner _Opt p);
 
 int main() {
     int * _Owner p1 = 0;

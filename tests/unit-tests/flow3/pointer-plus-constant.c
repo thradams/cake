@@ -43,7 +43,7 @@ void array_decay(int arr[10])
 void local_array(void)
 {
     int a[10];
-    int* q = a + 2; //lint 30 a[2] is not initialized, as &a[2]
+    int* q = a + 2;
     compile_assert(q != 0);
     *q = 0;
 }

@@ -3,7 +3,7 @@
 /* `p->type = make_type()` overwrites the zeroed nested struct with an unknown value, so free(p) through void* correctly reports name_opt/next as possibly owning */
 
 _Clear void* _Owner calloc(unsigned long n, unsigned long size);
-void free(void* _Owner _Nullable p);
+void free(void* _Owner _Opt p);
 
 struct type {
     char* _Owner name_opt;

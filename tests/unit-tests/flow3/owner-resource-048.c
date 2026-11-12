@@ -1,7 +1,7 @@
 #pragma safety enable
 
 _Clear void* _Owner calloc(unsigned long n, unsigned long size);
-void free(void* _Owner _Nullable ptr);
+void free(void* _Owner _Opt ptr);
 
 
 int main()

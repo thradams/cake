@@ -7,7 +7,7 @@ struct X
     void * _Nonnull p;
 };
 _Uninitialized void *_Owner malloc(int i, int sz);
-void free(void *_Owner _Nullable p);
+void free(void *_Owner _Opt p);
 
 int main()
 {

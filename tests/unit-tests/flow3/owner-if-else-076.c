@@ -1,6 +1,6 @@
 #pragma safety enable
 
-void free(void* _Owner _Nullable p);
+void free(void* _Owner _Opt p);
 char* _Owner strdup(const char* s);
 
 struct X {

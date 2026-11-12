@@ -17,6 +17,6 @@ void init(_Out struct X* px)
 int main() {
     struct X x;
     init(&x);
-    /* FIXED: the _Out call keeps the non-_Nullable _Owner member x.s non-null, no "possible null pointer" */
+    /* FIXED: the _Out call keeps the non-_Opt _Owner member x.s non-null, no "possible null pointer" */
     free(x.s);
 }

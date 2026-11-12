@@ -3,7 +3,7 @@
 
 
 _Uninitialized void * _Owner malloc(int sz);
-void free( void * _Owner _Nullable p);
+void free( void * _Owner _Opt p);
 
 
 void f(int i) {   

@@ -8,7 +8,7 @@ struct Y
 };
 
 struct Y* _Owner malloc_y(void);
-void free_y(struct Y* _Owner _Nullable p);
+void free_y(struct Y* _Owner _Opt p);
 
 struct X
 {

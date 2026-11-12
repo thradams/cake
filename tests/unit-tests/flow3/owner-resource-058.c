@@ -6,7 +6,7 @@ struct X
  };
 
  char* _Owner strdup(const char *s);
- void free(void* _Owner _Nullable p);
+ void free(void* _Owner _Opt p);
 
  int main() {
      char* _Owner p0 = strdup("a");

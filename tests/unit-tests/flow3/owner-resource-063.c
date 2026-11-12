@@ -2,7 +2,7 @@
 
 /* a forward goto skipping free(p) joins a fall-through path that frees it: at the label p is possibly not moved, the leak is reported */
 
-void free(void* _Owner _Nullable ptr);
+void free(void* _Owner _Opt ptr);
 _Uninitialized void* _Owner malloc(int size);
 
 void f(int condition)

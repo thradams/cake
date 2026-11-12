@@ -2,7 +2,7 @@
 
 
 
-void free(void* _Owner _Nullable ptr);
+void free(void* _Owner _Opt ptr);
 _Uninitialized void* _Owner malloc(int size);
 
 void f(int c)

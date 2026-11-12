@@ -1,13 +1,13 @@
 #pragma safety enable
 
 
-void free(void* _Owner _Nullable p);
+void free(void* _Owner _Opt p);
 struct X
 {
     int i;
     void* _Owner p;
 };
-void f(struct X* _Nullable p);
+void f(struct X* _Opt p);
 int main()
 {
     struct X x = { 0 };

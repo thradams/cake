@@ -5,7 +5,7 @@
 #define NULL ((void*)0)
 
 char* _Owner get(void);
-void free(void* _Owner _Nullable p);
+void free(void* _Owner _Opt p);
 
 /* free through an _Owner cast moves s -> clean, no leak warning. */
 void freed_via_cast(void)
@@ -35,7 +35,7 @@ void freed_via_cast_through_pointer(void)
 void freed_via_cast_through_deref(void)
 {
     char* _Owner s = get();
-    char* _Owner _Nullable* ps = &s;
+    char* _Owner _Opt* ps = &s;
     free((void*)*ps);
 }
 

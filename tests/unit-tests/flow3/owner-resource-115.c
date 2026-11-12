@@ -1,6 +1,6 @@
 #pragma safety enable
 
-void free(void* _Owner _Nullable p);
+void free(void* _Owner _Opt p);
 char* _Owner strdup(const char* s);
 
 struct Y {
@@ -12,7 +12,7 @@ struct X {
     struct Y* _Nonnull _Owner pY;
 };
 
-void f(struct X* _Nullable pX)
+void f(struct X* _Opt pX)
 {
     if (pX)
     {

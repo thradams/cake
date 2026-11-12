@@ -2,7 +2,7 @@
 
 /* ++ and -- on an _Owner pointer are errors in all four forms (1310/1320), including the prefix forms that used to be accepted */
 
-void free(void* _Owner _Nullable p);
+void free(void* _Owner _Opt p);
 
 /* documented: p++ / ++p are error 1310, p-- / --p are error 1320 */
 
@@ -19,7 +19,7 @@ unsigned long count_chars(const char* s)
 }
 
 /* A view copied off an owner may be walked freely. */
-unsigned long count_via_view(char* _Owner _Nullable owned)
+unsigned long count_via_view(char* _Owner _Opt owned)
 {
     unsigned long n = 0;
     if (owned)
