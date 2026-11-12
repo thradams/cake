@@ -13,6 +13,7 @@
     "unused_extern_report": false,
     "use_cake_headers": false
   },
+  "diagnostics-color": true,
   "include_dirs": [
     "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.51.36231/include/",
     "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Auxiliary/VS/include/",
