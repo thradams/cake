@@ -4200,6 +4200,14 @@ when an output is produced.</p>
 <pre><code class="language-c">_BitInt(100) x; //error 2390: _BitInt(100) needs a 128-bit integer, not available on this target
 </code></pre>
 
+<p>The generated code is C89, where the initializer of a union with static
+storage duration can only initialize its first member.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">static union { float f; int i; } u = { .i = 1 }; //error 2390: initializer for a member of a union that is not the first, in an object with static storage duration
+</code></pre>
+
 <h3 id="toc_265">2400 Annotation in a cast</h3>
 
 <p>A cast changes the type only: it keeps the <code>_Owner</code> and nullability of its

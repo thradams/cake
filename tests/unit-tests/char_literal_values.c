@@ -30,4 +30,10 @@ static_assert(U'é' == 0xE9);
 static_assert(U'😀' == 0x1F600);
 static_assert(U'$' == '$');
 
+/* an octal or hexadecimal escape is the value of the code unit */
+static_assert(u8'\xff' == 255);
+static_assert(u8'\x80' == 128);
+static_assert(u8'\377' == 255);
+static_assert(u8'\x7f' == 127);
+
 /*TODO MORE TESTS*/

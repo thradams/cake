@@ -2427,6 +2427,22 @@ struct type type_common(const struct type* p_type1, const struct type* p_type2, 
     }
 
     /*
+      the result of an operation is not a bit-field, also when an operand is
+      one: sizeof(s.bits + 0) is valid (see type_lvalue_conversion)
+    */
+    if (type_is_bitfield(&promoted_a))
+    {
+        promoted_a.array_num_elements = 0;
+        promoted_a.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+    }
+
+    if (type_is_bitfield(&promoted_b))
+    {
+        promoted_b.array_num_elements = 0;
+        promoted_b.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+    }
+
+    /*
       Then, the integer promotions are performed on both operands. Next, the following rules are
       applied to the promoted operands
     */

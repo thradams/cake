@@ -1711,17 +1711,14 @@ const unsigned char* escape_sequences_decode_opt(const unsigned char* p, unsigne
     }
     else if (*p >= '0' && *p <= '7')
     {
-        // octal digit
+        /* octal-escape-sequence: one to three octal digits (6.4.4.5), "\1012" is 'A' '2' */
         unsigned int result = 0;
-        bool overflow = false;
-        while ((*p >= '0' && *p <= '7'))
+        for (int i = 0; i < 3 && (*p >= '0' && *p <= '7'); i++)
         {
-            if (result > (UINT_MAX >> 3))
-                overflow = true;
             result = (result << 3) | (unsigned int)(*p - '0');
             p++;
         }
-        *out_value = overflow ? UINT_MAX : result;
+        *out_value = result;
     }
     else
     {

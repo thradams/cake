@@ -2587,8 +2587,15 @@ struct expression* _Owner character_constant_expression(struct parser_ctx* ctx)
                 throw;
             }
 
+            /*
+               an octal or hexadecimal escape is the value of the code unit,
+               any value of char8_t (6.4.4.5): u8'\xff' is 255
+            */
+            bool numeric_escape = false;
+
             if (c == '\\')
             {
+                numeric_escape = *p == 'x' || (*p >= '0' && *p <= '7');
                 p = escape_sequences_decode_opt(p, &c);
                 if (p == NULL)
                 {
@@ -2602,7 +2609,7 @@ struct expression* _Owner character_constant_expression(struct parser_ctx* ctx)
                 diagnostic(C_MULTICHAR_ERROR, ctx, ctx->current, NULL, "Unicode character literals may not contain multiple characters");
             }
 
-            if (c > 0x80)
+            if (numeric_escape ? c > 0xff : c > 0x7f)
             {
                 diagnostic(C_CHARACTER_NOT_ENCODABLE_IN_A_SINGLE_CODE_UNIT, ctx, ctx->current, NULL, "character not encodable in a single code unit");
             }
@@ -4205,23 +4212,7 @@ struct expression* _Owner postfix_expression_tail(struct parser_ctx* ctx, struct
                 p_expression_node_new->expression_type = EXPR_POSTFIX_ARRAY;
                 /* result of the subscript operator [] */
 
-                if (!type_is_pointer_or_array(&p_expression_node->object.type))
-                {
-                    diagnostic(C_ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
-                               ctx,
-                               ctx->current, NULL,
-                               "subscripted value is neither array nor pointer");
-                }
-
-                if (type_is_pointer(&p_expression_node->object.type))
-                {
-                    p_expression_node_new->object.type = type_remove_pointer(&p_expression_node->object.type);
-                }
-                else if (type_is_array(&p_expression_node->object.type))
-                {
-                    p_expression_node_new->object.type = get_array_item_type(&p_expression_node->object.type);
-
-                }
+                const struct token* const p_bracket_token = ctx->current;
 
                 parser_match(ctx);
                 if (ctx->current == NULL)
@@ -4239,6 +4230,35 @@ struct expression* _Owner postfix_expression_tail(struct parser_ctx* ctx, struct
                 {
                     expression_delete(p_expression_node_new);
                     throw;
+                }
+
+                if (!type_is_pointer_or_array(&p_expression_node->object.type) &&
+                    type_is_pointer_or_array(&p_expression_node_new->right->object.type))
+                {
+                    /*
+                       E1[E2] is *((E1)+(E2)) (6.5.3.2), so the pointer can be
+                       the one inside the brackets: 1[p] is kept as p[1]
+                    */
+                    struct expression* _Owner p_inside = p_expression_node_new->right;
+                    p_expression_node_new->right = p_expression_node;
+                    p_expression_node = p_inside;
+                }
+
+                if (!type_is_pointer_or_array(&p_expression_node->object.type))
+                {
+                    diagnostic(C_ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+                               ctx,
+                               p_bracket_token, NULL,
+                               "subscripted value is neither array nor pointer");
+                }
+
+                if (type_is_pointer(&p_expression_node->object.type))
+                {
+                    p_expression_node_new->object.type = type_remove_pointer(&p_expression_node->object.type);
+                }
+                else if (type_is_array(&p_expression_node->object.type))
+                {
+                    p_expression_node_new->object.type = get_array_item_type(&p_expression_node->object.type);
                 }
 
                 if (!type_is_integer(&p_expression_node_new->right->object.type))
@@ -5288,8 +5308,18 @@ static int check_sizeof_argument(const struct parser_ctx* ctx,
 
     /*
     * C23 6.5.3.4p1: sizeof shall not be applied to a bit-field member.
+    * Only a member access designates one: sizeof(+s.bits) and
+    * sizeof(s.bits & 1) are values, whose type can still carry the mark.
     */
-    if (type_is_bitfield(p_type))
+    const struct expression* p_operand = p_expression;
+    while (p_operand->expression_type == EXPR_PRIMARY_PARENTHESIS && p_operand->right != NULL)
+    {
+        p_operand = p_operand->right;
+    }
+
+    if (type_is_bitfield(p_type) &&
+        (p_operand->expression_type == EXPR_POSTFIX_DOT ||
+         p_operand->expression_type == EXPR_POSTFIX_ARROW))
     {
         diagnostic(C_ERROR_INVALID_TYPE,
                    ctx,
@@ -5723,7 +5753,10 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
                 mark_pointee_used(ctx, new_expression);
                 /* result of the indirection (unary *) operator applied to a pointer to object */
 
-                if (!type_is_pointer_or_array(&new_expression->right->object.type))
+                const bool operand_is_function = type_is_function(&new_expression->right->object.type);
+
+                if (!operand_is_function &&
+                    !type_is_pointer_or_array(&new_expression->right->object.type))
                 {
                     diagnostic(C_ERROR_INDIRECTION_REQUIRES_POINTER_OPERAND,
                                ctx,
@@ -5731,7 +5764,15 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
                         NULL,
                                "indirection requires pointer operand");
                 }
-                if (type_is_pointer(&new_expression->right->object.type))
+                if (operand_is_function)
+                {
+                    /*
+                       a function designator is converted to a pointer to the
+                       function (6.3.2.1) and * gives the function back: (**f)()
+                    */
+                    new_expression->object.type = type_dup(&new_expression->right->object.type);
+                }
+                else if (type_is_pointer(&new_expression->right->object.type))
                 {
                     new_expression->object.type = type_remove_pointer(&new_expression->right->object.type);
                 }
@@ -6526,9 +6567,21 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
                     throw;
                 }
 
+                /*
+                   a member access that is a bit-field was reported above; what is
+                   left with the mark is a value computed from one, "sizeof(+s.bits)"
+                */
+                struct type operand_type = type_dup(&new_expression->right->object.type);
+                if (type_is_bitfield(&operand_type))
+                {
+                    operand_type.array_num_elements = 0;
+                    operand_type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_BITFIELD;
+                }
+
                 size_t sz3 = 0;
                 enum sizeof_result res =
-                    type_get_sizeof(&new_expression->right->object.type, &sz3, &ctx->options.platform);
+                    type_get_sizeof(&operand_type, &sz3, &ctx->options.platform);
+                type_destroy(&operand_type);
 
                 switch (res)
                 {
@@ -10167,6 +10220,22 @@ struct expression* _Owner conditional_expression(struct parser_ctx* ctx, bool is
                 else
                 {
                     p_conditional_expression->object.type = type_common(&left_type, &right_type, &ctx->options.platform);
+
+                    if (object_has_constant_value(&p_conditional_expression->object))
+                    {
+                        /*
+                           6.5.16: the result is the selected operand converted to
+                           the common type: (1 ? -1 : 1u) is UINT_MAX, not -1
+                        */
+                        struct type t = { 0 };
+                        type_swap(&t, &p_conditional_expression->object.type);
+                        const enum object_type vt = type_to_object_type(&t, &ctx->options.platform);
+                        struct object converted = object_cast(&ctx->options.platform, vt, &p_conditional_expression->object);
+                        object_destroy(&p_conditional_expression->object);
+                        p_conditional_expression->object = converted;
+                        type_swap(&p_conditional_expression->object.type, &t);
+                        type_destroy(&t);
+                    }
                 }
             }
             else if (type_is_struct_or_union(&left_type) && type_is_struct_or_union(&right_type))

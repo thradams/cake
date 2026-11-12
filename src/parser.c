@@ -5957,6 +5957,12 @@ struct typeof_specifier* _Owner typeof_specifier(struct parser_ctx* ctx)
             }
         }
 
+        /*
+           constexpr is a storage class of the operand, not part of its type
+           (the type is already const): typeof_unqual(K) is not read-only
+        */
+        p_typeof_specifier->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_CONSTEXPR;
+
         if (is_typeof_unqual)
         {
             type_remove_all_qualifiers(&p_typeof_specifier->type);
@@ -16997,42 +17003,59 @@ static int braced_initializer_new(struct parser_ctx* ctx,
             {
                 bool entire_object_initialized = false;
 
-                if (type_is_array(&subobject_type) &&
-                    p_initializer_list_item->initializer->assignment_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
                 {
-                    /* 
-                    * struct X { int i; char text[4]; };
-                    * constexpr struct X x = {1, "abc"};
-                    * 
-                    * Also covers wide/UTF string literals (L"", u8"", u"", U"")
-                    * assigned to an array of the matching element type, e.g.
-                    * wchar_t str[5][64] = { L"a", L"b", ... };
+                    /*
+                       Brace elision (6.7.11): the expression initializes the
+                       first scalar inside the subobject, going down through
+                       arrays and structs in any order:
+
+                       struct M { int b; char s[4]; };
+                       struct X { int a[2]; struct M m[2]; };
+                       struct X x = { 1, 2, 3, "abc", 4 };
+
+                       It stops at a struct when the expression is a struct
+                       (struct X b = { other_struct }) and at an array of
+                       characters reached with a string literal, also a wide
+                       or UTF one (wchar_t str[5][64] = { L"a", L"b" }). An
+                       array of pointers is not one: in
+                       "const char* names[2][2] = { "a", "b", "c", "d" }" each
+                       literal initializes a pointer.
                     */
-                    entire_object_initialized = true;
-                }
-                else if (type_is_array(&subobject_type))
-                {
-                    while (type_is_array(&subobject_type))
+                    const struct expression* const p_init_expression =
+                        p_initializer_list_item->initializer->assignment_expression;
+
+                    while (p_subobject != NULL)
                     {
-                        /* 
-                        * struct X { int i[2]; };
-                        * int a[2]={};
-                        * struct  X b = { a };    //error
-                        */
-                        // sub_object_of_union = false;
-                        p_subobject = find_next_subobject( p_subobject, &subobject_type, &is_subobject_of_union);
-                    }
-                }
-                else if (type_is_struct_or_union(&subobject_type))
-                {
-                    if (type_is_struct_or_union(&p_initializer_list_item->initializer->assignment_expression->object.type))
-                    {
-                        // mesmo tipo
-                        entire_object_initialized = true;
-                    }
-                    else
-                    {
-                        p_subobject = find_next_subobject( p_subobject, &subobject_type, &is_subobject_of_union);
+                        if (type_is_array(&subobject_type))
+                        {
+                            if (p_init_expression->expression_type == EXPR_PRIMARY_STRING_LITERAL)
+                            {
+                                struct type item_type = get_array_item_type(&subobject_type);
+                                const bool is_array_of_characters = type_is_integer(&item_type);
+                                type_destroy(&item_type);
+
+                                if (is_array_of_characters)
+                                {
+                                    entire_object_initialized = true;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (type_is_struct_or_union(&subobject_type))
+                        {
+                            if (type_is_struct_or_union(&p_init_expression->object.type))
+                            {
+                                // mesmo tipo
+                                entire_object_initialized = true;
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            break; /* scalar */
+                        }
+
+                        p_subobject = find_next_subobject(p_subobject, &subobject_type, &is_subobject_of_union);
                     }
                 }
 

@@ -380,8 +380,6 @@ static void defer_visit_while_statement(struct defer_visit_ctx* ctx, struct iter
         p_defer->p_iteration_statement = p_iteration_statement;
 
         defer_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-        defer_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
         defer_visit_ctx_pop_until(ctx, p_defer, &p_iteration_statement->defer_list);
     }
     catch
