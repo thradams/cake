@@ -2,7 +2,7 @@
 
 /* `catch { delete(p); p = 0; } if (p && p->m)` must not report an ended pointee: only alternatives that can coexist with the dereferenced pointer count (parser.c, 250 false 31s) */
 
-_Clear void* _Owner calloc(unsigned long n, unsigned long s);
+struct I* _Owner make_i(void); /* an initialized object with unknown member values */
 
 struct D { int x; };
 struct I { struct D* _Owner p_declarator; };
@@ -13,7 +13,7 @@ int maybe(void);
 
 struct I* _Owner f(void)
 {
-    struct I* _Owner p = calloc(1, sizeof(struct I));
+    struct I* _Owner p = make_i();
     try
     {
         if (p == 0) throw;

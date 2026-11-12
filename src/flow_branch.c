@@ -533,6 +533,21 @@ void flow_branch_set_object_moved(struct flow_branch* _Nullable m, const struct 
 
     struct flow_key_alternatives* e = flow_branch_find_add(m, obj);
     if (e == NULL) return;
+    bool copied_from_above = false;
+    if (e->alternatives.size == 0)
+    {
+        /*
+            The values are in a map above (set before the if, moved inside it):
+            the move happens to them on this path. Without them the pointer
+            would lose its target and read as "may be null".
+        */
+        const struct flow_key_alternatives* p_above = flow_branch_search_up(m->p_parent_map, obj);
+        if (p_above != NULL)
+        {
+            flow_alternatives_append(&e->alternatives, &p_above->alternatives);
+            copied_from_above = true;
+        }
+    }
     if (e->alternatives.size == 0)
     {
         struct flow_alternative a =
@@ -564,6 +579,18 @@ void flow_branch_set_object_moved(struct flow_branch* _Nullable m, const struct 
             */
             e->alternatives.data[i]->imaginary = FLOW_IMAGINARY_MOVED; //lint 33
             e->alternatives.data[i]->p_origin_token = p_token; //lint 33
+
+            /*
+                A variable's value copied from above is moved on this path (what it
+                points to ended here too); a same-object side is kept. Not for a
+                member: with a pointer carried by a loop the same member is reached
+                as several objects, and the move of one would be read on the others.
+            */
+            if (copied_from_above && obj->parent == NULL &&
+                !flow_branch_is_under_same_object(e->alternatives.data[i]->p_origin_map)) //lint 33
+            {
+                e->alternatives.data[i]->p_origin_map = m; //lint 33
+            }
         }
     }
 }
@@ -1613,7 +1640,17 @@ void flow_branch_raw_dump(const struct flow_branch* _Nullable map, const struct 
                     const struct flow_alternative* a = e->alternatives.data[i]; //lint 33
                     printf("      [%d] { value_kind=%s ", i, kinds[a->value_kind]);
                     if (a->value_kind == FLOW_VALUE_KIND_PTR || a->value_kind == FLOW_VALUE_KIND_REF)
+                    {
                         printf("value.p=%s%p%s", c_dim, (const void*)a->value.p, c_off);
+                        size_t element_index = 0;
+                        const struct object* p_array = a->value.p != NULL ? object_get_array_of_element(a->value.p, &element_index) : NULL;
+                        if (p_array != NULL)
+                        {
+                            printf(" %s(element %zu of \"%s\"[%zu])%s", c_dim, element_index,
+                                   p_array->member_designator ? p_array->member_designator : "",
+                                   p_array->type.array_num_elements, c_off);
+                        }
+                    }
                     else if (a->value_kind == FLOW_VALUE_KIND_UNSIGNED)
                         printf("value.u=%llu", a->value.u);
                     else

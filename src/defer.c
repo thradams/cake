@@ -398,6 +398,16 @@ static void defer_visit_for_statement(struct defer_visit_ctx* ctx, struct iterat
     {
         if (p_iteration_statement->secondary_block == NULL) throw;
 
+        /*
+            The objects of the for-init belong to the for statement: they end
+            when the loop ends. break and continue stop at the inner scope, so
+            they do not end them; a goto or return out of the loop does.
+        */
+        struct defer_scope* p_for_scope = defer_visit_ctx_push_child(ctx);
+        if (p_for_scope == NULL) throw;
+
+        p_for_scope->p_iteration_statement = p_iteration_statement;
+
         if (p_iteration_statement->declaration &&
             p_iteration_statement->declaration->init_declarator_list.head)
         {
@@ -409,6 +419,7 @@ static void defer_visit_for_statement(struct defer_visit_ctx* ctx, struct iterat
 
         p_defer->p_iteration_statement = p_iteration_statement;
         defer_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+        defer_visit_ctx_pop_until(ctx, p_for_scope, &p_iteration_statement->defer_list);
     }
     catch
     {

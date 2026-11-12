@@ -287,7 +287,7 @@ struct token* _Nonnull token_list_add(struct token_list* list, struct token* _Ow
 
     assert(list->head == NULL || list->head->prev == NULL);
 
-    return list->tail; //lint 35 assert line 286
+    return list->tail;
 
 }
 

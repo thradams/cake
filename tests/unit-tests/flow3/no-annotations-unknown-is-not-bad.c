@@ -1,6 +1,6 @@
 #pragma flow enable
 
-/* Without check_annotations there is no _Out and no _Opt, so the flow analysis
+/* Without check_annotations there is no _Out and no _Nullable, so the flow analysis
    does not assume the worst about what it cannot see:
 
    - a non-const pointer parameter may only write the pointee (it could be an

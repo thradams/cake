@@ -5,7 +5,7 @@
 struct X { struct X* p; int i; };
 
 _Uninitialized void * _Nonnull _Owner malloc(unsigned int size);
-_Clear void * _Owner calloc(unsigned int n, unsigned int size);
+struct X * _Owner make_x(void); /* an initialized object with unknown member values */
 void x_delete(_Dtor struct X* _Owner p);
 
 int * _Owner direct() { return malloc(sizeof(int)); } //lint 30
@@ -86,7 +86,7 @@ struct Y * _Owner set_after_throw(struct Y * _Owner e)
 /* null on the path where the pointee was released: the pointee is not checked there */
 struct X * _Owner null_after_delete(int c)
 {
-    struct X * _Owner p = calloc(1, sizeof(struct X));
+    struct X * _Owner p = make_x();
     try
     {
         if (p == nullptr)

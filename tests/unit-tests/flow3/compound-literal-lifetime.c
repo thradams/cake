@@ -50,7 +50,7 @@ void static_literal(void)
 /* must NOT warn: static variables are not ended at the end of the block */
 void static_variable(void)
 {
-    static char* _Owner _Nullable s = 0;
+    static char* _Owner s = 0;
     free(s);
     s = strdup("a");
 }

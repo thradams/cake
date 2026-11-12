@@ -9,7 +9,7 @@ struct X
 
 struct X* something();
 
-void guarded(struct X* _Opt p)
+void guarded(struct X* _Nullable p)
 {
     p = something();
     if (p)
@@ -19,7 +19,7 @@ void guarded(struct X* _Opt p)
     }
 }
 
-void unguarded(struct X* _Opt p)
+void unguarded(struct X* _Nullable p)
 {
     p = something();
     p = p->next; //lint 33 -> operator applied to a null pointer

@@ -4,7 +4,7 @@
 
 int* _Nonnull _Owner make1();
 int* _Owner make2();
-void free(void * _Owner _Opt p);
+void free(void * _Owner _Nullable p);
 
 
 void f(int condition)

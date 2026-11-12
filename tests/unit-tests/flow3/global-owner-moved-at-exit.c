@@ -5,7 +5,7 @@ char* _Owner strdup(const char* s);
 
 struct X { char* _Owner text; };
 struct X gx;
-char* _Owner _Nullable gs;
+char* _Owner gs;
 
 void f1(void)
 {

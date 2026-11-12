@@ -4205,11 +4205,6 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             }
             break;
 
-        case EXPR_UNARY_CONSTEVAL:
-            assert(p_expression->right != NULL);
-            codegen_visit_expression(ctx, oss, p_expression->right); //lint 35 assert line 4123
-            break;
-
         case EXPR_UNARY_INCREMENT:
             assert(p_expression->right != NULL);
             if (codegen_emit_bitfield_operation(ctx, oss, p_expression->right, "+", NULL, false, true)) //lint 35 assert line 4128

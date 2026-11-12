@@ -7,7 +7,7 @@ void f(int condition)
         int * _Owner p2 = p;
 
         //p is still null here because null pointers are not moved.
-        compile_assert(p == 0); //lint 67 compile_assert failed: value could be any value, including zero, set at line 10 in "try
+        compile_assert(p == 0);
 
         if (condition) throw;
         p = 0;
@@ -16,5 +16,5 @@ void f(int condition)
     {
     }
     
-    compile_assert(p == 0); //lint 67 compile_assert failed: value could be any value, including zero, set at line 19 in "root
+    compile_assert(p == 0);
 }

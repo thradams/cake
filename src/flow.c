@@ -84,19 +84,21 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
 
 static void flow_branch_derive_implied_facts(struct flow_branch* p_arm, struct flow_branch* p_before);
 static bool flow_origins_compatible(const struct flow_branch* _Nullable o1, const struct flow_branch* _Nullable o2);
+static enum flow_branch_kind flow_chain_side_of(const struct flow_branch* _Nullable chain, int branch_id);
 static bool flow_ref_sees_value(const struct flow_alternative* p_ref, const struct flow_alternative* p_value);
 static bool flow_seed_unary_value(struct flow_ctx* ctx, const struct expression* p_expression);
 static int flow_alternative_truth(struct flow_branch* _Nullable map, const struct flow_alternative* alt, int depth);
 static int flow_object_truth(struct flow_branch* _Nullable map, const struct object* p_object, const struct flow_alternative* _Nullable p_ref, int depth);
 static bool flow_map_has_same_object_fact(const struct flow_branch* _Nullable p_map);
 static const struct expression* flow_owner_sink_of(const struct type* p_dest_type, const struct expression* p_src);
-static struct flow_branch* flow_branch_new_pointer_target_arm(struct flow_ctx* ctx, struct flow_branch* p_before, const struct flow_branch* _Nullable p_target_origin);
+static struct flow_branch* flow_branch_new_pointer_target_arm(struct flow_ctx* ctx, struct flow_branch* p_before, const struct flow_branch* _Nullable p_target_origin, const struct flow_branch* _Nullable p_target_narrowed_from);
 /*
     After the write in a target arm, tag the written value with the arm
     (as origin, or as narrowed-from map).
 */
 static void flow_branch_tag_pointer_target_arm(const struct flow_branch* p_arm);
-static bool flow_target_origins_exclusive(const struct flow_branch* _Nullable const target_origins[], int target_count);
+static bool flow_target_origins_exclusive(const struct flow_branch* _Nullable const target_origins[], const struct flow_branch* _Nullable const* _Nullable target_narrowed_from, const struct object* _Nullable const* _Nullable target_objects, int target_count);
+static void flow_tag_exclusive_sides(struct flow_ctx* ctx, struct flow_branch* _Nullable p_true, struct flow_branch* _Nullable p_false);
 
 static void flow_widen_loop_variant_objects(struct flow_branch* _Nullable p_pass1_exit,
                                             struct flow_branch* _Nullable p_pass2_exit,
@@ -157,6 +159,100 @@ static long long flow_cast_integer_value(const struct flow_ctx* ctx, long long v
     return value;
 }
 
+
+/*
+    A known integer value as a local object of the type of p_typed (the object
+    of the declarator or of the expression, which already has its type), so the
+    operations of object.c (arithmetic, cast, comparison) give the value the
+    language gives. The bits of the alternative are a long long, signed or
+    unsigned, converted to the type as the language converts. The object has no
+    value (state not constant) when the alternative is not one known integer of
+    an integer type.
+*/
+static struct object flow_integer_alternative_to_object(const struct platform* target,
+                                                        const struct flow_alternative* alt,
+                                                        const struct object* p_typed)
+{
+    struct object wide = { 0 };
+    if ((alt->value_kind != FLOW_VALUE_KIND_SIGNED && alt->value_kind != FLOW_VALUE_KIND_UNSIGNED) ||
+        alt->value_relation != FLOW_RELATION_EQUAL ||
+        (!type_is_integer(&p_typed->type) && !type_is_bool(&p_typed->type)))
+    {
+        return wide;
+    }
+
+    wide.value_type = alt->value_kind == FLOW_VALUE_KIND_SIGNED ? TYPE_SIGNED_LONG_LONG : TYPE_UNSIGNED_LONG_LONG;
+    wide.state = CONSTANT_VALUE_STATE_CONSTANT;
+    wide.value.host_integer128 = alt->value_kind == FLOW_VALUE_KIND_SIGNED ?
+        integer128_from_signed(alt->value.i) : integer128_from_unsigned(alt->value.u);
+
+    struct object converted = object_cast(target, type_to_object_type(&p_typed->type, target), &wide);
+    object_destroy(&wide);
+    return converted;
+}
+
+/*
+    The value of obj as the value of an alternative of the type of p_typed. A
+    value that does not fit in 64 bits is not tracked: warning 104, and false.
+*/
+static bool flow_object_to_alternative_value(const struct flow_ctx* ctx,
+                                             const struct object* obj,
+                                             const struct object* p_typed,
+                                             const struct token* _Nullable p_token,
+                                             struct flow_alternative* alt)
+{
+    const bool is_unsigned = type_is_unsigned_integer(&p_typed->type);
+    if (is_unsigned ? !integer128_fits_ull(obj->value.host_integer128) : !integer128_fits_ll(obj->value.host_integer128))
+    {
+        if (!ctx->expression_is_not_evaluated && p_token != NULL)
+        {
+            diagnostic(W_FLOW_VALUE_NOT_TRACKED, ctx->ctx, p_token, NULL,
+                       "the value does not fit in 64 bits: it is treated as unknown");
+        }
+        return false;
+    }
+
+    if (is_unsigned)
+    {
+        alt->value_kind = FLOW_VALUE_KIND_UNSIGNED;
+        alt->value.u = integer128_to_ull(obj->value.host_integer128);
+    }
+    else
+    {
+        alt->value_kind = FLOW_VALUE_KIND_SIGNED;
+        alt->value.i = integer128_to_ll(obj->value.host_integer128);
+    }
+    return true;
+}
+
+/* the value of alt, of the type of p_from, converted to the type of p_to as an assignment does: `unsigned char d = 255 + 1;` is 0 */
+static void flow_convert_alternative_to_type(const struct flow_ctx* ctx,
+                                             struct flow_alternative* alt,
+                                             const struct object* p_from,
+                                             const struct object* p_to,
+                                             const struct token* _Nullable p_token)
+{
+    const struct platform* const target = &ctx->ctx->options.platform;
+    struct object source = flow_integer_alternative_to_object(target, alt, p_from);
+    if (source.state != CONSTANT_VALUE_STATE_CONSTANT)
+    {
+        object_destroy(&source);
+        return;
+    }
+
+    if (type_is_integer(&p_to->type) || type_is_bool(&p_to->type))
+    {
+        struct object converted = type_is_bool(&p_to->type) ?
+            object_make_bool(target, !object_is_zero(&source)) : /* 6.3.1.2, as the parser folds the cast */
+            object_cast(target, type_to_object_type(&p_to->type, target), &source);
+        if (!flow_object_to_alternative_value(ctx, &converted, p_to, p_token, alt))
+        {
+            alt->value_relation = FLOW_RELATION_ANY;
+        }
+        object_destroy(&converted);
+    }
+    object_destroy(&source);
+}
 
 void print_object_ptr(struct osstream* ss, const struct object* _Nullable p, bool is_parent)
 {
@@ -293,17 +389,48 @@ static void flow_diagnose_map_path(const struct flow_ctx* ctx,
     }
 }
 
+/*
+    Starts the analysis of a function in this context: what belongs to one function (jumps,
+    labels, switch, loop pass, call effects...) is cleared. A function nested in another
+    (literal, local function) is analyzed in its own copy of the flow_ctx, see
+    flow_visit_function_body.
+*/
+static void flow_ctx_start_function(struct flow_ctx* ctx)
+{
+    ctx->p_current_function_declarator = NULL;
+    ctx->p_throw_join_map = NULL;
+    ctx->p_break_join_map = NULL;
+    ctx->p_continue_join_map = NULL;
+    ctx->throw_join_reached = false;
+    ctx->break_join_reached = false;
+    ctx->continue_join_reached = false;
+    ctx->switch_case_dead = false;
+    ctx->labels_size = 0;
+    ctx->p_switch_condition = NULL;
+    ctx->switch_is_constant = false;
+    ctx->p_switch_live_label = NULL;
+    ctx->p_initial_map = NULL;
+    ctx->p_condition = NULL;
+    ctx->p_owner_sink = NULL;
+    ctx->iteration_pass = 0;
+    ctx->call_effect_arguments_count = 0;
+    ctx->deferred_effects_count = 0;
+    ctx->collect_deferred_effects = false;
+    ctx->call_has_restrict = false;
+    ctx->restrict_arguments_count = 0;
+    ctx->expression_is_not_evaluated = false;
+    ctx->parameter_list = 0;
+    ctx->p_parameter_being_initialized = NULL;
+
+    /* the limits (see flow_check_limits) are per function */
+    ctx->stopped = false;
+    ctx->function_start_time = clock();
+}
+
 /* the parameter of the current function whose state was seeded at p_token (parameters are seeded at the first token of their declaration specifiers) */
 static const struct parameter_declaration* flow_find_parameter_seeded_at(const struct flow_ctx* ctx, const struct token* p_token)
 {
-    if (ctx->p_current_function_declaration == NULL ||
-        ctx->p_current_function_declaration->init_declarator_list.head == NULL)
-    {
-        return NULL;
-    }
-
-    const struct function_declarator* p_fd =
-        declarator_find_function_declarator(ctx->p_current_function_declaration->init_declarator_list.head->p_declarator);
+    const struct function_declarator* p_fd = ctx->p_current_function_declarator;
     if (p_fd == NULL ||
         p_fd->parameter_type_list_opt == NULL ||
         p_fd->parameter_type_list_opt->parameter_list == NULL)
@@ -497,6 +624,12 @@ static struct flow_true_false_branches flow_ensure_branch_pair(struct flow_ctx* 
 static void flow_visit_unlabeled_statement(struct flow_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement);
 static void flow_visit_static_assertion(struct flow_ctx* ctx, struct static_assertion* p_static_assertion);
 static void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration);
+static void flow_visit_function_body(struct flow_ctx* ctx,
+                                     struct function_declarator* _Nullable p_function_declarator,
+                                     struct compound_statement* p_body,
+                                     const struct type* p_function_type,
+                                     const struct declarator* p_function,
+                                     const struct declaration* p_declaration_opt);
 static void flow_visit_secondary_block(struct flow_ctx* ctx, struct secondary_block* _Nullable p_secondary_block);
 static void flow_visit_struct_or_union_specifier(struct flow_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
 static void flow_visit_statement(struct flow_ctx* ctx, struct statement* p_statement);
@@ -705,12 +838,21 @@ static void flow_object_init(struct flow_ctx* ctx, struct object* p_object, cons
     }
 
     enum flow_relation relation = FLOW_RELATION_UNINITIALIZED;
+    bool value_not_tracked = false;
 
     struct flow_alternative value = { 0 };
     if (type_is_pointer(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_PTR;
         value.value.p = (void*)(uintptr_t)integer128_to_ull(p_object->value.host_integer128);
+    }
+    else if (p_object->state == CONSTANT_VALUE_STATE_CONSTANT || p_object->state == CONSTANT_VALUE_EQUAL)
+    {
+        /* a known value that does not fit in 64 bits is unknown (warning 104) */
+        if (!flow_object_to_alternative_value(ctx, p_object, p_object, p_token, &value))
+        {
+            value_not_tracked = true;
+        }
     }
     else if (type_is_signed(&p_object->type))
     {
@@ -731,7 +873,7 @@ static void flow_object_init(struct flow_ctx* ctx, struct object* p_object, cons
 
         case CONSTANT_VALUE_STATE_CONSTANT:
         case CONSTANT_VALUE_EQUAL:
-            relation = FLOW_RELATION_EQUAL;
+            relation = value_not_tracked ? FLOW_RELATION_ANY : FLOW_RELATION_EQUAL;
         break;
 
         case CONSTANT_VALUE_STATE_ANY:
@@ -1033,6 +1175,17 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
             {
                 throw;
             }
+            if (p_pointed != NULL &&
+                ctx->p_parameter_being_initialized != NULL &&
+                p_object == &ctx->p_parameter_being_initialized->object &&
+                (p_type->type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) &&
+                ctx->restrict_pointees_count < (int)(sizeof ctx->restrict_pointees / sizeof ctx->restrict_pointees[0]))
+            {
+                /* the result cannot point into the object of a restrict parameter */
+                ctx->restrict_pointees[ctx->restrict_pointees_count] = p_pointed;
+                ctx->restrict_parameters[ctx->restrict_pointees_count] = ctx->p_parameter_being_initialized;
+                ctx->restrict_pointees_count++;
+            }
 
             if (p_pointed != NULL)
             {
@@ -1127,6 +1280,17 @@ static void flow_parameter_object_init_r(struct flow_ctx* ctx, struct object* p_
             if (!seeded || p_nonnull_map == NULL)
             {
                 throw;
+            }
+            if (p_pointed != NULL &&
+                ctx->p_parameter_being_initialized != NULL &&
+                p_object == &ctx->p_parameter_being_initialized->object &&
+                (p_type->type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) &&
+                ctx->restrict_pointees_count < (int)(sizeof ctx->restrict_pointees / sizeof ctx->restrict_pointees[0]))
+            {
+                /* the result cannot point into the object of a restrict parameter */
+                ctx->restrict_pointees[ctx->restrict_pointees_count] = p_pointed;
+                ctx->restrict_parameters[ctx->restrict_pointees_count] = ctx->p_parameter_being_initialized;
+                ctx->restrict_pointees_count++;
             }
 
             if (p_pointed != NULL)
@@ -1302,44 +1466,94 @@ static void flow_visit_simple_declaration(struct flow_ctx* ctx, struct simple_de
 }
 
 
-static const struct flow_alternative* flow_find_truth_witness(struct flow_branch* _Nullable map,
-                                                                   const struct object* p_object,
-                                                                   int depth)
+static void flow_alternative_describe_value(struct osstream* ss, const struct flow_alternative* alt, bool is_pointer);
+static void flow_findings_join(struct flow_ctx* ctx);
+static void flow_findings_end(struct flow_ctx* ctx);
+static void flow_finding_record(struct flow_ctx* ctx,
+                                const struct object* p_object,
+                                enum diagnostic_id diagnostic_id,
+                                const struct marker* p_marker,
+                                const struct flow_alternative* p_alternative,
+                                const struct flow_branch* _Nullable p_path_map,
+                                const char* message);
+
+/* Warning 85: records every value of p_object that settles p_cond. True when one was recorded. */
+static bool flow_record_truth_witnesses(struct flow_ctx* ctx,
+                                        const struct expression* p_cond,
+                                        const struct expression* p_explained,
+                                        const struct object* p_object,
+                                        const struct flow_alternative* _Nullable p_ref,
+                                        int known,
+                                        int depth)
 {
-    if (depth > 10)
-    {
-        return NULL;
-    }
+    bool recorded = false;
 
-    const struct flow_key_alternatives* p_entry = flow_branch_search_up(map, p_object);
+    /* REF chains are acyclic in practice; the cap is a safety net */
+    const struct flow_key_alternatives* p_entry =
+        depth > 10 ? NULL : flow_branch_search_up(ctx->p_current_flow_branch, p_object);
 
-    if (p_entry == NULL)
-    {
-        return NULL;
-    }
-
-    for (int i = 0; i < p_entry->alternatives.size; i++)
+    for (int i = 0; p_entry != NULL && i < p_entry->alternatives.size; i++)
     {
         const struct flow_alternative* alt = p_entry->alternatives.data[i]; //lint 33
 
-        if (flow_alternative_is_dead(alt))
+        if (flow_alternative_is_dead(alt) ||
+            (p_ref != NULL && !flow_ref_sees_value(p_ref, alt)))
         {
             continue;
         }
 
         if (alt->value_kind == FLOW_VALUE_KIND_REF)
         {
-            if (alt->value.p == NULL)
+            if (alt->value.p != NULL &&
+                flow_record_truth_witnesses(ctx, p_cond, p_explained, alt->value.p, alt, known, depth + 1))
             {
-                continue;
+                recorded = true;
             }
-            return flow_find_truth_witness(map, alt->value.p, depth + 1);
+            continue;
         }
 
-        return alt;
+        /* a literal or unknown operand has no tracked state: the other side explains */
+        if (p_explained != p_cond &&
+            (alt->value_relation == FLOW_RELATION_ANY ||
+             alt->value_relation == FLOW_RELATION_UNINITIALIZED))
+        {
+            continue;
+        }
+
+        const struct marker marker =
+        {
+            .p_token_begin = p_cond->first_token,
+            .p_token_end = p_cond->last_token
+        };
+
+        struct osstream message = { 0 };
+        ss_fprintf(&message, "condition is always %s", known ? "true" : "false");
+
+        if (p_explained != p_cond)
+        {
+            /* "because '<the condition>' is 0" would only repeat the condition */
+            struct osstream name_ss = { 0 };
+            flow_expression_to_string(p_explained, &name_ss);
+            ss_fprintf(&message, " because '%s' is ", name_ss.c_str ? name_ss.c_str : "");
+            flow_alternative_describe_value(&message, alt, type_is_pointer(&p_explained->object.type));
+            ss_close(&name_ss);
+        }
+
+        /* where the value was set, when it is not on the condition's line */
+        if (alt->p_origin_token != NULL &&
+            alt->p_origin_token->token_origin == p_cond->first_token->token_origin &&
+            alt->p_origin_token->line != p_cond->first_token->line)
+        {
+            ss_fprintf(&message, " (see line %d)", alt->p_origin_token->line);
+        }
+
+        flow_finding_record(ctx, &p_cond->object, W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME, &marker,
+                            alt, alt->p_origin_map, message.c_str ? message.c_str : "");
+        ss_close(&message);
+        recorded = true;
     }
 
-    return NULL;
+    return recorded;
 }
 
 /* the value one alternative holds, in words ("null", "not 0", "greater than 3"); no internal state */
@@ -1441,7 +1655,9 @@ static void flow_check_condition_known_at_compile_time(struct flow_ctx* ctx,
         itself, so reporting it would just point back at the line the reader is
         already looking at. Explain the operand instead.
     */
-    const struct expression* p_explained = p_cond;
+    bool recorded = false;
+
+    flow_findings_join(ctx);
 
     if (flow_expression_is_comparison(p_cond))
     {
@@ -1449,32 +1665,21 @@ static void flow_check_condition_known_at_compile_time(struct flow_ctx* ctx,
 
         for (int i = 0; i < 2; i++)
         {
-            if (operands[i] == NULL)
+            if (!recorded && operands[i] != NULL)
             {
-                continue;
-            }
-
-            const struct flow_alternative* p_operand_alt =
-                flow_find_truth_witness(ctx->p_current_flow_branch, &operands[i]->object, 0);
-
-            /*
-                A literal operand has no tracked state; the other side carries
-                the explanation.
-            */
-            if (p_operand_alt != NULL &&
-                    p_operand_alt->value_relation != FLOW_RELATION_ANY &&
-                    p_operand_alt->value_relation != FLOW_RELATION_UNINITIALIZED)
-            {
-                p_explained = operands[i];
-                break;
+                recorded = flow_record_truth_witnesses(ctx, p_cond, operands[i], &operands[i]->object, NULL, known, 0);
             }
         }
     }
 
-    const struct flow_alternative* p_alternative =
-        flow_find_truth_witness(ctx->p_current_flow_branch, &p_explained->object, 0);
+    if (!recorded)
+    {
+        recorded = flow_record_truth_witnesses(ctx, p_cond, p_cond, &p_cond->object, NULL, known, 0);
+    }
 
-    if (p_alternative == NULL)
+    flow_findings_end(ctx);
+
+    if (!recorded)
     {
         /*
             flow_object_truth found a settled value, so an alternative normally
@@ -1482,56 +1687,6 @@ static void flow_check_condition_known_at_compile_time(struct flow_ctx* ctx,
         */
         diagnostic(W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME, ctx->ctx, NULL, &marker,
                    "condition is always %s", known ? "true" : "false");
-        return;
-    }
-
-    /* where the value was set, when it is not on the condition's line */
-    const int see_line =
-        p_alternative->p_origin_token != NULL &&
-        p_alternative->p_origin_token->token_origin == p_cond->first_token->token_origin &&
-        p_alternative->p_origin_token->line != p_cond->first_token->line ?
-        p_alternative->p_origin_token->line : 0;
-
-    char see_line_text[40] = { 0 };
-    if (see_line != 0)
-        snprintf(see_line_text, sizeof see_line_text, " (see line %d)", see_line);
-
-    if (p_explained == p_cond)
-    {
-        /* no operand explains it: "because '<the condition>' is 0" would only repeat the condition */
-        if (diagnostic(W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME, ctx->ctx, NULL, &marker,
-                       "condition is always %s%s", known ? "true" : "false", see_line_text))
-        {
-            flow_explain_alternative(ctx, p_alternative, p_alternative->p_origin_map, &marker);
-        }
-        return;
-    }
-
-    struct osstream name_ss = { 0 };
-    flow_expression_to_string(p_explained, &name_ss);
-
-    struct osstream value_ss = { 0 };
-    flow_alternative_describe_value(&value_ss, p_alternative, type_is_pointer(&p_explained->object.type));
-
-    /*
-        Name the fact, but leave "where it came from" and "which branches were
-        assumed" to the notes below -- same shape as every other diagnostic that
-        reports a fact carried by one alternative.
-    */
-    const bool reported =
-        diagnostic(W_FLOW_CONDITION_KNOWN_AT_COMPILE_TIME, ctx->ctx, NULL, &marker,
-                   "condition is always %s because '%s' is %s%s",
-                   known ? "true" : "false",
-                   name_ss.c_str ? name_ss.c_str : "",
-                   value_ss.c_str ? value_ss.c_str : "",
-                   see_line_text);
-
-    ss_close(&name_ss);
-    ss_close(&value_ss);
-
-    if (reported)
-    {
-        flow_explain_alternative(ctx, p_alternative, p_alternative->p_origin_map, &marker);
     }
 }
 
@@ -1653,11 +1808,14 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
             flow_branch_derive_implied_facts(cond_pair.p_false, p_before);
         }
 
+        const struct flow_branch* p_only_arm = NULL;
         ctx->p_current_flow_branch = cond_pair.p_true;
         flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
 
+        /* an arm whose every path jumped away is unreachable at its end, also without a trailing jump (an endless loop, a switch that returns in every case) */
         const bool true_reached_the_end = !cond_always_false &&
-            !secondary_block_ends_with_jump(p_selection_statement->secondary_block);
+            !secondary_block_ends_with_jump(p_selection_statement->secondary_block) &&
+            !(cond_pair.p_true != NULL && cond_pair.p_true->is_unreachable);
 
         if (p_selection_statement->else_secondary_block_opt)
         {
@@ -1673,7 +1831,8 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
             }
 
             const bool false_reached_the_end = !cond_always_true &&
-                !secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt);
+                !secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt) &&
+                !(cond_pair.p_false != NULL && cond_pair.p_false->is_unreachable);
 
             /*
                 A null branch map means the arena had no map to give; read it as an
@@ -1688,10 +1847,12 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
                 else if (true_reached_the_end)
                 {
                     flow_branch_merge_a_b(p_before, cond_pair.p_true, cond_pair.p_true);
+                    p_only_arm = cond_pair.p_true;
                 }
                 else if (false_reached_the_end)
                 {
                     flow_branch_merge_a_b(p_before, cond_pair.p_false, cond_pair.p_false);
+                    p_only_arm = cond_pair.p_false;
                 }
                 else
                 {
@@ -1708,9 +1869,13 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
                 if (cond_always_true)
                 {
                     if (true_reached_the_end)
+                    {
                         flow_branch_merge_a_b(p_before, cond_pair.p_true, cond_pair.p_true);
+                    }
                     else
+                    {
                         p_before->is_unreachable = true;
+                    }
                 }
                 else if (true_reached_the_end)
                 {
@@ -1719,11 +1884,42 @@ static void flow_visit_if_statement(struct flow_ctx* ctx, struct selection_state
                 else
                 {
                     flow_branch_merge_a_b(p_before, cond_pair.p_false, cond_pair.p_false);
+                    p_only_arm = cond_pair.p_false;
                 }
             }
         }
 
+        /* a path that left for an open join (break, continue, throw, goto) did not pass this if */
+        if (ctx->break_join_reached || ctx->continue_join_reached || ctx->throw_join_reached || ctx->labels_size > 0)
+        {
+            p_only_arm = NULL;
+        }
+
+        /* the other arm returned (`if (!c) return;`): what follows is on the side of the arm that stayed */
+        const int fact_capacity = (int)(sizeof p_before->implied_facts.data / sizeof p_before->implied_facts.data[0]);
+        for (int fact_index = -1; p_only_arm != NULL && fact_index < p_only_arm->implied_facts.count; fact_index++)
+        {
+            /* index -1 is the arm's own side, the others its implied facts */
+            const int branch_id = fact_index < 0 ? p_only_arm->branch_id : p_only_arm->implied_facts.data[fact_index].branch_id;
+            const enum flow_branch_kind kind = fact_index < 0 ? p_only_arm->kind : p_only_arm->implied_facts.data[fact_index].kind;
+            if (branch_id != 0 &&
+                    flow_chain_side_of(p_before, branch_id) == FLOW_BRANCH_ROOT &&
+                    p_before->implied_facts.count < fact_capacity)
+            {
+                p_before->implied_facts.data[p_before->implied_facts.count].branch_id = branch_id;
+                p_before->implied_facts.data[p_before->implied_facts.count].kind = kind;
+                p_before->implied_facts.count++;
+            }
+        }
+
         ctx->p_current_flow_branch = p_before;
+
+        /* the objects of the init-statement and of the condition leave with the if, after its arms joined */
+        flow_exit_block_visit_defer_list(ctx, &p_selection_statement->defer_list,
+                                         p_selection_statement->last_token);
+
+        flow_defer_list_set_end_of_lifetime(ctx, &p_selection_statement->defer_list,
+                                            p_selection_statement->last_token);
     }
     catch
     {
@@ -1759,7 +1955,12 @@ static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement*
     */
     flow_tag_branch_pair(ctx, p_try_branch, p_throw_join);
     if (p_try_branch == NULL)
-        return; /* no map to work with */
+    {
+        /* no map to work with: the enclosing try gets its join back */
+        ctx->p_throw_join_map = p_throw_join_map_old;
+        ctx->throw_join_reached = throw_join_reached_old;
+        return;
+    }
 
     ctx->p_current_flow_branch = p_try_branch;
     flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
@@ -1773,12 +1974,19 @@ static void flow_visit_try_statement(struct flow_ctx* ctx, struct try_statement*
     ctx->throw_join_reached = throw_join_reached_old;
 
     const bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
-    const bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
+    /* the catch runs only after a throw of this try */
+    const bool catch_reached_the_end = throw_join_reached &&
+        !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
 
     if (p_try_statement->catch_secondary_block_opt)
     {
         /* --- visit the catch body, starting from the throw-join map --- */
         struct flow_branch* p_catch_branch = flow_branch_arena_new(&ctx->flow_branch_arena, p_throw_join, FLOW_BRANCH_CATCH_BRANCH);
+        if (p_catch_branch != NULL && !throw_join_reached)
+        {
+            /* no throw: the catch body is dead code */
+            p_catch_branch->is_unreachable = true;
+        }
         ctx->p_current_flow_branch = p_catch_branch;
 
         flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
@@ -1843,7 +2051,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
     struct flow_branch* old_p_initial_map = ctx->p_initial_map;
     struct flow_branch* old_p_break_join_map = ctx->p_break_join_map;
     const bool old_break_join_reached = ctx->break_join_reached;
-    const struct object* old_p_switch_obj_key = ctx->p_switch_obj_key;
+    const struct expression* old_p_switch_condition = ctx->p_switch_condition;
     const bool old_switch_is_constant = ctx->switch_is_constant;
     const struct label* old_p_switch_live_label = ctx->p_switch_live_label;
     const bool old_switch_case_dead = ctx->switch_case_dead;
@@ -1891,20 +2099,12 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
         ctx->p_break_join_map = p_break_join;
         ctx->break_join_reached = false;
 
-        /* the one object the condition refers to (`x`, `s->kind`); several targets: no narrowing */
-        ctx->p_switch_obj_key = NULL;
+        /* every object the condition refers to (`x`, `s->kind`, `*p` with several targets) is narrowed at each case */
+        ctx->p_switch_condition = NULL;
         if (p_selection_statement->condition &&
                 p_selection_statement->condition->expression)
         {
-            const struct flow_key_alternatives* p_condition_entry =
-                flow_branch_search_up(ctx->p_current_flow_branch, &p_selection_statement->condition->expression->object);
-            if (p_condition_entry != NULL &&
-                p_condition_entry->alternatives.size == 1 &&
-                p_condition_entry->alternatives.data[0]->value_kind == FLOW_VALUE_KIND_REF &&
-                p_condition_entry->alternatives.data[0]->value.p != NULL) //lint 33 33
-            {
-                ctx->p_switch_obj_key = p_condition_entry->alternatives.data[0]->value.p; //lint 33
-            }
+            ctx->p_switch_condition = p_selection_statement->condition->expression;
         }
 
         /* switch (5): only the matching case (or default) runs; the others do not reach the end */
@@ -1985,7 +2185,7 @@ static void flow_visit_switch_statement(struct flow_ctx* ctx, struct selection_s
     ctx->p_initial_map = old_p_initial_map;
     ctx->p_break_join_map = old_p_break_join_map;
     ctx->break_join_reached = old_break_join_reached;
-    ctx->p_switch_obj_key = old_p_switch_obj_key;
+    ctx->p_switch_condition = old_p_switch_condition;
     ctx->switch_is_constant = old_switch_is_constant;
     ctx->p_switch_live_label = old_p_switch_live_label;
     ctx->switch_case_dead = old_switch_case_dead;
@@ -2363,7 +2563,7 @@ static const struct flow_branch* flow_origin_more_specific_keep_sides(struct flo
         !flow_branch_is_ancestor_or_self(o1, o2) &&
         !flow_branch_is_ancestor_or_self(o2, o1))
     {
-        struct flow_branch* p_arm = flow_branch_new_pointer_target_arm(ctx, (struct flow_branch*)o1, o2);
+        struct flow_branch* p_arm = flow_branch_new_pointer_target_arm(ctx, (struct flow_branch*)o1, o2, NULL);
         if (p_arm != NULL && p_arm->implied_facts.count > 0)
         {
             p_result = p_arm;
@@ -2555,16 +2755,15 @@ static void flow_findings_flush(struct flow_ctx* ctx)
         {
             const struct flow_finding_sample* sample = &p->samples[k];
 
-            /* samples sharing an origin or a path would repeat its notes; numbered paths each keep their label */
-            if (k == 0 || p->sample_count > 1 || sample->p_origin_token != p->samples[k - 1].p_origin_token)
+            /* every sample gets its origin note: with several, each one is a numbered path */
+            const struct flow_alternative origin =
             {
-                const struct flow_alternative origin =
-                {
-                    .p_origin_token = sample->p_origin_token,
-                    .p_origin_map = sample->p_origin_map
-                };
-                flow_diagnose_state_origin(ctx, &origin, &p->marker, id, p->sample_count > 1 ? k + 1 : 0);
-            }
+                .p_origin_token = sample->p_origin_token,
+                .p_origin_map = sample->p_origin_map
+            };
+            flow_diagnose_state_origin(ctx, &origin, &p->marker, id, p->sample_count > 1 ? k + 1 : 0);
+
+            /* samples sharing a path would repeat its note */
             if (k == 0 || sample->p_path_map != p->samples[k - 1].p_path_map)
                 flow_diagnose_map_path(ctx, sample->p_path_map, sample->p_use_map);
         }
@@ -3376,6 +3575,13 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
 {
     bool findings_scope_opened = false;
 
+    /*
+        The values the destination gets, stored after every source value was
+        read: the destination can be reached through the source (`p->last = c`
+        with c == p), and a read there must not find what is being written.
+    */
+    struct flow_alternatives dest_values = { 0 };
+
     try
     {
         if (ctx->p_current_flow_branch == NULL)
@@ -3479,7 +3685,6 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 const struct flow_alternative* a = p_src_alts->alternatives.data[ai]; //lint 33
                 if (a->value_kind != FLOW_VALUE_KIND_REF) continue;
                 if (a->value.p == NULL || a->value.p == p_object_src) continue;
-                if ((uintptr_t)a->value.p < 0x100000) continue; /* defensive, as elsewhere */
                 if (!a->value.p->members.head) continue;
 
                 const struct flow_branch* p_old_source_ref_origin = ctx->p_source_ref_origin;
@@ -3570,29 +3775,45 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 flow_branch_find_add(ctx->p_current_flow_branch, p_object_dest);
             if (e == NULL) throw;
             /* like &array[0] when the array is known, so its lifetime can be checked (issue #210) */
-            const struct object* p_array = NULL;
+            struct flow_alternatives decayed = { 0 };
             const struct flow_key_alternatives* p_src_alternatives = flow_branch_search_up(ctx->p_current_flow_branch, p_object_src);
             for (int i = 0; p_src_alternatives != NULL && i < p_src_alternatives->alternatives.size; i++)
             {
-                if (p_src_alternatives->alternatives.data[i]->value_kind == FLOW_VALUE_KIND_REF &&
-                        p_src_alternatives->alternatives.data[i]->value.p != NULL) //lint 33
+                const struct flow_alternative* p_src_alt = p_src_alternatives->alternatives.data[i]; //lint 33
+                if (p_src_alt->value_kind != FLOW_VALUE_KIND_REF || p_src_alt->value.p == NULL)
                 {
-                    p_array = p_src_alternatives->alternatives.data[i]->value.p; //lint 33
-                    break;
+                    continue;
                 }
+                /* each array on its own path (c ? a : b) */
+                const struct object* p_array = p_src_alt->value.p;
+                struct flow_alternative a =
+                {
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = p_array->members.head},
+                    .value_relation = p_array->members.head ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_expression->first_token
+                };
+                flow_alternatives_add(&decayed, &a);
+            }
+
+            if (decayed.size == 0)
+            {
+                struct flow_alternative a =
+                {
+                    .value_kind = FLOW_VALUE_KIND_PTR,
+                    .value = {.p = NULL},
+                    .value_relation = FLOW_RELATION_NOT_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_expression->first_token
+                };
+                flow_alternatives_add(&decayed, &a);
             }
 
             flow_alternatives_clear(&e->alternatives);
-            struct flow_alternative a =
-            {
-                .value_kind = FLOW_VALUE_KIND_PTR,
-                .value = {.p = p_array ? p_array->members.head : NULL},
-                .value_relation = (p_array && p_array->members.head) ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
-                .imaginary = FLOW_IMAGINARY_NONE,
-                .p_origin_map = ctx->p_current_flow_branch,
-                .p_origin_token = p_expression->first_token
-            };
-            flow_alternatives_add(&e->alternatives, &a);
+            e->alternatives = decayed; /* move */
             return;
         }
 
@@ -3758,15 +3979,34 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 continue;
             }
 
+            if (init_type == INIT_PARAMETER &&
+                    type_is_array(&p_object_dest->type) &&
+                    p_object_dest->type.array_num_elements > 0 &&
+                    p_src_alternative->value_kind == FLOW_VALUE_KIND_PTR &&
+                    p_src_alternative->value.p != NULL)
+            {
+                /* p points to a[k]: the callee may use a[k] .. a[k + n - 1] */
+                size_t element_index = 0;
+                const struct object* p_array = object_get_array_of_element(p_src_alternative->value.p, &element_index);
+                if (p_array != NULL && p_array->type.array_num_elements > 0)
+                {
+                    const long long available = (long long)p_array->type.array_num_elements - (long long)element_index;
+                    const long long required = (long long)p_object_dest->type.array_num_elements;
+                    if (available < required)
+                    {
+                        struct osstream size_ss = { 0 };
+                        ss_fprintf(&size_ss, "only %lld element(s) from the argument pointer, but the parameter array size is %lld",
+                                   available, required);
+                        flow_finding_record(ctx, p_object_src, W_FLOW_ARGUMENT_SMALLER_THAN_ARRAY_PARAMETER, &marker,
+                                            p_src_alternative, p_src_alternative->p_origin_map,
+                                            size_ss.c_str ? size_ss.c_str : "");
+                        ss_close(&size_ss);
+                    }
+                }
+            }
+
             if (p_src_alternative->value_kind == FLOW_VALUE_KIND_REF)
             {
-                if (p_src_alternative->value.p != NULL &&
-                        (uintptr_t)p_src_alternative->value.p < 0x100000)
-                {
-                    /* Defensive: skip corrupted REF. */
-                    continue;
-                }
-
                 if (p_src_alternative->value.p != p_object_src)
                 {
                     const struct flow_branch* p_old_source_ref_origin = ctx->p_source_ref_origin;
@@ -3810,6 +4050,10 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
 
             if (init_type == INIT_OBJ && p_dest_key_alternatives != NULL)
             {
+                /* the destination gets the value converted to its type */
+                struct flow_alternative dest_value = *p_src_alternative;
+                flow_convert_alternative_to_type(ctx, &dest_value, p_object_src, p_object_dest, p_expression->first_token);
+
                 const bool integer_zero =
                     p_src_alternative->value_relation == FLOW_RELATION_EQUAL &&
                     ((p_src_alternative->value_kind == FLOW_VALUE_KIND_SIGNED && p_src_alternative->value.i == 0) ||
@@ -3821,29 +4065,29 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                     struct flow_alternative null_pointer = *p_src_alternative;
                     null_pointer.value_kind = FLOW_VALUE_KIND_PTR;
                     null_pointer.value.p = NULL;
-                    flow_alternatives_add(&p_dest_key_alternatives->alternatives, &null_pointer);
+                    flow_alternatives_add(&dest_values, &null_pointer);
                 }
                 else if (flow_same_object_side_of(ctx, ctx->p_source_ref_origin) != NULL &&
                          flow_same_object_side_of(ctx, p_src_alternative->p_origin_map) == NULL)
                 {
                     /* the value reached through a REF on a same-object side keeps the side */
-                    struct flow_alternative copied = *p_src_alternative;
+                    struct flow_alternative copied = dest_value;
                     copied.p_origin_map = flow_origin_more_specific_keep_sides(ctx, copied.p_origin_map, ctx->p_source_ref_origin);
-                    flow_alternatives_add(&p_dest_key_alternatives->alternatives, &copied);
+                    flow_alternatives_add(&dest_values, &copied);
                 }
                 else if (ctx->p_current_flow_branch != NULL &&
                          p_src_alternative->p_origin_map != ctx->p_current_flow_branch &&
                          flow_branch_is_ancestor_or_self(p_src_alternative->p_origin_map, ctx->p_current_flow_branch))
                 {
                     /* the destination got this value on this path, as a narrowing does */
-                    struct flow_alternative assigned = *p_src_alternative;
+                    struct flow_alternative assigned = dest_value;
                     assigned.p_origin_map = ctx->p_current_flow_branch;
                     assigned.p_narrowed_from = flow_alternative_narrowed_provenance(p_src_alternative, ctx->p_current_flow_branch);
-                    flow_alternatives_add(&p_dest_key_alternatives->alternatives, &assigned);
+                    flow_alternatives_add(&dest_values, &assigned);
                 }
                 else
                 {
-                    flow_alternatives_add(&p_dest_key_alternatives->alternatives, p_src_alternative);
+                    flow_alternatives_add(&dest_values, &dest_value);
                 }
             }
 
@@ -3998,6 +4242,8 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                 flow_expression_to_string(p_expression, &name_ss);
                 /* inside a struct copy the null pointer is a member: name 'x.m', not the struct 'x' */
                 const char* member = p_object_src->member_designator;
+                /* one report for all the targets of the expression (`*pp` to a or b); a member is its own fact */
+                const struct object* p_finding_key = p_object_src->parent != NULL ? p_object_src : &p_expression->object;
                 if (member && member[0] == '.' && name_ss.c_str &&
                     type_is_struct_or_union(&p_expression->object.type))
                 {
@@ -4038,7 +4284,7 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
                         (is_null_constant ? "null pointer '%s' assigned to a non-nullable pointer" :
                                             "'%s' may be null, but it is assigned to a non-nullable pointer");
                 ss_fprintf(&ss, fmt, name_ss.c_str ? name_ss.c_str : "");
-                flow_finding_record(ctx, p_object_src, W_FLOW_NULLABLE_TO_NON_NULLABLE, &marker,
+                flow_finding_record(ctx, p_finding_key, W_FLOW_NULLABLE_TO_NON_NULLABLE, &marker,
                                     p_src_alternative, ctx->p_current_flow_branch,
                                     ss.c_str ? ss.c_str : "");
                 ss_close(&ss);
@@ -4121,6 +4367,14 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
             }
         }
 
+        if (init_type == INIT_OBJ && dest_values.size > 0)
+        {
+            /* search again: the checks above may have added entries */
+            struct flow_key_alternatives* p_dest_entry = flow_branch_find_add(ctx->p_current_flow_branch, p_object_dest);
+            if (p_dest_entry == NULL) throw;
+            flow_alternatives_append(&p_dest_entry->alternatives, &dest_values);
+        }
+
         /*
             A copy is a move: copying an _Owner leaf consumes the source. Aggregates
             reach here once per member (`struct S t = *p;`)
@@ -4144,6 +4398,8 @@ static void flow_check_object_init_assigment(struct flow_ctx* ctx,
     catch
     {
     }
+
+    flow_alternatives_clear(&dest_values);
 
     if (findings_scope_opened)
         flow_findings_end(ctx);
@@ -4385,6 +4641,7 @@ static void flow_check_assigment(struct flow_ctx* ctx,
         in its own arm and the arms merged. One target: plain overwrite.
     */
     const struct flow_branch* _Nullable target_origins[16] = { 0 };
+    const struct flow_branch* _Nullable target_narrowed_from[16] = { 0 };
     const struct object* _Nullable target_objects[16] = { 0 };
     int target_count = 0;
     for (int i = 0;
@@ -4393,12 +4650,12 @@ static void flow_check_assigment(struct flow_ctx* ctx,
     {
         const struct flow_alternative* p_alternative = p_expression_dest_key_alternatives->alternatives.data[i]; //lint 33
         if (p_alternative->value_kind == FLOW_VALUE_KIND_REF &&
-                p_alternative->value.p != NULL &&
-                (uintptr_t)p_alternative->value.p >= 0x100000)
+                p_alternative->value.p != NULL)
         {
             if (target_count < (int)(sizeof target_origins / sizeof target_origins[0]))
             {
                 target_origins[target_count] = p_alternative->p_origin_map;
+                target_narrowed_from[target_count] = p_alternative->p_narrowed_from;
                 target_objects[target_count] = p_alternative->value.p;
             }
             target_count++;
@@ -4410,7 +4667,17 @@ static void flow_check_assigment(struct flow_ctx* ctx,
     const bool write_in_arms = p_before != NULL &&
         target_count > 1 &&
         target_count <= (int)(sizeof target_arms / sizeof target_arms[0]) &&
-        flow_target_origins_exclusive(target_origins, target_count);
+        flow_target_origins_exclusive(target_origins, target_narrowed_from, target_objects, target_count);
+    /*
+        Targets that are not exclusive (a pointer carried by a loop): which one
+        is written is not known, so each target may keep its old value. Only the
+        values without ownership facts are kept: a moved or ended old value kept
+        on a path where the write happened would be a false report.
+    */
+    const bool write_may_miss = p_before != NULL &&
+        target_count > 1 &&
+        target_count <= (int)(sizeof target_arms / sizeof target_arms[0]) &&
+        !write_in_arms;
     int target_arm_count = 0;
 
     for (int i = 0;
@@ -4424,25 +4691,54 @@ static void flow_check_assigment(struct flow_ctx* ctx,
         {
             const struct object* p_object_dest = p_expression_dest_alternative->value.p;
 
-            if (p_object_dest != NULL && (uintptr_t)p_object_dest < 0x100000)
-            {
-                /*
-                    Defensive, as in flow_check_object_init_assigment: skip a mistagged
-                    REF alternative.
-                */
-                continue;
-            }
-
             struct flow_branch* p_target_arm = NULL;
             if (write_in_arms && p_before != NULL && p_object_dest != NULL)
             {
-                p_target_arm = flow_branch_new_pointer_target_arm(ctx, p_before, p_expression_dest_alternative->p_origin_map);
+                p_target_arm = flow_branch_new_pointer_target_arm(ctx, p_before, p_expression_dest_alternative->p_origin_map, p_expression_dest_alternative->p_narrowed_from);
                 if (p_target_arm == NULL)
                 {
                     /* never this object on this path */
                     continue;
                 }
                 ctx->p_current_flow_branch = p_target_arm;
+            }
+
+            /* the arms of a write that may miss this target: written, or kept as it was */
+            struct flow_branch* p_written_arm = NULL;
+            struct flow_branch* p_kept_arm = NULL;
+            if (write_may_miss && p_before != NULL && p_object_dest != NULL && p_object_dest->members.head == NULL)
+            {
+                p_written_arm = flow_branch_arena_new(&ctx->flow_branch_arena, p_before, FLOW_BRANCH_POINTER_TARGET);
+                p_kept_arm = flow_branch_arena_new(&ctx->flow_branch_arena, p_before, FLOW_BRANCH_POINTER_TARGET);
+                struct flow_key_alternatives* p_kept_entry = (p_written_arm != NULL && p_kept_arm != NULL) ?
+                    flow_branch_find_add(p_kept_arm, p_object_dest) : NULL;
+
+                const struct flow_key_alternatives* p_old = flow_branch_search_up(p_before, p_object_dest);
+                for (int k = 0; p_kept_entry != NULL && p_old != NULL && k < p_old->alternatives.size; k++)
+                {
+                    const struct flow_alternative* p_old_alternative = p_old->alternatives.data[k]; //lint 33
+                    if (p_old_alternative->imaginary == FLOW_IMAGINARY_NONE &&
+                        p_old_alternative->value_relation != FLOW_RELATION_UNINITIALIZED &&
+                        !p_old_alternative->contradicted)
+                    {
+                        struct flow_alternative kept = *p_old_alternative;
+                        kept.p_origin_map = p_kept_arm;
+                        flow_alternatives_add(&p_kept_entry->alternatives, &kept);
+                    }
+                }
+
+                if (p_kept_entry == NULL || p_kept_entry->alternatives.size == 0)
+                {
+                    /* nothing to keep: a plain overwrite */
+                    p_written_arm = NULL;
+                    p_kept_arm = NULL;
+                }
+                else
+                {
+                    /* written or kept, never both on one path */
+                    flow_tag_exclusive_sides(ctx, p_written_arm, p_kept_arm);
+                    ctx->p_current_flow_branch = p_written_arm;
+                }
             }
 
             struct marker marker = expression_to_marker(p_expression_dest);
@@ -4471,6 +4767,14 @@ static void flow_check_assigment(struct flow_ctx* ctx,
                 ctx->p_current_flow_branch = p_before;
                 target_arms[target_arm_count] = p_target_arm;
                 target_arm_count++;
+            }
+
+            if (p_written_arm != NULL && p_kept_arm != NULL && p_before != NULL)
+            {
+                flow_branch_tag_pointer_target_arm(p_written_arm);
+                ctx->p_current_flow_branch = p_before;
+                const struct flow_branch* const weak_arms[2] = { p_written_arm, p_kept_arm };
+                flow_branch_merge_arms(p_before, weak_arms, 2);
             }
         }
     }
@@ -4531,65 +4835,41 @@ static const struct flow_key_alternatives* flow_pointer_pointee_on_demand(struct
         p_left_alternatives != NULL &&
         type_is_pointer(&p_pointer_expression->object.type))
     {
-        int ref_count = 0;
+        /*
+            Each REF target is made in its own entry (safety-049) and the REFs are
+            kept, so each target is read only with the values its REF can see.
+        */
         for (int i = 0; i < p_left_alternatives->alternatives.size; i++)
         {
-            if (p_left_alternatives->alternatives.data[i]->value_kind == FLOW_VALUE_KIND_REF &&
-                p_left_alternatives->alternatives.data[i]->value.p != NULL) //lint 33
+            /* search again: making a pointee may move the entries */
+            const struct flow_key_alternatives* p_refs =
+                flow_branch_search_up(ctx->p_current_flow_branch, &p_pointer_expression->object);
+            if (p_refs == NULL || i >= p_refs->alternatives.size)
             {
-                ref_count++;
+                break;
             }
-        }
-
-        if (ref_count > 1)
-        {
-            /*
-                Several targets (p2->pY with p2 == p1 or not): each one is made in
-                its own entry, and the REFs are kept, so each target is read only
-                with the values its REF can see.
-            */
-            for (int i = 0; i < p_left_alternatives->alternatives.size; i++)
+            const struct flow_alternative* p_alternative = p_refs->alternatives.data[i]; //lint 33
+            if (p_alternative->value_kind != FLOW_VALUE_KIND_REF || p_alternative->value.p == NULL)
             {
-                /* search again: making a pointee may move the entries */
-                const struct flow_key_alternatives* p_refs =
-                    flow_branch_search_up(ctx->p_current_flow_branch, &p_pointer_expression->object);
-                if (p_refs == NULL || i >= p_refs->alternatives.size)
-                    break;
-                const struct flow_alternative* a = p_refs->alternatives.data[i]; //lint 33
-                if (a->value_kind != FLOW_VALUE_KIND_REF || a->value.p == NULL)
-                    continue;
-                const struct flow_key_alternatives* p_resolved = flow_branch_search_up(ctx->p_current_flow_branch, a->value.p);
-                if (p_resolved != NULL &&
-                    flow_pointer_pointee_on_demand_in(ctx, p_pointer_expression, a->value.p, p_resolved) == NULL)
-                {
-                    return NULL;
-                }
+                continue;
             }
-            return flow_branch_search_up(ctx->p_current_flow_branch, &p_pointer_expression->object);
-        }
-
-        /*
-            Fabricate into the variable's entry (via REF), not the temporary's, so
-            the same pointee is found on the next read (safety-049).
-        */
-        const struct object* p_key = &p_pointer_expression->object;
-        const struct flow_alternative* p_first =
-            p_left_alternatives->alternatives.data != NULL && p_left_alternatives->alternatives.size > 0 ?
-            p_left_alternatives->alternatives.data[0] : NULL;
-        if (p_first != NULL &&
-            p_first->value_kind == FLOW_VALUE_KIND_REF &&
-            p_first->value.p != NULL)
-        {
-            const struct object* p_ref = p_first->value.p;
             const struct flow_key_alternatives* p_resolved =
-            flow_branch_search_up(ctx->p_current_flow_branch, p_ref);
-            if (p_resolved != NULL)
+                flow_branch_search_up(ctx->p_current_flow_branch, p_alternative->value.p);
+            if (p_resolved != NULL &&
+                flow_pointer_pointee_on_demand_in(ctx, p_pointer_expression, p_alternative->value.p, p_resolved) == NULL)
             {
-                p_key = p_ref;
-                p_left_alternatives = p_resolved;
+                return NULL;
             }
         }
-        return flow_pointer_pointee_on_demand_in(ctx, p_pointer_expression, p_key, p_left_alternatives);
+
+        /* the values held by the expression itself, next to the REFs */
+        const struct flow_key_alternatives* p_own =
+            flow_branch_search_up(ctx->p_current_flow_branch, &p_pointer_expression->object);
+        if (p_own == NULL)
+        {
+            p_own = p_left_alternatives;
+        }
+        return flow_pointer_pointee_on_demand_in(ctx, p_pointer_expression, &p_pointer_expression->object, p_own);
     }
     return p_left_alternatives;
 }
@@ -4962,7 +5242,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
                 target_origins[i - group_start] = ctx->deferred_effects[i].p_target_origin;
             }
             const bool apply_in_arms = group_end - group_start > 1 &&
-                flow_target_origins_exclusive(target_origins, group_end - group_start);
+                flow_target_origins_exclusive(target_origins, NULL, NULL, group_end - group_start);
 
             for (int i = group_start; i < group_end; i++)
             {
@@ -4982,7 +5262,7 @@ static void flow_visit_function_arguments(struct flow_ctx* ctx,
                 struct flow_branch* p_target_arm = NULL;
                 if (apply_in_arms && p_before != NULL)
                 {
-                    p_target_arm = flow_branch_new_pointer_target_arm(ctx, p_before, e->p_target_origin);
+                    p_target_arm = flow_branch_new_pointer_target_arm(ctx, p_before, e->p_target_origin, NULL);
                     if (p_target_arm == NULL)
                     {
                         continue; /* never this pointee on this path */
@@ -5109,7 +5389,7 @@ static void flow_invalidate_unknown_index_write(struct flow_ctx* ctx,
                     write_in_arms = p_before != NULL &&
                         target_count > 1 &&
                         target_count <= (int)(sizeof target_arms / sizeof target_arms[0]) &&
-                        flow_target_origins_exclusive(target_origins, target_count);
+                        flow_target_origins_exclusive(target_origins, NULL, NULL, target_count);
                 }
 
                 for (int left_index = 0; p_left_entry != NULL && left_index < p_left_entry->alternatives.size; left_index++)
@@ -5171,7 +5451,7 @@ static void flow_invalidate_unknown_index_write(struct flow_ctx* ctx,
                             struct flow_branch* p_target_arm = NULL;
                             if (write_in_arms && p_before != NULL)
                             {
-                                p_target_arm = flow_branch_new_pointer_target_arm(ctx, p_before, p_candidate->p_origin_map);
+                                p_target_arm = flow_branch_new_pointer_target_arm(ctx, p_before, p_candidate->p_origin_map, NULL);
                             }
 
                             if (!write_in_arms || p_target_arm != NULL)
@@ -6185,21 +6465,24 @@ static void flow_branch_derive_implied_facts(struct flow_branch* p_arm, struct f
     each target is written in its own arm, made from the origin of the value
     that gave that target. NULL when that origin cannot happen here.
 */
-static struct flow_branch* flow_branch_new_pointer_target_arm(struct flow_ctx* ctx, struct flow_branch* p_before, const struct flow_branch* _Nullable p_target_origin)
+static struct flow_branch* flow_branch_new_pointer_target_arm(struct flow_ctx* ctx, struct flow_branch* p_before, const struct flow_branch* _Nullable p_target_origin, const struct flow_branch* _Nullable p_target_narrowed_from)
 {
     /* an entry side never closes in a join: it takes the write itself */
-    if (p_target_origin != NULL && p_target_origin->p_parent_map == p_before && flow_branch_kind_is_entry_side(p_target_origin->kind))
+    if (p_target_origin != NULL && p_target_narrowed_from == NULL && p_target_origin->p_parent_map == p_before && flow_branch_kind_is_entry_side(p_target_origin->kind))
     {
         return (struct flow_branch*)p_target_origin;
     }
 
     struct flow_branch* p_arm = NULL;
-    if (flow_origins_compatible(p_target_origin, p_before))
+    if (flow_origins_compatible(p_target_origin, p_before) &&
+        flow_origins_compatible(p_target_narrowed_from, p_before))
     {
         p_arm = flow_branch_arena_new(&ctx->flow_branch_arena, p_before, FLOW_BRANCH_POINTER_TARGET);
     }
 
-    for (const struct flow_branch* p_origin = p_target_origin; p_arm != NULL && p_origin != NULL; p_origin = p_origin->p_parent_map)
+    /* the target is the pointer's on the paths through its origin (index 0) and its narrowed-from map (index 1) */
+    for (int chain_index = 0; chain_index < 2; chain_index++)
+    for (const struct flow_branch* p_origin = chain_index == 0 ? p_target_origin : p_target_narrowed_from; p_arm != NULL && p_origin != NULL; p_origin = p_origin->p_parent_map)
     {
         /* index -1 is the map's own side, the others its implied facts */
         for (int fact_index = -1; fact_index < p_origin->implied_facts.count; fact_index++)
@@ -6224,14 +6507,26 @@ static struct flow_branch* flow_branch_new_pointer_target_arm(struct flow_ctx* c
     opposite sides of a branch; otherwise (loop-carried pointer) overwrite
     each target.
 */
-static bool flow_target_origins_exclusive(const struct flow_branch* _Nullable const target_origins[], int target_count)
+static bool flow_target_origins_exclusive(const struct flow_branch* _Nullable const target_origins[], const struct flow_branch* _Nullable const* _Nullable target_narrowed_from, const struct object* _Nullable const* _Nullable target_objects, int target_count)
 {
     bool exclusive = true;
     for (int i = 0; i < target_count && exclusive; i++)
     {
         for (int j = i + 1; j < target_count && exclusive; j++)
         {
-            if (flow_origins_compatible(target_origins[i], target_origins[j]))
+            /* the same object on two paths is one target: the write goes to it on both, they need not be exclusive */
+            if (target_objects != NULL && target_objects[i] == target_objects[j])
+            {
+                continue;
+            }
+
+            /* a value exists on the paths through its origin and through its narrowed-from map */
+            const struct flow_branch* p_narrowed_i = target_narrowed_from != NULL ? target_narrowed_from[i] : NULL;
+            const struct flow_branch* p_narrowed_j = target_narrowed_from != NULL ? target_narrowed_from[j] : NULL;
+            if (flow_origins_compatible(target_origins[i], target_origins[j]) &&
+                flow_origins_compatible(target_origins[i], p_narrowed_j) &&
+                flow_origins_compatible(p_narrowed_i, target_origins[j]) &&
+                flow_origins_compatible(p_narrowed_i, p_narrowed_j))
             {
                 exclusive = false;
             }
@@ -6424,6 +6719,8 @@ static bool flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
 
     /* an alternative that can take this arm; none: no path takes it */
     bool any_path = false;
+    /* a value the REF sees: with none, nothing is known on the path of the REF and the arm is not excluded */
+    bool seen_by_ref = false;
 
     for (int k = 0; k < p_existing->alternatives.size; k++)
     {
@@ -6434,6 +6731,8 @@ static bool flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
             flow_alternatives_add(&p_dest_entry->alternatives, alt);
             continue;
         }
+
+        seen_by_ref = true;
 
         const bool excludes_arm = true_branch ?
             (alt->value_relation == FLOW_RELATION_EQUAL && flow_value_is_false(alt)) :
@@ -6624,7 +6923,7 @@ static bool flow_narrow_map_into(struct flow_ctx* ctx, const struct expression* 
             }
         }
     }
-    return any_path;
+    return any_path || (p_ref != NULL && !seen_by_ref);
 }
 
 static struct flow_branch* flow_narrow_map_branch(struct flow_ctx* ctx, const struct expression* _Nullable p_read, struct flow_branch_arena* arena, struct flow_branch* _Nullable p_before,
@@ -6669,10 +6968,55 @@ static int flow_interval_relational(long long llo, long long lhi,
     return -1;
 }
 
-static int flow_pair_boolean(const struct flow_alternative* lval,
-                             const struct flow_alternative* rval,
-                             enum expression_type op)
+/* the comparison of object.c: the operands are converted to the common type first */
+static struct object flow_compare_objects(const struct platform* target,
+                                          enum expression_type op,
+                                          const struct object* a,
+                                          const struct object* b)
 {
+    char message[200] = { 0 };
+    switch (op)
+    {
+        case EXPR_EQUALITY_EQUAL:
+            return object_equal(target, a, b, message);
+        case EXPR_EQUALITY_NOT_EQUAL:
+            return object_not_equal(target, a, b, message);
+        case EXPR_RELATIONAL_BIGGER_THAN:
+            return object_greater_than(target, a, b, message);
+        case EXPR_RELATIONAL_BIGGER_OR_EQUAL_THAN:
+            return object_greater_than_or_equal(target, a, b, message);
+        case EXPR_RELATIONAL_LESS_THAN:
+            return object_smaller_than(target, a, b, message);
+        default:
+            return object_smaller_than_or_equal(target, a, b, message);
+    }
+}
+
+static int flow_pair_boolean(const struct flow_ctx* ctx,
+                             const struct flow_alternative* lval,
+                             const struct flow_alternative* rval,
+                             enum expression_type op,
+                             const struct object* p_left_object,
+                             const struct object* p_right_object)
+{
+    /* two known integers: the comparison of the language, not of two long long */
+    {
+        const struct platform* const target = &ctx->ctx->options.platform;
+        struct object left = flow_integer_alternative_to_object(target, lval, p_left_object);
+        struct object right = flow_integer_alternative_to_object(target, rval, p_right_object);
+        int known = -1;
+        if (left.state == CONSTANT_VALUE_STATE_CONSTANT && right.state == CONSTANT_VALUE_STATE_CONSTANT)
+        {
+            struct object result = flow_compare_objects(target, op, &left, &right);
+            known = object_is_zero(&result) ? 0 : 1;
+            object_destroy(&result);
+        }
+        object_destroy(&left);
+        object_destroy(&right);
+        if (known != -1)
+            return known;
+    }
+
     switch (op)
     {
         case EXPR_EQUALITY_EQUAL:
@@ -6795,7 +7139,7 @@ static bool flow_comparison_result_alts(struct flow_ctx* ctx,
                     if (!flow_origins_compatible(lval->p_origin_map, rval->p_origin_map))
                         continue;
 
-                    int b = flow_pair_boolean(lval, rval, op);
+                    int b = flow_pair_boolean(ctx, lval, rval, op, &p_left->object, &p_right->object); //lint 33 33 assert line, p_left and p_right of this function
                     if (b == -1)
                     {
                         unknown = true;
@@ -6981,6 +7325,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
 
                     enum flow_relation result_rel = FLOW_RELATION_ANY;
                     long long result_val = ANY_VALUE;
+                    enum flow_value_kind result_kind = FLOW_VALUE_KIND_SIGNED;
 
                     /* Warn if any divisor alternative can be zero, not only for constants. */
                     if ((op == '/' || op == '%') &&
@@ -7015,88 +7360,70 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                     /* Only if both are EQUAL and numeric can we compute an exact result */
                     if (lval->value_relation == FLOW_RELATION_EQUAL && rval->value_relation == FLOW_RELATION_EQUAL)
                     {
-                        bool lnum = (lval->value_kind == FLOW_VALUE_KIND_SIGNED || lval->value_kind == FLOW_VALUE_KIND_UNSIGNED);
-                        bool rnum = (rval->value_kind == FLOW_VALUE_KIND_SIGNED || rval->value_kind == FLOW_VALUE_KIND_UNSIGNED);
-                        if (lnum && rnum)
+                        const bool lnum = (lval->value_kind == FLOW_VALUE_KIND_SIGNED || lval->value_kind == FLOW_VALUE_KIND_UNSIGNED);
+                        const bool rnum = (rval->value_kind == FLOW_VALUE_KIND_SIGNED || rval->value_kind == FLOW_VALUE_KIND_UNSIGNED);
+                        if (lnum && rnum &&
+                            type_is_integer(&p_left->object.type) &&
+                            type_is_integer(&p_right->object.type) &&
+                            type_is_integer(&p_result->object.type))
                         {
-                            long long l = (lval->value_kind == FLOW_VALUE_KIND_SIGNED) ? lval->value.i : (long long)lval->value.u;
-                            long long r = (rval->value_kind == FLOW_VALUE_KIND_SIGNED) ? rval->value.i : (long long)rval->value.u;
+                            /*
+                                The value of the operation is the one of the language: object.c
+                                promotes the operands, takes the common type and wraps an unsigned
+                                result, as the compiler does for a constant expression.
+                            */
+                            const struct platform* const target = &ctx->ctx->options.platform;
+                            struct object left_object = flow_integer_alternative_to_object(target, lval, &p_left->object);
+                            struct object right_object = flow_integer_alternative_to_object(target, rval, &p_right->object);
 
+                            const bool right_is_zero = integer128_to_ull(right_object.value.host_integer128) == 0;
+                            char message[200] = { 0 };
+                            struct object computed = { 0 };
+                            bool has_operation = true;
                             switch (op)
                             {
-                                case '+':
-                                    result_val = l + r;
-                                    result_rel = FLOW_RELATION_EQUAL;
-                                break;
-                                case '-':
-                                    result_val = l - r;
-                                    result_rel = FLOW_RELATION_EQUAL;
-                                break;
-                                case '*':
-                                    result_val = l * r;
-                                    result_rel = FLOW_RELATION_EQUAL;
-                                break;
-                                case '/':
-                                    if (r == 0)
-                                    {
-                                        /*
-                                            already warned above by the
-                                            possibly-zero-divisor check
-                                        */
-                                        /* result remains ANY */
-                                    }
-                                    else
-                                    {
-                                        /* LLONG_MIN / -1 overflows, and the host division traps (x64); the wrapped value is used */
-                                        result_val = (r == -1) ? (long long)(0ULL - (unsigned long long)l) : l / r;
-                                        result_rel = FLOW_RELATION_EQUAL;
-                                    }
-                                break;
-                                case '%':
-                                    if (r == 0)
-                                    {
-                                        /*
-                                            already warned above by the
-                                            possibly-zero-divisor check
-                                        */
-                                        /* result remains ANY */
-                                    }
-                                    else
-                                    {
-                                        result_val = (r == -1) ? 0 : l % r; /* LLONG_MIN % -1 traps too */
-                                        result_rel = FLOW_RELATION_EQUAL;
-                                    }
-                                break;
-                                case '<': /* << */
-                                case '>': /* >> */
-                                    if (r < 0 || r >= (long long)(sizeof(long long) * 8))
-                                    {
-                                        /*
-                                            shift count out of range: result is
-                                            undefined -- leave ANY.
-                                        */
-                                    }
-                                    else
-                                    {
-                                        result_val = (op == '<') ? (l << r) : (l >> r);
-                                        result_rel = FLOW_RELATION_EQUAL;
-                                    }
-                                break;
-                                case '&':
-                                    result_val = l & r;
-                                    result_rel = FLOW_RELATION_EQUAL;
-                                break;
-                                case '|':
-                                    result_val = l | r;
-                                    result_rel = FLOW_RELATION_EQUAL;
-                                break;
-                                case '^':
-                                    result_val = l ^ r;
-                                    result_rel = FLOW_RELATION_EQUAL;
-                                break;
-                                default:
-                                break;
+                                case '+': computed = object_add(target, &left_object, &right_object, message); break;
+                                case '-': computed = object_sub(target, &left_object, &right_object, message); break;
+                                case '*': computed = object_mul(target, &left_object, &right_object, message); break;
+                                case '/': computed = object_div(target, &left_object, &right_object, message); break;
+                                case '%': computed = object_mod(target, &left_object, &right_object, message); break;
+                                case '<': computed = object_shift_left(target, &left_object, &right_object, message); break;
+                                case '>': computed = object_shift_right(target, &left_object, &right_object, message); break;
+                                case '&': computed = object_bitwise_and(target, &left_object, &right_object, message); break;
+                                case '|': computed = object_bitwise_or(target, &left_object, &right_object, message); break;
+                                case '^': computed = object_bitwise_xor(target, &left_object, &right_object, message); break;
+                                default: has_operation = false; break;
                             }
+
+                            /*
+                                An operation the language leaves undefined has no value here, the
+                                result stays ANY: a division by zero (warned above), a shift out of
+                                the width of its type, a signed overflow. An unsigned wrap-around
+                                is defined: object.c reports it as a message and gives the value.
+                            */
+                            const long long shift_count = integer128_to_ll(right_object.value.host_integer128);
+                            const bool shift_in_range = (op != '<' && op != '>') ||
+                                (shift_count >= 0 && shift_count < (long long)target_get_num_of_bits(target, computed.value_type));
+                            const bool defined = has_operation &&
+                                (message[0] == '\0' || object_type_is_unsigned_integer(computed.value_type)) &&
+                                !((op == '/' || op == '%') && right_is_zero) &&
+                                shift_in_range &&
+                                computed.state == CONSTANT_VALUE_STATE_CONSTANT;
+                            if (defined)
+                            {
+                                struct object converted = object_cast(target, type_to_object_type(&p_result->object.type, target), &computed);
+                                struct flow_alternative value = { 0 };
+                                if (flow_object_to_alternative_value(ctx, &converted, &p_result->object, p_value_token, &value))
+                                {
+                                    result_kind = value.value_kind;
+                                    result_val = value.value_kind == FLOW_VALUE_KIND_UNSIGNED ? (long long)value.value.u : value.value.i;
+                                    result_rel = FLOW_RELATION_EQUAL;
+                                }
+                                object_destroy(&converted);
+                            }
+                            object_destroy(&computed);
+                            object_destroy(&left_object);
+                            object_destroy(&right_object);
                         }
                     }
                     else if ((op == '+' || op == '-') &&
@@ -7164,6 +7491,70 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                         {
                             const enum flow_value_kind base_kind = base->value_kind; /* lint 33 68 BUG in flow */
 
+                            /* the base points into an array: a[j] + k is a[j + k] */
+                            const struct object* p_base_array = NULL;
+                            size_t base_index = 0;
+                            if (base_kind == FLOW_VALUE_KIND_PTR && base->value.p != NULL)
+                            {
+                                p_base_array = object_get_array_of_element(base->value.p, &base_index);
+                            }
+                            else if (base_kind == FLOW_VALUE_KIND_REF && base->value.p != NULL &&
+                                     type_is_array(&base->value.p->type))
+                            {
+                                /* array decay: a + k */
+                                p_base_array = base->value.p;
+                                base_index = 0;
+                            }
+
+                            if (p_base_array != NULL)
+                            {
+                                const struct flow_alternative* p_offset = base == lval ? rval : lval;
+                                const bool offset_is_known =
+                                    p_offset->value_relation == FLOW_RELATION_EQUAL &&
+                                    (p_offset->value_kind == FLOW_VALUE_KIND_SIGNED || p_offset->value_kind == FLOW_VALUE_KIND_UNSIGNED);
+                                const long long offset = !offset_is_known ? 0 :
+                                    p_offset->value_kind == FLOW_VALUE_KIND_SIGNED ? p_offset->value.i : (long long)p_offset->value.u;
+                                const long long new_index = (long long)base_index + (op == '-' ? -offset : offset);
+
+                                /* a pointer outside a[0] .. a + N (one past the end) is undefined behavior */
+                                long long offset_lo = 0, offset_hi = 0;
+                                if (!ctx->expression_is_not_evaluated &&
+                                    flow_alt_to_interval(p_offset, &offset_lo, &offset_hi))
+                                {
+                                    const long long array_size = (long long)p_base_array->type.array_num_elements;
+                                    const long long index_lo = (long long)base_index + (op == '-' ? -offset_hi : offset_lo);
+                                    const long long index_hi = (long long)base_index + (op == '-' ? -offset_lo : offset_hi);
+                                    if (array_size > 0 && (index_lo > array_size || index_hi < 0))
+                                    {
+                                        flow_finding_record(ctx, &p_result->object, W_FLOW_OUT_OF_BOUNDS, &marker,
+                                                            p_offset, p_offset->p_origin_map,
+                                                            index_hi < 0 ? "pointer arithmetic goes before the start of the array" :
+                                                                           "pointer arithmetic goes past the end of the array");
+                                    }
+                                }
+
+                                struct object* p_new_element = NULL;
+                                if (offset_is_known &&
+                                    new_index >= 0 &&
+                                    new_index < (long long)p_base_array->type.array_num_elements)
+                                {
+                                    p_new_element = object_get_member(p_base_array, (size_t)new_index);
+                                }
+
+                                /* unknown or one past the end: a non-null pointer of unknown target */
+                                struct flow_alternative a =
+                                {
+                                    .value_kind = FLOW_VALUE_KIND_PTR,
+                                    .value = {.p = p_new_element },
+                                    .value_relation = p_new_element != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL,
+                                    .imaginary = FLOW_IMAGINARY_NONE,
+                                    .p_origin_map = p_pair_origin,
+                                    .p_origin_token = p_value_token
+                                };
+                                flow_alternatives_add(&result_alts, &a);
+                                continue;
+                            }
+
                             if (base_kind == FLOW_VALUE_KIND_PTR)
                             {
                                 /* Keep the pointer alternative, on the path of the pair. */
@@ -7200,7 +7591,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                     /* two compatible origins) so the value stays correlated. */
                     struct flow_alternative a =
                     {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
+                        .value_kind = result_kind,
                         .value_relation = result_rel,
                         .imaginary = FLOW_IMAGINARY_NONE,
                         .p_origin_map = p_pair_origin,
@@ -7208,7 +7599,7 @@ static void flow_evaluate_binary_arithmetic(struct flow_ctx* ctx,
                     }; /* could be refined based on type */
                     if (result_rel != FLOW_RELATION_ANY)
                     {
-                        a.value.i = result_val;
+                        a.value.i = result_val; /* an unsigned result keeps the same bits in .u */
                     }
                     else
                     {
@@ -7581,7 +7972,10 @@ static bool flow_seed_unary_value(struct flow_ctx* ctx, const struct expression*
                     {
                         all_mapped = false;
                     }
-                    out.p_origin_map = ctx->p_current_flow_branch;
+                    /* the value of its path, as in ! below */
+                    out.p_origin_map = p_values != NULL ?
+                        flow_origin_more_specific(p_value->p_origin_map, p_operand->p_origin_map) :
+                        p_value->p_origin_map;
                 }
                 else if (op == EXPR_UNARY_NOT)
                 {
@@ -7606,7 +8000,9 @@ static bool flow_seed_unary_value(struct flow_ctx* ctx, const struct expression*
                     {
                         all_mapped = false;
                     }
-                    out.p_origin_map = ctx->p_current_flow_branch;
+                    out.p_origin_map = p_values != NULL ?
+                        flow_origin_more_specific(p_value->p_origin_map, p_operand->p_origin_map) :
+                        p_value->p_origin_map;
                 }
                 out.p_origin_token = p_expression->first_token;
                 if (all_mapped)
@@ -7734,6 +8130,49 @@ static bool flow_seed_logical_value(struct flow_ctx* ctx, const struct expressio
     return true;
 }
 
+/* which arm some target of a tested member or element takes (`p->m` with p pointing to several objects) */
+struct flow_arms_reached
+{
+    bool any_target;
+    bool true_reached;
+    bool false_reached;
+};
+
+/*
+    Narrows one target of a tested member or element on both arms, read through
+    its REF. A target that no value takes into an arm leaves that arm with the
+    values it had: the arm is then only for the other targets.
+*/
+static void flow_narrow_target_into_arms(struct flow_ctx* ctx,
+                                         const struct expression* _Nullable p_read,
+                                         struct flow_branch* p_true,
+                                         struct flow_branch* p_false,
+                                         const struct object* p_target,
+                                         const struct token* _Nullable p_token,
+                                         const struct flow_alternative* p_ref,
+                                         struct flow_arms_reached* p_reached)
+{
+    p_reached->any_target = true;
+    if (flow_narrow_map_into(ctx, p_read, p_true, ctx->p_current_flow_branch, p_target, true, p_token, p_ref))
+        p_reached->true_reached = true;
+    else
+        flow_branch_remove(p_true, p_target);
+
+    if (flow_narrow_map_into(ctx, NULL, p_false, ctx->p_current_flow_branch, p_target, false, p_token, p_ref))
+        p_reached->false_reached = true;
+    else
+        flow_branch_remove(p_false, p_target);
+}
+
+/* an arm no target takes is unreachable */
+static void flow_close_arms_not_reached(const struct flow_arms_reached* p_reached, struct flow_branch* p_true, struct flow_branch* p_false)
+{
+    if (p_reached->any_target && !p_reached->true_reached)
+        p_true->is_unreachable = true;
+    if (p_reached->any_target && !p_reached->false_reached)
+        p_false->is_unreachable = true;
+}
+
 /*
     `->` for one value of the pointer, read through p_ref when not NULL. True when
     the value has a member object: it is added to p_result, and narrowed on both arms.
@@ -7747,7 +8186,8 @@ static bool flow_arrow_member_of_value(struct flow_ctx* ctx,
                                        bool has_object,
                                        struct flow_branch* p_true,
                                        struct flow_branch* p_false,
-                                       struct flow_key_alternatives* p_result)
+                                       struct flow_key_alternatives* p_result,
+                                       struct flow_arms_reached* p_reached)
 {
     assert(p_expression->left != NULL);
 
@@ -7801,8 +8241,7 @@ static bool flow_arrow_member_of_value(struct flow_ctx* ctx,
     };
     flow_alternatives_add(&p_result->alternatives, &a);
 
-    flow_narrow_map_into(ctx, ctx->p_condition == p_expression ? p_expression : NULL, p_true, ctx->p_current_flow_branch, p_member, true, p_expression->first_token, NULL);
-    flow_narrow_map_into(ctx, NULL, p_false, ctx->p_current_flow_branch, p_member, false, p_expression->first_token, NULL);
+    flow_narrow_target_into_arms(ctx, ctx->p_condition == p_expression ? p_expression : NULL, p_true, p_false, p_member, p_expression->first_token, &a, p_reached);
     return true;
 }
 
@@ -7865,7 +8304,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             .p_origin_token = p_expression->first_token
                         };
 
-                        /* A pointer global follows its declared nullability (`stdout` is non-null). */
+                        /* A pointer global follows its declared nullability: nullable unless _Nonnull (the parser applies the default). */
                         if (type_is_pointer(&p_expression->object.type))
                         {
                             a.value_kind = FLOW_VALUE_KIND_PTR;
@@ -7978,8 +8417,24 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
 
             case EXPR_PRIMARY_STRING_LITERAL:
             {
-                /* Seed a string literal as a definite-nonzero SIGNED placeholder, not FLOW_VALUE_KIND_PTR (which crashes flow_check_object_access on its synthetic char members) -- object_to_signed_long_long has no real integer for an array object, which would read as NULL. */
-                if (!flow_set_object_signed(ctx, &p_expression->object, 1, FLOW_RELATION_EQUAL, p_expression->first_token)) throw;
+                /* the literal is a static const array made on demand: decay points into it */
+                struct object* p_literal = flow_allocated_object_arena_new(&ctx->allocated_object_arena);
+                if (p_literal == NULL) throw;
+                make_object(&p_expression->object.type, p_literal, MAKE_STATE_ANY, &ctx->ctx->options.platform);
+
+                struct flow_key_alternatives* p_entry = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
+                if (p_entry == NULL) throw;
+                flow_alternatives_clear(&p_entry->alternatives);
+                struct flow_alternative a =
+                {
+                    .value_kind = FLOW_VALUE_KIND_REF,
+                    .value = {.p = p_literal},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = ctx->p_current_flow_branch,
+                    .p_origin_token = p_expression->first_token
+                };
+                flow_alternatives_add(&p_entry->alternatives, &a);
             }
             break;
 
@@ -8012,6 +8467,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     throw;
 
                 flow_tag_branch_pair(ctx, p_true, p_false);
+                struct flow_arms_reached arms_reached = { 0 };
 
                 for (int i = 0; p_left_alternatives != NULL && i < p_left_alternatives->alternatives.size; i++)
                 {
@@ -8026,26 +8482,26 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         /* Seed an unseeded member on `.` access, like `->` does. */
                         flow_seed_member_default(ctx, p_member, p_expression, p_expression->first_token);
 
+                        /* the member is on the paths of the object it belongs to: `(*p).m` with p to a or b */
+                        struct flow_alternative a =
                         {
-                            struct flow_alternative a =
-                            {
-                        .value_kind = FLOW_VALUE_KIND_REF,
-                        .value = {.p = p_member},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .p_origin_map = ctx->p_current_flow_branch,
-                        .p_origin_token = p_expression->first_token
-                            };
-                            flow_alternatives_add(&result_entry->alternatives, &a);
-                        }
+                            .value_kind = FLOW_VALUE_KIND_REF,
+                            .value = {.p = p_member},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = flow_origin_more_specific_keep_sides(ctx, ctx->p_current_flow_branch, p_left_alternative->p_origin_map),
+                            .p_narrowed_from = p_left_alternative->p_narrowed_from,
+                            .p_origin_token = p_expression->first_token
+                        };
+                        flow_alternatives_add(&result_entry->alternatives, &a);
 
                         if (p_member != NULL)
                         {
-                            flow_narrow_map_into(ctx, ctx->p_condition == p_expression ? p_expression : NULL, p_true, ctx->p_current_flow_branch, p_member, true, p_expression->first_token, NULL);
-                            flow_narrow_map_into(ctx, NULL, p_false, ctx->p_current_flow_branch, p_member, false, p_expression->first_token, NULL);
+                            flow_narrow_target_into_arms(ctx, ctx->p_condition == p_expression ? p_expression : NULL, p_true, p_false, p_member, p_expression->first_token, &a, &arms_reached);
                         }
                     }
                 }
+                flow_close_arms_not_reached(&arms_reached, p_true, p_false);
 
                 /* Narrow on the member field used as bool. */
                 return (struct flow_true_false_branches)
@@ -8077,6 +8533,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 flow_tag_branch_pair(ctx, p_true, p_false);
 
                 bool any_member_resolved = false;
+                struct flow_arms_reached arms_reached = { 0 };
 
                 /*
                     One report per access, with the count: a merge can leave several null
@@ -8127,17 +8584,24 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 if (!flow_ref_sees_value(ptr_alt, p_pointer_alt))
                                     continue;
                                 flow_record_uninitialized_operand_value(ctx, p_expression->left, p_pointer_alt, &marker); //lint 35 assert line 6919
-                                if (flow_arrow_member_of_value(ctx, p_expression, &marker, &access_marker, p_pointer_alt, ptr_alt, true, p_true, p_false, result_entry))
+                                /* an unknown value (after a call) is not a pointer value: no null report */
+                                if (p_pointer_alt->value_kind != FLOW_VALUE_KIND_PTR)
+                                {
+                                    continue;
+                                }
+                                if (flow_arrow_member_of_value(ctx, p_expression, &marker, &access_marker, p_pointer_alt, ptr_alt, true, p_true, p_false, result_entry, &arms_reached))
                                     any_member_resolved = true;
                             }
                         }
                         else if (ptr_alt->value_kind == FLOW_VALUE_KIND_PTR &&
-                                 flow_arrow_member_of_value(ctx, p_expression, &marker, &access_marker, ptr_alt, NULL, p_left_alternatives->p_obj_key != &p_expression->left->object, p_true, p_false, result_entry))
+                                 flow_arrow_member_of_value(ctx, p_expression, &marker, &access_marker, ptr_alt, NULL, p_left_alternatives->p_obj_key != &p_expression->left->object, p_true, p_false, result_entry, &arms_reached))
                         {
                             any_member_resolved = true;
                         }
                     }
                 }
+
+                flow_close_arms_not_reached(&arms_reached, p_true, p_false);
 
                 /* a pointer member's pointee too: `q = p->next` and `p->next` share it */
                 if (any_member_resolved && type_is_pointer(&p_expression->object.type))
@@ -8202,9 +8666,43 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 flow_visit_expression(ctx, p_expression->left);
                 flow_visit_expression(ctx, p_expression->right);
 
+                /*
+                    p[k] with a known k is the object p points to, moved k elements: the
+                    same object `*p` (k == 0) and `a[j + k]` (p points to a[j]) give, so a
+                    write through one is read through the other.
+                */
+                struct flow_branch* p_pointer_true = NULL;
+                struct flow_branch* p_pointer_false = NULL;
+                bool pointer_element_resolved = false;
+                struct flow_arms_reached pointer_arms_reached = { 0 };
+
+                /* an array parameter is a pointer: `int a[]` is `int* a` */
+                const struct expression* p_subscripted = skip_parenthesis(p_expression->left); //lint 35 assert line 7201
+                const bool left_is_array_parameter =
+                    type_is_array(&p_subscripted->object.type) &&
+                    p_subscripted->expression_type == EXPR_PRIMARY_DECLARATOR &&
+                    p_subscripted->declarator != NULL &&
+                    (p_subscripted->declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER);
+
                 /* p[i] dereferences p: the same per-value checks as *p */
-                if (type_is_pointer(&skip_parenthesis(p_expression->left)->object.type)) //lint 35 assert line 7201
+                if (type_is_pointer(&p_subscripted->object.type) || left_is_array_parameter)
                 {
+                    /*
+                        Only a constant index: a flow-derived one (`p[i]` in a loop, i == 0 on
+                        the first pass) is another element on every iteration.
+                    */
+                    const bool index_is_known = object_has_constant_value(&p_expression->right->object); //lint 33 assert line 7200
+                    const signed long long known_index = index_is_known ? object_to_signed_long_long(&p_expression->right->object) : 0;
+
+                    /* added before the operand's entry is taken: adding can move the entries */
+                    struct flow_key_alternatives* p_pointer_result_entry = NULL;
+                    if (index_is_known)
+                    {
+                        p_pointer_result_entry = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
+                        if (p_pointer_result_entry == NULL) throw;
+                        flow_alternatives_clear(&p_pointer_result_entry->alternatives);
+                    }
+
                     struct marker marker = expression_to_marker(p_expression);
                     const struct flow_key_alternatives* p_left_alternatives =
                         flow_branch_search_up(ctx->p_current_flow_branch, &skip_parenthesis(p_expression->left)->object); //lint 35 assert line 7201
@@ -8225,7 +8723,130 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             {
                                 continue;
                             }
-                            flow_check_dereferenced_value(ctx, p_expression, p_value, p_left_alt->p_origin_map, &marker);
+                            /* an array parameter is here only to find its element: it has no null check */
+                            if (!left_is_array_parameter)
+                            {
+                                flow_check_dereferenced_value(ctx, p_expression, p_value, p_left_alt->p_origin_map, &marker);
+                            }
+
+                            if (p_pointer_result_entry != NULL &&
+                                p_value->value_kind == FLOW_VALUE_KIND_PTR &&
+                                p_value->value.p != NULL)
+                            {
+                                size_t base_index = 0;
+                                const struct object* p_base_array = object_get_array_of_element(p_value->value.p, &base_index);
+                                const struct object* p_element = NULL;
+                                if (p_base_array != NULL)
+                                {
+                                    const long long position = (long long)base_index + known_index;
+                                    if (position >= 0)
+                                    {
+                                        p_element = object_get_member(p_base_array, (size_t)position);
+                                    }
+                                }
+                                else if (known_index == 0)
+                                {
+                                    /* not an element of a known array: only p[0] is the pointee */
+                                    p_element = p_value->value.p;
+                                }
+
+                                if (p_element != NULL)
+                                {
+                                    if (p_pointer_true == NULL || p_pointer_false == NULL)
+                                    {
+                                        p_pointer_true = flow_branch_arena_new_branch(&ctx->flow_branch_arena, ctx->p_current_flow_branch, true, p_expression);
+                                        p_pointer_false = flow_branch_arena_new_branch(&ctx->flow_branch_arena, ctx->p_current_flow_branch, false, p_expression);
+                                        if (p_pointer_true == NULL || p_pointer_false == NULL)
+                                            throw;
+                                        flow_tag_branch_pair(ctx, p_pointer_true, p_pointer_false);
+                                    }
+
+                                    /* the origin of the pointer value keeps the element on its path, as in `*p` */
+                                    struct flow_alternative a =
+                                    {
+                                        .value_kind = FLOW_VALUE_KIND_REF,
+                                        .value = {.p = p_element},
+                                        .value_relation = FLOW_RELATION_EQUAL,
+                                        .imaginary = FLOW_IMAGINARY_NONE,
+                                        .p_origin_map = p_value->p_origin_map,
+                                        .p_origin_token = p_expression->first_token
+                                    };
+                                    flow_alternatives_add(&p_pointer_result_entry->alternatives, &a);
+
+                                    flow_narrow_target_into_arms(ctx, ctx->p_condition == p_expression ? p_expression : NULL, p_pointer_true, p_pointer_false, p_element, p_expression->first_token, &a, &pointer_arms_reached);
+                                    pointer_element_resolved = true;
+                                }
+                            }
+
+                            if (left_is_array_parameter)
+                            {
+                                continue;
+                            }
+
+                            /* p points to a[k]: p[i] is a[k + i] */
+                            size_t element_index = 0;
+                            const struct object* p_array =
+                                !ctx->expression_is_not_evaluated &&
+                                p_value->value_kind == FLOW_VALUE_KIND_PTR &&
+                                p_value->value.p != NULL ?
+                                object_get_array_of_element(p_value->value.p, &element_index) : NULL;
+                            if (p_array == NULL || p_array->type.array_num_elements == 0)
+                            {
+                                continue;
+                            }
+                            const long long array_size = (long long)p_array->type.array_num_elements;
+
+                            if (object_has_constant_value(&p_expression->right->object)) //lint 33 assert line 7200
+                            {
+                                const long long index = object_to_signed_long_long(&p_expression->right->object);
+                                const long long position = (long long)element_index + index;
+                                if (position >= array_size || position < 0)
+                                {
+                                    flow_finding_record(ctx, &p_expression->object, W_FLOW_OUT_OF_BOUNDS, &marker,
+                                                        p_value, p_value->p_origin_map,
+                                                        position < 0 ? "pointer index is before the start of the array" :
+                                                                       "pointer index is past the end of the array");
+                                }
+                                continue;
+                            }
+
+                            /* each index value on its own path */
+                            const struct flow_key_alternatives* p_index_alternatives =
+                                flow_branch_search_up(ctx->p_current_flow_branch, &p_expression->right->object); //lint 33 assert line 7200
+                            for (int k = 0; p_index_alternatives != NULL && k < p_index_alternatives->alternatives.size; k++)
+                            {
+                                const struct flow_alternative* p_index_alt = p_index_alternatives->alternatives.data[k]; //lint 33
+                                const bool index_is_ref = p_index_alt->value_kind == FLOW_VALUE_KIND_REF && p_index_alt->value.p != NULL;
+                                const struct flow_key_alternatives* p_index_values = index_is_ref ?
+                                    flow_branch_search_up(ctx->p_current_flow_branch, p_index_alt->value.p) : NULL;
+                                const int index_values_size = index_is_ref ? (p_index_values ? p_index_values->alternatives.size : 0) : 1;
+
+                                for (int m = 0; m < index_values_size; m++)
+                                {
+                                    const struct flow_alternative* p_index_value = index_is_ref ? p_index_values->alternatives.data[m] : p_index_alt; //lint 33
+                                    if (index_is_ref && !flow_ref_sees_value(p_index_alt, p_index_value))
+                                    {
+                                        continue;
+                                    }
+                                    long long index_lo = 0, index_hi = 0;
+                                    if (!flow_alt_to_interval(p_index_value, &index_lo, &index_hi))
+                                    {
+                                        continue;
+                                    }
+                                    if ((long long)element_index + index_lo >= array_size)
+                                    {
+                                        flow_finding_record(ctx, &p_expression->object, W_FLOW_OUT_OF_BOUNDS, &marker,
+                                                            p_index_value, p_index_value->p_origin_map,
+                                                            "pointer index is past the end of the array");
+                                    }
+                                    else if ((long long)element_index + index_hi < 0)
+                                    {
+                                        flow_finding_record(ctx, &p_expression->object, W_FLOW_OUT_OF_BOUNDS, &marker,
+                                                            p_index_value, p_index_value->p_origin_map,
+                                                            "pointer index is before the start of the array");
+                                    }
+                                }
+                            }
                         }
                     }
                     flow_findings_end(ctx);
@@ -8301,6 +8922,21 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     }
                 }
 
+                if (pointer_element_resolved && p_pointer_true != NULL && p_pointer_false != NULL)
+                {
+                    flow_close_arms_not_reached(&pointer_arms_reached, p_pointer_true, p_pointer_false);
+                    /* the destination of a write keeps its operand for flow_invalidate_unknown_index_write */
+                    if (ctx->p_subscript_being_written != p_expression)
+                    {
+                        flow_branch_remove(ctx->p_current_flow_branch, &p_expression->left->object); //lint 33 assert line 7201
+                    }
+                    flow_branch_remove(ctx->p_current_flow_branch, &p_expression->right->object); //lint 33 assert line 7200
+                    return (struct flow_true_false_branches)
+                    {
+                        p_pointer_true, p_pointer_false
+                    };
+                }
+
                 /*
                     Constant index: REF to the element object, so element values are
                     tracked (as EXPR_POSTFIX_DOT). Otherwise narrow this expression's own
@@ -8325,6 +8961,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     flow_tag_branch_pair(ctx, p_true, p_false);
 
                     bool any_resolved = false;
+                    struct flow_arms_reached arms_reached = { 0 };
                     for (int i = 0; index >= 0 && p_left_alternatives != NULL && i < p_left_alternatives->alternatives.size; i++)
                     {
                         const struct flow_alternative* p_left_alternative = p_left_alternatives->alternatives.data[i]; //lint 33
@@ -8350,8 +8987,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             };
                             flow_alternatives_add(&result_entry->alternatives, &a);
 
-                            flow_narrow_map_into(ctx, ctx->p_condition == p_expression ? p_expression : NULL, p_true, ctx->p_current_flow_branch, p_element, true, p_expression->first_token, NULL);
-                            flow_narrow_map_into(ctx, NULL, p_false, ctx->p_current_flow_branch, p_element, false, p_expression->first_token, NULL);
+                            flow_narrow_target_into_arms(ctx, ctx->p_condition == p_expression ? p_expression : NULL, p_true, p_false, p_element, p_expression->first_token, &a, &arms_reached);
                             any_resolved = true;
                         }
                     }
@@ -8364,10 +9000,13 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     flow_branch_remove(ctx->p_current_flow_branch, &p_expression->right->object); //lint 33 assert line 7200
 
                     if (any_resolved)
+                    {
+                        flow_close_arms_not_reached(&arms_reached, p_true, p_false);
                         return (struct flow_true_false_branches)
                         {
                     p_true, p_false
                         };
+                    }
 
                     /*
                         Nothing resolved (unknown array, out-of-range, etc.): fall through
@@ -8580,64 +9219,18 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             {
                 assert(p_expression->compound_statement != NULL);
 
-                /*
-                    A function literal's body is not reached through flow_visit_declaration:
-                    do the per-function setup here, or its _Owner parameters are never
-                    seeded.
-                */
+                /* same analysis as a function definition: see flow_visit_function_body */
                 const struct direct_declarator* p_innermost_direct_declarator =
-                p_expression->type_name && p_expression->type_name->abstract_declarator ?
-                get_innermost_direct_declarator(p_expression->type_name->abstract_declarator->direct_declarator) :
-                NULL;
+                    p_expression->type_name && p_expression->type_name->abstract_declarator ?
+                    get_innermost_direct_declarator(p_expression->type_name->abstract_declarator->direct_declarator) :
+                    NULL;
 
-                struct parameter_list* p_parameter_list =
-                p_innermost_direct_declarator &&
-                p_innermost_direct_declarator->function_declarator &&
-                p_innermost_direct_declarator->function_declarator->parameter_type_list_opt ?
-                p_innermost_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list :
-                NULL;
-
-                for (struct parameter_declaration* p_parameter = p_parameter_list ? p_parameter_list->head : NULL;
-                     p_parameter;
-                     p_parameter = p_parameter->next)
-                {
-                    if (p_parameter->declarator)
-                    {
-                        flow_parameter_object_init(ctx,
-                                               &p_parameter->declarator->object,
-                                               &p_parameter->declarator->object.type,
-                                               p_parameter->declarator->object.member_designator,
-                                               p_parameter->declaration_specifiers->first_token);
-                    }
-                }
-
-                struct type* p_previous_return_type = ctx->p_return_type;
-                struct type return_type = get_function_return_type(&p_expression->object.type);
-                ctx->p_return_type = &return_type;
-
-                flow_visit_compound_statement_core(ctx, p_expression->compound_statement); //lint 35 assert line 7627
-
-                if (!compound_statement_is_last_item_return(p_expression->compound_statement)) //lint 35 assert line 7627
-                {
-                    flow_exit_block_visit_defer_list(ctx, &p_expression->compound_statement->defer_list, p_expression->compound_statement->last_token); //lint 33 assert line 7627
-                    const struct marker marker =
-                    {
-                        .p_token_begin = p_expression->compound_statement->last_token,
-                        .p_token_end = p_expression->compound_statement->last_token
-                    };
-                    flow_check_write_qualified_params_at_exit(ctx, &marker, p_expression->compound_statement->last_token);
-                    flow_defer_list_set_end_of_lifetime(ctx, &p_expression->compound_statement->defer_list, p_expression->compound_statement->last_token);
-                    flow_check_exiting_objects(ctx, NULL, &marker);
-                }
-
-                type_destroy(&return_type);
-                ctx->p_return_type = p_previous_return_type;
-
-                if (p_expression->compound_statement->lint_token)
-                {
-                    flow_check_dianostic_suppression(ctx, p_expression->compound_statement->lint_token);
-                }
-
+                flow_visit_function_body(ctx,
+                                         p_innermost_direct_declarator ? p_innermost_direct_declarator->function_declarator : NULL,
+                                         p_expression->compound_statement,
+                                         &p_expression->object.type,
+                                         p_expression->type_name ? p_expression->type_name->abstract_declarator : NULL,
+                                         NULL);
                 break;
             }
 
@@ -8908,6 +9501,10 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         {
                             long long old = (alt->value_kind == FLOW_VALUE_KIND_SIGNED) ? alt->value.i : (long long)alt->value.u;
                             long long new_val = is_increment ? old + 1 : old - 1;
+                            if (type_is_unsigned_integer(&p_operand->object.type))
+                            {
+                                new_val = flow_cast_integer_value(ctx, new_val, &p_operand->object.type); /* UINT_MAX + 1 is 0 */
+                            }
                             struct flow_alternative av = { .value_kind = FLOW_VALUE_KIND_SIGNED, .value = {.i = new_val}, .value_relation = FLOW_RELATION_EQUAL, .imaginary = FLOW_IMAGINARY_NONE, .p_origin_map = org, .p_origin_token = p_expression->first_token };
                             flow_alternatives_add(&new_var_alts, &av);
                             long long result_val = is_postfix ? old : new_val;
@@ -8922,7 +9519,30 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 are dropped. A copy taken before the increment keeps the old pointee.
                             */
                             struct flow_alternative a = *alt;
-                            if (alt->value_relation == FLOW_RELATION_EQUAL &&
+                            size_t element_index = 0;
+                            const struct object* p_array = alt->value.p != NULL ?
+                                object_get_array_of_element(alt->value.p, &element_index) : NULL;
+                            if (p_array != NULL)
+                            {
+                                /* a[j]++ is a[j + 1]; outside the array the target is unknown */
+                                const long long new_index = (long long)element_index + (is_increment ? 1 : -1);
+                                if (!ctx->expression_is_not_evaluated &&
+                                    (new_index < 0 || new_index > (long long)p_array->type.array_num_elements))
+                                {
+                                    /* a + N (one past the end) is valid; beyond it, undefined behavior */
+                                    flow_finding_record(ctx, &p_expression->object, W_FLOW_OUT_OF_BOUNDS, &operand_marker,
+                                                        alt, alt->p_origin_map,
+                                                        new_index < 0 ? "pointer arithmetic goes before the start of the array" :
+                                                                        "pointer arithmetic goes past the end of the array");
+                                }
+                                struct object* p_new_element =
+                                    new_index >= 0 && new_index < (long long)p_array->type.array_num_elements ?
+                                    object_get_member(p_array, (size_t)new_index) : NULL;
+                                a.value.p = p_new_element;
+                                a.value_relation = p_new_element != NULL ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL;
+                                a.p_origin_token = p_expression->first_token;
+                            }
+                            else if (alt->value_relation == FLOW_RELATION_EQUAL &&
                             alt->value.p != NULL &&
                             type_is_pointer(&p_operand->object.type)) //lint 33 assert line 7947, 7952
                             {
@@ -8946,7 +9566,8 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                 }
                             }
                             flow_alternatives_add(&new_var_alts, &a);
-                            flow_alternatives_add(&new_result_alts, &a);
+                            /* p++ yields the old pointer */
+                            flow_alternatives_add(&new_result_alts, is_postfix ? alt : &a);
                         }
                         else if (type_is_pointer(&p_operand->object.type)) //lint 33 assert line 7947, 7952
                         {
@@ -9141,6 +9762,42 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                         ss_close(&name_ss);
                     }
 
+                    /* `*a` of an array with elements (a local, or a parameter `int a[5]`) is a[0] */
+                    if (p_right_alt->value_kind == FLOW_VALUE_KIND_REF &&
+                        p_right_alt->value.p != NULL &&
+                        type_is_array(&p_right_alt->value.p->type))
+                    {
+                        flow_make_lazy_array(ctx, (struct object*)p_right_alt->value.p, p_expression->first_token);
+                        const struct object* p_first_element = object_get_member(p_right_alt->value.p, 0);
+                        if (p_first_element != NULL)
+                        {
+                            struct flow_alternative a =
+                            {
+                                .value_kind = FLOW_VALUE_KIND_REF,
+                                .value = {.p = p_first_element},
+                                .value_relation = FLOW_RELATION_EQUAL,
+                                .imaginary = FLOW_IMAGINARY_NONE,
+                                .p_origin_map = p_right_alt->p_origin_map,
+                                .p_origin_token = p_expression->first_token
+                            };
+                            flow_alternatives_add(&result_entry->alternatives, &a);
+
+                            if (p_content_true != NULL && p_content_false != NULL)
+                            {
+                                if (flow_narrow_map_into(ctx, NULL, p_content_true, ctx->p_current_flow_branch, p_first_element, true, p_expression->first_token, &a))
+                                {
+                                    true_reachable = true;
+                                }
+                                if (flow_narrow_map_into(ctx, NULL, p_content_false, ctx->p_current_flow_branch, p_first_element, false, p_expression->first_token, &a))
+                                {
+                                    false_reachable = true;
+                                }
+                                any_target_narrowed = true;
+                            }
+                            continue;
+                        }
+                    }
+
                     if (p_right_alt->value_kind == FLOW_VALUE_KIND_REF)
                     {
                         const struct flow_key_alternatives* p_right_alternatives2 = flow_branch_search_up(ctx->p_current_flow_branch,
@@ -9187,6 +9844,8 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                     `*p = ref a@then / ref b@else`.
                                 */
                             .p_origin_map = p_right_alt2->p_origin_map,
+                                /* and the map it was narrowed from: two targets merged in the same arm come from different ones */
+                            .p_narrowed_from = p_right_alt2->p_narrowed_from,
                             .p_origin_token = p_expression->first_token
                                 };
                                 flow_alternatives_add(&result_entry->alternatives, &a);
@@ -9315,55 +9974,84 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 /* v[i] = x with an unknown i: no element of v keeps its value. */
                 flow_invalidate_unknown_index_write(ctx, p_expression->left);
 
+                /* the assignment as a condition: `if ((p = f()))` narrows p, the object it wrote, on each arm */
+                struct flow_branch* p_true = flow_branch_arena_new_branch(&ctx->flow_branch_arena, ctx->p_current_flow_branch, true, p_expression);
+                struct flow_branch* p_false = flow_branch_arena_new_branch(&ctx->flow_branch_arena, ctx->p_current_flow_branch, false, p_expression);
+                if (p_true == NULL || p_false == NULL)
+                    throw;
+                flow_tag_branch_pair(ctx, p_true, p_false);
+                struct flow_arms_reached arms_reached = { 0 };
+
                 /* Seed an assignment EXPRESSION's own object (not just its ->left) as a REF to the resolved destination, so a later lookup on the assignment's own node -- e.g. `while ((dp = readdir(dir)) != NULL)` -- finds the narrowed value. */
                 {
-                    const struct object* p_dest_obj = &p_expression->left->object; //lint 33 assert line 8349
+                    /* each destination target on its own path (`*pp = v` with pp to a or b) */
+                    struct flow_alternatives dest_refs = { 0 };
                     const struct flow_key_alternatives* p_dest_alts =
-                    flow_branch_search_up(ctx->p_current_flow_branch, p_dest_obj);
-                    if (p_dest_alts &&
-                    p_dest_alts->alternatives.size == 1 &&
-                    p_dest_alts->alternatives.data[0]->value_relation == FLOW_RELATION_EQUAL &&
-                    p_dest_alts->alternatives.data[0]->value_kind == FLOW_VALUE_KIND_REF &&
-                    p_dest_alts->alternatives.data[0]->value.p != NULL) //lint 33 33 33 assert
+                    flow_branch_search_up(ctx->p_current_flow_branch, &p_expression->left->object); //lint 33 assert line 8349
+                    for (int i = 0; p_dest_alts != NULL && i < p_dest_alts->alternatives.size; i++)
                     {
-                        p_dest_obj = p_dest_alts->alternatives.data[0]->value.p; //lint 33
+                        const struct flow_alternative* p_dest_alt = p_dest_alts->alternatives.data[i]; //lint 33
+                        if (p_dest_alt->value_relation == FLOW_RELATION_EQUAL &&
+                            p_dest_alt->value_kind == FLOW_VALUE_KIND_REF &&
+                            p_dest_alt->value.p != NULL)
+                        {
+                            flow_alternatives_add(&dest_refs, p_dest_alt);
+                            flow_narrow_target_into_arms(ctx, NULL, p_true, p_false, p_dest_alt->value.p, p_expression->first_token, p_dest_alt, &arms_reached);
+                        }
                     }
 
                     struct flow_key_alternatives* e = flow_branch_find_add(ctx->p_current_flow_branch, &p_expression->object);
-                    if (e == NULL) throw;
-                    flow_alternatives_clear(&e->alternatives);
-                    struct flow_alternative a =
+                    if (e == NULL)
                     {
-                        .value_kind = FLOW_VALUE_KIND_REF,
-                        .value = {.p = p_dest_obj},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .p_origin_map = ctx->p_current_flow_branch,
-                        .p_origin_token = p_expression->first_token
-                    };
-                    flow_alternatives_add(&e->alternatives, &a);
+                        flow_alternatives_clear(&dest_refs);
+                        throw;
+                    }
+                    flow_alternatives_clear(&e->alternatives);
+                    flow_alternatives_append(&e->alternatives, &dest_refs);
+                    flow_alternatives_clear(&dest_refs);
+                    if (e->alternatives.size == 0)
+                    {
+                        struct flow_alternative a =
+                        {
+                            .value_kind = FLOW_VALUE_KIND_REF,
+                            .value = {.p = &p_expression->left->object},
+                            .value_relation = FLOW_RELATION_EQUAL,
+                            .imaginary = FLOW_IMAGINARY_NONE,
+                            .p_origin_map = ctx->p_current_flow_branch,
+                            .p_origin_token = p_expression->first_token
+                        };
+                        flow_alternatives_add(&e->alternatives, &a);
+                    }
                 }
 
                 /* ---- Branch maps for boolean context ---- */
-                struct flow_branch* p_true = flow_narrow_map_branch(ctx, NULL, &ctx->flow_branch_arena,
-                                                                  ctx->p_current_flow_branch,
-                                                                  &p_expression->left->object,
-                                                              true,
-                                                                  p_expression,
-                                                                  p_expression->first_token); //lint 33 assert line 8349
-                if (p_true == NULL)
-                    throw;
+                if (arms_reached.any_target)
+                {
+                    flow_close_arms_not_reached(&arms_reached, p_true, p_false);
+                }
+                else
+                {
+                    /* no object behind the destination: narrow the expression's own object */
+                    p_true = flow_narrow_map_branch(ctx, NULL, &ctx->flow_branch_arena,
+                                                    ctx->p_current_flow_branch,
+                                                    &p_expression->left->object,
+                                                    true,
+                                                    p_expression,
+                                                    p_expression->first_token); //lint 33 assert line 8349
+                    if (p_true == NULL)
+                        throw;
 
-                struct flow_branch* p_false = flow_narrow_map_branch(ctx, NULL, &ctx->flow_branch_arena,
-                                                                   ctx->p_current_flow_branch,
-                                                                   &p_expression->left->object,
-                                                               false,
-                                                                   p_expression,
-                                                                   p_expression->first_token); //lint 33 assert line 8349
-                if (p_false == NULL)
-                    throw;
+                    p_false = flow_narrow_map_branch(ctx, NULL, &ctx->flow_branch_arena,
+                                                     ctx->p_current_flow_branch,
+                                                     &p_expression->left->object,
+                                                     false,
+                                                     p_expression,
+                                                     p_expression->first_token); //lint 33 assert line 8349
+                    if (p_false == NULL)
+                        throw;
 
-                flow_tag_branch_pair(ctx, p_true, p_false);
+                    flow_tag_branch_pair(ctx, p_true, p_false);
+                }
 
                 /* Remove temporary entries for left and right sub‑expressions */
                 flow_branch_remove(ctx->p_current_flow_branch, &p_expression->left->object); //lint 33 assert line 8349
@@ -9458,7 +10146,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 const bool write_in_arms = p_before_write != NULL &&
                     target_count > 1 &&
                     target_count <= (int)(sizeof target_arms / sizeof target_arms[0]) &&
-                    flow_target_origins_exclusive(target_origins, target_count);
+                    flow_target_origins_exclusive(target_origins, NULL, NULL, target_count);
                 int target_arm_count = 0;
                 /* the value of `p += n`: every destination's new value, each on its own path */
                 struct flow_alternatives result_alts = { 0 };
@@ -9487,7 +10175,7 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                     struct flow_branch* p_target_arm = NULL;
                     if (write_in_arms && p_before_write != NULL)
                     {
-                        p_target_arm = flow_branch_new_pointer_target_arm(ctx, p_before_write, p_left_alternative->p_origin_map);
+                        p_target_arm = flow_branch_new_pointer_target_arm(ctx, p_before_write, p_left_alternative->p_origin_map, NULL);
                         if (p_target_arm == NULL)
                         {
                             /* never this object on this path */
@@ -10067,7 +10755,9 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 }
                 flow_visit_expression(ctx, p_expression->left);
                 flow_visit_expression(ctx, p_expression->right);
-                if (!flow_set_object_signed(ctx, &p_expression->object, ANY_VALUE, FLOW_RELATION_ANY, p_expression->first_token)) throw;
+                flow_evaluate_binary_arithmetic(ctx, p_expression->left, p_expression->right, p_expression, '|', p_expression->first_token); //lint 35 35
+                flow_branch_remove(ctx->p_current_flow_branch, &p_expression->left->object); //lint 33
+                flow_branch_remove(ctx->p_current_flow_branch, &p_expression->right->object);
             break;
 
             case EXPR_AND:
@@ -10087,7 +10777,10 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 }
                 flow_visit_expression(ctx, p_expression->left);
                 flow_visit_expression(ctx, p_expression->right);
-                if (!flow_set_object_signed(ctx, &p_expression->object, ANY_VALUE, FLOW_RELATION_ANY, p_expression->first_token)) throw;
+                flow_evaluate_binary_arithmetic(ctx, p_expression->left, p_expression->right, p_expression,
+                                                p_expression->expression_type == EXPR_AND ? '&' : '^', p_expression->first_token); //lint 35 35
+                flow_branch_remove(ctx->p_current_flow_branch, &p_expression->left->object); //lint 33
+                flow_branch_remove(ctx->p_current_flow_branch, &p_expression->right->object);
             break;
 
             case EXPR_UNARY_TRAITS:
@@ -10149,6 +10842,14 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                 cond_pair = flow_ensure_branch_pair(ctx, ctx->p_current_flow_branch, cond_pair,
                                                 p_expression->condition_expr);
 
+                /* as in the if statement: the same condition tested twice */
+                if (cond_pair.p_true != NULL && cond_pair.p_false != NULL &&
+                        cond_pair.p_true != cond_pair.p_false)
+                {
+                    flow_branch_derive_implied_facts(cond_pair.p_true, p_before);
+                    flow_branch_derive_implied_facts(cond_pair.p_false, p_before);
+                }
+
                 /* true branch */
                 ctx->p_current_flow_branch = cond_pair.p_true;
                 /* Elvis: left==NULL means use condition_expr value on true branch */
@@ -10208,6 +10909,19 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                             const struct flow_alternative* a = e->alternatives.data[i]; //lint 33
 
                             if (a->value_kind == FLOW_VALUE_KIND_REF &&
+                                a->value.p != NULL &&
+                                type_is_array(&a->value.p->type))
+                            {
+                                /* an array arm decays to its own element 0 */
+                                struct flow_alternative decayed = *a;
+                                decayed.value_kind = FLOW_VALUE_KIND_PTR;
+                                decayed.value.p = a->value.p->members.head;
+                                decayed.value_relation = a->value.p->members.head ? FLOW_RELATION_EQUAL : FLOW_RELATION_NOT_EQUAL;
+                                flow_alternatives_add(&result, &decayed);
+                                continue;
+                            }
+
+                            if (a->value_kind == FLOW_VALUE_KIND_REF &&
                             a->value.p != NULL)
                             {
                                 const struct flow_key_alternatives* p_target =
@@ -10220,7 +10934,15 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
                                         const struct flow_alternative* p_value = p_target->alternatives.data[j]; //lint 33
                                         if (flow_ref_sees_value(a, p_value))
                                         {
-                                            flow_alternatives_add(&result, p_value);
+                                            /* the value is the result only on the arm it was read in: `c ? pa : pb` points to a or to b, never both */
+                                            struct flow_alternative on_arm = *p_value;
+                                            /* a same-object side holds in the whole function: the value keeps it */
+                                            if (!flow_branch_is_under_same_object(p_value->p_origin_map))
+                                            {
+                                                on_arm.p_narrowed_from = flow_alternative_narrowed_provenance(p_value, arms[ai].map);
+                                                on_arm.p_origin_map = arms[ai].map;
+                                            }
+                                            flow_alternatives_add(&result, &on_arm);
                                         }
                                     }
 
@@ -10291,7 +11013,6 @@ static struct flow_true_false_branches flow_visit_expression(struct flow_ctx* ct
             case EXPR_UNARY_GCC__BUILTIN_VA_ARG:
             break;
             case EXPR_UNARY_GCC__BUILTIN_OFFSETOF:
-            case EXPR_UNARY_CONSTEVAL:
             break;
 
         }
@@ -10916,12 +11637,17 @@ static void flow_visit_loop(struct flow_ctx* ctx,
             like `flag = 1` get the zero-iterations case back). The join destroys
             what widening keys off, so order matters.
         */
-        /* do-while: condition visited on pass 1's exit before widening; its false arm keeps one iteration's values */
+        /*
+            do-while: condition visited on pass 1's exit before widening; its false arm keeps one iteration's values.
+            Diagnostics off: it is reported after the second pass, whose state has the first iteration's values too.
+        */
         if (!condition_first && p_condition)
         {
             ctx->p_current_flow_branch = p_pass1_exit;
+            diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
             pair2 = flow_visit_condition(ctx, p_condition);
             pair2 = flow_ensure_branch_pair(ctx, p_pass1_exit, pair2, p_condition);
+            diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
         }
 
         /* do-while widens only the arm that iterates again; the false arm must stay unwidened */
@@ -11009,14 +11735,17 @@ static void flow_visit_loop(struct flow_ctx* ctx,
         /*
             Third look at the condition: the exit after two or more iterations, for
             values the body assigns only from the second iteration on. Diagnostics
-            off.
+            off for while and for (the condition was reported before the body);
+            on for do-while, whose condition is reported here.
         */
         if (p_condition)
         {
-            diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
+            if (condition_first)
+                diagnostic_stack_push_empty(&ctx->ctx->options.diagnostic_stack);
             pair3 = flow_visit_condition(ctx, p_condition);
             pair3 = flow_ensure_branch_pair(ctx, ctx->p_current_flow_branch, pair3, p_condition);
-            diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
+            if (condition_first)
+                diagnostic_stack_pop(&ctx->ctx->options.diagnostic_stack);
         }
     }
     else
@@ -11044,12 +11773,6 @@ static void flow_visit_loop(struct flow_ctx* ctx,
         ctx->iteration_pass = 1;
     }
 
-    if (p_iteration_statement->secondary_block != NULL)
-    {
-        flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list,
-                                         p_iteration_statement->secondary_block->last_token);
-    }
-
     /*
         Loop exit paths: condition false before the first iteration, after one
         iteration, after two or more, or break.
@@ -11062,6 +11785,10 @@ static void flow_visit_loop(struct flow_ctx* ctx,
 
     if (p_iteration_statement->secondary_block != NULL)
     {
+        /* the objects of the for-init leave with the state after the loop: every exit joined */
+        flow_exit_block_visit_defer_list(ctx, &p_iteration_statement->defer_list,
+                                         p_iteration_statement->secondary_block->last_token);
+
         flow_defer_list_set_end_of_lifetime(ctx, &p_iteration_statement->defer_list,
                                             p_iteration_statement->secondary_block->last_token);
     }
@@ -11379,14 +12106,7 @@ static void flow_check_non_dtor_param_owner_not_consumed_at_exit(struct flow_ctx
 /* One shared pass over parameters at every exit for _Clear (every member == 0), _Out (every member assigned), and _Dtor (every _Owner member released -- the callee-side half of flow_check_object_init_assigment's caller-side lifetime-ending) (dtor_is_opt.c). */
 static void flow_check_write_qualified_params_at_exit(struct flow_ctx* ctx, const struct marker* marker, const struct token* p_exit_token)
 {
-    if (ctx->p_current_function_declaration == NULL ||
-            ctx->p_current_function_declaration->init_declarator_list.head == NULL)
-    {
-        return;
-    }
-
-    struct declarator* p_func_declarator = ctx->p_current_function_declaration->init_declarator_list.head->p_declarator;
-    struct function_declarator* p_fd = declarator_find_function_declarator(p_func_declarator);
+    struct function_declarator* p_fd = ctx->p_current_function_declarator;
 
     if (p_fd == NULL ||
             p_fd->parameter_type_list_opt == NULL ||
@@ -11667,12 +12387,7 @@ static void flow_check_exiting_objects(struct flow_ctx* ctx,
         }
     }
 
-    struct function_declarator* p_fd = NULL;
-    if (ctx->p_current_function_declaration != NULL &&
-            ctx->p_current_function_declaration->init_declarator_list.head != NULL)
-    {
-        p_fd = declarator_find_function_declarator(ctx->p_current_function_declaration->init_declarator_list.head->p_declarator);
-    }
+    struct function_declarator* p_fd = ctx->p_current_function_declarator;
 
     if (p_fd != NULL &&
             p_fd->parameter_type_list_opt != NULL &&
@@ -11780,17 +12495,19 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
             struct flow_branch* p_throw_snapshot =
                 flow_branch_arena_new(&ctx->flow_branch_arena, ctx->p_throw_join_map,
                                     FLOW_BRANCH_THROW_JOIN);
+            struct flow_branch* p_throw_join = ctx->p_throw_join_map;
 
-            flow_branch_accumulate_into_join(ctx->p_throw_join_map,
-                                            ctx->p_current_flow_branch,
-                                            p_throw_snapshot, false, ctx->throw_join_reached);
-            ctx->throw_join_reached = true;
-            
+            /* the defers of the scopes the jump leaves run first: the join gets the state after them */
             flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list,
                                              p_jump_statement->first_token);
 
             flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list,
                                                 p_jump_statement->first_token);
+
+            flow_branch_accumulate_into_join(p_throw_join,
+                                            ctx->p_current_flow_branch,
+                                            p_throw_snapshot, false, ctx->throw_join_reached);
+            ctx->throw_join_reached = true;
 
             if (ctx->p_current_flow_branch != NULL)
             {
@@ -11827,6 +12544,10 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE)
         {
+            /* defers first, as for throw */
+            flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
+            flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
+
             if (ctx->p_continue_join_map != NULL)
             {
                 /* one snapshot per continue, as for throw: the body map becomes unreachable below */
@@ -11840,9 +12561,6 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
                 ctx->continue_join_reached = true;
             }
 
-            flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
-            flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
-
             if (ctx->p_current_flow_branch != NULL)
             {
                 ctx->p_current_flow_branch->is_unreachable = true;
@@ -11850,14 +12568,15 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
         }
         else if (p_jump_statement->first_token->type == TK_KEYWORD_BREAK)
         {
+            /* defers first, as for throw */
+            flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
+            flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
+
             if (ctx->p_break_join_map != NULL && !ctx->switch_case_dead)
             {
                 flow_branch_accumulate_into_join(ctx->p_break_join_map, ctx->p_current_flow_branch, NULL, false, ctx->break_join_reached);
                 ctx->break_join_reached = true;
             }
-
-            flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
-            flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
 
             if (ctx->p_current_flow_branch != NULL)
             {
@@ -11867,6 +12586,12 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
         else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
         {
             assert(p_jump_statement->label != NULL);
+
+            struct flow_branch* p_goto_branch = ctx->p_current_flow_branch;
+
+            /* defers first, as for throw */
+            flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
+            flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
 
             bool found = false;
             for (int i = 0; i < ctx->labels_size; i++)
@@ -11884,7 +12609,7 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
                     ctx->labels_size < (int)(sizeof(ctx->labels) / sizeof(ctx->labels[0])))
             {
                 /* the label holds a snapshot of every arriving path: under the arm of this goto, the values of the other paths would be incompatible with it */
-                struct flow_branch* p_label_root = ctx->p_current_flow_branch;
+                struct flow_branch* p_label_root = p_goto_branch;
                 while (p_label_root->p_parent_map != NULL)
                     p_label_root = p_label_root->p_parent_map;
 
@@ -11904,9 +12629,6 @@ static void flow_visit_jump_statement(struct flow_ctx* ctx, struct jump_statemen
                 ctx->labels_size++;
                 
             }
-
-            flow_exit_block_visit_defer_list(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
-            flow_defer_list_set_end_of_lifetime(ctx, &p_jump_statement->defer_list, p_jump_statement->first_token);
 
             if (ctx->p_current_flow_branch != NULL)
             {
@@ -12067,31 +12789,71 @@ static void flow_visit_label(struct flow_ctx* ctx, const struct label* p_label)
             }
 
             /*
-                ctx->p_switch_object_key is the object being switched on,
-                set when entering the switch statement
+                The condition refers to an object through each of its REFs. On the
+                paths of a REF its object is the case value; the values of that
+                object on the paths of the other REFs stay as they were.
             */
-            if (ctx->p_switch_obj_key != NULL &&
-                    object_has_constant_value(&p_label->constant_expression->object))
+            const struct flow_key_alternatives* p_condition_entry =
+                ctx->p_switch_condition != NULL && object_has_constant_value(&p_label->constant_expression->object) ?
+                flow_branch_search_up(ctx->p_initial_map, &ctx->p_switch_condition->object) : NULL;
+
+            for (int ref_index = 0; p_condition_entry != NULL && ref_index < p_condition_entry->alternatives.size; ref_index++)
             {
-                signed long long case_value =
-                    object_to_signed_long_long(&p_label->constant_expression->object);
-
+                const struct flow_alternative* p_ref = p_condition_entry->alternatives.data[ref_index]; //lint 33
+                if (p_ref->value_kind != FLOW_VALUE_KIND_REF || p_ref->value.p == NULL)
                 {
-                    struct flow_key_alternatives* e = flow_branch_find_add(p_case_map, ctx->p_switch_obj_key);
-                    if (e == NULL)
-                        return; /* no entry to seed for this case */
+                    continue;
+                }
 
-                    flow_alternatives_clear(&e->alternatives);
-                    struct flow_alternative a =
+                /* read before the entry of the case map is added: the values before the switch */
+                const struct flow_key_alternatives* p_before_entry = flow_branch_search_up(ctx->p_initial_map, p_ref->value.p);
+
+                struct flow_key_alternatives* p_case_entry = flow_branch_find_add(p_case_map, p_ref->value.p);
+                if (p_case_entry == NULL)
+                    return; /* no entry to seed for this case */
+
+                struct flow_alternative case_value =
+                {
+                    .value_kind = FLOW_VALUE_KIND_SIGNED,
+                    .value = {.i = object_to_signed_long_long(&p_label->constant_expression->object)},
+                    .value_relation = FLOW_RELATION_EQUAL,
+                    .imaginary = FLOW_IMAGINARY_NONE,
+                    .p_origin_map = p_case_map,
+                    /* only on the paths of this REF */
+                    .p_narrowed_from = flow_branch_is_ancestor_or_self(p_ref->p_origin_map, p_case_map) ? NULL : p_ref->p_origin_map,
+                    .p_origin_token = p_label->constant_expression->first_token
+                };
+                flow_alternatives_add(&p_case_entry->alternatives, &case_value);
+
+                for (int value_index = 0; p_before_entry != NULL && value_index < p_before_entry->alternatives.size; value_index++)
+                {
+                    const struct flow_alternative* p_value = p_before_entry->alternatives.data[value_index]; //lint 33
+                    if (!flow_ref_sees_value(p_ref, p_value))
                     {
-                        .value_kind = FLOW_VALUE_KIND_SIGNED,
-                        .value = {.i = case_value},
-                        .value_relation = FLOW_RELATION_EQUAL,
-                        .imaginary = FLOW_IMAGINARY_NONE,
-                        .p_origin_map = p_case_map,
-                        .p_origin_token = p_label->constant_expression->first_token
-                    };
-                    flow_alternatives_add(&e->alternatives, &a);
+                        /* on another path of the object: this REF does not read it */
+                        flow_alternatives_add(&p_case_entry->alternatives, p_value);
+                        continue;
+                    }
+
+                    /* seen by this REF: it stays on the paths where the condition refers to another object */
+                    for (int other_index = 0; other_index < p_condition_entry->alternatives.size; other_index++)
+                    {
+                        const struct flow_alternative* p_other_ref = p_condition_entry->alternatives.data[other_index]; //lint 33
+                        if (other_index == ref_index ||
+                            p_other_ref->value_kind != FLOW_VALUE_KIND_REF ||
+                            p_other_ref->value.p == NULL ||
+                            p_other_ref->value.p == p_ref->value.p)
+                        {
+                            continue;
+                        }
+                        struct flow_alternative kept = *p_value;
+                        if (kept.p_narrowed_from == NULL &&
+                            !flow_branch_is_ancestor_or_self(p_other_ref->p_origin_map, p_case_map))
+                        {
+                            kept.p_narrowed_from = p_other_ref->p_origin_map;
+                        }
+                        flow_alternatives_add(&p_case_entry->alternatives, &kept);
+                    }
                 }
             }
 
@@ -12426,24 +13188,46 @@ static void flow_visit_static_assertion(struct flow_ctx* ctx, struct static_asse
     }
 }
 
-/* The object a parameter points to when it is non-null, or NULL. */
-static const struct object* flow_alias_pointee(const struct flow_key_alternatives* p_entry)
-{
-    if (p_entry->alternatives.data == NULL)
-        return NULL;
-    for (int i = 0; i < p_entry->alternatives.size; i++)
-    {
-        const struct flow_alternative* a = p_entry->alternatives.data[i];
-        if (a && a->value_kind == FLOW_VALUE_KIND_PTR && a->value_relation == FLOW_RELATION_EQUAL && a->value.p != NULL)
-            return a->value.p;
-    }
-    return NULL;
-}
-
 #define FLOW_ALIAS_MAX_PARAMETERS 16
-static int flow_alias_parameters(const struct declaration* p_declaration, const struct declarator* out[], int max);
+static int flow_alias_parameters(const struct function_declarator* _Nullable p_function, const struct declarator* out[], int max);
 static bool flow_alias_same_pointee(const struct declarator* a, const struct declarator* b);
 static bool flow_alias_is_restrict(const struct declarator* p);
+
+static void flow_seed_parameter(struct flow_ctx* ctx, struct parameter_declaration* p_parameter)
+{
+    if (p_parameter->declarator == NULL)
+        return;
+
+    ctx->p_parameter_being_initialized = p_parameter->declarator;
+    flow_parameter_object_init(ctx,
+                               &p_parameter->declarator->object,
+                               &p_parameter->declarator->object.type,
+                               p_parameter->declarator->object.member_designator,
+                               p_parameter->declaration_specifiers->first_token);
+    ctx->p_parameter_being_initialized = NULL;
+}
+
+/* the parameters of a function made at its entry (a definition already had them seeded by its declarator) */
+static void flow_seed_parameters(struct flow_ctx* ctx, struct function_declarator* _Nullable p_function_declarator)
+{
+    ctx->restrict_pointees_count = 0;
+    if (p_function_declarator == NULL ||
+        p_function_declarator->parameter_type_list_opt == NULL ||
+        p_function_declarator->parameter_type_list_opt->parameter_list == NULL)
+    {
+        return;
+    }
+
+    for (struct parameter_declaration* p_parameter = p_function_declarator->parameter_type_list_opt->parameter_list->head;
+         p_parameter;
+         p_parameter = p_parameter->next)
+    {
+        if (p_parameter->declarator)
+        {
+            flow_seed_parameter(ctx, p_parameter);
+        }
+    }
+}
 
 /*
     All the ifs (same object) of the function, made at its entry: two pointer
@@ -12451,10 +13235,13 @@ static bool flow_alias_is_restrict(const struct declarator* p);
     be the same object. restrict says they are not; two _Owner own different
     objects; two const views only read.
 */
-static void flow_create_parameter_same_objects(struct flow_ctx* ctx, const struct declaration* p_declaration)
+/* the parameter seeding below is shared by the definition and the literal; p_function_opt (the declarator of a definition) has the file scope objects the function uses */
+static void flow_create_parameter_same_objects(struct flow_ctx* ctx,
+                                               const struct function_declarator* _Nullable p_function_declarator,
+                                               const struct declarator* p_function_opt)
 {
     const struct declarator* params[FLOW_ALIAS_MAX_PARAMETERS] = { 0 };
-    const int params_count = flow_alias_parameters(p_declaration, params, FLOW_ALIAS_MAX_PARAMETERS);
+    const int params_count = flow_alias_parameters(p_function_declarator, params, FLOW_ALIAS_MAX_PARAMETERS);
 
     for (int i = 0; i < params_count; i++)
     {
@@ -12470,22 +13257,28 @@ static void flow_create_parameter_same_objects(struct flow_ctx* ctx, const struc
                 !both_const_views &&
                 flow_alias_same_pointee(params[i], params[j]))
             {
-                const struct flow_key_alternatives* p_src_entry = flow_branch_search_up(ctx->p_current_flow_branch, &params[i]->object);
                 struct flow_key_alternatives* p_dest_entry = flow_branch_find_add(ctx->p_current_flow_branch, &params[j]->object);
-                const struct object* p_target = p_src_entry != NULL ? flow_alias_pointee(p_src_entry) : NULL;
-                if (p_dest_entry != NULL && p_target != NULL)
+                const struct flow_key_alternatives* p_src_entry = flow_branch_search_up(ctx->p_current_flow_branch, &params[i]->object);
+                for (int k = 0; p_dest_entry != NULL && p_src_entry != NULL && k < p_src_entry->alternatives.size; k++)
                 {
-                    flow_add_same_object_target(ctx, p_dest_entry, p_target, params[j]->name_opt, true,
-                                                params[j]->name_opt ? params[j]->name_opt->lexeme : "",
-                                                params[i]->name_opt ? params[i]->name_opt->lexeme : "");
+                    const struct flow_alternative* p_src_alternative = p_src_entry->alternatives.data[k]; //lint 33
+                    /* the own pointee of params[i]: not one it got from an earlier pair */
+                    if (p_src_alternative->value_kind == FLOW_VALUE_KIND_PTR &&
+                        p_src_alternative->value_relation == FLOW_RELATION_EQUAL &&
+                        p_src_alternative->value.p != NULL &&
+                        flow_same_object_side_of(ctx, p_src_alternative->p_origin_map) == NULL)
+                    {
+                        flow_add_same_object_target(ctx, p_dest_entry, p_src_alternative->value.p, params[j]->name_opt, true,
+                                                    params[j]->name_opt ? params[j]->name_opt->lexeme : "",
+                                                    params[i]->name_opt ? params[i]->name_opt->lexeme : "");
+                    }
                 }
             }
         }
     }
 
     /* a parameter may point to a file scope object the function uses: f(&g); an _Owner cannot own one */
-    const struct init_declarator* p_init = p_declaration->init_declarator_list.head;
-    const struct declarator* p_function = p_init != NULL ? p_init->p_declarator : NULL;
+    const struct declarator* p_function = p_function_opt;
     for (int i = 0; p_function != NULL && i < params_count; i++)
     {
         if (flow_alias_is_restrict(params[i]) || type_is_owner(&params[i]->object.type))
@@ -12554,28 +13347,7 @@ static void flow_visit_direct_declarator(struct flow_ctx* ctx, struct direct_dec
             {
                 flow_visit_declaration_specifiers(ctx, parameter->declaration_specifiers);
                 flow_visit_declarator(ctx, parameter->declarator);
-                flow_parameter_object_init(ctx, &parameter->declarator->object, &parameter->declarator->object.type, parameter->declarator->object.member_designator, parameter->declaration_specifiers->first_token);
-
-                const struct type* p_parameter_type = &parameter->declarator->object.type;
-                if (type_is_pointer(p_parameter_type) &&
-                    (p_parameter_type->type_qualifier_flags & TYPE_QUALIFIER_RESTRICT) &&
-                    ctx->restrict_pointees_count < (int)(sizeof ctx->restrict_pointees / sizeof ctx->restrict_pointees[0]))
-                {
-                    /* the pointee made by flow_parameter_object_init: one PTR alternative */
-                    const struct flow_key_alternatives* p_parameter_alternatives =
-                        flow_branch_search_up(ctx->p_current_flow_branch, &parameter->declarator->object);
-                    const struct flow_alternative* p_parameter_value =
-                        p_parameter_alternatives != NULL && p_parameter_alternatives->alternatives.size == 1 ?
-                        p_parameter_alternatives->alternatives.data[0] : NULL; //lint 33
-                    if (p_parameter_value != NULL &&
-                        p_parameter_value->value_kind == FLOW_VALUE_KIND_PTR &&
-                        p_parameter_value->value.p != NULL)
-                    {
-                        ctx->restrict_pointees[ctx->restrict_pointees_count] = p_parameter_value->value.p;
-                        ctx->restrict_parameters[ctx->restrict_pointees_count] = parameter->declarator;
-                        ctx->restrict_pointees_count++;
-                    }
-                }
+                flow_seed_parameter(ctx, parameter);
             }
             parameter = parameter->next;
         }
@@ -12949,6 +13721,124 @@ static void flow_check_write_qualifier_declarator(const struct flow_ctx* ctx, st
     flow_check_write_qualifier_placement(ctx, &p_declarator->object.type, p_token);
 }
 
+/*
+    The analysis of a function body, shared by the three kinds of function: a function
+    definition, a local function (a definition inside another function) and a function
+    literal. p_function_type is the type of the function; p_function is the declarator
+    of the function (the abstract declarator of a literal, it has the file scope objects the
+    function uses) and p_declaration_opt the definition, NULL for a literal.
+*/
+static void flow_analyze_function_body(struct flow_ctx* ctx,
+                                       struct function_declarator* _Nullable p_function_declarator,
+                                       struct compound_statement* p_body,
+                                       const struct type* p_function_type,
+                                       const struct declarator* p_function,
+                                       const struct declaration* p_declaration_opt,
+                                       bool is_nested)
+{
+    struct type return_type = get_function_return_type(p_function_type);
+    ctx->p_return_type = &return_type;
+    ctx->p_current_function_declarator = p_function_declarator;
+
+    /*
+        The parameters of a top-level definition were seeded by its declarator; a nested
+        one (local function, literal) is seeded here, in its own map.
+    */
+    if (is_nested || p_declaration_opt == NULL)
+    {
+        flow_seed_parameters(ctx, p_function_declarator);
+    }
+
+    flow_create_parameter_same_objects(ctx, p_function_declarator, p_function);
+
+    /*
+        _core: the body's trailing `//lint N` is checked below instead,
+        after the fall-off-the-end exit diagnostics have been queued.
+        See flow_visit_compound_statement_core.
+    */
+    flow_visit_compound_statement_core(ctx, p_body);
+
+    if (!ctx->stopped && !compound_statement_is_last_item_return(p_body))
+    {
+        /* the body's defers already ran in flow_visit_compound_statement_core */
+        const struct marker marker =
+        {
+            .p_token_begin = p_body->last_token,
+            .p_token_end = p_body->last_token
+        };
+        /*
+            Falling off the end is an exit: check _Clear/_Dtor contracts. Before
+            p_current_function_declarator is cleared, and before
+            flow_defer_list_set_end_of_lifetime (as in flow_check_function_exit).
+        */
+        flow_check_write_qualified_params_at_exit(ctx, &marker, p_body->last_token); //lint 35
+        flow_defer_list_set_end_of_lifetime(ctx, &p_body->defer_list, p_body->last_token); //lint 35
+        flow_check_exiting_objects(ctx, NULL, &marker);
+
+        const struct token* p_name = NULL;
+        if (p_declaration_opt != NULL && p_declaration_opt->init_declarator_list.head != NULL)
+        {
+            p_name = p_declaration_opt->init_declarator_list.head->p_declarator->name_opt;
+        }
+        const char* func_name = p_name ? p_name->lexeme : NULL;
+        if (!type_is_void(&return_type) &&
+            !(ctx->p_current_flow_branch != NULL && ctx->p_current_flow_branch->is_unreachable) &&
+            !(p_declaration_opt && p_declaration_opt->declaration_specifiers &&
+              (p_declaration_opt->declaration_specifiers->function_specifier_flags & FUNCTION_SPECIFIER_NORETURN)) &&
+            !(func_name && strcmp(func_name, "main") == 0))
+        {
+            diagnostic(W_FLOW_RETURN_TYPE, ctx->ctx, NULL, &marker, "control reaches end of non-void function");
+        }
+    }
+
+    if (p_body->lint_token)
+    {
+        flow_check_dianostic_suppression(ctx, p_body->lint_token);
+    }
+
+    type_destroy(&return_type);
+    ctx->p_current_function_declarator = NULL;
+    ctx->p_return_type = NULL;
+}
+
+/*
+    The analysis of a function body, shared by the three kinds of function: a function
+    definition, a local function (a definition inside another function) and a function
+    literal. A nested one (local function, literal) cannot use the objects of the
+    enclosing function, so it is analyzed in its own flow_ctx: a copy of this one, from a
+    new root map and with nothing of the enclosing function's jumps, switch or loops. What
+    all the functions share (the arenas, the findings, the limits) is given back after.
+*/
+static void flow_visit_function_body(struct flow_ctx* ctx,
+                                     struct function_declarator* _Nullable p_function_declarator,
+                                     struct compound_statement* p_body,
+                                     const struct type* p_function_type,
+                                     const struct declarator* p_function,
+                                     const struct declaration* p_declaration_opt)
+{
+    const bool is_nested = ctx->p_return_type != NULL;
+    if (!is_nested)
+    {
+        flow_analyze_function_body(ctx, p_function_declarator, p_body, p_function_type, p_function, p_declaration_opt, false);
+        return;
+    }
+
+    struct flow_ctx function_ctx = *ctx;
+    flow_ctx_start_function(&function_ctx);
+    function_ctx.p_current_flow_branch = flow_branch_arena_new(&function_ctx.flow_branch_arena, NULL, FLOW_BRANCH_ROOT);
+    if (function_ctx.p_current_flow_branch != NULL)
+    {
+        flow_analyze_function_body(&function_ctx, p_function_declarator, p_body, p_function_type, p_function, p_declaration_opt, true);
+    }
+
+    ctx->allocated_object_arena = function_ctx.allocated_object_arena;
+    ctx->flow_branch_arena = function_ctx.flow_branch_arena;
+    ctx->next_branch_id = function_ctx.next_branch_id;
+    ctx->p_reported_findings = function_ctx.p_reported_findings;
+    ctx->findings_depth = function_ctx.findings_depth;
+    ctx->findings_text = function_ctx.findings_text;
+}
+
 void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declaration)
 {
     try
@@ -12996,60 +13886,15 @@ void flow_visit_declaration(struct flow_ctx* ctx, struct declaration* p_declarat
 
         if (p_declaration->function_body)
         {
-            assert(ctx->p_return_type == NULL);
             if (p_declaration->init_declarator_list.head == NULL) throw;
 
-            struct type type = get_function_return_type(&p_declaration->init_declarator_list.head->p_declarator->object.type);
-            ctx->p_return_type = &type;
-
-            ctx->p_current_function_declaration = p_declaration;
-            flow_create_parameter_same_objects(ctx, p_declaration);
-
-            /*
-                _core: the body's trailing `//lint N` is checked below instead,
-                after the fall-off-the-end exit diagnostics have been queued.
-                See flow_visit_compound_statement_core.
-            */
-            flow_visit_compound_statement_core(ctx, p_declaration->function_body);
-
-            if (!ctx->stopped && !compound_statement_is_last_item_return(p_declaration->function_body))
-            {
-                /* the body's defers already ran in flow_visit_compound_statement_core */
-                /* flow_check_params_at_function_exit(ctx, p_declaration); */
-                const struct marker marker =
-                {
-                    .p_token_begin = p_declaration->function_body->last_token,
-                    .p_token_end = p_declaration->function_body->last_token
-                };
-                /*
-                    Falling off the end is an exit: check _Clear/_Dtor contracts. Before
-                    p_current_function_declaration is cleared, and before
-                    flow_defer_list_set_end_of_lifetime (as in flow_check_function_exit).
-                */
-                flow_check_write_qualified_params_at_exit(ctx, &marker, p_declaration->function_body->last_token);
-                flow_defer_list_set_end_of_lifetime(ctx, &p_declaration->function_body->defer_list, p_declaration->function_body->last_token);
-                flow_check_exiting_objects(ctx, NULL, &marker);
-
-                const struct token* p_name = p_declaration->init_declarator_list.head->p_declarator->name_opt;
-                const char* func_name = p_name ? p_name->lexeme : NULL;
-                if (!type_is_void(&type) &&
-                    !(ctx->p_current_flow_branch != NULL && ctx->p_current_flow_branch->is_unreachable) &&
-                    !(p_declaration->declaration_specifiers &&
-                      (p_declaration->declaration_specifiers->function_specifier_flags & FUNCTION_SPECIFIER_NORETURN)) &&
-                    !(func_name && strcmp(func_name, "main") == 0))
-                {
-                    diagnostic(W_FLOW_RETURN_TYPE, ctx->ctx, NULL, &marker, "control reaches end of non-void function");
-                }
-            }
-
-            if (p_declaration->function_body->lint_token)
-            {
-                flow_check_dianostic_suppression(ctx, p_declaration->function_body->lint_token);
-            }
-
-            ctx->p_current_function_declaration = NULL;
-            type_destroy(&type);
-            ctx->p_return_type = NULL;
+            struct declarator* p_function_declarator_decl = p_declaration->init_declarator_list.head->p_declarator;
+            flow_visit_function_body(ctx,
+                                     declarator_find_function_declarator(p_function_declarator_decl),
+                                     p_declaration->function_body,
+                                     &p_function_declarator_decl->object.type,
+                                     p_function_declarator_decl,
+                                     p_declaration);
         }
 
         if (p_declaration->lint_token)
@@ -13066,11 +13911,7 @@ static void flow_analyze_declaration(struct flow_ctx* ctx, struct declaration* p
 {
     try
     {
-        ctx->labels_size = 0;
-        ctx->stopped = false;
-        ctx->collect_deferred_effects = false;
-        ctx->deferred_effects_count = 0;
-        ctx->call_effect_arguments_count = 0;
+        flow_ctx_start_function(ctx);
 
         flow_allocated_object_arena_clear(&ctx->allocated_object_arena);
         flow_branch_arena_clear(&ctx->flow_branch_arena);
@@ -13079,8 +13920,6 @@ static void flow_analyze_declaration(struct flow_ctx* ctx, struct declaration* p
         ctx->p_current_flow_branch = flow_branch_arena_new(&ctx->flow_branch_arena, NULL, FLOW_BRANCH_ROOT);
         if (ctx->p_current_flow_branch == NULL)
             throw;
-
-        ctx->function_start_time = clock();
 
         flow_visit_declaration(ctx, p_declaration);
 
@@ -13108,12 +13947,8 @@ static void flow_analyze_declaration(struct flow_ctx* ctx, struct declaration* p
 }
 
 /* Pointer parameters of the function definition that point to objects (not void, not functions). */
-static int flow_alias_parameters(const struct declaration* p_declaration, const struct declarator* out[], int max)
+static int flow_alias_parameters(const struct function_declarator* _Nullable p_function, const struct declarator* out[], int max)
 {
-    const struct init_declarator* p_init = p_declaration->init_declarator_list.head;
-    if (p_init == NULL || p_init->p_declarator->direct_declarator == NULL)
-        return 0;
-    const struct function_declarator* p_function = p_init->p_declarator->direct_declarator->function_declarator;
     if (p_function == NULL ||
             p_function->parameter_type_list_opt == NULL ||
             p_function->parameter_type_list_opt->parameter_list == NULL)

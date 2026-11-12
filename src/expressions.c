@@ -3345,6 +3345,38 @@ static bool is_integer_or_floating_constant(enum token_type type)
         type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
+/* the file scope (or enclosing function static) objects a function uses: its parameters may point to them (see flow_create_parameter_same_objects) */
+static void record_used_global(struct declarator* _Nullable p_function, const struct declarator* _Nullable p_declarator)
+{
+    if (p_function == NULL)
+        return;
+
+    for (int i = 0; i < p_function->used_globals_count; i++)
+    {
+        if (p_function->used_globals[i] == p_declarator) //lint 33
+        {
+            return; /* already recorded */
+        }
+    }
+
+    if (p_function->used_globals_count == p_function->used_globals_capacity)
+    {
+        const int new_capacity = p_function->used_globals_capacity == 0 ? 4 : p_function->used_globals_capacity * 2;
+        const struct declarator* _Nullable* _Owner p_new =
+            realloc(p_function->used_globals, (size_t)new_capacity * sizeof(p_function->used_globals[0]));
+        if (p_new != NULL)
+        {
+            p_function->used_globals = p_new; //lint 26  (realloc semantics)
+            p_function->used_globals_capacity = new_capacity;
+        }
+    }
+    if (p_function->used_globals_count < p_function->used_globals_capacity)
+    {
+        p_function->used_globals[p_function->used_globals_count] = p_declarator; //lint 33
+        p_function->used_globals_count++;
+    }
+}
+
 struct expression* _Owner primary_expression(struct parser_ctx* ctx, bool is_discarded)
 {
     /*
@@ -3451,37 +3483,9 @@ struct expression* _Owner primary_expression(struct parser_ctx* ctx, bool is_dis
                         /* it is from file scope */
                         declarator_is_from_enclosing_function = false;
 
-                        struct declarator* p_function = ctx->p_current_function_opt;
-                        if (p_function != NULL && !b_type_is_function)
+                        if (!b_type_is_function)
                         {
-                            bool already_used = false;
-                            for (int i = 0; i < p_function->used_globals_count; i++)
-                            {
-                                if (p_function->used_globals[i] == p_declarator) //lint 33
-                                {
-                                    already_used = true;
-                                    break;
-                                }
-                            }
-                            if (!already_used)
-                            {
-                                if (p_function->used_globals_count == p_function->used_globals_capacity)
-                                {
-                                    const int new_capacity = p_function->used_globals_capacity == 0 ? 4 : p_function->used_globals_capacity * 2;
-                                    const struct declarator* _Nullable* _Owner p_new =
-                                        realloc(p_function->used_globals, (size_t)new_capacity * sizeof(p_function->used_globals[0]));
-                                    if (p_new != NULL)
-                                    {
-                                        p_function->used_globals = p_new; //lint 26  (realloc semantics)
-                                        p_function->used_globals_capacity = new_capacity;
-                                    }
-                                }
-                                if (p_function->used_globals_count < p_function->used_globals_capacity)
-                                {
-                                    p_function->used_globals[p_function->used_globals_count] = p_declarator; //lint 33
-                                    p_function->used_globals_count++;
-                                }
-                            }
+                            record_used_global(ctx->p_current_function_opt, p_declarator);
                         }
                     }
                     else
@@ -3502,6 +3506,14 @@ struct expression* _Owner primary_expression(struct parser_ctx* ctx, bool is_dis
                                 break;
                             }
                             p_scope = p_scope->previous;
+                        }
+
+                        /* a static object of the enclosing function is used like a file scope one */
+                        if (!b_type_is_function &&
+                            declarator_is_from_enclosing_function &&
+                            (p_declarator->object.type.storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
+                        {
+                            record_used_global(ctx->p_current_function_opt, p_declarator);
                         }
                     }
 
@@ -5046,6 +5058,14 @@ struct expression* _Owner postfix_expression_compound_func_literal(struct parser
 
             p_expression_node->compound_statement = function_body(ctx);
 
+            /* the same parameter checks as a function definition (see declaration_core) */
+            check_function_parameters(ctx, p_innermost_direct_declarator->function_declarator);
+            if (p_expression_node->compound_statement &&
+                p_expression_node->compound_statement->lint_token)
+            {
+                check_compiler_dianostic_suppression(ctx, p_expression_node->compound_statement->lint_token);
+            }
+
             if (p_expression_node->compound_statement && ctx->p_report->error_count == 0)
             {
                 struct parameter_list* p_parameter_list =
@@ -5237,13 +5257,6 @@ bool is_first_of_unary_expression(const struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
-
-    if (ctx->current->type == TK_KEYWORD_CONST)
-    {
-        struct token* ahead = parser_look_ahead(ctx);
-        if (ahead && ahead->type == '(')
-            return true; // const(expr)
-    }
 
     return first_of_postfix_expression(ctx) ||
         ctx->current->type == '++' ||
@@ -6762,37 +6775,6 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
 
         }
 
-        else if (ctx->current->type == TK_KEYWORD_CONST) /* new keyword consteval?? */
-        {
-            struct expression* _Owner new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) throw;
-
-            new_expression->expression_type = EXPR_UNARY_CONSTEVAL;
-            new_expression->first_token = ctx->current;
-
-            parser_match(ctx);
-
-            if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
-            new_expression->right = constant_expression(ctx, true, is_discarded);
-
-            if (parser_match_tk(ctx, ')') != 0)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
-            struct token* p_previous_token = parser_get_previous_token(ctx);
-            if (p_previous_token == NULL)
-            {
-                expression_delete(new_expression);
-                throw;
-            }
-            new_expression->last_token = p_previous_token;
-            return new_expression;
-        }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
 

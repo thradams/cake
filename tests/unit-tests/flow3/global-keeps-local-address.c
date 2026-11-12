@@ -1,6 +1,6 @@
 #pragma safety enable
 
-int* _Nullable keep;
+int* keep;
 struct S { int* p; };
 struct S gs;
 

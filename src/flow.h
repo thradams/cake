@@ -111,18 +111,30 @@ struct flow_ctx
 {
     struct parser_ctx* _Nonnull const ctx;
 
+    clock_t function_start_time; /* see flow_start_visit_declaration */
+    bool stopped; /* the analysis of the current function was stopped, see flow_check_limits */
+
+
+    /* per function: a function nested in another (literal, local function) is analyzed in its own flow_ctx */
     /*
-        Arguments whose call may have changed what is reachable from them
-        (flow.md 6.3). A state set there is explained as a call effect, not
-        as "value set here". Reset for each function.
-    */
-    const struct expression* call_effect_arguments[64];
-    int call_effect_arguments_count;
-
+     * Set while visiting a function body so that flow_visit_jump_statement
+     * can call flow_check_params_at_function_exit on every return path.
+     * NULL outside of a function body.
+     */
+    struct function_declarator* p_current_function_declarator;
     struct type* p_return_type;
-    int parameter_list;
 
-    bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
+    struct flow_branch* p_throw_join_map;  /*map where throws are joined*/
+    bool throw_join_reached;    /* a throw reached p_throw_join_map */
+    bool break_join_reached;    /* a break reached p_break_join_map */
+    bool continue_join_reached; /* a continue reached p_continue_join_map */
+    struct flow_branch* p_break_join_map;  /*map where breaks are joined*/
+    struct flow_branch* p_continue_join_map;  /*map where continues are joined*/
+    bool switch_case_dead;                         /* the current case of a constant switch is never reached */
+    const struct expression* p_switch_condition; /* the condition of the switch: a case narrows every object it refers to */
+    bool switch_is_constant;                       /* the switch condition is known at compile time */
+    const struct label* p_switch_live_label;  /* the label a constant switch jumps to */
+    struct flow_branch* p_initial_map;     /*map snapshot of the original state*/
 
     /* the expression being visited as a condition (see flow_visit_condition) */
     const struct expression* p_condition;
@@ -142,25 +154,25 @@ struct flow_ctx
     */
     int iteration_pass;
 
-    clock_t function_start_time; /* see flow_start_visit_declaration */
-    bool stopped; /* the analysis of the current function was stopped, see flow_check_limits */
-
-    struct flow_branch* p_throw_join_map;  /*map where throws are joined*/
-    bool throw_join_reached;    /* a throw reached p_throw_join_map */
-    bool break_join_reached;    /* a break reached p_break_join_map */
-    bool continue_join_reached; /* a continue reached p_continue_join_map */
-    struct flow_branch* p_break_join_map;  /*map where breaks are joined*/
-    struct flow_branch* p_continue_join_map;  /*map where continues are joined*/
-    struct flow_branch* p_initial_map;     /*map snapshot of the original state*/
-    const struct object* p_switch_obj_key;
-    bool switch_is_constant;                       /* the switch condition is known at compile time */
-    const struct label* p_switch_live_label;  /* the label a constant switch jumps to */
-    bool switch_case_dead;                         /* the current case of a constant switch is never reached */
-    
-
     struct flow_label_state labels[100]; //max 100 labels in a function (case not included)
     int labels_size;
 
+    /* pointees of the restrict parameters of the function: the result cannot point into them */
+    const struct object* _Nullable restrict_pointees[16];
+    const struct declarator* _Nullable restrict_parameters[16];
+    int restrict_pointees_count;
+
+    /*
+        Arguments whose call may have changed what is reachable from them
+        (flow.md 6.3). A state set there is explained as a call effect, not
+        as "value set here". Reset for each function.
+    */
+    const struct expression* call_effect_arguments[64];
+    int call_effect_arguments_count;
+
+    int parameter_list;
+
+    bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
 
     /*
         Function-call pointee write-effects, deferred until after all arguments
@@ -176,6 +188,10 @@ struct flow_ctx
     struct flow_restrict_argument restrict_arguments[FLOW_MAX_RESTRICT_ARGUMENTS];
     int restrict_arguments_count;
 
+    /* the parameter flow_parameter_object_init is making, to record its restrict pointee */
+    const struct declarator* _Nullable p_parameter_being_initialized;
+
+
     struct flow_allocated_object_arena allocated_object_arena;
     struct flow_branch_arena flow_branch_arena;
     struct flow_branch* p_current_flow_branch;
@@ -188,18 +204,6 @@ struct flow_ctx
     struct flow_reported_finding* _Owner p_reported_findings; /* FLOW_MAX_REPORTED_FINDINGS entries, allocated on first use */
     int findings_depth; /* nested assignment checks sharing p_reported_findings */
     struct osstream findings_text; /* pending messages, each ending in '\0' */
-
-    /*
-     * Set while visiting a function body so that flow_visit_jump_statement
-     * can call flow_check_params_at_function_exit on every return path.
-     * NULL outside of a function body.
-     */
-    struct declaration* p_current_function_declaration;
-
-    /* pointees of the restrict parameters of the function: the result cannot point into them */
-    const struct object* _Nullable restrict_pointees[16];
-    const struct declarator* _Nullable restrict_parameters[16];
-    int restrict_pointees_count;
 
 
     /*

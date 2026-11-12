@@ -1,6 +1,6 @@
 #pragma safety enable
 
-/* reading an _Opt member yields possibly-null, so `if (list->head != NULL) else` keeps a reachable else and an unguarded dereference warns */
+/* reading an _Nullable member yields possibly-null, so `if (list->head != NULL) else` keeps a reachable else and an unguarded dereference warns */
 
 #define NULL ((void*)0)
 
@@ -14,7 +14,7 @@ void pop_front(struct list* list)
         return;
 
     struct token* old = list->head;
-    list->head = old->next;              /* _Opt member -> possibly null */
+    list->head = old->next;              /* _Nullable member -> possibly null */
 
     if (list->head != NULL)
     {
@@ -26,7 +26,7 @@ void pop_front(struct list* list)
     }
 }
 
-/* A guarded _Opt member read narrows and is safe to use. */
+/* A guarded _Nullable member read narrows and is safe to use. */
 void guarded(struct token* t)
 {
     if (t->next != NULL)

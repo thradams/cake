@@ -8,7 +8,7 @@ struct X
     int i;
     void* _Owner p;
 };
-void f(const struct X* _Opt p);
+void f(const struct X* _Nullable p);
 int main()
 {
     struct X x = { 0 };

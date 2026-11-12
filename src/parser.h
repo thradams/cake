@@ -1663,6 +1663,8 @@ struct block_item* _Owner block_item(struct parser_ctx* ctx);
 void block_item_delete(_Dtor struct block_item* _Owner _Nullable p);
 
 struct compound_statement* _Owner function_body(struct parser_ctx* ctx);
+void check_function_parameters(const struct parser_ctx* ctx, struct function_declarator* _Nullable p_function_declarator);
+void check_compiler_dianostic_suppression(struct parser_ctx* ctx, const struct token* p_token);
 
 struct designator
 {

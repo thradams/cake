@@ -2,7 +2,7 @@
 #pragma safety enable
 
 struct X { int x; };
-struct X* _Nullable h;
+struct X* h;
 
 void f(void)
 {

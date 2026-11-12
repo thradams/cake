@@ -276,7 +276,7 @@ DIR* _Owner opendir(const char* name)
 
     HANDLE handle = FindFirstFileA(path, &fdfile);
 
-    if (handle != INVALID_HANDLE_VALUE)
+    if (handle != NULL && handle != INVALID_HANDLE_VALUE)
     {
         _Nullable DIR* _Owner p = calloc(1, sizeof * p);
         if (p)

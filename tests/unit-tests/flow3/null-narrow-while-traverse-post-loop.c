@@ -8,7 +8,7 @@ struct node
     int v;
 };
 
-void traverse(struct node* _Opt p)
+void traverse(struct node* _Nullable p)
 {
     while (p)
     {
@@ -21,7 +21,7 @@ void traverse(struct node* _Opt p)
 }
 
 /* contrast: p-> inside the body is safe */
-void traverse_inside_only(struct node* _Opt p)
+void traverse_inside_only(struct node* _Nullable p)
 {
     while (p)
     {

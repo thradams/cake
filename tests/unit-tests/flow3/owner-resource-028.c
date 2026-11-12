@@ -2,7 +2,7 @@
 
 
 _Clear void* _Nonnull _Owner calloc(unsigned long n , unsigned long size);
-void free(void* _Owner _Opt ptr);
+void free(void* _Owner _Nullable ptr);
 
 struct Y {
   char * _Owner p0;

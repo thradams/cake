@@ -1688,12 +1688,6 @@ bool first_of_type_qualifier(const struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    if (ctx->current->type == TK_KEYWORD_CONST)
-    {
-        struct token* ahead = parser_look_ahead(ctx);
-        if (ahead && ahead->type == '(')
-            return false; // expression const(expr)
-    }
     return first_of_type_qualifier_token(ctx->current);
 }
 
@@ -3659,10 +3653,7 @@ struct declaration* _Owner declaration_core(struct parser_ctx* ctx,
                        #pragma anything
                        ;
                     */
-                    if (p_declaration->pragma_declaration != NULL)
-                    {
-                        assert(0);
-                    }
+                    assert(p_declaration->pragma_declaration == NULL);
                     pragma_declaration_delete(p_declaration->pragma_declaration);
                     p_declaration->pragma_declaration = pragma_declaration(ctx);
                 }
@@ -3927,6 +3918,21 @@ static bool param_pointee_is_const(const struct type* p_type)
     return is_const;
 }
 
+static void check_const_candidate_parameters(const struct parser_ctx* ctx, struct parameter_list* parameter_list);
+static void check_unused_parameters(const struct parser_ctx* ctx, struct parameter_list* parameter_list);
+
+/* the parameter checks of a function body: a function definition, a local function or a function literal */
+void check_function_parameters(const struct parser_ctx* ctx, struct function_declarator* _Nullable p_function_declarator)
+{
+    if (p_function_declarator &&
+        p_function_declarator->parameter_type_list_opt &&
+        p_function_declarator->parameter_type_list_opt->parameter_list)
+    {
+        check_unused_parameters(ctx, p_function_declarator->parameter_type_list_opt->parameter_list);
+        check_const_candidate_parameters(ctx, p_function_declarator->parameter_type_list_opt->parameter_list);
+    }
+}
+
 static void check_const_candidate_parameters(const struct parser_ctx* ctx, struct parameter_list* parameter_list)
 {
     struct parameter_declaration* parameter = parameter_list->head;
@@ -4187,18 +4193,7 @@ struct declaration* _Owner declaration(struct parser_ctx* ctx,
                 p_function_declarator = p_first_init_declarator->p_declarator->direct_declarator->function_declarator;
             }
 
-            if (p_function_declarator &&
-                p_function_declarator->parameter_type_list_opt)
-            {
-                struct parameter_list* p_parameter_list =
-                    p_function_declarator->parameter_type_list_opt->parameter_list;
-
-                if (p_parameter_list)
-                {
-                    check_unused_parameters(ctx, p_parameter_list);
-                    check_const_candidate_parameters(ctx, p_parameter_list);
-                }
-            }
+            check_function_parameters(ctx, p_function_declarator);
 
             /* function_body was just assigned non-null above, after a throw on NULL. */
             /* 
@@ -4576,17 +4571,22 @@ struct init_declarator* _Owner init_declarator(struct parser_ctx* ctx,
             type_destroy(&t);
         }
 
-        /* a local pointer variable is nullable unless _Nonnull: flow tracks its value */
+        /*
+            a pointer variable is nullable unless _Nonnull: a local has its value tracked by
+            flow; a file scope or static one was written somewhere else, like a member
+        */
         if (
             !(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) &&
-            is_automatic_variable(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags) &&
             type_is_pointer(&p_init_declarator->p_declarator->object.type) &&
             !(p_init_declarator->p_declarator->object.type.type_qualifier_flags & TYPE_QUALIFIER_CAKE_NONNULL))
         {
             if (p_init_declarator->p_declarator->object.type.type_qualifier_flags & TYPE_QUALIFIER_CAKE_NULLABLE)
             {
+                const bool is_local = is_automatic_variable(p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
                 if (ctx->options.safety_enabled) diagnostic(W_REDUNDANT_NULLABILITY, ctx, p_init_declarator->p_declarator->first_token_opt ? p_init_declarator->p_declarator->first_token_opt : ctx->current, NULL,
-                           "redundant '_Nullable': a local pointer is always nullable");
+                           is_local ?
+                           "redundant '_Nullable': a local pointer is always nullable" :
+                           "redundant '_Nullable': a file scope or static pointer is nullable by default");
             }
             p_init_declarator->p_declarator->object.type.type_qualifier_flags |= TYPE_QUALIFIER_CAKE_NULLABLE;
         }
@@ -5272,6 +5272,13 @@ struct init_declarator* _Owner init_declarator(struct parser_ctx* ctx,
                     t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_AUTO;
 
                     type_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
+
+                    /* nothing was written: like any variable, an auto pointer is nullable (only parameters are non-null by default) */
+                    if (type_is_pointer(&t))
+                    {
+                        t.type_qualifier_flags &= ~TYPE_QUALIFIER_CAKE_NONNULL;
+                        t.type_qualifier_flags |= TYPE_QUALIFIER_CAKE_NULLABLE;
+                    }
 
                     type_visit_to_mark_anonymous(&t);
                     type_swap(&p_init_declarator->p_declarator->object.type, &t);
@@ -9660,6 +9667,10 @@ struct array_declarator* _Owner array_declarator(struct direct_declarator* _Owne
         if (first_of_type_qualifier(ctx))
         {
             p_array_declarator->type_qualifier_list_opt = type_qualifier_list(ctx);
+            if (p_array_declarator->type_qualifier_list_opt == NULL)
+            {
+                throw;
+            }
         }
 
         if (ctx->current == NULL)
@@ -9909,6 +9920,12 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
     struct pointer* _Owner p_pointer = NULL;
     try
     {
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
         struct token* calling_convention = NULL;
         struct token* ahead = parser_look_ahead(ctx);
         if (ahead != NULL && ahead->type == '*')
@@ -9916,13 +9933,17 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
             /* 
             * typedef void (__fastcall *pf)();
             */
-            if (ctx->current != NULL &&
-                (ctx->current->type == TK_KEYWORD_MSVC__STDCALL ||
+            if ((ctx->current->type == TK_KEYWORD_MSVC__STDCALL ||
                     ctx->current->type == TK_KEYWORD_MSVC__CDECL ||
                     ctx->current->type == TK_KEYWORD_MSVC__FASTCALL))
             {
                 calling_convention = ctx->current;
                 parser_match(ctx);
+                if (ctx->current == NULL)
+                {
+                    unexpected_end_of_file(ctx);
+                    throw;
+                }
             }
         }
 
@@ -9931,7 +9952,7 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
             SDK headers declare them unconditionally; treated as a plain
             pointer to the function type.
         */
-        if (ctx->current != NULL && (ctx->current->type == '*' || ctx->current->type == '^'))
+        if (ctx->current->type == '*' || ctx->current->type == '^')
         {
             p_pointer = calloc(1, sizeof(struct pointer));
             if (p_pointer == NULL)
@@ -9943,13 +9964,21 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
             p = p_pointer;
             check_pointer_style(ctx, ctx->current);
             parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             p_pointer->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
 
             if (first_of_type_qualifier(ctx))
             {
-                assert(ctx->current != NULL);
-
                 /* without -annotations _View is ignored, like an empty macro */
                 if (ctx->current->type == TK_KEYWORD_CAKE_VIEW && ctx->options.safety_enabled)
                 {
@@ -9962,10 +9991,20 @@ struct pointer* _Owner pointer_opt(struct parser_ctx* ctx)
                 else
                 {
                     p_pointer->type_qualifier_list_opt = type_qualifier_list(ctx);
+                    if (p_pointer->type_qualifier_list_opt == NULL)
+                    {
+                        throw;
+                    }
                 }
             }
 
-            if (ctx->current != NULL && ctx->current->type == '*')
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
+
+            if (ctx->current->type == '*')
             {
                 /* pointer_opt consumes all the remaining '*' */
                 p_pointer->pointer = pointer_opt(ctx);
@@ -10035,7 +10074,13 @@ struct type_qualifier_list* _Owner type_qualifier_list(struct parser_ctx* ctx)
         type_qualifier_list_add(p_type_qualifier_list, p_type_qualifier);
         p_type_qualifier = NULL; /* MOVED */
 
-        while (ctx->current != NULL && first_of_type_qualifier(ctx))
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+
+        while (first_of_type_qualifier(ctx))
         {
             p_type_qualifier = type_qualifier(ctx);
             if (p_type_qualifier == NULL)
@@ -10044,10 +10089,18 @@ struct type_qualifier_list* _Owner type_qualifier_list(struct parser_ctx* ctx)
             p_type_qualifier_list->flags |= p_type_qualifier->flags;
             type_qualifier_list_add(p_type_qualifier_list, p_type_qualifier);
             p_type_qualifier = NULL; /* MOVED */
+
+            if (ctx->current == NULL)
+            {
+                unexpected_end_of_file(ctx);
+                throw;
+            }
         }
     }
     catch
     {
+        type_qualifier_list_delete(p_type_qualifier_list);
+        p_type_qualifier_list = NULL;
     }
 
     return p_type_qualifier_list;

@@ -4,7 +4,7 @@
 
 #define NULL ((void*)0)
 
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 char* _Owner strdup(const char* s);
 
 struct name { char* _Owner lexeme; };

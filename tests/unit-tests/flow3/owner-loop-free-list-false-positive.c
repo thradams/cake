@@ -8,10 +8,10 @@ struct node
     struct node* _Owner next;
 };
 
-void node_delete(struct node* _Owner _Opt p);
+void node_delete(struct node* _Owner _Nullable p);
 
 /* Must NOT warn: the loop frees the whole list and leaves head == NULL. */
-void free_list(struct node* _Owner _Opt head)
+void free_list(struct node* _Owner _Nullable head)
 {
     while (head)
     {
@@ -23,7 +23,7 @@ void free_list(struct node* _Owner _Opt head)
 }
 
 /* contrast, must warn: with an `if` the body runs at most once and the last node leaks */
-void leaks_when_not_a_loop(struct node* _Owner _Opt head)
+void leaks_when_not_a_loop(struct node* _Owner _Nullable head)
 {
     if (head)
     {
