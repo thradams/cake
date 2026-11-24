@@ -7595,7 +7595,7 @@ const char* _Nonnull get_token_name(enum token_type tk)
         case TK_KEYWORD_CAKE_OUT: return "TK_KEYWORD__OUT";
         case TK_KEYWORD_CAKE_DTOR: return "TK_KEYWORD__OBJ_OWNER";
         case TK_KEYWORD_CAKE_VIEW: return "TK_KEYWORD_CAKE_VIEW";
-        case TK_KEYWORD_CAKE_OPT: return "TK_KEYWORD_CAKE_OPT";
+        case TK_KEYWORD_CAKE_NULLABLE: return "TK_KEYWORD_CAKE_NULLABLE";
         case TK_KEYWORD_CAKE_NONNULL: return "TK_KEYWORD_CAKE_NONNULL";
         case TK_KEYWORD_CAKE_UNINITIALIZED: return "TK_KEYWORD_CAKE_UNINITIALIZED";
         case TK_KEYWORD_CAKE_CLEAR: return "TK_KEYWORD_CAKE_CLEAR";
@@ -7825,7 +7825,7 @@ const char* _Nonnull get_diagnostic_friendly_token_name(enum token_type tk)
         case TK_KEYWORD_CAKE_OUT: return "Out";
         case TK_KEYWORD_CAKE_DTOR: return "_OBJ_OWNER";
         case TK_KEYWORD_CAKE_VIEW: return "_view";
-        case TK_KEYWORD_CAKE_OPT: return "_Nullable";
+        case TK_KEYWORD_CAKE_NULLABLE: return "_Nullable";
         case TK_KEYWORD_CAKE_NONNULL: return "_Nonnull";
 
             /*extension compile time functions*/

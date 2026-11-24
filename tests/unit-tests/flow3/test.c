@@ -2,7 +2,7 @@
 #pragma safety enable
 
 
-void f1(int * _Opt p)
+void f1(int * _Nullable p)
 {
     if (p)
     {
@@ -72,7 +72,7 @@ void f8(int c1, int c2)
     compile_assert(a || b);             /* compile_state any — {0,0} fails */
 }
 
-void f9(int * _Opt p)
+void f9(int * _Nullable p)
 {
     if (p != 0)
     {

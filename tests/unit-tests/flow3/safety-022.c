@@ -5,7 +5,7 @@ struct X {
     int i;
 };
 
-void f(const struct X* _Opt p)
+void f(const struct X* _Nullable p)
 {
     if (p && p->i || p->i > 2) //lint 33 pointer may be null
     {

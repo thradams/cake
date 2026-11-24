@@ -110,9 +110,9 @@ void call(int c)
 /* the targets of a pointer carried around a loop cannot be told apart: each
    is written as before, and p->next reads the value just written */
 struct node { struct node* _Owner next; };
-void node_delete(struct node* _Owner _Opt p);
+void node_delete(struct node* _Owner _Nullable p);
 
-void list_clear(struct node* _Owner _Opt head)
+void list_clear(struct node* _Owner _Nullable head)
 {
     struct node* _Owner p = head;
     while (p)

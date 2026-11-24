@@ -1,7 +1,7 @@
 #pragma safety enable
 
 
-void f(int * _Owner _Opt p);
+void f(int * _Owner _Nullable p);
 int main()
 {
    int * _Owner p = 0;

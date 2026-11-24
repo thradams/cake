@@ -8,7 +8,7 @@ struct E { int x; };
 
 struct E* _Owner tail(struct E* _Owner p);
 struct E* _Owner make(void);
-void del(struct E* _Owner _Opt p);
+void del(struct E* _Owner _Nullable p);
 int maybe(void);
 
 /* the expressions.c shape: several throws reach one catch, one after the self-consuming reassignment */

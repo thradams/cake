@@ -2,7 +2,7 @@
 
 /* an _Owner member released through one parameter is released through its alias too */
 
-void free(void* _Owner _Opt ptr);
+void free(void* _Owner _Nullable ptr);
 
 struct Y { int i; };
 struct X { struct Y* _Owner pY; };

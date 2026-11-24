@@ -15,7 +15,7 @@ struct X {
 };
 
 int main() {   
-   _Opt struct X x = {0};   
+   _Nullable struct X x = {0};   
    compile_assert(x.text == 0);
    compile_assert(x.p1 == 0);
    compile_assert(x.i == 0);

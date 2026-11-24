@@ -2,8 +2,8 @@
 
 #pragma safety enable
 
-void get(char * _Out _Owner _Opt * p);
-void free(void * _Owner _Opt p);
+void get(char * _Out _Owner _Nullable * p);
+void free(void * _Owner _Nullable p);
 
 void f1()
 {

@@ -2,7 +2,7 @@
 
 void* _Owner calloc(unsigned long n, unsigned long s);
 struct node { int* _Nonnull first; };
-void node_delete(_Dtor struct node* _Owner _Opt p);
+void node_delete(_Dtor struct node* _Owner _Nullable p);
 int* _Nonnull get(void);
 int fail(void);
 

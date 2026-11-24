@@ -189,7 +189,7 @@ struct flow_ctx
     int restrict_arguments_count;
 
     /* the parameter flow_parameter_object_init is making, to record its restrict pointee */
-    const struct declarator* _Nullable p_parameter_being_initialized;
+    const struct declarator* p_parameter_being_initialized;
 
 
     struct flow_allocated_object_arena allocated_object_arena;

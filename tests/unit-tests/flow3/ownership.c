@@ -5,7 +5,7 @@
 #pragma safety enable
 
 _Uninitialized void* _Owner malloc(unsigned long size);
-void free(void* _Owner _Opt ptr);
+void free(void* _Owner _Nullable ptr);
 char* _Owner strdup(const char* s);
 
 struct X {
@@ -21,12 +21,12 @@ void test_nonnull_param(int* p)
     *p = 42; /* ok */
 }
 
-void test_nonnull_param_caller(int* _Opt q)
+void test_nonnull_param_caller(int* _Nullable q)
 {
     test_nonnull_param(q); //lint 35 q may be null
 }
 
-void test_nonnull_param_caller_fixed(int* _Opt q)
+void test_nonnull_param_caller_fixed(int* _Nullable q)
 {
     if (q)
     {
@@ -40,7 +40,7 @@ int* _Nonnull test_nonnull_param_return(int* p)
 }
 
 
-void test_opt_param_guarded(int* _Opt p)
+void test_opt_param_guarded(int* _Nullable p)
 {
     if (p)
     {
@@ -48,12 +48,12 @@ void test_opt_param_guarded(int* _Opt p)
     }
 }
 
-void test_opt_param_unguarded(int* _Opt p)
+void test_opt_param_unguarded(int* _Nullable p)
 {
     *p = 1; //lint 33 p may be null
 }
 
-void test_opt_param_to_opt(int* _Opt p, int* _Opt* _Opt out)
+void test_opt_param_to_opt(int* _Nullable p, int* _Nullable* _Nullable out)
 {
     if (out) *out = p; /* ok */
 }
@@ -111,7 +111,7 @@ void leak_x(struct X x) // owner object (.text) not moved (opt-nonnull see line 
 
 void take_x(struct X x); /* forward */
 
-void free_x(struct X* _Owner _Opt p)
+void free_x(struct X* _Owner _Nullable p)
 {
     if (p)
     {
@@ -131,7 +131,7 @@ void read_x(_View struct X x) // ok: _View strips _Owner from members (.text is 
 
 } /* ok */
 
-void maybe_free(struct X* _Owner _Opt p)
+void maybe_free(struct X* _Owner _Nullable p)
 {
     if (p)
     {
@@ -141,7 +141,7 @@ void maybe_free(struct X* _Owner _Opt p)
     /* if p is null: nothing to free */
 } /* ok */
 
-void accepts_opt(int* _Opt p);
+void accepts_opt(int* _Nullable p);
 
 void test_nonnull_to_opt(int* p)
 {
@@ -198,7 +198,7 @@ struct Y { int x; };
 void clear_y(_Clear struct Y* p);
 
 
-void test_opt_to_nonnull_ambiguous(int* _Opt p)
+void test_opt_to_nonnull_ambiguous(int* _Nullable p)
 {
     // p may be null or non-null; assigning to non-null pointer is invalid.
     int* q = p;

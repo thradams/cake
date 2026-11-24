@@ -11,7 +11,7 @@ void f(int c)
 }
 
 int * _Owner make(void);
-void free(void * _Owner _Opt p);
+void free(void * _Owner _Nullable p);
 void f2(void)
 {
     int * _Owner p = make();

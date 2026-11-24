@@ -1,7 +1,7 @@
 #pragma safety enable
 
-void* _Owner _Opt calloc(int n, unsigned long size);
-void free(void* _Owner _Opt ptr);
+void* _Owner _Nullable calloc(int n, unsigned long size);
+void free(void* _Owner _Nullable ptr);
 
 struct X {
     int i;
@@ -19,7 +19,7 @@ void f(struct X* p)
 
 int main()
 {
-    struct X* _Opt _Owner p = calloc(1, sizeof * p);
+    struct X* _Nullable _Owner p = calloc(1, sizeof * p);
     if (p)
     {
         f(p);

@@ -8,10 +8,10 @@ struct X
     int* _Owner surname;
 };
 
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 /* Erasure through a function parameter (e.g. free()). */
-void delete1(struct X* _Owner _Opt p)
+void delete1(struct X* _Owner _Nullable p)
 {
     if (p)
     {
@@ -22,7 +22,7 @@ void delete1(struct X* _Owner _Opt p)
 }
 
 /* Erasure through an assignment/initialization. */
-void assign1(struct X* _Owner _Opt p)
+void assign1(struct X* _Owner _Nullable p)
 {
     if (p)
     {
@@ -34,7 +34,7 @@ void assign1(struct X* _Owner _Opt p)
 }
 
 /* Erasure through a return. */
-void* _Owner detach1(struct X* _Owner _Opt p)
+void* _Owner detach1(struct X* _Owner _Nullable p)
 {
     if (p)
     {

@@ -1219,9 +1219,9 @@ void f(const struct X* p, int c)
 <pre><code class="language-c">
 #pragma safety enable
 
-void* _Owner _Opt malloc(unsigned long size);
+void* _Owner _Nullable malloc(unsigned long size);
 
-void f(int * _Opt p){}
+void f(int * _Nullable p){}
 
 int main() {
    f((int*)malloc(1)); //warning C0026: discarding _Owner pointer   
@@ -1288,11 +1288,11 @@ int main() {}
 <pre><code class="language-c">
 #pragma safety enable
 
-void* _Owner _Opt malloc(unsigned long size);
-void free(void* _Owner _Opt ptr);
+void* _Owner _Nullable malloc(unsigned long size);
+void free(void* _Owner _Nullable ptr);
 
 struct X{
-    char* _Owner _Opt p;
+    char* _Owner _Nullable p;
 };
 struct X makeX();
 void destroyX([[dtor]]struct X * p){
@@ -1317,7 +1317,7 @@ int main() {
 struct X { int i; };
 
 int main() {
-    struct X * _Opt p = 0;
+    struct X * _Nullable p = 0;
     {
       struct X x ={};
       p = &amp;x;
@@ -1333,7 +1333,7 @@ int main() {
 
 <pre><code class="language-c">#pragma safety enable
 
-int* _Opt keep;
+int* _Nullable keep;
 
 void f(void)
 {
@@ -1351,13 +1351,13 @@ void f(void)
 <pre><code class="language-c">
 #pragma safety enable
 
-void* _Owner _Opt malloc(unsigned long size);
-void free(void* _Owner _Opt ptr);
+void* _Owner _Nullable malloc(unsigned long size);
+void free(void* _Owner _Nullable ptr);
 
 int main() {
-   void * _Owner _Opt p = malloc(1);
-   void * _Owner _Opt p2 = p;
-   void * _Owner _Opt p3 = p; //warning C0032: object may be already moved
+   void * _Owner _Nullable p = malloc(1);
+   void * _Owner _Nullable p2 = p;
+   void * _Owner _Nullable p3 = p; //warning C0032: object may be already moved
    free(p2);
 }
 
@@ -1372,7 +1372,7 @@ int main() {
 <pre><code class="language-c">#pragma safety enable
 int main()
 {
-  int * _Opt p = 0;
+  int * _Nullable p = 0;
   *p =1; //warning C0033: possible null pointer dereference &#39;*p&#39;
 }
 </code></pre>
@@ -1388,7 +1388,7 @@ int main()
 void f(int *p);
 int main()
 {
-  int * _Opt p = 0;
+  int * _Nullable p = 0;
   f(p); // warning C0035: passing a possible null pointer &#39;p&#39; to non-nullable pointer parameter
 }
 </code></pre>
@@ -1602,14 +1602,14 @@ int main()
 }
 </code></pre>
 
-<p>With <code>#pragma safety enable</code>, <code>_Opt</code>, <code>_Owner</code>, <code>[[nodiscard]]</code> and <code>[[noreturn]]</code> also take part in compatibility (flow.md A15). For example, null may be stored through an <code>_Out</code> pointee that is <code>_Opt</code>:</p>
+<p>With <code>#pragma safety enable</code>, <code>_Nullable</code>, <code>_Owner</code>, <code>[[nodiscard]]</code> and <code>[[noreturn]]</code> also take part in compatibility (flow.md A15). For example, null may be stored through an <code>_Out</code> pointee that is <code>_Nullable</code>:</p>
 
 <!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
 
-void get(char * _Out _Owner _Opt * p);
-void free(void * _Owner _Opt p);
+void get(char * _Out _Owner _Nullable * p);
+void free(void * _Owner _Nullable p);
 int main()
 {
   char * _Owner s;
@@ -1751,14 +1751,33 @@ int main() {
 }
 </code></pre>
 
-<p>A parameter can carry a <code>compile_assert</code> after its declarator. Each call checks it with the argument in place of the parameter, as if the caller wrote <code>f((compile_assert(x &gt; 0), x))</code>.</p>
+<p>A function declarator can carry <code>compile_assert</code> conditions after its <code>)</code>. Each call checks them with the arguments in place of the parameters, as if the caller wrote <code>f((compile_assert(x &gt; 0), x))</code>. A condition can use every parameter.</p>
 
-<pre><code class="language-c">void f(int i compile_assert(i &gt; 0));
+<pre><code class="language-c">void f(int a, int b) compile_assert(a &gt; 0) compile_assert(a &gt; b);
 
-void g(int x) {
-    f(1);              /* ok */
-    f(x);              /* warning 67: argument &#39;x&#39; may not adhere to the contract &#39;i &gt; 0&#39; of parameter &#39;i&#39; */
-    if (x &gt; 0) f(x);   /* ok */
+void g(int x, int y) {
+    f(2, 1);           /* ok */
+    f(x, y);           /* warning 67: the call may not adhere to the contract &#39;a &gt; 0&#39; of the function */
+    if (x &gt; y &amp;&amp; y &gt; 0) f(x, y);   /* ok */
+}
+</code></pre>
+
+<p><code>runtime_assert</code> after the declarator is a condition the caller does not have to prove. The body considers it true, like the other conditions.</p>
+
+<pre><code class="language-c">int g(int a) runtime_assert(a &gt; 0)
+{
+    compile_assert(a &gt; 0);   /* ok: assumed */
+    return a;
+}
+</code></pre>
+
+<p><code>_result</code> names the returned value and exists only when the function does not return <code>void</code>. A condition that uses it is not checked by the caller: it is checked in the function, at each <code>return</code>, with <code>_result</code> taking the returned expression. Repeat the conditions in the definition.</p>
+
+<pre><code class="language-c">int f(int a) compile_assert(_result &gt; 0)
+{
+    if (a)
+        return 1;      /* ok */
+    return 0;          /* warning 67: argument &#39;0&#39; may not adhere to the contract &#39;_result &gt; 0&#39; of the function */
 }
 </code></pre>
 
@@ -1854,15 +1873,15 @@ void ctor_outer_forgets_a_member(_Out struct outer* p)
 <pre><code class="language-c">#pragma safety enable
 
 typedef unsigned long size_t;
-char* _Owner _Opt strdup(const char* s);
-void free(void* _Owner _Opt p);
+char* _Owner _Nullable strdup(const char* s);
+void free(void* _Owner _Nullable p);
 
-struct person { char* _Opt _Owner name; };
+struct person { char* _Nullable _Owner name; };
 
 void set(struct person* p, char* name)
 {
     free(p-&gt;name);
-    char* _Opt _Owner temp = strdup(name);
+    char* _Nullable _Owner temp = strdup(name);
     if (temp == 0) return; //warning C0072: parameter &#39;p-&gt;name&#39; was moved/released here (see line ...) but never reassigned -- only a _Dtor parameter may leave the caller&#39;s object consumed
     p-&gt;name = temp;
 }
@@ -1874,9 +1893,9 @@ void set(struct person* p, char* name)
 
 <pre><code class="language-c">#pragma safety enable
 
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
-char* _Owner _Opt g;
+char* _Owner _Nullable g;
 
 void f(void)
 {
@@ -1978,12 +1997,12 @@ int main(void)
 <!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 int main(void)
 {
     int i = 0;
-    int* _Owner _Opt p = &amp;i; //warning 78: cannot assign a non-owner to owner
+    int* _Owner _Nullable p = &amp;i; //warning 78: cannot assign a non-owner to owner
     free(p);
 }
 </code></pre>
@@ -1993,11 +2012,11 @@ int main(void)
 <!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
-void* _Owner _Opt malloc(unsigned long size);
+void* _Owner _Nullable malloc(unsigned long size);
 
 int main(void)
 {
-    void* _Opt p = malloc(1); //warning 79: cannot assign a temporary owner to non-owner object
+    void* _Nullable p = malloc(1); //warning 79: cannot assign a temporary owner to non-owner object
     (void)p;
 }
 </code></pre>
@@ -2008,11 +2027,11 @@ int main(void)
 
 <pre><code class="language-c">#pragma safety enable
 
-void take(int* _Owner _Opt* pp);
+void take(int* _Owner _Nullable* pp);
 
 int main(void)
 {
-    int* _Opt p = 0;
+    int* _Nullable p = 0;
     take(&amp;p); //warning 80: pointer to owner expected at argument
 }
 </code></pre>
@@ -2022,13 +2041,13 @@ int main(void)
 <!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
-void free(void* _Owner _Opt p);
-void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Nullable p);
+void* _Owner _Nullable malloc(unsigned long size);
 
 int main(void)
 {
-    void* _Owner _Opt p = malloc(1);
-    void* _Opt* q = &amp;p; //warning 81: owner aliased through a non-owner pointer
+    void* _Owner _Nullable p = malloc(1);
+    void* _Nullable* q = &amp;p; //warning 81: owner aliased through a non-owner pointer
     (void)q;
     free(p);
 }
@@ -2216,11 +2235,11 @@ int main(void)
 
 <!-- runnable -->
 
-<pre><code class="language-c">void* _Opt malloc(unsigned long size);
+<pre><code class="language-c">void* _Nullable malloc(unsigned long size);
 
 int main(void)
 {
-    int* _Opt p = malloc(10); //warning 89: argument to &#39;malloc&#39; is not a multiple of the pointee size (4)
+    int* _Nullable p = malloc(10); //warning 89: argument to &#39;malloc&#39; is not a multiple of the pointee size (4)
     (void)p;
 }
 </code></pre>
@@ -2237,7 +2256,7 @@ destroyed. The caller still sees it through the pointer.</p>
 
 <pre><code class="language-c">#pragma safety enable
 
-struct Y { int i; struct Y* _Opt next; };
+struct Y { int i; struct Y* _Nullable next; };
 void y_destroy(_Dtor struct Y* p);
 
 void f(struct Y* p)
@@ -2337,13 +2356,13 @@ it belongs to someone else, who may still expect it to own the resource. A
 <!-- runnable --></p>
 
 <pre><code class="language-c">#pragma safety enable
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
-struct list { int* _Owner _Opt head; };
+struct list { int* _Owner _Nullable head; };
 
 void f(const struct list* list)
 {
-    int* _Owner _Opt p = list-&gt;head; //warning 99: cannot move from const owner &#39;list-&gt;head&#39;
+    int* _Owner _Nullable p = list-&gt;head; //warning 99: cannot move from const owner &#39;list-&gt;head&#39;
     free(p);
 }
 </code></pre>
@@ -2374,7 +2393,7 @@ void f(struct X* a, const struct X* b)
 <!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 struct X { int i; };
 
@@ -2488,16 +2507,16 @@ struct Y * get(const struct X * x)
 <!-- runnable -->
 
 <pre><code class="language-c">#pragma safety enable
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
-struct node { struct node* _Owner _Opt next; };
-struct list { struct node* _Owner _Opt head; };
+struct node { struct node* _Owner _Nullable next; };
+struct list { struct node* _Owner _Nullable head; };
 
 void f(const struct list* list)
 {
     if (list-&gt;head)
     {
-        struct node* _Owner _Opt p = list-&gt;head-&gt;next; //warning 120: &#39;const&#39; qualifier on &#39;list&#39; does not propagate to &#39;list-&gt;head-&gt;next&#39;
+        struct node* _Owner _Nullable p = list-&gt;head-&gt;next; //warning 120: &#39;const&#39; qualifier on &#39;list&#39; does not propagate to &#39;list-&gt;head-&gt;next&#39;
         free(p);
     }
 }
@@ -3268,7 +3287,7 @@ target:
 <pre><code class="language-c">#pragma safety enable
 int main(){
 
-    int * _Owner _Opt p = 0;
+    int * _Owner _Nullable p = 0;
     p++; //error C1310: operator ++ cannot be used in _Owner pointers
 }
 </code></pre>
@@ -3280,7 +3299,7 @@ int main(){
 <pre><code class="language-c">#pragma safety enable
 int main(){
 
-    int * _Owner _Opt p = 0;
+    int * _Owner _Nullable p = 0;
     p--; //error C1320: operator -- cannot be used in owner pointers
 }
 </code></pre>
@@ -3605,7 +3624,7 @@ void clear(_Clear const struct s* p) //error 1930: _Clear pointee cannot also be
 <pre><code class="language-c">#pragma safety enable
 struct s { int i; };
 void clear(struct s _Clear p); //error 1940: _Clear must be used only at the pointed object
-void * _Owner _Opt _Uninitialized alloc(int n); //error 1940: write &#39;_Uninitialized void * _Owner _Opt alloc(int n)&#39;
+void * _Owner _Nullable _Uninitialized alloc(int n); //error 1940: write &#39;_Uninitialized void * _Owner _Nullable alloc(int n)&#39;
 </code></pre>
 
 <h3 id="toc_220">1950 constexpr value not representable</h3>

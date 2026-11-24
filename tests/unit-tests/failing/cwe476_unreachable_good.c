@@ -6,6 +6,6 @@ void use(int i);
 
 void good()
 {
-    int* _Opt p = nullptr;
+    int* _Nullable p = nullptr;
     if (p != nullptr) { use(*p); }
 }

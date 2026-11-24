@@ -17,9 +17,9 @@ _Clear struct S* _Owner alloc_zeroed(unsigned long n);
 _Uninitialized struct S* _Owner alloc_raw(unsigned long n);
 
 /* uncomment to see error 1940 (qualifier after '*' on the return type) */
-/* struct S* _Owner _Opt _Uninitialized alloc_bad(unsigned long n); */
+/* struct S* _Owner _Nullable _Uninitialized alloc_bad(unsigned long n); */
 
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 void use(void)
 {

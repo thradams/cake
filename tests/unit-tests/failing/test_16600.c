@@ -3,10 +3,10 @@
 
 
 void *_Owner calloc(int n , int i);
-void free(void  * _Owner _Opt p);
+void free(void  * _Owner _Nullable p);
 
 struct X{
-  char * _Owner _Opt name;
+  char * _Owner _Nullable name;
 };
 
 int main()

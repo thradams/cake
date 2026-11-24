@@ -2,7 +2,7 @@
 
 /* the normal analysis reports r on the line; the aliasing problem with p2 on the same line, same id, is still reported */
 
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 struct X { int i; };
 

@@ -3,7 +3,7 @@
 /* `x_destroy(p); free(p);` must not report (*p).i ended: a void* destination cannot access members, only p itself is consumed */
 
 struct X { int i; };
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 void x_destroy(_Dtor struct X* p);
 
 void f(struct X* _Owner p)

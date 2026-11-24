@@ -5,8 +5,8 @@
 struct item { int v; };
 struct list { struct item* _Owner head; };
 
-void free_item(struct item* _Owner _Opt p);
-void free_list(struct list* _Owner _Opt p);
+void free_item(struct item* _Owner _Nullable p);
+void free_list(struct list* _Owner _Nullable p);
 
 /* _Owner parameter: member consumed, pointee and pointer released, no diagnostic */
 void owner_param_consumes_member_and_releases(struct list* _Owner p)

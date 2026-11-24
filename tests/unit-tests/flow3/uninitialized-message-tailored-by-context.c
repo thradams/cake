@@ -3,7 +3,7 @@
 /* warning 30 says assigning/passing/returning by context and renders the source expression (`*p`) when there is no member name */
 
 _Uninitialized void* _Owner malloc(unsigned long size);
-void free(void* _Owner _Opt ptr);
+void free(void* _Owner _Nullable ptr);
 void take(int i);
 
 /* Plain assignment: must say "assigning" and show '*p'. */

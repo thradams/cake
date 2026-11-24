@@ -3,7 +3,7 @@
 
 [[nodiscard]] _Clear void* _Owner my_calloc(unsigned long n, unsigned long s);
 [[nodiscard]] void* _Owner my_alloc(unsigned long s);
-void my_free(void* _Owner _Opt p);
+void my_free(void* _Owner _Nullable p);
 
 struct Y { int value; };
 

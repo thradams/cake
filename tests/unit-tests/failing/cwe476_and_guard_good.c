@@ -7,6 +7,6 @@ void use(int i);
 struct s { int a; };
 void good()
 {
-    struct s* _Opt p = nullptr;
+    struct s* _Nullable p = nullptr;
     if ((p != nullptr) && (p->a == 5)) { use(1); }
 }

@@ -5423,7 +5423,7 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "## `-Wall`\n\nenable all warnings" },
     [HELP_FLAG_ANNOTATIONS] = { "flag-safety",
         "## `-safety`\n\nCake contracts are checked: `_Owner`, `_View`, `_Dtor`, `_Out`, "
-        "`_Clear`, `_Opt`... and pointers without `_Opt` are non-null\n\n"
+        "`_Clear`, `_Nullable`... and pointers without `_Nullable` are non-null\n\n"
         "Without it the annotations are ignored, like empty macros. "
         "Same as `#pragma safety enable`." },
     [HELP_FLAG_IGNORE_LINT] = { "flag-ignore-lint",
@@ -5472,7 +5472,7 @@ static const struct help_topic help_topics[HELP_COUNT] = {
         "| Option | Effect |\n"
         "|---|---|\n"
         "| `-flow` | run flow analysis (`#pragma flow enable`) |\n"
-        "| `-safety` | Cake contracts (`_Owner`, `_Opt`, `_Out`..., non-null default) "
+        "| `-safety` | Cake contracts (`_Owner`, `_Nullable`, `_Out`..., non-null default) "
         "are checked (`#pragma safety enable`) |\n"
         "| `-no-discard` | make `[[nodiscard]]` the default for every function "
         "|\n"
@@ -6310,7 +6310,7 @@ static void build_help_texts(struct ide* ide)
              "`-Wall`: enable all warnings",
              HELP_FLAG_WALL);
     set_help(ide, gui_child_at(c->flags, 4),
-             "`-safety`: Cake contracts (`_Owner`, `_Opt`, `_Out`...) are checked",
+             "`-safety`: Cake contracts (`_Owner`, `_Nullable`, `_Out`...) are checked",
              HELP_FLAG_ANNOTATIONS);
     set_help(ide, gui_child_at(c->flags, 5),
              "`-ignore-lint`: `//lint` comments are ignored (treated as plain comments)",
@@ -9731,8 +9731,10 @@ static void settings_save(struct ide* ide)
     if (!json_write_file(path, root))
     {
         char msg[1500] = { 0 };
-        snprintf(msg, sizeof msg, "Cannot write %s", path);
-        status(ide, msg);
+        snprintf(msg, sizeof msg, "Cannot save the settings (check the write permission):\n%.1024s", path);
+        static const char* const labels[] = { "OK" };
+        static const int ids[] = { 0 };
+        gui_message_box(ide->app, "Settings", msg, labels, ids, 1);
     }
     json_delete(root);
 }

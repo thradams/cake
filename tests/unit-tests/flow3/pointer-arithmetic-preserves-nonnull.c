@@ -28,8 +28,8 @@ void loop(const char* p)
     }
 }
 
-/* contrast: an _Opt pointer's null-or-not uncertainty survives the increment */
-void opt_still_warns(int* _Opt a)
+/* contrast: an _Nullable pointer's null-or-not uncertainty survives the increment */
+void opt_still_warns(int* _Nullable a)
 {
     a++;
     *a = 1; //lint 33 possible null pointer dereference

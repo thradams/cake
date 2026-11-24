@@ -1,7 +1,7 @@
 #pragma safety enable
 
 void* _Owner malloc(unsigned long n);
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 /* issue 487: the state of case 1 falls through into case 2 */
 void f(int c)

@@ -264,115 +264,118 @@
 <li>
 <a href="#toc_29">4.9 What Is Assumed About a Parameter</a>
 </li>
-</ul>
-</li>
 <li>
-<a href="#toc_30">Chapter 5 - How the Analysis Sees a Program</a>
-<ul>
-<li>
-<a href="#toc_31">5.1 Paths</a>
-</li>
-<li>
-<a href="#toc_32">5.2 Paths That End</a>
-</li>
-<li>
-<a href="#toc_33">5.3 Loops</a>
-</li>
-<li>
-<a href="#toc_34">5.4 One Report per Fact</a>
-</li>
-<li>
-<a href="#toc_35">5.5 The Entry Flow</a>
-</li>
-<li>
-<a href="#toc_36">5.6 Seeing the Paths: <code>static_debug</code></a>
+<a href="#toc_30">4.10 Conditions as Contracts (experimental)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_37">Chapter 6 - Limitations</a>
+<a href="#toc_31">Chapter 5 - How the Analysis Sees a Program</a>
 <ul>
 <li>
-<a href="#toc_38">6.1 Conditional Contracts</a>
+<a href="#toc_32">5.1 Paths</a>
 </li>
 <li>
-<a href="#toc_39">6.2 What the Analysis Assumes About <code>const</code></a>
+<a href="#toc_33">5.2 Paths That End</a>
 </li>
 <li>
-<a href="#toc_40">6.3 Functions That Are Too Large</a>
+<a href="#toc_34">5.3 Loops</a>
 </li>
 <li>
-<a href="#toc_41">6.4 Backward <code>goto</code></a>
+<a href="#toc_35">5.4 One Report per Fact</a>
 </li>
 <li>
-<a href="#toc_42">6.5 Arrays Whose Size Is Not Known</a>
+<a href="#toc_36">5.5 The Entry Flow</a>
+</li>
+<li>
+<a href="#toc_37">5.6 Seeing the Paths: <code>static_debug</code></a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_43">Appendix A - Rules</a>
+<a href="#toc_38">Chapter 6 - Limitations</a>
 <ul>
 <li>
-<a href="#toc_44">A1. Definitions</a>
+<a href="#toc_39">6.1 Conditional Contracts</a>
 </li>
 <li>
-<a href="#toc_45">A2. Plain parameters: <code>struct X* p</code></a>
+<a href="#toc_40">6.2 What the Analysis Assumes About <code>const</code></a>
 </li>
 <li>
-<a href="#toc_46">A3. Results: <code>struct X* F(void)</code></a>
+<a href="#toc_41">6.3 Functions That Are Too Large</a>
 </li>
 <li>
-<a href="#toc_47">A4. <code>_Nullable</code> and <code>_Nonnull</code></a>
+<a href="#toc_42">6.4 Backward <code>goto</code></a>
 </li>
 <li>
-<a href="#toc_48">A5. Assignment <code>a = b</code></a>
-</li>
-<li>
-<a href="#toc_49">A6. <code>_Out</code></a>
-</li>
-<li>
-<a href="#toc_50">A7. <code>_Dtor</code></a>
-</li>
-<li>
-<a href="#toc_51">A8. <code>_Clear</code></a>
-</li>
-<li>
-<a href="#toc_52">A9. <code>_Uninitialized</code></a>
-</li>
-<li>
-<a href="#toc_53">A10. <code>_View</code></a>
-</li>
-<li>
-<a href="#toc_54">A11. <code>_Owner</code></a>
-</li>
-<li>
-<a href="#toc_55">A12. Combination</a>
-</li>
-<li>
-<a href="#toc_56">A13. Casts</a>
-</li>
-<li>
-<a href="#toc_57">A14. Flow analysis</a>
-</li>
-<li>
-<a href="#toc_58">A15. Compatibility of annotated types</a>
-</li>
-<li>
-<a href="#toc_59">A16. <code>restrict</code> and parameters that may alias</a>
+<a href="#toc_43">6.5 Arrays Whose Size Is Not Known</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_60">Appendix B - Hypotheses</a>
+<a href="#toc_44">Appendix A - Rules</a>
 <ul>
 <li>
-<a href="#toc_61">B.1 The Result of a Call</a>
+<a href="#toc_45">A1. Definitions</a>
 </li>
 <li>
-<a href="#toc_62">B.2 Parameters That May Be the Same Object</a>
+<a href="#toc_46">A2. Plain parameters: <code>struct X* p</code></a>
 </li>
 <li>
-<a href="#toc_63">B.3 <code>restrict</code></a>
+<a href="#toc_47">A3. Results: <code>struct X* F(void)</code></a>
+</li>
+<li>
+<a href="#toc_48">A4. <code>_Nullable</code> and <code>_Nonnull</code></a>
+</li>
+<li>
+<a href="#toc_49">A5. Assignment <code>a = b</code></a>
+</li>
+<li>
+<a href="#toc_50">A6. <code>_Out</code></a>
+</li>
+<li>
+<a href="#toc_51">A7. <code>_Dtor</code></a>
+</li>
+<li>
+<a href="#toc_52">A8. <code>_Clear</code></a>
+</li>
+<li>
+<a href="#toc_53">A9. <code>_Uninitialized</code></a>
+</li>
+<li>
+<a href="#toc_54">A10. <code>_View</code></a>
+</li>
+<li>
+<a href="#toc_55">A11. <code>_Owner</code></a>
+</li>
+<li>
+<a href="#toc_56">A12. Combination</a>
+</li>
+<li>
+<a href="#toc_57">A13. Casts</a>
+</li>
+<li>
+<a href="#toc_58">A14. Flow analysis</a>
+</li>
+<li>
+<a href="#toc_59">A15. Compatibility of annotated types</a>
+</li>
+<li>
+<a href="#toc_60">A16. <code>restrict</code> and parameters that may alias</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_61">Appendix B - Hypotheses</a>
+<ul>
+<li>
+<a href="#toc_62">B.1 The Result of a Call</a>
+</li>
+<li>
+<a href="#toc_63">B.2 Parameters That May Be the Same Object</a>
+</li>
+<li>
+<a href="#toc_64">B.3 <code>restrict</code></a>
 </li>
 </ul>
 </li>
@@ -1336,9 +1339,77 @@ void g(void)
 }
 </code></pre>
 
-<h2 id="toc_30">Chapter 5 - How the Analysis Sees a Program</h2>
+<h3 id="toc_30">4.10 Conditions as Contracts (experimental)</h3>
 
-<h3 id="toc_31">5.1 Paths</h3>
+<blockquote>
+<p><strong>Experimental.</strong> The syntax and the rules of this section may change.</p>
+</blockquote>
+
+<p>A parameter annotation says what a pointer is. A condition says what a value is. After the declarator of a function, <code>compile_assert(condition)</code> and <code>runtime_assert(condition)</code> state the conditions of the call. They use the parameters and <code>_result</code>, the returned value (not available when the function returns <code>void</code>).</p>
+
+<p>The analysis treats the sequence as if every condition passed, one <code>if</code> after the other.</p>
+
+<p><strong>At the call</strong>, the arguments take the place of the parameters and each <code>compile_assert</code> is checked, like <code>f((compile_assert(x &gt; 0), x))</code>. What the analysis cannot prove is warning 67.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+void f(int a, int b) compile_assert(a &gt; 0) compile_assert(b &lt; a);
+
+void g(int x, int y)
+{
+    f(2, 1);                     /* ok */
+    f(x, y);                     /* warning 67 */
+    if (x &gt; 0 &amp;&amp; y &lt; 0)
+        f(x, y);                 /* ok */
+}
+</code></pre>
+
+<p><strong>At the entry of the function</strong>, the state is the one of a path that went through <code>if (condition)</code> for each condition. The body can rely on them. A <code>runtime_assert</code> is assumed in the same way, but the caller does not have to prove it.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int first(const int* p, int n) runtime_assert(n &gt; 0)
+{
+    compile_assert(n &gt; 0);       /* assumed by the body */
+    return p[0];
+}
+
+void use(const int* p, int n)
+{
+    first(p, n);                 /* ok: the caller does not prove a runtime_assert */
+}
+</code></pre>
+
+<p><strong><code>_result</code></strong> cannot be known by the caller, so a condition that uses it is checked in the function, at each <code>return</code>, with <code>_result</code> taking the returned expression. After the call, the caller assumes it, as if it had tested the returned value.</p>
+
+<!-- runnable -->
+
+<pre><code class="language-c">#pragma safety enable
+
+int g(int a) compile_assert(a &gt; 0) compile_assert(_result &gt; 0)
+{
+    compile_assert(a &gt; 0);       /* assumed at the entry */
+    if (a &gt; 10)
+        return a;                /* ok */
+    return 0;                    /* warning 67: _result &gt; 0 */
+}
+
+void h(void)
+{
+    int r = g(1);
+    compile_assert(r &gt; 0);       /* assumed after the call */
+}
+</code></pre>
+
+<p>Limits of the experiment: the conditions must be repeated in the definition, because the body uses those on its own declarator; relations between two variables (<code>a &gt; b</code>) are not proved from separate tests of <code>a</code> and <code>b</code>; and <code>runtime_assert</code> is not checked at run time by the generated code yet. This differs from the <code>_Assert</code> statement (manual, section 11.1), which flow analysis does not assume: here the condition is part of the contract and the function is analysed under it.</p>
+
+<h2 id="toc_31">Chapter 5 - How the Analysis Sees a Program</h2>
+
+<h3 id="toc_32">5.1 Paths</h3>
 
 <p>The analysis reads a function the way the machine would run it, but it follows every path at once. At each point it knows the set of things each object may be: null or not, which value, owned or moved. A warning is a question asked of that set. &quot;Can <code>p</code> be null here?&quot; If any path says yes, the warning is reported.</p>
 
@@ -1361,7 +1432,7 @@ L:
 
 <p><code>compile_assert</code> fails to compile unless its condition holds on every path. It is the most direct way to ask the analysis what it knows.</p>
 
-<h3 id="toc_32">5.2 Paths That End</h3>
+<h3 id="toc_33">5.2 Paths That End</h3>
 
 <p>A path that returns does not arrive anywhere. Code after it in the same block is never reached, and the analysis says so.</p>
 
@@ -1381,7 +1452,7 @@ void f(int x)
 }
 </code></pre>
 
-<h3 id="toc_33">5.3 Loops</h3>
+<h3 id="toc_34">5.3 Loops</h3>
 
 <p>A loop that may run zero times may leave a variable unset. The analysis does not use a first test known to be true: <code>h &lt; 1</code> below is treated like <code>h &lt; n</code>.</p>
 
@@ -1406,7 +1477,7 @@ void h(int n)
 }
 </code></pre>
 
-<h3 id="toc_34">5.4 One Report per Fact</h3>
+<h3 id="toc_35">5.4 One Report per Fact</h3>
 
 <p>When the same mistake is reachable from many paths, it is reported once. The message says how many other paths lead to it.</p>
 
@@ -1428,7 +1499,7 @@ void f(int a, int b)
 
 <p><strong>Experiment 5-1.</strong> Three more <code>else if</code> branches set <code>p</code> to null. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkIHVzZShpbnQqIHApOwppbnQgZzsKCnZvaWQgZihpbnQgYSwgaW50IGIsIGludCBjLCBpbnQgZCwgaW50IGUpCnsKICAgIGludCogcCA9ICZnOwogICAgaWYgKGEpIHAgPSAwOwogICAgZWxzZSBpZiAoYikgcCA9IDA7CiAgICBlbHNlIGlmIChjKSBwID0gMDsKICAgIGVsc2UgaWYgKGQpIHAgPSAwOwogICAgZWxzZSBpZiAoZSkgcCA9IDA7CiAgICB1c2UocCk7IC8qIHdhcm5pbmcgMzUgKi8KfQo%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
-<h3 id="toc_35">5.5 The Entry Flow</h3>
+<h3 id="toc_36">5.5 The Entry Flow</h3>
 
 <p>A function is analysed as if some code ran before it: the code of the caller,
 which the analysis does not see. That code is a set of <code>if</code>s outside the
@@ -1631,7 +1702,7 @@ the same pass. A problem that only one hypothesis has is reported with it:
 &quot;in case q == p: ...&quot;. <code>restrict</code> removes a
 hypothesis (sections 4.7 and 4.8); Appendix B has the details.</p>
 
-<h3 id="toc_36">5.6 Seeing the Paths: <code>static_debug</code></h3>
+<h3 id="toc_37">5.6 Seeing the Paths: <code>static_debug</code></h3>
 
 <p><code>static_debug()</code> prints the paths the analysis is following at that point,
 and the values each one gave to each object. <code>static_debug(x)</code> prints only
@@ -1662,11 +1733,11 @@ after this point <code>*p</code> is 1 or 2. Each value is printed under the path
 it was set, with the line that set it. The manual (section 11.12) has the
 full notation.</p>
 
-<h2 id="toc_37">Chapter 6 - Limitations</h2>
+<h2 id="toc_38">Chapter 6 - Limitations</h2>
 
 <p>The rules describe what a declaration can say today. Some programs are correct but cannot be described, and some bugs cannot be seen. This chapter lists the ones a programmer will meet first.</p>
 
-<h3 id="toc_38">6.1 Conditional Contracts</h3>
+<h3 id="toc_39">6.1 Conditional Contracts</h3>
 
 <p>A conditional contract holds only under a condition, usually the result of
 the call. The best known is <code>realloc</code>: ownership of its argument moves only
@@ -1699,7 +1770,7 @@ void f(int* _Owner _Nullable p)
 
 <p><strong>Experiment 6-1.</strong> In the example above, the <code>/* lint 26 (realloc) */</code> comment is removed. <a href="playground.html?code=I3ByYWdtYSBzYWZldHkgZW5hYmxlCgp2b2lkKiBfT3duZXIgcmVhbGxvYyh2b2lkKiBfTnVsbGFibGUgcCwgdW5zaWduZWQgbG9uZyBzaXplKTsKdm9pZCBmcmVlKHZvaWQqIF9Pd25lciBfTnVsbGFibGUgcCk7Cgp2b2lkIGYoaW50KiBfT3duZXIgX051bGxhYmxlIHApCnsKICAgIGludCogX093bmVyIHEgPSByZWFsbG9jKHAsIDEwICogc2l6ZW9mKGludCkpOwogICAgaWYgKHEgPT0gMCkKICAgIHsKICAgICAgICBmcmVlKHApOyAvKiBmYWlsZWQ6IHAgc3RpbGwgb3ducyB0aGUgbWVtb3J5ICovCiAgICAgICAgcmV0dXJuOwogICAgfQogICAgcCA9IHE7CiAgICBmcmVlKHApOwp9Cg%3D%3D&amp;to=-2&amp;options=" target="_blank">Open it in the playground</a> and observe the result.</p>
 
-<h3 id="toc_39">6.2 What the Analysis Assumes About <code>const</code></h3>
+<h3 id="toc_40">6.2 What the Analysis Assumes About <code>const</code></h3>
 
 <p>In C, <code>const struct X* p</code> protects only <code>*p</code>: <code>p-&gt;m-&gt;x</code> can still be written. The analysis assumes more: after a call through <code>const</code>, nothing reachable from <code>*p</code> changed.</p>
 
@@ -1757,11 +1828,11 @@ void move_deep(const struct Y* p)
 
 <p>A function that hands out something reachable from a <code>const</code> argument as non-<code>const</code> (like <code>strchr</code>) should come in two versions: <code>T* find(const C*)</code> and <code>const T* find_const(const C*)</code>.</p>
 
-<h3 id="toc_40">6.3 Functions That Are Too Large</h3>
+<h3 id="toc_41">6.3 Functions That Are Too Large</h3>
 
 <p>The analysis follows every path, and in a very large function the number of objects and paths can grow too much. When that happens the analysis stops, reports warning 97 once, and reports nothing else for that function. The next function is analysed normally. Splitting the function brings the analysis back.</p>
 
-<h3 id="toc_41">6.4 Backward <code>goto</code></h3>
+<h3 id="toc_42">6.4 Backward <code>goto</code></h3>
 
 <p>A <code>while</code> or <code>for</code> loop is analysed as a loop: what one iteration does reaches the next. A label is not. A <code>goto</code> that jumps back to a label above it has no effect on what the analysis knows, so the result is too optimistic:</p>
 
@@ -1785,7 +1856,7 @@ L:
 
 <p>Write the loop with <code>while</code> or <code>for</code> instead.</p>
 
-<h3 id="toc_42">6.5 Arrays Whose Size Is Not Known</h3>
+<h3 id="toc_43">6.5 Arrays Whose Size Is Not Known</h3>
 
 <p>Indexes are checked only against arrays whose size is a constant. A variable length array, or a pointer to <code>n</code> items, has a size known only at run time, and an index past its end is not reported.</p>
 
@@ -1814,11 +1885,11 @@ void f(void)
 }
 </code></pre>
 
-<h2 id="toc_43">Appendix A - Rules</h2>
+<h2 id="toc_44">Appendix A - Rules</h2>
 
 <p>This appendix states the rules more precisely.</p>
 
-<h3 id="toc_44">A1. Definitions</h3>
+<h3 id="toc_45">A1. Definitions</h3>
 
 <ul>
 <li>A1.1 <strong>Valid</strong>: the object and every object reachable from it are fully initialized, their non-nullable pointer members are non-null, and no owner among them is moved. For example, &quot;<code>*p</code> is valid&quot; is a statement about <code>*p</code> and everything that can be reached through <code>p</code>: its members, the objects they point to, and so on.</li>
@@ -1861,7 +1932,7 @@ void f(int* p)
 <li>A1.4 <strong>Empty</strong>: uninitialized, null or moved.</li>
 </ul>
 
-<h3 id="toc_45">A2. Plain parameters: <code>struct X* p</code></h3>
+<h3 id="toc_46">A2. Plain parameters: <code>struct X* p</code></h3>
 
 <ul>
 <li>A2.1 The implementation assumes the caller passed a non-null <code>p</code>, that <code>*p</code> is valid, and that <code>p</code> does not own <code>*p</code>. From there on <code>p</code> is a <code>_Nullable</code> local variable whose state is checked by the flow analysis: assigning null to it is allowed.</li>
@@ -1956,7 +2027,7 @@ int* f(const struct Y* p)
 }
 </code></pre>
 
-<h3 id="toc_46">A3. Results: <code>struct X* F(void)</code></h3>
+<h3 id="toc_47">A3. Results: <code>struct X* F(void)</code></h3>
 
 <ul>
 <li>A3.1 The result may be null (with <code>_Nonnull</code> it is not null) and <code>*result</code> is valid. The caller does not own it.</li>
@@ -1990,7 +2061,7 @@ int f(int c)
 } /* warning 98 */
 </code></pre>
 
-<h3 id="toc_47">A4. <code>_Nullable</code> and <code>_Nonnull</code></h3>
+<h3 id="toc_48">A4. <code>_Nullable</code> and <code>_Nonnull</code></h3>
 
 <ul>
 <li>A4.1 On a nullable parameter or result, null may be passed or returned, and the receiver must test before use.</li>
@@ -2064,7 +2135,7 @@ void f(int* _Nullable* pp)
 }
 </code></pre>
 
-<h3 id="toc_48">A5. Assignment <code>a = b</code></h3>
+<h3 id="toc_49">A5. Assignment <code>a = b</code></h3>
 
 <ul>
 <li>A5.1 <code>a</code> and its owner members must be empty.</li>
@@ -2189,7 +2260,7 @@ void f(void)
 }
 </code></pre>
 
-<h3 id="toc_49">A6. <code>_Out</code></h3>
+<h3 id="toc_50">A6. <code>_Out</code></h3>
 
 <ul>
 <li>A6.1 <code>*p</code> is uninitialized at entry and must be fully initialized on every exit. Owner members not created are null.</li>
@@ -2241,7 +2312,7 @@ void f(void)
 }
 </code></pre>
 
-<h3 id="toc_50">A7. <code>_Dtor</code></h3>
+<h3 id="toc_51">A7. <code>_Dtor</code></h3>
 
 <ul>
 <li>A7.1 The caller must pass a valid object (A1.1), with one exception: its non-nullable pointer members may be null, so a partially constructed object is accepted. The implementation assumes the same.</li>
@@ -2294,7 +2365,7 @@ void f(const _Dtor struct X* p); /* error 1930 */
 <li>A7.5 <code>_Dtor</code> may be used only on the pointed type of a parameter.</li>
 </ul>
 
-<h3 id="toc_51">A8. <code>_Clear</code></h3>
+<h3 id="toc_52">A8. <code>_Clear</code></h3>
 
 <ul>
 <li>A8.1 On a parameter, the caller must pass a valid object (A1.1), without the exception of A7.1. At every exit every owner member is moved and every member is zero.</li>
@@ -2361,7 +2432,7 @@ struct X { int i; };
 void f(const _Clear struct X* p); /* error 1930 */
 </code></pre>
 
-<h3 id="toc_52">A9. <code>_Uninitialized</code></h3>
+<h3 id="toc_53">A9. <code>_Uninitialized</code></h3>
 
 <ul>
 <li>A9.1 <code>_Uninitialized</code> may be used only on the pointed type of a result: <code>*result</code> is uninitialized.</li>
@@ -2407,7 +2478,7 @@ int* _Owner f(int c)
 }
 </code></pre>
 
-<h3 id="toc_53">A10. <code>_View</code></h3>
+<h3 id="toc_54">A10. <code>_View</code></h3>
 
 <ul>
 <li>A10.1 An object declared <code>_View</code> does not own its owner members: assigning to it, or passing it by value, moves nothing, and the source still owns them. Without <code>_View</code>, they are moved.</li>
@@ -2462,7 +2533,7 @@ void f(struct X x)
 }
 </code></pre>
 
-<h3 id="toc_54">A11. <code>_Owner</code></h3>
+<h3 id="toc_55">A11. <code>_Owner</code></h3>
 
 <ul>
 <li>A11.1 An <code>_Owner</code> parameter must be moved on every exit; the argument is moved.</li>
@@ -2555,13 +2626,13 @@ void f(char* _Owner const* p)
 }
 </code></pre>
 
-<h3 id="toc_55">A12. Combination</h3>
+<h3 id="toc_56">A12. Combination</h3>
 
 <ul>
 <li>A12.1 Annotations combine; each adds its own contract and does not change the others.</li>
 </ul>
 
-<h3 id="toc_56">A13. Casts</h3>
+<h3 id="toc_57">A13. Casts</h3>
 
 <ul>
 <li>A13.1 A cast changes the type only: it keeps the top-level <code>_Owner</code> and nullability of its operand; <code>const</code> is not kept.</li>
@@ -2607,7 +2678,7 @@ void f(void)
 }
 </code></pre>
 
-<h3 id="toc_57">A14. Flow analysis</h3>
+<h3 id="toc_58">A14. Flow analysis</h3>
 
 <ul>
 <li>A14.1 The analysis runs on one function at a time. A call is described only by the declaration of the callee.</li>
@@ -2714,7 +2785,7 @@ void f(int c)
 <li>A14.9 An implementation that stops analysing a function must report warning 97 once and nothing else in that function.</li>
 </ul>
 
-<h3 id="toc_58">A15. Compatibility of annotated types</h3>
+<h3 id="toc_59">A15. Compatibility of annotated types</h3>
 
 <p><code>_Nullable</code> is checked in two places. The flow analysis checks the value (whether it can be null at that point, branch by branch). The type checks the pointed objects, because writes through a pointer happen later, where the flow analysis does not see them.</p>
 
@@ -2798,7 +2869,7 @@ void attributes(void)
 }
 </code></pre>
 
-<h3 id="toc_59">A16. <code>restrict</code> and parameters that may alias</h3>
+<h3 id="toc_60">A16. <code>restrict</code> and parameters that may alias</h3>
 
 <ul>
 <li>A16.1 Two pointer parameters with the same pointed type, neither <code>restrict</code>, may point to the same object. The implementation must be correct in that case.</li>
@@ -2880,14 +2951,14 @@ int* f(int* restrict p)
 }
 </code></pre>
 
-<h2 id="toc_60">Appendix B - Hypotheses</h2>
+<h2 id="toc_61">Appendix B - Hypotheses</h2>
 
 <p>A hypothesis is a possibility the declarations do not rule out, such as two
 pointers being the same object. Each hypothesis is a branch, like a side of
 an <code>if</code>, and its values are alternatives of the same pass. A diagnostic that
 only a hypothesis supports names it: &quot;in case b == a: ...&quot;.</p>
 
-<h3 id="toc_61">B.1 The Result of a Call</h3>
+<h3 id="toc_62">B.1 The Result of a Call</h3>
 
 <p>At the caller, a pointer returned by a call is a new object or one of the
 arguments:</p>
@@ -2906,7 +2977,7 @@ B.2: a write through the result changes one object per path.</li>
 
 <p>All hypotheses are alternatives of one pass: nothing is analysed again.</p>
 
-<h3 id="toc_62">B.2 Parameters That May Be the Same Object</h3>
+<h3 id="toc_63">B.2 Parameters That May Be the Same Object</h3>
 
 <p>In the callee, all hypotheses are made at the entry of the function:</p>
 
@@ -2925,7 +2996,7 @@ hypothesis, as the two sides of an <code>if</code>: they are never on the same p
 <p><code>a == b</code> is false on one side and true on the other: both branches are
 analysed. As in B.1, everything is one pass.</p>
 
-<h3 id="toc_63">B.3 <code>restrict</code></h3>
+<h3 id="toc_64">B.3 <code>restrict</code></h3>
 
 <p><code>restrict</code> removes a hypothesis, and the check moves to the other side:</p>
 

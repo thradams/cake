@@ -1,6 +1,6 @@
 #pragma safety enable
 
-/* a returned struct is assumed fully initialized; a returned pointer follows the non-_Opt/_Opt rule like a parameter */
+/* a returned struct is assumed fully initialized; a returned pointer follows the non-_Nullable/_Nullable rule like a parameter */
 
 struct X
 {
@@ -22,7 +22,7 @@ struct X* _Nonnull make_nonnull(void);
 void use_ptr_nonnull(void)
 {
     struct X* p = make_nonnull();
-    p->a = 1; /* ok: non-_Opt return pointer assumed non-null */
+    p->a = 1; /* ok: non-_Nullable return pointer assumed non-null */
 }
 
 struct X* make_opt(void);

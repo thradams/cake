@@ -292,7 +292,7 @@ th {
     color: #6cb6ff !important;
 }
 
-/* cake qualifiers (_Owner, _Opt, _View, _Dtor, _Clear, _Uninitialized, _Out, _Nullable) */
+/* cake qualifiers (_Owner, _Nullable, _View, _Dtor, _Clear, _Uninitialized, _Out, _Nullable) */
 .hljs-keyword2 {
     color: #6f42c1;
 }

@@ -5,7 +5,7 @@ struct X {
 };
 
 int* _Nonnull f();
-int main(struct X* _Opt pX)
+int main(struct X* _Nullable pX)
 {
     if (pX)
     {

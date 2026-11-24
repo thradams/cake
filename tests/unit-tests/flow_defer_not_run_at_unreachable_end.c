@@ -4,7 +4,7 @@
 // an end of block that is never reached does not run them again.
 
 void* _Owner malloc(unsigned long n);
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 int f(int c)
 {

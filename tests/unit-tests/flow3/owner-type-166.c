@@ -5,7 +5,7 @@ struct X { char* _Nonnull _Owner text; };
 
 void x_destroy(_Dtor struct X* p);
 
-void x_delete(struct X* _Owner _Opt p ) // owner object (p) not moved (opt-nonnull see line 8)
+void x_delete(struct X* _Owner _Nullable p ) // owner object (p) not moved (opt-nonnull see line 8)
 {
     if (p)
     {

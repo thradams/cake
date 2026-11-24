@@ -3,8 +3,8 @@
 #pragma safety enable
 
 _Uninitialized void* _Owner malloc(unsigned long n);
-void* _Owner realloc(void* _Opt p, unsigned long n);
-void free(void* _Owner _Opt p);
+void* _Owner realloc(void* _Nullable p, unsigned long n);
+void free(void* _Owner _Nullable p);
 [[noreturn]] void exit(int status);
 
 void bad()

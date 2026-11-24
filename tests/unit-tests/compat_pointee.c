@@ -1,15 +1,15 @@
-/* flow.md A15.2: through a pointer, _Opt must match (mutable), may be added (const), may be removed (_Out) */
+/* flow.md A15.2: through a pointer, _Nullable must match (mutable), may be added (const), may be removed (_Out) */
 #pragma safety enable
 
-void get(char * _Out _Owner _Opt * p);
+void get(char * _Out _Owner _Nullable * p);
 void get2(char * _Out _Owner * p);
-void free(void * _Owner _Opt p);
+void free(void * _Owner _Nullable p);
 
-void f(int * p, int * _Opt q)
+void f(int * p, int * _Nullable q)
 {
-    int * _Opt * pp1 = &p;
+    int * _Nullable * pp1 = &p;
     int ** pp2 = &q;
-    int * _Opt const * pp4 = &p;
+    int * _Nullable const * pp4 = &p;
     int * const * pp5 = &q;
 }
 

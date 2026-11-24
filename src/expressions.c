@@ -4325,15 +4325,8 @@ struct expression* _Owner postfix_expression_tail(struct parser_ctx* ctx, struct
                     throw;
                 }
 
-                struct token* p_last = parser_get_previous_token(ctx);
-                if (p_last == NULL)
-                {
-                    expression_delete(p_expression_node_new);
-                    p_expression_node_new = NULL;
-                    throw;
-                }
-
-                p_expression_node_new->last_token = p_last;
+                
+                p_expression_node_new->last_token = previous_parser_token(ctx->current);
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
@@ -4418,16 +4411,17 @@ struct expression* _Owner postfix_expression_tail(struct parser_ctx* ctx, struct
                     }
                 }
 
-                struct token* p_previous_token = parser_get_previous_token(ctx);
-                if (p_previous_token == NULL)
+                
+                if (ctx->current == NULL)
                 {
+                    unexpected_end_of_file(ctx);
                     expression_delete(p_expression_node_new);
                     p_expression_node_new = NULL;
                     throw;
                 }
 
                 make_object(&p_expression_node_new->object.type, &p_expression_node_new->object, MAKE_STATE_UNITIALIZED, &ctx->options.platform);
-                p_expression_node_new->last_token = p_previous_token;
+                p_expression_node_new->last_token = previous_parser_token(ctx->current);
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
@@ -4982,11 +4976,7 @@ struct expression* _Owner postfix_expression_tail(struct parser_ctx* ctx, struct
             }
             else
             {
-                struct token* p_last = parser_get_previous_token(ctx);
-                if (p_last == NULL)
-                    throw; // unexpected
-
-                p_expression_node->last_token = p_last;
+                p_expression_node->last_token = previous_parser_token(ctx->current);
                 break;
             }
 
@@ -5147,11 +5137,14 @@ struct expression* _Owner postfix_expression_compound_func_literal(struct parser
 
         }
 
-        struct token* p_previous_token = parser_get_previous_token(ctx);
-        if (p_previous_token == NULL)
+        
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
             throw;
+        }
 
-        p_expression_node->last_token = p_previous_token;
+        p_expression_node->last_token = previous_parser_token(ctx->current);
 
         p_expression_node = postfix_expression_tail(ctx, p_expression_node, is_discarded);
         if (p_expression_node == NULL)
@@ -5511,9 +5504,13 @@ struct expression* _Owner static_assertion_expr(struct parser_ctx* ctx)
 
         p_new_expression->expression_type = EXPR_UNARY_STATIC_ASSERTION;
         p_new_expression->object.type = make_void_type();
-        struct token* tk = parser_get_previous_token(ctx);
-        assert(tk);
-        p_new_expression->last_token = tk; //lint 35 assert line 5233
+        
+        if (ctx->current == NULL)
+        {
+            unexpected_end_of_file(ctx);
+            throw;
+        }
+        p_new_expression->last_token = previous_parser_token(ctx->current); //lint 35 assert line 5233
     }
     catch
     {
@@ -5962,12 +5959,14 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
                 expression_delete(new_expression);
                 throw;
             }
-            struct token* p_previous_token = parser_get_previous_token(ctx);
-            if (p_previous_token == NULL)
+            
+            if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 throw;
             }
+
             if (new_expression->right == NULL && ctx->p_current_function_opt)
             {
                 /*
@@ -5987,7 +5986,7 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
             }
 
             new_expression->object.type = make_void_type();
-            new_expression->last_token = p_previous_token;
+            new_expression->last_token = previous_parser_token(ctx->current);
             return new_expression;
 
         }
@@ -6023,14 +6022,15 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
                 expression_delete(new_expression);
                 throw;
             }
-            struct token* p_previous_token = parser_get_previous_token(ctx);
-            if (p_previous_token == NULL)
+            
+            if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 throw;
             }
             new_expression->object.type = make_void_type();
-            new_expression->last_token = p_previous_token;
+            new_expression->last_token = previous_parser_token(ctx->current);
             return new_expression;
 
         }
@@ -6081,14 +6081,15 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
                 throw;
             }
 
-            struct token* p_previous_token = parser_get_previous_token(ctx);
-            if (p_previous_token == NULL)
+            
+            if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 throw;
             }
             new_expression->object.type = type_dup(&new_expression->type_name->type);
-            new_expression->last_token = p_previous_token;
+            new_expression->last_token = previous_parser_token(ctx->current);
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_VA_COPY)
@@ -6137,14 +6138,15 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
                 throw;
             }
 
-            struct token* p_previous_token = parser_get_previous_token(ctx);
-            if (p_previous_token == NULL)
+            
+            if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 throw;
             }
             new_expression->object.type = make_void_type();
-            new_expression->last_token = p_previous_token;
+            new_expression->last_token = previous_parser_token(ctx->current);
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_GCC__BUILTIN_OFFSETOF)
@@ -6454,13 +6456,14 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
                 }
             }
 
-            struct token* p_previous_token = parser_get_previous_token(ctx);
-            if (p_previous_token == NULL)
+            
+            if (ctx->current == NULL)
             {
+                unexpected_end_of_file(ctx);
                 expression_delete(new_expression);
                 throw;
             }
-            new_expression->last_token = p_previous_token;
+            new_expression->last_token = previous_parser_token(ctx->current);
 
             return new_expression;
         }
@@ -7023,14 +7026,15 @@ struct expression* _Owner unary_expression(struct parser_ctx* ctx, bool is_disca
                 }
 
                 p_type = &new_expression->right->object.type;
-                struct token* p_previous_token = parser_get_previous_token(ctx);
-                if (p_previous_token == NULL)
+                
+                if (ctx->current == NULL)
                 {
+                    unexpected_end_of_file(ctx);
                     expression_delete(new_expression);
                     throw;
                 }
 
-                new_expression->last_token = p_previous_token;
+                new_expression->last_token = previous_parser_token(ctx->current);
             }
 
             switch (traits_token->type)
@@ -7229,7 +7233,7 @@ struct expression* _Owner cast_expression(struct parser_ctx* ctx, bool is_discar
                         p_cast_token->type == TK_KEYWORD_CAKE_UNINITIALIZED ||
                         p_cast_token->type == TK_KEYWORD_CAKE_CLEAR ||
                         p_cast_token->type == TK_KEYWORD_CAKE_VIEW ||
-                        p_cast_token->type == TK_KEYWORD_CAKE_OPT ||
+                        p_cast_token->type == TK_KEYWORD_CAKE_NULLABLE ||
                         p_cast_token->type == TK_KEYWORD_CAKE_NONNULL)
                     {
                         diagnostic(C_ERROR_ANNOTATION_IN_CAST, ctx, p_cast_token, NULL,
@@ -7464,14 +7468,14 @@ struct expression* _Owner cast_expression(struct parser_ctx* ctx, bool is_discar
             throw;
         }
 
-        struct token* p_previous_token = parser_get_previous_token(ctx);
-        if (ctx->current == NULL || p_previous_token == NULL)
+        
+        if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
             throw;
         }
 
-        p_expression_node->last_token = p_previous_token;
+        p_expression_node->last_token = previous_parser_token(ctx->current);
     }
     catch
     {

@@ -2,13 +2,13 @@
 
 
 _Uninitialized void* _Owner malloc(int i);
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 struct X {
     char* _Nonnull _Owner name;
 };
 
-void x_delete(struct X* _Owner _Opt p)
+void x_delete(struct X* _Owner _Nullable p)
 {
     if (p)
     {

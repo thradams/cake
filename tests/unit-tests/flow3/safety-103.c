@@ -4,7 +4,7 @@ struct X {
     int i;
 };
 
-void f(const struct X* _Opt p)
+void f(const struct X* _Nullable p)
 {
     int i = p ? p->i : 0; //no warning
 

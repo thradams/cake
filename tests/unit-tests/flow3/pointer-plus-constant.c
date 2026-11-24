@@ -19,7 +19,7 @@ void plain_pointer_more(int* p)
 }
 
 /* Narrowed optional pointer + constant: also correct. */
-void narrowed_opt(int* _Opt p)
+void narrowed_opt(int* _Nullable p)
 {
     if (p != 0)
     {

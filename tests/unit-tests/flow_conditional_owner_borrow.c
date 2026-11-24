@@ -4,10 +4,10 @@
 // non-owner parameter does not move the owner (issue 491 still moves for "p : 0").
 
 void* _Owner malloc(unsigned long n);
-void free(void* _Owner _Opt p);
-void use(const int* _Opt p);
+void free(void* _Owner _Nullable p);
+void use(const int* _Nullable p);
 
-void f(int* _Opt tail)
+void f(int* _Nullable tail)
 {
     int* _Owner p = malloc(sizeof(int));
     use(tail != 0 ? tail : p);

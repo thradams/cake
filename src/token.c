@@ -391,7 +391,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD_CAKE_UNINITIALIZED:
     case TK_KEYWORD_CAKE_CLEAR:
     case TK_KEYWORD_CAKE_VIEW:
-    case TK_KEYWORD_CAKE_OPT:
+    case TK_KEYWORD_CAKE_NULLABLE:
     case TK_KEYWORD_CAKE_NONNULL:
 
 

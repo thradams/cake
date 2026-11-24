@@ -5,7 +5,7 @@
 struct X { int a; };
 
 /* sizeof(*p) / sizeof(p->a): p is never dereferenced. */
-void sizeof_deref(int* _Opt p, struct X* _Opt q)
+void sizeof_deref(int* _Nullable p, struct X* _Nullable q)
 {
     (void)sizeof(*p);
     (void)sizeof(p[0]);

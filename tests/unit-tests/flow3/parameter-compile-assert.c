@@ -1,4 +1,4 @@
-void f(int i compile_assert(i > 0));
+void f(int i) compile_assert(i > 0);
 
 void g(int x)
 {

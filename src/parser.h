@@ -299,9 +299,9 @@ void complete_print_scopes(const struct parser_ctx* ctx);
 /* -complete: prints the members of the struct or union (after '.' or '->') */
 void complete_print_members(const struct parser_ctx* ctx, struct struct_or_union_specifier* p_complete);
 
-const struct token* previous_parser_token_const(const struct token* token);
-struct token* previous_parser_token(const struct token* token);
-struct token* parser_get_previous_token(const struct parser_ctx* ctx);
+const struct token* _Nonnull previous_parser_token_const(const struct token* token);
+struct token* _Nonnull previous_parser_token(const struct token* token);
+
 struct declarator* find_declarator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Nullable* _Nullable ppscope_opt);
 struct enumerator* find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Nullable* _Nullable ppscope_opt);
 struct map_entry* find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope* _Nullable* _Nullable ppscope_opt);
@@ -429,6 +429,11 @@ struct static_assertion
     struct token* p_lint_token;
     struct expression* _Owner constant_expression; /* null only in static_debug() */
     struct token* string_literal_opt;
+
+    /* only in the compile_assert list after a function declarator */
+    struct static_assertion* _Owner next;
+    /* the condition uses _result: proved in the function at each return, not by the caller */
+    bool uses_result;
 };
 struct static_assertion* _Owner static_assertion(struct parser_ctx* ctx);
 void static_assertion_delete(_Dtor struct static_assertion* _Owner _Nullable p);
@@ -974,7 +979,7 @@ struct declarator
     */
     bool has_shared_ownership;
     struct token* first_token_opt;
-    struct token* last_token_opt;
+    struct token* last_token_opt; //TODO is this optional??
 
     struct pointer* _Owner pointer;
     struct direct_declarator* _Owner direct_declarator;
@@ -1096,14 +1101,10 @@ struct function_declarator
     struct scope parameters_scope;// used for scope parameters
     struct parameter_type_list* _Owner parameter_type_list_opt;
 
-
-#define EXPERIMENTAL_CONTRACTS_II 1
-#ifdef EXPERIMENTAL_CONTRACTS_II
-    struct parameter_declaration* _Owner p_out_parameter_declaration;
-    struct secondary_block* _Owner p_in_block;
-    struct secondary_block* _Owner p_out_block;
-#endif
-
+    /* int f(int a) compile_assert(a > 0) compile_assert(_result > a): checked at each call */
+    struct static_assertion* _Owner p_compile_assert;
+    /* the '_result' name those conditions use; the scope holds a reference */
+    struct declarator* _Owner p_result_declarator;
 };
 
 void function_declarator_delete(_Dtor struct function_declarator* _Owner _Nullable p);
@@ -1198,8 +1199,6 @@ struct parameter_declaration
     struct declaration_specifiers* _Nonnull _Owner declaration_specifiers;
     struct declarator* _Owner  declarator;
 
-    /* void f(int i compile_assert(i > 0)); checked at each call */
-    struct static_assertion* _Owner p_compile_assert;
     struct parameter_declaration* _Owner next;
 };
 

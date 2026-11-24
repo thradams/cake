@@ -11,10 +11,10 @@
 
 struct token { int type; struct token* _Owner next; };
 struct token_list { struct token* _Owner head; struct token* tail; };
-void consume(struct token_list* _Opt dest, struct token_list* input);
+void consume(struct token_list* _Nullable dest, struct token_list* input);
 void use(const struct token* p);
 
-void tested_before_the_loop(struct token_list* _Opt dest, struct token_list* input)
+void tested_before_the_loop(struct token_list* _Nullable dest, struct token_list* input)
 {
     if (input->head)
     {

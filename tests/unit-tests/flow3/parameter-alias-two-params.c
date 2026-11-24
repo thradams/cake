@@ -33,7 +33,7 @@ void two_params(struct X* p1, struct X* p2, struct Y* y)
     else if (p3 == p2) p3 = p2;
     else if (not null) p3 = new(); else p3 = 0;
 */
-void three_opt_params(struct X* _Opt p1, struct X* _Opt p2, struct X* _Opt p3, struct Y* y)
+void three_opt_params(struct X* _Nullable p1, struct X* _Nullable p2, struct X* _Nullable p3, struct Y* y)
 {
     if (p1 && p2 && p3)
     {

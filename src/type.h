@@ -251,10 +251,14 @@ void type_list_push_front(struct type_list* books, struct type* _Owner new_book)
 
 struct param;
 
+struct function_declarator;
+
 struct param_list
 {
     bool is_var_args;
     bool is_void;
+    /* f(int a) compile_assert(a > 0): the conditions are checked at each call */
+    struct function_declarator* p_function_declarator;
     struct param* _Owner head;
     struct param* tail;
 };
@@ -323,7 +327,7 @@ struct parameter_declaration;
 struct param
 {
     struct type type;
-    /* the declaration that made it; its compile_assert is checked at each call */
+    /* the declaration that made it; flow binds its declarator to the argument */
     const struct parameter_declaration* p_parameter_declaration;
     struct param* _Owner next;
 };

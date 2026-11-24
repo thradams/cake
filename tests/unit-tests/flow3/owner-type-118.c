@@ -21,7 +21,7 @@ int main() {
    struct X x;
    init(&x);
 
-   /* FIXED: the _Out call keeps non-_Opt pointer/_Owner members non-null, so the compile_asserts hold and destroy(&x) does not warn */
+   /* FIXED: the _Out call keeps non-_Nullable pointer/_Owner members non-null, so the compile_asserts hold and destroy(&x) does not warn */
    compile_assert(x.p1 != 0);
    //assert_state(x.i, "zero | not-zero");
    compile_assert(x.pY != 0);

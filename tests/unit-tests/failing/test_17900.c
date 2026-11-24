@@ -1,8 +1,8 @@
 
 #pragma safety enable
 
-void free(void* _Owner _Opt ptr);
-char* _Owner _Opt strdup(char const* _String);
+void free(void* _Owner _Nullable ptr);
+char* _Owner _Nullable strdup(char const* _String);
 
 struct user
 {
@@ -14,9 +14,9 @@ void set_id(struct user* p, int id){}
 
 int main()
 {
-  _Opt struct user user = {};
+  _Nullable struct user user = {};
   user.name = strdup("a");
-  char* _Owner _Opt name = user.name;
+  char* _Owner _Nullable name = user.name;
   free(name);
   static_debug(user.name);
   if (user.name)

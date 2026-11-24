@@ -102,7 +102,7 @@ void local_copy(const char* p)
     compile_assert(l != 0);
 }
 
-void narrowed_opt(const char* _Opt p)
+void narrowed_opt(const char* _Nullable p)
 {
     if (p != 0)
     {

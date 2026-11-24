@@ -44,7 +44,7 @@ enum make_state
 
 struct object_list
 {
-    struct object* _Owner _Nullable head, * _Nullable tail;
+    struct object* _Owner head, * tail;
     size_t count;
 };
 

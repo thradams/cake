@@ -1,6 +1,6 @@
 #pragma safety enable
 
-/* _Opt parameters: only the non-null ones can be the same object (15 cases for three) */
+/* _Nullable parameters: only the non-null ones can be the same object (15 cases for three) */
 
 #define NULL ((void*)0)
 
@@ -15,7 +15,7 @@ struct X { struct Y* pY; };
     if (p2 == p1) p2 = p1;     (both null, or both the same object)
     else if (not null) p2 = new(); else p2 = 0;
 */
-void two_opt_same(struct X* _Opt p1, struct X* _Opt p2, struct Y* y)
+void two_opt_same(struct X* _Nullable p1, struct X* _Nullable p2, struct Y* y)
 {
     if (p1 && p2)
     {
@@ -38,8 +38,8 @@ void two_opt_same(struct X* _Opt p1, struct X* _Opt p2, struct Y* y)
     else if (not null) p3 = new(); else p3 = 0;
 */
 
-/* must warn: three _Opt, p1 == p3 */
-void three_opt_p1_p3_same(struct X* _Opt p1, struct X* _Opt p2, struct X* _Opt p3, struct Y* y)
+/* must warn: three _Nullable, p1 == p3 */
+void three_opt_p1_p3_same(struct X* _Nullable p1, struct X* _Nullable p2, struct X* _Nullable p3, struct Y* y)
 {
     if (p1 && p2 && p3)
     {
@@ -51,7 +51,7 @@ void three_opt_p1_p3_same(struct X* _Opt p1, struct X* _Opt p2, struct X* _Opt p
 }
 
 /* must warn: p2 is not used, p1 == p3 still possible */
-void three_opt_p2_unused(struct X* _Opt p1, struct X* _Opt p2, struct X* _Opt p3, struct Y* y)
+void three_opt_p2_unused(struct X* _Nullable p1, struct X* _Nullable p2, struct X* _Nullable p3, struct Y* y)
 {
     if (p1 && p3)
     {
@@ -72,7 +72,7 @@ void three_opt_p2_unused(struct X* _Opt p1, struct X* _Opt p2, struct X* _Opt p3
 
     Must NOT warn: inside if (p1 == NULL), p2 cannot be p1.
 */
-void opt_null_does_not_alias(struct X* _Opt p1, struct X* p2, struct Y* y)
+void opt_null_does_not_alias(struct X* _Nullable p1, struct X* p2, struct Y* y)
 {
     p2->pY = y;
     if (p1 == NULL)
@@ -87,7 +87,7 @@ void opt_null_does_not_alias(struct X* _Opt p1, struct X* p2, struct Y* y)
     if (not null) p1 = new(); else p1 = 0;     (restrict: no if (p2 == p1))
     if (not null) p2 = new(); else p2 = 0;
 */
-void opt_restrict(struct X* _Opt restrict p1, struct X* _Opt p2, struct Y* y)
+void opt_restrict(struct X* _Nullable restrict p1, struct X* _Nullable p2, struct Y* y)
 {
     if (p1 && p2)
     {

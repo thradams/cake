@@ -5,7 +5,7 @@
 struct X { int* _Owner p; };
 
 void* _Owner malloc(unsigned long n);
-void sink(int* _Owner _Opt p);
+void sink(int* _Owner _Nullable p);
 void use(const struct X* x);
 void destroy(_Dtor struct X* x);
 

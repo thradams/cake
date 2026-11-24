@@ -5,7 +5,7 @@
 struct X { int* _Owner p; };
 
 void* _Owner malloc(unsigned long n);
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 void destroy(_Dtor struct X* x);
 
 void f(int c)

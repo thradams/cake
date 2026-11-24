@@ -6,6 +6,6 @@ void use(int i);
 
 void bad()
 {
-    char* _Opt p = nullptr;
+    char* _Nullable p = nullptr;
     use(p[0]);
 }

@@ -4,7 +4,7 @@ struct s { int x; };
 void d(_Dtor struct s* p);
 void use(int i);
 
-void f(struct s* _Opt p, int c)
+void f(struct s* _Nullable p, int c)
 {
     if (c)
     {

@@ -29,7 +29,7 @@ Every tracked object is in exactly one of the following states at any program po
 | Qualifier | Meaning |
 |---|---|
 | `_Owner` | Object owns a resource; must be explicitly released before going out of scope. |
-| `_Opt` | Pointer may be null. Without `_Opt` a pointer is assumed non-null. |
+| `_Nullable` | Pointer may be null. Without `_Nullable` a pointer is assumed non-null. |
 | `_Out` | Constructor context: pointed object starts uninitialized; must be initialized on exit. |
 | `_Dtor` | Destructor context: pointed object must be uninitialized/moved/expired on exit. |
 | `_View` | Non-owning reference. No ownership or exit checks are applied. |
@@ -44,12 +44,12 @@ At function entry the analyser seeds the flow map with an initial state for ever
 
 With `nullable_enabled` on:
 
-- `_Opt` pointer — may be null or may point to a valid arena object.
-- Non-`_Opt` pointer — assumed non-null (`!= 0`) at entry.
+- `_Nullable` pointer — may be null or may point to a valid arena object.
+- Non-`_Nullable` pointer — assumed non-null (`!= 0`) at entry.
 
 With `nullable_enabled` off:
 
-- Any pointer (with or without `_Opt`) may be null or point to a valid arena object.
+- Any pointer (with or without `_Nullable`) may be null or point to a valid arena object.
 
 ### 2.2 Initialization State of the Pointed Object
 
@@ -104,8 +104,8 @@ void string_destroy(struct string * _Dtor p)
 
 With `nullable_enabled` on:
 
-- Non-`_Opt` pointer return type — returned value must not be null.
-- `_Opt` pointer return type — null is allowed; but the returned pointer must not be moved or expired.
+- Non-`_Nullable` pointer return type — returned value must not be null.
+- `_Nullable` pointer return type — null is allowed; but the returned pointer must not be moved or expired.
 
 With `nullable_enabled` off: no null constraint on pointer return values.
 
@@ -189,17 +189,17 @@ p = make_string();   // OK: destination was null
 
 ### 4.3 Null Safety  *(nullable_enabled)*
 
-- Assigning null to a non-`_Opt` pointer is **invalid**.
-- Assigning a possibly-null pointer to a non-`_Opt` destination is **invalid**.
+- Assigning null to a non-`_Nullable` pointer is **invalid**.
+- Assigning a possibly-null pointer to a non-`_Nullable` destination is **invalid**.
 
 ```c
 // INVALID
 struct string * p;
-p = NULL;   // diagnostic: assigning null to non-_Opt pointer
+p = NULL;   // diagnostic: assigning null to non-_Nullable pointer
 
 // VALID
-struct string * _Opt p;
-p = NULL;   // OK: _Opt allows null
+struct string * _Nullable p;
+p = NULL;   // OK: _Nullable allows null
 ```
 
 ### 4.4 Ownership Move  *(ownership_enabled)*
@@ -233,15 +233,15 @@ struct string * _Owner c = a;   // diagnostic: object is moved
 
 ### 5.3 Null Safety  *(nullable_enabled)*
 
-- Initializing a non-`_Opt` pointer with null is **invalid**.
-- Initializing an `_Opt` pointer with null is valid.
+- Initializing a non-`_Nullable` pointer with null is **invalid**.
+- Initializing an `_Nullable` pointer with null is valid.
 
 ```c
 // INVALID
-struct string * p = NULL;   // diagnostic: non-_Opt pointer initialized with null
+struct string * p = NULL;   // diagnostic: non-_Nullable pointer initialized with null
 
 // VALID
-struct string * _Opt p = NULL;
+struct string * _Nullable p = NULL;
 ```
 
 ### 5.4 Ownership Move  *(ownership_enabled)*
@@ -288,7 +288,7 @@ When the parameter type is a pointer to a `_Out` object, the callee is expected 
 
 - Does **not** emit an uninitialized diagnostic for the pointed object.
 - Resets the pointed object to **ANY** after the call (the constructor has initialized it).
-- Still checks that the *pointer itself* is valid (not null when not `_Opt`, not expired, not moved).
+- Still checks that the *pointer itself* is valid (not null when not `_Nullable`, not expired, not moved).
 
 ```c
 // VALID — passing uninitialized object to constructor
@@ -300,13 +300,13 @@ print_string(&s);        // OK: s is now ANY
 
 ### 6.3 Null Safety  *(nullable_enabled)*
 
-- Passing a possibly-null pointer to a non-`_Opt` parameter is **invalid**.
-- Passing to an `_Opt` parameter is valid, but the pointer must not be moved or expired.
+- Passing a possibly-null pointer to a non-`_Nullable` parameter is **invalid**.
+- Passing to an `_Nullable` parameter is valid, but the pointer must not be moved or expired.
 
 ```c
-void use(struct string * p);   // p is non-_Opt
+void use(struct string * p);   // p is non-_Nullable
 
-struct string * _Opt q = get_opt();
+struct string * _Nullable q = get_opt();
 use(q);   // INVALID: diagnostic: passing possibly null pointer to non-nullable parameter
 
 if (q != NULL)
@@ -410,7 +410,7 @@ void caller(void)
 ### 7.3 Nullable Pointer with Null Check
 
 ```c
-void process(struct string * _Opt _Owner p)
+void process(struct string * _Nullable _Owner p)
 {
     if (p == NULL)
         return;
@@ -446,5 +446,5 @@ or moved before assignment (potential resource leak)"*.
 |---|---|---|
 | `W_FLOW_UNINITIALIZED` | Source is (or may be) uninitialized | `return x;` where `x` was never set |
 | `W_FLOW_LIFETIME_ENDED` | Source is expired or moved; or dest `_Owner` is live on overwrite | `p = q;` where `q` was already moved |
-| `W_FLOW_NULL_DEREFERENCE` | Possibly-null pointer passed or assigned to non-`_Opt` target | `use(opt_p);` where `opt_p` may be null |
+| `W_FLOW_NULL_DEREFERENCE` | Possibly-null pointer passed or assigned to non-`_Nullable` target | `use(opt_p);` where `opt_p` may be null |
 | `W_FLOW_NON_NULL` | Condition is statically always true or always false | `if (p)` where `p` is always non-null |

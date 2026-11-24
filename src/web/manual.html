@@ -505,13 +505,16 @@
 <li>
 <a href="#toc_106">11.12 <code>static_debug</code></a>
 </li>
+<li>
+<a href="#toc_107">11.13 Conditions After a Function Declarator (experimental)</a>
+</li>
 </ul>
 </li>
 <li>
-<a href="#toc_107">12. GCC Compatibility</a>
+<a href="#toc_108">12. GCC Compatibility</a>
 </li>
 <li>
-<a href="#toc_108">13. MSVC Compatibility</a>
+<a href="#toc_109">13. MSVC Compatibility</a>
 </li>
 </ul>
 </li>
@@ -3429,7 +3432,49 @@ sides of one <code>if</code>); <code>q == p #N</code> and <code>q != p #N</code>
 <code>if (same)</code> outside the function (see flow.md, section 5.5). Colors follow the diagnostics:
 <code>-fdiagnostics-color=never</code> disables them.</p>
 
-<h2 id="toc_107">12. GCC Compatibility</h2>
+<h3 id="toc_107">11.13 Conditions After a Function Declarator (experimental)</h3>
+
+<blockquote>
+<p><strong>Experimental.</strong> The syntax and the rules below may change.</p>
+</blockquote>
+
+<p>A function declarator can be followed by a sequence of <code>compile_assert(condition)</code> and <code>runtime_assert(condition)</code>. <code>runtime_assert</code> is the same keyword as <code>_Assert</code>. The conditions are written once, next to the prototype, and may use every parameter and <code>_result</code>, the value the function returns (not available when it returns <code>void</code>).</p>
+
+<pre><code class="language-c">int f(int a, int b) compile_assert(a &gt; 0) runtime_assert(b != 0) compile_assert(_result &gt; a);
+</code></pre>
+
+<p>The sequence means that all the conditions hold, as if the code had gone through one <code>if (condition)</code> after the other.</p>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>compile_assert</code></th>
+<th><code>runtime_assert</code></th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>The caller</td>
+<td>must prove it for the arguments (warning 67)</td>
+<td>does not have to prove it</td>
+</tr>
+<tr>
+<td>Inside the function</td>
+<td>assumed true at the entry</td>
+<td>assumed true at the entry</td>
+</tr>
+</tbody>
+</table>
+
+<p>A condition that uses <code>_result</code> is not checked by the caller. It is checked inside the function, at each <code>return</code>, with <code>_result</code> taking the returned expression. After the call, the caller assumes it holds, whatever the keyword.</p>
+
+<p>See flow.md, section 4.10, for examples.</p>
+
+<p>Repeat the conditions in the definition: the body uses the ones written on its own declarator. The old form with a condition after each parameter is no longer accepted. The code generated for the C89 backend does not check <code>runtime_assert</code> yet.</p>
+
+<h2 id="toc_108">12. GCC Compatibility</h2>
 
 <p>Cake recognizes the following GCC built-ins and extensions:</p>
 
@@ -3451,7 +3496,7 @@ sides of one <code>if</code>); <code>q == p #N</code> and <code>q != p #N</code>
 
 <hr>
 
-<h2 id="toc_108">13. MSVC Compatibility</h2>
+<h2 id="toc_109">13. MSVC Compatibility</h2>
 
 <p>Cake recognizes the following MSVC extensions:</p>
 

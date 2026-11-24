@@ -12,7 +12,7 @@ struct X {
     struct Y* pY;
 };
 
-void f(struct X* _Opt p)
+void f(struct X* _Nullable p)
 {
     if (p && p->pY && p->pY->pZ)
     {

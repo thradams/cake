@@ -4977,6 +4977,8 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 }
             }
 
+            p_func->params.p_function_declarator = pdirectdeclarator->function_declarator;
+
             if (pdirectdeclarator->function_declarator->parameter_type_list_opt)
             {
                 p_func->params.is_var_args = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_var_args;

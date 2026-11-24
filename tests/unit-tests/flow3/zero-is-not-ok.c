@@ -1,10 +1,10 @@
 #pragma safety enable
 
-/* zero is a real state: using a zeroed non-_Opt pointer member (passing it, returning the aggregate) warns for both `= {0}` and calloc (_Clear); only the creation is clean */
+/* zero is a real state: using a zeroed non-_Nullable pointer member (passing it, returning the aggregate) warns for both `= {0}` and calloc (_Clear); only the creation is clean */
 
 typedef unsigned long size_t;
 _Clear void* _Owner calloc(size_t n, size_t sz);
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 struct X { char* _Nonnull p_non_null; };
 
@@ -80,7 +80,7 @@ void pass_while_incomplete_warns(void)
     free(x);
 }
 
-/* Assigning null to a non-_Opt pointer: a direct use of the null value. */
+/* Assigning null to a non-_Nullable pointer: a direct use of the null value. */
 void assign_null_to_non_opt(struct X* x)
 {
     x->p_non_null = 0;    /* warns */ //lint 35

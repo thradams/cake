@@ -4,7 +4,7 @@
 char* _Nonnull _Owner strdup(const char* s);
 _Uninitialized void* _Nonnull _Owner malloc(unsigned size);
 
-void free(void* _Owner _Opt ptr);
+void free(void* _Owner _Nullable ptr);
 
 struct X {
     char* _Owner name;

@@ -3,7 +3,7 @@
 
 char* f()
 {
-    //char* _Owner _Opt p = 0;    
+    //char* _Owner _Nullable p = 0;    
     //return p;
     return  0;
 }

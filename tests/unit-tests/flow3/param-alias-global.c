@@ -2,7 +2,7 @@
 
 /* a parameter may point to a file scope object the function uses: f(&g) */
 
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 struct list { int* _Owner head; };
 

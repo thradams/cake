@@ -2,7 +2,7 @@
 
 /* void* _Owner without _Clear: the pointee gets the struct type (ANY), so its members are checked */
 void* _Owner calloc(unsigned long n, unsigned long s);
-void free(void* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
 
 struct X { int* _Owner p; };
 

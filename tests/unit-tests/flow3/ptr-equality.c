@@ -2,7 +2,7 @@
 
 /* known issue: `p == q` with two distinct synthetic pointees folds to always-false and the true branch is analysed as dead */
 
-void ptr_eq(int* _Opt p, int* _Opt q)
+void ptr_eq(int* _Nullable p, int* _Nullable q)
 {
     if (p == q)
     {
@@ -14,7 +14,7 @@ void ptr_eq(int* _Opt p, int* _Opt q)
     }
 }
 
-void ptr_eq_null(int* _Opt p)
+void ptr_eq_null(int* _Nullable p)
 {
     /* Comparison against the genuine constant 0 must still narrow. */
     if (p == 0)

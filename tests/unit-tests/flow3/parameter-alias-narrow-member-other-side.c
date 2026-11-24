@@ -5,10 +5,10 @@
 struct token { int type; struct token* _Owner next; };
 struct token_list { struct token* _Owner head; struct token* tail; };
 void consume(struct token_list* dest, struct token_list* input);
-void consume_opt(struct token_list* _Opt dest, struct token_list* input);
+void consume_opt(struct token_list* _Nullable dest, struct token_list* input);
 void consume_restrict(struct token_list* restrict dest, struct token_list* restrict input);
 void use(const struct token* p);
-void token_delete(struct token* _Owner _Opt p);
+void token_delete(struct token* _Owner _Nullable p);
 
 /* Must NOT warn. */
 
@@ -66,7 +66,7 @@ void loop_while(struct token_list* d, struct token_list* input)
     }
 }
 
-void loop_opt_dest(struct token_list* _Opt d, struct token_list* input)
+void loop_opt_dest(struct token_list* _Nullable d, struct token_list* input)
 {
     for (;;)
     {

@@ -19,7 +19,7 @@ void one_element(struct list* p)
 }
 
 /* Two non-null parameters: both arms of the equality are live. */
-void two_params(struct T* _Opt p, struct T* _Opt q)
+void two_params(struct T* _Nullable p, struct T* _Nullable q)
 {
     if (p && q)
     {
@@ -29,7 +29,7 @@ void two_params(struct T* _Opt p, struct T* _Opt q)
 }
 
 /* Still decidable: comparison with NULL narrows as before. */
-void with_null(struct T* _Opt p)
+void with_null(struct T* _Nullable p)
 {
     if (p == NULL)
         return;

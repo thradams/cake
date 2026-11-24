@@ -2525,11 +2525,11 @@ static void codegen_emit_converted_postfix(struct codegen_ctx* ctx,
 {
     struct expression* p_left = p_expression->left;
     struct osstream left = { 0 };
-    codegen_emit_stable_lvalue(ctx, &left, p_left);
+    codegen_emit_stable_lvalue(ctx, &left, p_left); //lint 35
 
     if (left.c_str != NULL)
     {
-        if (type_is_bool(&p_left->object.type))
+        if (type_is_bool(&p_left->object.type)) //lint 33
         {
             if (is_increment)
                 ss_fprintf(oss, "(%s ? 1 : (%s = 1, 0))", left.c_str, left.c_str);
@@ -2539,12 +2539,12 @@ static void codegen_emit_converted_postfix(struct codegen_ctx* ctx,
         else
         {
             ss_fprintf(oss, "(");
-            codegen_emit_converted_compound_assignment(ctx, oss, p_left, is_increment ? "+" : "-", NULL, &p_expression->object.type, left.c_str);
+            codegen_emit_converted_compound_assignment(ctx, oss, p_left, is_increment ? "+" : "-", NULL, &p_expression->object.type, left.c_str); //lint 35
             ss_fprintf(oss, ", ");
 
             struct osstream old_value = { 0 };
             ss_fprintf(&old_value, "%s %s 1", left.c_str, is_increment ? "-" : "+");
-            codegen_emit_bitint_wrap_text(ctx, oss, &p_left->object.type, old_value.c_str, false);
+            codegen_emit_bitint_wrap_text(ctx, oss, &p_left->object.type, old_value.c_str, false); //lint 33 35
             ss_close(&old_value);
             ss_fprintf(oss, ")");
         }
@@ -3016,8 +3016,8 @@ static void codegen_emit_logical(struct codegen_ctx* ctx, struct osstream* oss, 
     struct osstream right = { 0 };
     struct osstream right_hoisted = { 0 };
 
-    codegen_visit_expression(ctx, &left, p_expression->left);
-    codegen_visit_expression_captured(ctx, &right, &right_hoisted, p_expression->right);
+    codegen_visit_expression(ctx, &left, p_expression->left); //lint 35
+    codegen_visit_expression_captured(ctx, &right, &right_hoisted, p_expression->right); //lint 35
 
     if (right_hoisted.size == 0)
     {
@@ -3061,9 +3061,9 @@ static void codegen_emit_conditional(struct codegen_ctx* ctx, struct osstream* o
     struct osstream left_hoisted = { 0 };
     struct osstream right_hoisted = { 0 };
 
-    codegen_visit_expression(ctx, &condition, p_expression->condition_expr);
-    codegen_visit_expression_captured(ctx, &left, &left_hoisted, p_expression->left);
-    codegen_visit_expression_captured(ctx, &right, &right_hoisted, p_expression->right);
+    codegen_visit_expression(ctx, &condition, p_expression->condition_expr); //lint 35
+    codegen_visit_expression_captured(ctx, &left, &left_hoisted, p_expression->left); //lint 35
+    codegen_visit_expression_captured(ctx, &right, &right_hoisted, p_expression->right); //lint 35
 
     if (left_hoisted.size == 0 && right_hoisted.size == 0)
     {
@@ -3856,7 +3856,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             /* the left side can be an array: block->l with CHAR64LONG16 block[1] */
             struct type t = type_is_array(&p_expression->left->object.type) ?
                 get_array_item_type(&p_expression->left->object.type) :
-                type_remove_pointer(&p_expression->left->object.type); //lint 33 assert line 3399
+                type_remove_pointer(&p_expression->left->object.type); //lint 33 33 33 assert line 3399
 
             codegen_emit_member(ctx, oss, &t, p_expression->member_index, left.c_str ? left.c_str : "", "->");
             type_destroy(&t);
@@ -4310,7 +4310,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
               pointer (cb(5) with void (*cb)(bool)) it is behind the pointer.
               The conversions of the arguments (bool, _BitInt, VM) need them.
             */
-            const struct type* p_function_type = &p_expression->left->object.type;
+            const struct type* p_function_type = &p_expression->left->object.type; //lint 33
             while (p_function_type != NULL && p_function_type->category != TYPE_CATEGORY_FUNCTION)
                 p_function_type = p_function_type->next;
 
@@ -4646,12 +4646,12 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
         case EXPR_UNARY_NEG:
 
             assert(p_expression->right != NULL);
-            codegen_emit_unary_sign(ctx, oss, '-', p_expression->right);
+            codegen_emit_unary_sign(ctx, oss, '-', p_expression->right); //lint 35
             break;
         case EXPR_UNARY_PLUS:
 
             assert(p_expression->right != NULL);
-            codegen_emit_unary_sign(ctx, oss, '+', p_expression->right);
+            codegen_emit_unary_sign(ctx, oss, '+', p_expression->right); //lint 35
             break;
 
         case EXPR_UNARY_CONTENT:
@@ -4805,7 +4805,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
 
             if (type_is_struct_or_union(&p_expression->left->object.type) &&
             object_has_all_members_constants(&p_expression->right->object) &&
-            !expression_has_side_effects(p_expression->right)) /* the text of the right operand is not emitted here: (g(), c) would lose g() */ //lint 33 33 33 assert line 4316, 4317
+            !expression_has_side_effects(p_expression->right)) /* the text of the right operand is not emitted here: (g(), c) would lose g() */ //lint 33 33 33 35 assert line 4316, 4317
             {
                 /*
                     The destination is turned into text here and each
@@ -4845,7 +4845,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             if (type_is_vm(&p_expression->left->object.type) &&
                            !type_is_pointer(&p_expression->right->object.type) &&
                            !expression_is_null_pointer_constant(p_expression->right)
-            ) //lint 33 33 assert
+            ) //lint 33 33 35 assert
             {
                 print_cast_array_to_vm(ctx, oss, &p_expression->left->object.type); //lint 33 assert line 4316
             }
@@ -4894,7 +4894,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     by the (runtime-known) pointee size, same as p+n/p++.
                 */
                 const char* op = p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-";
-                codegen_vm_ptr_assign_step(ctx, oss, p_expression->left, op, p_expression->right);
+                codegen_vm_ptr_assign_step(ctx, oss, p_expression->left, op, p_expression->right); //lint 35
                 break;
             }
             codegen_visit_expression(ctx, oss, p_expression->left); //lint 35 assert line 4387
@@ -5094,17 +5094,17 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             {
                 /* a ?: b -- the temporary has the type of the result, not of a */
                 const bool cond_is_stmtexpr =
-                    p_expression->condition_expr->expression_type == EXPR_PRIMARY_STATEMENT_EXPRESSION;
+                    p_expression->condition_expr->expression_type == EXPR_PRIMARY_STATEMENT_EXPRESSION; //lint 33
                 const bool right_is_stmtexpr =
-                    p_expression->right->expression_type == EXPR_PRIMARY_STATEMENT_EXPRESSION;
+                    p_expression->right->expression_type == EXPR_PRIMARY_STATEMENT_EXPRESSION; //lint 33
 
                 struct osstream right_text = { 0 };
                 struct osstream right_hoisted = { 0 };
                 if (!right_is_stmtexpr)
-                    codegen_visit_expression_captured(ctx, &right_text, &right_hoisted, p_expression->right);
+                    codegen_visit_expression_captured(ctx, &right_text, &right_hoisted, p_expression->right); //lint 35
 
                 if (cond_is_stmtexpr || right_is_stmtexpr || right_hoisted.size > 0 ||
-                    expression_has_side_effects(p_expression->condition_expr))
+                    expression_has_side_effects(p_expression->condition_expr)) //lint 35
                 {
                     struct osstream add_this_before = { 0 };
 
@@ -5125,14 +5125,14 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                         assert(p_expression->condition_expr->compound_statement != NULL);
                         struct osstream stmtexpr_body = { 0 };
                         codegen_visit_compound_statement_2(name, ctx, &stmtexpr_body,
-                                                           p_expression->condition_expr->compound_statement);
+                                                           p_expression->condition_expr->compound_statement); //lint 33 35
                         ss_fprintf(&ctx->add_this_before, "%s", empty_if_null(stmtexpr_body.c_str));
                         ss_close(&stmtexpr_body);
                     }
                     else
                     {
                         struct osstream cond_text = { 0 };
-                        codegen_visit_expression(ctx, &cond_text, p_expression->condition_expr);
+                        codegen_visit_expression(ctx, &cond_text, p_expression->condition_expr); //lint 35
                         print_identation_core(&add_this_before, ctx->indentation);
                         ss_fprintf(&add_this_before, "%s = %s;\n", name, empty_if_null(cond_text.c_str));
                         ss_close(&cond_text);
@@ -5145,7 +5145,7 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                     {
                         assert(p_expression->right->compound_statement != NULL);
                         struct osstream right_body = { 0 };
-                        codegen_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement);
+                        codegen_visit_compound_statement_2(name, ctx, &right_body, p_expression->right->compound_statement); //lint 33 35
                         ss_fprintf(&add_this_before, "%s", empty_if_null(right_body.c_str));
                         ss_close(&right_body);
                     }
@@ -5167,9 +5167,9 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
                 else
                 {
                     /* No side effects: safe to repeat the condition */
-                    codegen_visit_expression(ctx, oss, p_expression->condition_expr);
+                    codegen_visit_expression(ctx, oss, p_expression->condition_expr); //lint 35
                     ss_fprintf(oss, " ? ");
-                    codegen_visit_expression(ctx, oss, p_expression->condition_expr);
+                    codegen_visit_expression(ctx, oss, p_expression->condition_expr); //lint 35
                     ss_fprintf(oss, " : %s", empty_if_null(right_text.c_str));
                 }
                 ss_close(&right_text);
@@ -5506,7 +5506,7 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
             struct osstream cond = { 0 };
             struct osstream hoisted = { 0 };
             ctx->parenthesis_not_needed = true;
-            codegen_visit_expression_captured(ctx, &cond, &hoisted, p_iteration_statement->expression1);
+            codegen_visit_expression_captured(ctx, &cond, &hoisted, p_iteration_statement->expression1); //lint 35
 
             if (hoisted.size == 0)
             {
@@ -5514,7 +5514,7 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
 
                 codegen_visit_loop_body(ctx, oss, p_iteration_statement->secondary_block);
 
-                emit_line_directive(ctx, oss, p_iteration_statement->expression1->first_token);
+                emit_line_directive(ctx, oss, p_iteration_statement->expression1->first_token); //lint 33
                 print_identation(ctx, oss);
                 ss_fprintf(oss, "while (%s);\n", empty_if_null(cond.c_str));
             }
@@ -7431,7 +7431,7 @@ static size_t codegen_array_element_size(const struct codegen_ctx* ctx, const st
 }
 
 /* the first initializer of object or of an object inside it, NULL when there is none */
-static const struct expression* _Nullable codegen_object_first_initializer(const struct object* object)
+static const struct expression* codegen_object_first_initializer(const struct object* object)
 {
     if (object_is_reference(object))
     {
@@ -7918,7 +7918,7 @@ static void print_initializer(struct codegen_ctx* ctx,
 
         const bool is_local = ctx->is_local;
 
-        if (p_init_declarator->initializer->assignment_expression) //lint 33 33 33 33 33 assert line 7193
+        if (p_init_declarator->initializer->assignment_expression) //lint 33 33 33 33 33 33 assert line 7193
         {
             const char* source_name = "";
             if (p_init_declarator->initializer->assignment_expression->declarator &&

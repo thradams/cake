@@ -20,8 +20,8 @@ void h(int* a, int n)
     *a = 1; /* ok: same rule with a non-constant offset */
 }
 
-/* contrast: an _Opt pointer's uncertainty survives the compound assignment */
-void opt_still_warns(int* _Opt a)
+/* contrast: an _Nullable pointer's uncertainty survives the compound assignment */
+void opt_still_warns(int* _Nullable a)
 {
     a += 1;
     *a = 1; //lint 33 possible null pointer dereference

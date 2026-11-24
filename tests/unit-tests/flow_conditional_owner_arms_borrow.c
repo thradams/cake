@@ -4,9 +4,9 @@
 // passing it to a non-owner parameter is a borrow, even when both arms are owners.
 
 void* _Owner malloc(unsigned long n);
-void free(void* _Owner _Opt p);
-void use(const int* _Opt p);
-void sink(int* _Owner _Opt p);
+void free(void* _Owner _Nullable p);
+void use(const int* _Nullable p);
+void sink(int* _Owner _Nullable p);
 int* _Owner make(void);
 
 void both_owner_arms_borrowed(int c)
