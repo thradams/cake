@@ -47541,12 +47541,14 @@ struct declaration* _Owner declaration_core(struct parser_ctx* ctx,
 
         if (p_declaration->last_token == NULL)
         {
-            if (ctx->current == NULL)
+            if (ctx->current == NULL)    
             {
-                unexpected_end_of_file(ctx);
-                throw;
+                //TODO
             }
-            p_declaration->last_token = previous_parser_token(ctx->current);            
+            else
+            {
+               p_declaration->last_token = previous_parser_token(ctx->current);           
+            } 
         }
 
         if (p_declaration->lint_token)
