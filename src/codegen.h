@@ -110,6 +110,7 @@ struct codegen_ctx
     {
         struct selection_statement* p_selection_statement;
         struct iteration_statement* p_iteration_statement;
+        bool end_label_used;
     } break_reference;
 
     bool is__func__predefined_identifier_added;

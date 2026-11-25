@@ -3504,7 +3504,7 @@ struct declaration_specifiers* _Owner declaration_specifiers(struct parser_ctx* 
         }
 
 
-        
+
         p_declaration_specifiers->last_token = previous_parser_token(ctx->current);
         /* int main() { static int i; } -- i is not automatic */
         final_specifier(&p_declaration_specifiers->type_specifier_flags);
@@ -3741,14 +3741,14 @@ struct declaration* _Owner declaration_core(struct parser_ctx* ctx,
 
         if (p_declaration->last_token == NULL)
         {
-            if (ctx->current == NULL)    
+            if (ctx->current == NULL)
             {
                 //TODO
             }
             else
             {
-               p_declaration->last_token = previous_parser_token(ctx->current);           
-            } 
+                p_declaration->last_token = previous_parser_token(ctx->current);
+            }
         }
 
         if (p_declaration->lint_token)
@@ -8174,7 +8174,7 @@ struct specifier_qualifier_list* _Owner specifier_qualifier_list(struct parser_c
         {
             diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_specifier_qualifier_list->first_token, NULL, "signed _BitInt must have a width of at least 2");
         }
-        
+
         p_specifier_qualifier_list->last_token = previous_parser_token(ctx->current);
     }
     catch
@@ -9366,7 +9366,7 @@ struct declarator* _Owner declarator(struct parser_ctx* ctx,
 
         if (ctx->current != p_declarator->first_token_opt)
         {
-            
+
         }
         else
         {
@@ -11756,7 +11756,7 @@ struct attribute_specifier_sequence* _Owner attribute_specifier_sequence_opt(str
 
             }
 
-            
+
             if (ctx->current == NULL)
             {
                 //TODO
@@ -12408,7 +12408,7 @@ struct secondary_block* _Owner secondary_block(struct parser_ctx* ctx)
 
         p_secondary_block->statement = p_statement;
 
-        
+
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -13945,7 +13945,7 @@ struct try_statement* _Owner try_statement(struct parser_ctx* ctx)
             throw;
         }
 
-        const struct try_statement* try_statement_copy_opt = ctx->p_current_try_statement_opt;
+        struct try_statement* try_statement_copy_opt = ctx->p_current_try_statement_opt;
         ctx->p_current_try_statement_opt = p_try_statement;
 
         p_try_statement->catch_label_id = ctx->label_id++;
@@ -14008,7 +14008,37 @@ struct try_statement* _Owner try_statement(struct parser_ctx* ctx)
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
         }
 
-        
+        if (!p_try_statement->has_throw)
+        {
+            if (p_try_statement->catch_secondary_block_opt)
+            {
+                diagnostic(W_UNRECHEBABLE_CATCH,
+                ctx,
+                p_try_statement->secondary_block->last_token,
+                NULL,
+                "catch block is unreachable because the try block contains no throw statement");                
+            }
+            else
+            {
+                diagnostic(W_UNRECHEBABLE_CATCH,
+                ctx,
+                p_try_statement->secondary_block->last_token,
+                NULL,
+                "try block contains no throw statement");
+            }            
+        }
+
+        if (p_try_statement->secondary_block &&
+                p_try_statement->secondary_block->statement &&
+                p_try_statement->secondary_block->statement->unlabeled_statement &&
+                p_try_statement->secondary_block->statement->unlabeled_statement->primary_block &&
+                p_try_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement &&
+                p_try_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement->lint_token)
+        {
+            check_dianostic_suppression_after(ctx,
+                p_try_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement->lint_token);
+        }
+
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -14531,7 +14561,7 @@ struct selection_statement* _Owner selection_statement(struct parser_ctx* ctx)
             throw;
         }
 
-        
+
 
         p_selection_statement->last_token = previous_parser_token(ctx->current);
 
@@ -14626,7 +14656,7 @@ struct defer_statement* _Owner defer_statement(struct parser_ctx* ctx)
         if (p_unlabeled_statement == NULL) throw;
 
         p_defer_statement->unlabeled_statement = p_unlabeled_statement;
-        
+
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -15073,6 +15103,7 @@ struct jump_statement* _Owner jump_statement(struct parser_ctx* ctx)
             else
             {
                 p_jump_statement->label_id = ctx->p_current_try_statement_opt->catch_label_id;
+                ctx->p_current_try_statement_opt->has_throw = true;
             }
 
             parser_match(ctx);
@@ -15363,7 +15394,7 @@ struct condition* _Owner condition(struct parser_ctx* ctx)
             throw;
         }
 
-        
+
 
         p_condition->last_token = previous_parser_token(ctx->current);
     }
@@ -16017,7 +16048,7 @@ struct compound_statement* _Owner function_body(struct parser_ctx* ctx)
     * for try-catch blocks
     */
 
-    const struct try_statement* p_current_try_statement_opt = ctx->p_current_try_statement_opt;
+    struct try_statement* p_current_try_statement_opt = ctx->p_current_try_statement_opt;
     ctx->p_current_try_statement_opt = NULL;
 
     int label_id = ctx->label_id;

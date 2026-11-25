@@ -181,6 +181,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_UNUSED_LABEL:
     case W_SWITCH:
     case W_FLOW_FALLTHROUGH:
+    case W_UNRECHEBABLE_CATCH:
     case C_ERROR_LABEL_NOT_DEFINED:
         return 1;
 

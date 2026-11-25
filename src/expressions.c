@@ -9527,6 +9527,10 @@ struct expression* _Owner checked_expression(struct parser_ctx* ctx, bool is_dis
             {
                 diagnostic(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "checked expression not within try-catch block");
             }
+            else
+            {
+                ctx->p_current_try_statement_opt->has_throw = true; /* implicit throw */
+            }
 
             if (!type_is_scalar(&p_expression_node->object.type))
             {
@@ -9543,7 +9547,7 @@ struct expression* _Owner checked_expression(struct parser_ctx* ctx, bool is_dis
             p_expression_node_new->object = object_dup(&p_expression_node->object);
             parser_match(ctx);
             p_expression_node_new->left = p_expression_node;
-            p_expression_node = p_expression_node_new;
+            p_expression_node = p_expression_node_new;            
         }
         
     }

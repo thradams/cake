@@ -39,6 +39,6 @@ int no_throw_at_all(void)
     try
     {
         p = 0;
-    }
+    } //lint 105
     return 0;
 }

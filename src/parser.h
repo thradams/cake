@@ -170,7 +170,7 @@ struct parser_ctx
     /*
     * Points to the try-block we're in. Or null.
     */
-    const struct try_statement* p_current_try_statement_opt;
+    struct try_statement* p_current_try_statement_opt;
 
     const struct defer_statement* p_current_defer_statement_opt;
 
@@ -1061,7 +1061,7 @@ struct declarator* _Owner declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Nullable specifier_qualifier_list,
     struct declaration_specifiers* _Nullable declaration_specifiers,
     bool abstract_acceptable,
-    struct token*_Nullable * _Nullable pptokenname);
+    struct token* _Nullable* _Nullable pptokenname);
 
 struct declarator* _Nonnull _Owner declarator_add_ref(struct declarator* p);
 void declarator_delete(_Dtor struct declarator* _Owner _Nullable  p);
@@ -1489,6 +1489,8 @@ struct try_statement
 
     struct expression* _Owner msvc_except_expression;
     int catch_label_id;
+
+    bool has_throw; /* we have throw inside try catch */
 };
 
 struct try_statement* _Owner try_statement(struct parser_ctx* ctx);
@@ -1516,7 +1518,7 @@ struct case_label_list
 void case_label_list_push(struct case_label_list* list, struct label* pnew);
 struct label* case_label_list_find(const struct parser_ctx* ctx, struct case_label_list* list, const struct object* object);
 const struct label* case_label_list_find_const(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object);
-struct label* case_label_list_find_default( struct case_label_list* list);
+struct label* case_label_list_find_default(struct case_label_list* list);
 const struct label* case_label_list_find_default_const(const struct case_label_list* list);
 struct label* case_label_list_find_range(const struct parser_ctx* ctx, struct case_label_list* list, const struct object* begin, const struct object* end);
 const struct label* case_label_list_find_range_const(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end);
@@ -2012,7 +2014,7 @@ struct ast get_ast(const struct options* options,
     const char* filename,
     const char* source,
     struct report* report);
-    
+
 void ast_destroy(_Dtor struct ast* ast);
 
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);

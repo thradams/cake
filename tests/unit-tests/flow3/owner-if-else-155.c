@@ -24,7 +24,7 @@ _Uninitialized struct X* _Owner F(int i)
         {
             p1 = malloc(sizeof * p1); // sizeof operand unevaluated: no null deref
         }
-    }
+    }//lint 105
     catch
     {
     }

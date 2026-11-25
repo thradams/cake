@@ -882,10 +882,10 @@ static void codegen_print_bitfield_promoted_type(struct codegen_ctx* ctx,
 {
     if (p_member->declarator == NULL || p_member->constant_expression == NULL)
     {
-       assert(0);
-       return;
+        assert(0);
+        return;
     }
-    
+
     struct type* p_type = &p_member->declarator->object.type;
     const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object);
     const int int_bits = ctx->options.platform.int_n_bits;
@@ -2178,7 +2178,7 @@ static void codegen_emit_runtime_assert_expr(struct codegen_ctx* ctx, struct oss
         _Assert appears inside a larger expression.
     */
     assert(p_sa->constant_expression != NULL); /* only static_debug() has none */
-    ss_fprintf(oss, "((");    
+    ss_fprintf(oss, "((");
     codegen_visit_expression(ctx, oss, p_sa->constant_expression); //lint 35 assert line 2058
     ss_fprintf(oss, ") ? (void)0 : %s(\"%s\", %d, %s))",
                ctx->runtime_assert_function_name, file_name, line, text);
@@ -4859,8 +4859,8 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             assert(p_expression->left != NULL);
             assert(p_expression->right != NULL);
             if (codegen_emit_bitfield_operation(ctx, oss, p_expression->left,
-                                                p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-",
-                                                p_expression->right, false, true)) //lint 35 assert line 4387
+                p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-",
+                p_expression->right, false, true)) //lint 35 assert line 4387
                 break;
             if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC) //lint 33 33 assert line 4387
             {
@@ -5333,6 +5333,7 @@ static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstrea
             {
                 if (ctx->break_reference.p_selection_statement)
                 {
+                    ctx->break_reference.end_label_used = true;
                     ss_fprintf(oss, "goto " CAKE_PREFIX_LABEL "%d; /* break */\n\n", ctx->break_reference.p_selection_statement->label_id);
                 }
                 else
@@ -5882,6 +5883,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             struct break_reference old = ctx->break_reference;
             ctx->break_reference.p_iteration_statement = NULL;
             ctx->break_reference.p_selection_statement = p_selection_statement;
+            ctx->break_reference.end_label_used = false;
 
             ss_fprintf(&ss, "/*switch*/\n");
             print_identation(ctx, &ss);
@@ -5956,8 +5958,11 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
                 codegen_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
             }
 
-            print_identation(ctx, &ss);
-            ss_fprintf(&ss, CAKE_PREFIX_LABEL "%d:;\n", ctx->break_reference.p_selection_statement->label_id);
+            if (p_label_default == NULL || ctx->break_reference.end_label_used)
+            {
+                print_identation(ctx, &ss);
+                ss_fprintf(&ss, CAKE_PREFIX_LABEL "%d:;\n", p_selection_statement->label_id);
+            }
 
             ctx->indentation--;
             print_identation(ctx, &ss);
@@ -6053,7 +6058,10 @@ static void codegen_visit_try_statement(struct codegen_ctx* ctx, struct osstream
     {
         if (p_try_statement->catch_token_opt->type == TK_KEYWORD_CAKE_CATCH)
         {
-            ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
+            if (p_try_statement->has_throw)
+                ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
+            else
+                ss_fprintf(oss, "else /* unreachable catch */ \n");
         }
         else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__FINALLY)
         {
@@ -6336,7 +6344,7 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
         }
         else
         {
-           assert(0);
+            assert(0);
         }
     }
 
@@ -6449,11 +6457,11 @@ static void codegen_visit_compound_statement_2(const char* _Nullable var_name, s
     {
         if (p_compound_statement->last_token)
         {
-          il_print_defer_list(ctx, &local, &p_compound_statement->defer_list, p_compound_statement->last_token);
+            il_print_defer_list(ctx, &local, &p_compound_statement->defer_list, p_compound_statement->last_token);
         }
         else
         {
-          assert(0);
+            assert(0);
         }
     }
 
@@ -6548,7 +6556,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     ss_swap(&bk, &ctx->block_scope_declarators);
 
     assert(function_definition->function_body);
-    codegen_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps); 
+    codegen_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps);
     ss_close(&bk);
     ss_close(&snaps);
     ctx->p_current_function_opt = previous_func; //restore
@@ -7753,7 +7761,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     if (object->p_init_expression->expression_type == EXPR_PRIMARY_DECLARATOR &&
                         object->p_init_expression->declarator)
                     {
-{
+                        {
                             size_t sz2 = 0;
                             enum sizeof_result r = type_get_sizeof(&object->p_init_expression->object.type, &sz2, &ctx->options.platform);
                             if (r != SIZEOF_RESULT_OK) r = SIZEOF_RESULT_OK; //throw;
@@ -7863,7 +7871,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 else
                 {
                     if (codegen_emit_bitfield_init_statement(ctx, ss, declarator_name, object, object->p_init_expression,
-                                                             initialize_objects_that_does_not_have_initializer))
+                        initialize_objects_that_does_not_have_initializer))
                         return;
                     emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                     print_identation_core(ss, ctx->indentation);
@@ -8936,10 +8944,12 @@ size_t clean_line_directives(char* buf)
 #if defined(__CATALINA__) && (defined(_WIN32) || defined(_WIN64))
                 // Catalina doesn't understand normalized paths on Windows
                 // so denormalize it
-                for (size_t i = 0; i < nlen; i++) {
-                   if (new_file[i] == '/') {
-                      new_file[i] = '\\';
-                   }
+                for (size_t i = 0; i < nlen; i++)
+                {
+                    if (new_file[i] == '/')
+                    {
+                        new_file[i] = '\\';
+                    }
                 }
 #endif
             }
@@ -8952,9 +8962,11 @@ size_t clean_line_directives(char* buf)
             // as the first line (in order to make builtins like alloca()
             // work correctly - see compile.h) so don't add the file name
             // in the first #line (but remember the file name!)
-            if (first_line) {
-                if (file_needed) {
-                     strncpy(current_file, new_file, sizeof(current_file) - 1);
+            if (first_line)
+            {
+                if (file_needed)
+                {
+                    strncpy(current_file, new_file, sizeof(current_file) - 1);
                 }
                 file_needed = 0;
                 first_line = 0;
@@ -9025,10 +9037,11 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         }
 
 #if defined(__CATALINA__)
-        if (ctx->options.line_directives) {
-           const struct token* tail = ctx->p_ast->token_list.tail;
-           if (tail && tail->token_origin)
-              ss_fprintf(oss, "#line 1 \"%s\"\n", tail->token_origin->lexeme);
+        if (ctx->options.line_directives)
+        {
+            const struct token* tail = ctx->p_ast->token_list.tail;
+            if (tail && tail->token_origin)
+                ss_fprintf(oss, "#line 1 \"%s\"\n", tail->token_origin->lexeme);
         }
 #endif
 

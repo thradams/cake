@@ -10,7 +10,7 @@ void catch_without_throw(void)
     try
     {
         n = 1;
-    }
+    } //lint 105
     catch
     {
         n = 2; //lint 68
@@ -49,7 +49,7 @@ void throw_of_inner_try_is_not_of_the_outer(void)
         {
         }
         n = 1;
-    }
+    } //lint 105
     catch
     {
         n = 2; //lint 68
@@ -64,7 +64,7 @@ void catch_without_throw_and_try_returns(void)
     {
         n = 1;
         return;
-    }
+    }//lint 105
     catch
     {
         n = 2; //lint 68

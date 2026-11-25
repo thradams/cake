@@ -2548,7 +2548,7 @@ enum diagnostic_id {
     W_FLOW_RESTRICT_PARAMETER_RETURNED = 102, /* the function returns a pointer into the object of a restrict parameter */
     W_FLOW_ARGUMENT_SMALLER_THAN_ARRAY_PARAMETER = 103, /* pointer argument reaches fewer elements than the array parameter size */
     W_FLOW_VALUE_NOT_TRACKED = 104, /* a value of the flow analysis does not fit in 64 bits: it is treated as unknown */
-    W_UNUSED_WARNING_105 = 105,
+    W_UNRECHEBABLE_CATCH = 105,
     W_UNUSED_WARNING_106 = 106,
     W_UNUSED_WARNING_107 = 107,
     W_UNUSED_WARNING_108 = 108,
@@ -22967,6 +22967,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
     case W_UNUSED_LABEL:
     case W_SWITCH:
     case W_FLOW_FALLTHROUGH:
+    case W_UNRECHEBABLE_CATCH:
     case C_ERROR_LABEL_NOT_DEFINED:
         return 1;
 
@@ -25943,7 +25944,7 @@ struct parser_ctx
     /*
     * Points to the try-block we're in. Or null.
     */
-    const struct try_statement* p_current_try_statement_opt;
+    struct try_statement* p_current_try_statement_opt;
 
     const struct defer_statement* p_current_defer_statement_opt;
 
@@ -26834,7 +26835,7 @@ struct declarator* _Owner declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* _Nullable specifier_qualifier_list,
     struct declaration_specifiers* _Nullable declaration_specifiers,
     bool abstract_acceptable,
-    struct token*_Nullable * _Nullable pptokenname);
+    struct token* _Nullable* _Nullable pptokenname);
 
 struct declarator* _Nonnull _Owner declarator_add_ref(struct declarator* p);
 void declarator_delete(_Dtor struct declarator* _Owner _Nullable  p);
@@ -27262,6 +27263,8 @@ struct try_statement
 
     struct expression* _Owner msvc_except_expression;
     int catch_label_id;
+
+    bool has_throw; /* we have throw inside try catch */
 };
 
 struct try_statement* _Owner try_statement(struct parser_ctx* ctx);
@@ -27289,7 +27292,7 @@ struct case_label_list
 void case_label_list_push(struct case_label_list* list, struct label* pnew);
 struct label* case_label_list_find(const struct parser_ctx* ctx, struct case_label_list* list, const struct object* object);
 const struct label* case_label_list_find_const(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* object);
-struct label* case_label_list_find_default( struct case_label_list* list);
+struct label* case_label_list_find_default(struct case_label_list* list);
 const struct label* case_label_list_find_default_const(const struct case_label_list* list);
 struct label* case_label_list_find_range(const struct parser_ctx* ctx, struct case_label_list* list, const struct object* begin, const struct object* end);
 const struct label* case_label_list_find_range_const(const struct parser_ctx* ctx, const struct case_label_list* list, const struct object* begin, const struct object* end);
@@ -27785,7 +27788,7 @@ struct ast get_ast(const struct options* options,
     const char* filename,
     const char* source,
     struct report* report);
-    
+
 void ast_destroy(_Dtor struct ast* ast);
 
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
@@ -40302,6 +40305,10 @@ struct expression* _Owner checked_expression(struct parser_ctx* ctx, bool is_dis
             {
                 diagnostic(C_ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, NULL, "checked expression not within try-catch block");
             }
+            else
+            {
+                ctx->p_current_try_statement_opt->has_throw = true; /* implicit throw */
+            }
 
             if (!type_is_scalar(&p_expression_node->object.type))
             {
@@ -40318,7 +40325,7 @@ struct expression* _Owner checked_expression(struct parser_ctx* ctx, bool is_dis
             p_expression_node_new->object = object_dup(&p_expression_node->object);
             parser_match(ctx);
             p_expression_node_new->left = p_expression_node;
-            p_expression_node = p_expression_node_new;
+            p_expression_node = p_expression_node_new;            
         }
         
     }
@@ -43691,7 +43698,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.17.09"
+#define CAKE_VERSION "0.17.10"
 
 
  
@@ -43817,6 +43824,7 @@ struct codegen_ctx
     {
         struct selection_statement* p_selection_statement;
         struct iteration_statement* p_iteration_statement;
+        bool end_label_used;
     } break_reference;
 
     bool is__func__predefined_identifier_added;
@@ -47304,7 +47312,7 @@ struct declaration_specifiers* _Owner declaration_specifiers(struct parser_ctx* 
         }
 
 
-        
+
         p_declaration_specifiers->last_token = previous_parser_token(ctx->current);
         /* int main() { static int i; } -- i is not automatic */
         final_specifier(&p_declaration_specifiers->type_specifier_flags);
@@ -47541,14 +47549,14 @@ struct declaration* _Owner declaration_core(struct parser_ctx* ctx,
 
         if (p_declaration->last_token == NULL)
         {
-            if (ctx->current == NULL)    
+            if (ctx->current == NULL)
             {
                 //TODO
             }
             else
             {
-               p_declaration->last_token = previous_parser_token(ctx->current);           
-            } 
+                p_declaration->last_token = previous_parser_token(ctx->current);
+            }
         }
 
         if (p_declaration->lint_token)
@@ -51974,7 +51982,7 @@ struct specifier_qualifier_list* _Owner specifier_qualifier_list(struct parser_c
         {
             diagnostic(C_ERROR_INVALID_BITINT_WIDTH, ctx, p_specifier_qualifier_list->first_token, NULL, "signed _BitInt must have a width of at least 2");
         }
-        
+
         p_specifier_qualifier_list->last_token = previous_parser_token(ctx->current);
     }
     catch
@@ -53166,7 +53174,7 @@ struct declarator* _Owner declarator(struct parser_ctx* ctx,
 
         if (ctx->current != p_declarator->first_token_opt)
         {
-            
+
         }
         else
         {
@@ -55556,7 +55564,7 @@ struct attribute_specifier_sequence* _Owner attribute_specifier_sequence_opt(str
 
             }
 
-            
+
             if (ctx->current == NULL)
             {
                 //TODO
@@ -56208,7 +56216,7 @@ struct secondary_block* _Owner secondary_block(struct parser_ctx* ctx)
 
         p_secondary_block->statement = p_statement;
 
-        
+
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -57745,7 +57753,7 @@ struct try_statement* _Owner try_statement(struct parser_ctx* ctx)
             throw;
         }
 
-        const struct try_statement* try_statement_copy_opt = ctx->p_current_try_statement_opt;
+        struct try_statement* try_statement_copy_opt = ctx->p_current_try_statement_opt;
         ctx->p_current_try_statement_opt = p_try_statement;
 
         p_try_statement->catch_label_id = ctx->label_id++;
@@ -57808,7 +57816,37 @@ struct try_statement* _Owner try_statement(struct parser_ctx* ctx)
             if (p_try_statement->catch_secondary_block_opt == NULL) throw;
         }
 
-        
+        if (!p_try_statement->has_throw)
+        {
+            if (p_try_statement->catch_secondary_block_opt)
+            {
+                diagnostic(W_UNRECHEBABLE_CATCH,
+                ctx,
+                p_try_statement->secondary_block->last_token,
+                NULL,
+                "catch block is unreachable because the try block contains no throw statement");                
+            }
+            else
+            {
+                diagnostic(W_UNRECHEBABLE_CATCH,
+                ctx,
+                p_try_statement->secondary_block->last_token,
+                NULL,
+                "try block contains no throw statement");
+            }            
+        }
+
+        if (p_try_statement->secondary_block &&
+                p_try_statement->secondary_block->statement &&
+                p_try_statement->secondary_block->statement->unlabeled_statement &&
+                p_try_statement->secondary_block->statement->unlabeled_statement->primary_block &&
+                p_try_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement &&
+                p_try_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement->lint_token)
+        {
+            check_dianostic_suppression_after(ctx,
+                p_try_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement->lint_token);
+        }
+
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -58331,7 +58369,7 @@ struct selection_statement* _Owner selection_statement(struct parser_ctx* ctx)
             throw;
         }
 
-        
+
 
         p_selection_statement->last_token = previous_parser_token(ctx->current);
 
@@ -58426,7 +58464,7 @@ struct defer_statement* _Owner defer_statement(struct parser_ctx* ctx)
         if (p_unlabeled_statement == NULL) throw;
 
         p_defer_statement->unlabeled_statement = p_unlabeled_statement;
-        
+
         if (ctx->current == NULL)
         {
             unexpected_end_of_file(ctx);
@@ -58873,6 +58911,7 @@ struct jump_statement* _Owner jump_statement(struct parser_ctx* ctx)
             else
             {
                 p_jump_statement->label_id = ctx->p_current_try_statement_opt->catch_label_id;
+                ctx->p_current_try_statement_opt->has_throw = true;
             }
 
             parser_match(ctx);
@@ -59163,7 +59202,7 @@ struct condition* _Owner condition(struct parser_ctx* ctx)
             throw;
         }
 
-        
+
 
         p_condition->last_token = previous_parser_token(ctx->current);
     }
@@ -59817,7 +59856,7 @@ struct compound_statement* _Owner function_body(struct parser_ctx* ctx)
     * for try-catch blocks
     */
 
-    const struct try_statement* p_current_try_statement_opt = ctx->p_current_try_statement_opt;
+    struct try_statement* p_current_try_statement_opt = ctx->p_current_try_statement_opt;
     ctx->p_current_try_statement_opt = NULL;
 
     int label_id = ctx->label_id;
@@ -65004,10 +65043,10 @@ static void codegen_print_bitfield_promoted_type(struct codegen_ctx* ctx,
 {
     if (p_member->declarator == NULL || p_member->constant_expression == NULL)
     {
-       assert(0);
-       return;
+        assert(0);
+        return;
     }
-    
+
     struct type* p_type = &p_member->declarator->object.type;
     const int width = (int)object_to_unsigned_long_long(&p_member->constant_expression->object);
     const int int_bits = ctx->options.platform.int_n_bits;
@@ -66300,7 +66339,7 @@ static void codegen_emit_runtime_assert_expr(struct codegen_ctx* ctx, struct oss
         _Assert appears inside a larger expression.
     */
     assert(p_sa->constant_expression != NULL); /* only static_debug() has none */
-    ss_fprintf(oss, "((");    
+    ss_fprintf(oss, "((");
     codegen_visit_expression(ctx, oss, p_sa->constant_expression); //lint 35 assert line 2058
     ss_fprintf(oss, ") ? (void)0 : %s(\"%s\", %d, %s))",
                ctx->runtime_assert_function_name, file_name, line, text);
@@ -68981,8 +69020,8 @@ static void codegen_visit_expression_core(struct codegen_ctx* ctx, struct osstre
             assert(p_expression->left != NULL);
             assert(p_expression->right != NULL);
             if (codegen_emit_bitfield_operation(ctx, oss, p_expression->left,
-                                                p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-",
-                                                p_expression->right, false, true)) //lint 35 assert line 4387
+                p_expression->expression_type == EXPR_ASSIGNMENT_PLUS_ASSIGN ? "+" : "-",
+                p_expression->right, false, true)) //lint 35 assert line 4387
                 break;
             if (p_expression->left->object.type.type_qualifier_flags & TYPE_QUALIFIER__ATOMIC) //lint 33 33 assert line 4387
             {
@@ -69455,6 +69494,7 @@ static void codegen_visit_jump_statement(struct codegen_ctx* ctx, struct osstrea
             {
                 if (ctx->break_reference.p_selection_statement)
                 {
+                    ctx->break_reference.end_label_used = true;
                     ss_fprintf(oss, "goto " CAKE_PREFIX_LABEL "%d; /* break */\n\n", ctx->break_reference.p_selection_statement->label_id);
                 }
                 else
@@ -70004,6 +70044,7 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
             struct break_reference old = ctx->break_reference;
             ctx->break_reference.p_iteration_statement = NULL;
             ctx->break_reference.p_selection_statement = p_selection_statement;
+            ctx->break_reference.end_label_used = false;
 
             ss_fprintf(&ss, "/*switch*/\n");
             print_identation(ctx, &ss);
@@ -70078,8 +70119,11 @@ static void codegen_visit_selection_statement(struct codegen_ctx* ctx, struct os
                 codegen_visit_secondary_block(ctx, &ss, p_selection_statement->secondary_block);
             }
 
-            print_identation(ctx, &ss);
-            ss_fprintf(&ss, CAKE_PREFIX_LABEL "%d:;\n", ctx->break_reference.p_selection_statement->label_id);
+            if (p_label_default == NULL || ctx->break_reference.end_label_used)
+            {
+                print_identation(ctx, &ss);
+                ss_fprintf(&ss, CAKE_PREFIX_LABEL "%d:;\n", p_selection_statement->label_id);
+            }
 
             ctx->indentation--;
             print_identation(ctx, &ss);
@@ -70175,7 +70219,10 @@ static void codegen_visit_try_statement(struct codegen_ctx* ctx, struct osstream
     {
         if (p_try_statement->catch_token_opt->type == TK_KEYWORD_CAKE_CATCH)
         {
-            ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
+            if (p_try_statement->has_throw)
+                ss_fprintf(oss, "else " CAKE_PREFIX_LABEL "%d: /*catch*/ \n", p_try_statement->catch_label_id);
+            else
+                ss_fprintf(oss, "else /* unreachable catch */ \n");
         }
         else if (p_try_statement->catch_token_opt->type == TK_KEYWORD_MSVC__FINALLY)
         {
@@ -70458,7 +70505,7 @@ static void codegen_visit_compound_statement(struct codegen_ctx* ctx,
         }
         else
         {
-           assert(0);
+            assert(0);
         }
     }
 
@@ -70571,11 +70618,11 @@ static void codegen_visit_compound_statement_2(const char* _Nullable var_name, s
     {
         if (p_compound_statement->last_token)
         {
-          il_print_defer_list(ctx, &local, &p_compound_statement->defer_list, p_compound_statement->last_token);
+            il_print_defer_list(ctx, &local, &p_compound_statement->defer_list, p_compound_statement->last_token);
         }
         else
         {
-          assert(0);
+            assert(0);
         }
     }
 
@@ -70670,7 +70717,7 @@ static void codegen_visit_function_body(struct codegen_ctx* ctx,
     ss_swap(&bk, &ctx->block_scope_declarators);
 
     assert(function_definition->function_body);
-    codegen_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps); 
+    codegen_visit_compound_statement(ctx, oss, function_definition->function_body, &bk, &snaps);
     ss_close(&bk);
     ss_close(&snaps);
     ctx->p_current_function_opt = previous_func; //restore
@@ -71875,7 +71922,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                     if (object->p_init_expression->expression_type == EXPR_PRIMARY_DECLARATOR &&
                         object->p_init_expression->declarator)
                     {
-{
+                        {
                             size_t sz2 = 0;
                             enum sizeof_result r = type_get_sizeof(&object->p_init_expression->object.type, &sz2, &ctx->options.platform);
                             if (r != SIZEOF_RESULT_OK) r = SIZEOF_RESULT_OK; //throw;
@@ -71985,7 +72032,7 @@ static void assign_each_member_from_initialization(struct codegen_ctx* ctx,
                 else
                 {
                     if (codegen_emit_bitfield_init_statement(ctx, ss, declarator_name, object, object->p_init_expression,
-                                                             initialize_objects_that_does_not_have_initializer))
+                        initialize_objects_that_does_not_have_initializer))
                         return;
                     emit_line_directive(ctx, ss, object->p_init_expression->first_token);
                     print_identation_core(ss, ctx->indentation);
@@ -73058,10 +73105,12 @@ size_t clean_line_directives(char* buf)
 #if defined(__CATALINA__) && (defined(_WIN32) || defined(_WIN64))
                 // Catalina doesn't understand normalized paths on Windows
                 // so denormalize it
-                for (size_t i = 0; i < nlen; i++) {
-                   if (new_file[i] == '/') {
-                      new_file[i] = '\\';
-                   }
+                for (size_t i = 0; i < nlen; i++)
+                {
+                    if (new_file[i] == '/')
+                    {
+                        new_file[i] = '\\';
+                    }
                 }
 #endif
             }
@@ -73074,9 +73123,11 @@ size_t clean_line_directives(char* buf)
             // as the first line (in order to make builtins like alloca()
             // work correctly - see compile.h) so don't add the file name
             // in the first #line (but remember the file name!)
-            if (first_line) {
-                if (file_needed) {
-                     strncpy(current_file, new_file, sizeof(current_file) - 1);
+            if (first_line)
+            {
+                if (file_needed)
+                {
+                    strncpy(current_file, new_file, sizeof(current_file) - 1);
                 }
                 file_needed = 0;
                 first_line = 0;
@@ -73147,10 +73198,11 @@ int codegen_visit(struct codegen_ctx* ctx, struct osstream* oss)
         }
 
 #if defined(__CATALINA__)
-        if (ctx->options.line_directives) {
-           const struct token* tail = ctx->p_ast->token_list.tail;
-           if (tail && tail->token_origin)
-              ss_fprintf(oss, "#line 1 \"%s\"\n", tail->token_origin->lexeme);
+        if (ctx->options.line_directives)
+        {
+            const struct token* tail = ctx->p_ast->token_list.tail;
+            if (tail && tail->token_origin)
+                ss_fprintf(oss, "#line 1 \"%s\"\n", tail->token_origin->lexeme);
         }
 #endif
 

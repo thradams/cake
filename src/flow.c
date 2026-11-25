@@ -112,11 +112,10 @@ static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
                                               const struct object* _Nullable p_object_dest,
                                               const struct expression* _Nullable p_src_expression);
 
-static long long flow_cast_integer_value(const struct flow_ctx* ctx, long long value, const struct type* _Nullable target_type)
+static long long flow_cast_integer_value(const struct flow_ctx* ctx, long long value, const struct type* target_type)
 {
     try
-    {
-        if (target_type == NULL) return value;
+    {        
         if (!type_is_integer(target_type)) return value;
 
         size_t width = 1;
