@@ -43698,7 +43698,7 @@ void flow_start_visit_declaration(struct flow_ctx* ctx, struct declaration* p_de
 */
 
 //#pragma once
-#define CAKE_VERSION "0.17.10"
+#define CAKE_VERSION "0.17.11"
 
 
  
@@ -71038,10 +71038,22 @@ static void d_print_type_core(struct codegen_ctx* ctx,
             {
                 if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
                     ss_fprintf(&local, "volatile ");
+
                 enum type_specifier_flags enum_type_specifier_flags =
                     get_enum_type_specifier_flags(p_type->enum_specifier);
 
-                print_type_specifier_flags(&local, &first, enum_type_specifier_flags, 0);
+                if (enum_type_specifier_flags & TYPE_SPECIFIER_BOOL)
+                {
+                    /* enum e : _Bool: C89 has no _Bool, use the lowered bool type of the target */
+                    print_type_specifier_flags(&local,
+                                               &first,
+                                               object_type_to_type_specifier(ctx->options.platform.bool_type),
+                                               0);
+                }
+                else
+                {
+                    print_type_specifier_flags(&local, &first, enum_type_specifier_flags, 0);
+                }
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
@@ -75963,11 +75975,10 @@ static void flow_apply_alloc_contract_to_dest(struct flow_ctx* ctx,
                                               const struct object* _Nullable p_object_dest,
                                               const struct expression* _Nullable p_src_expression);
 
-static long long flow_cast_integer_value(const struct flow_ctx* ctx, long long value, const struct type* _Nullable target_type)
+static long long flow_cast_integer_value(const struct flow_ctx* ctx, long long value, const struct type* target_type)
 {
     try
-    {
-        if (target_type == NULL) return value;
+    {        
         if (!type_is_integer(target_type)) return value;
 
         size_t width = 1;
@@ -93774,7 +93785,7 @@ void target_self_test()
     assert(target_bitint_maxwidth(&catalina) == 32);
 
     /* an unsigned long long value is cut to the 32 bits of the target */
-    struct object v = object_make_unsigned_long_long(&catalina, 0x100000001ULL);
+    struct object v = object_make_unsigned_long_long(&catalina, (1ULL << 32) + 1ULL);
     assert(integer128_equal(v.value.host_integer128, integer128_from_unsigned(1)));
     object_destroy(&v);
 

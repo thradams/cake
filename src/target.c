@@ -750,7 +750,7 @@ void target_self_test()
     assert(target_bitint_maxwidth(&catalina) == 32);
 
     /* an unsigned long long value is cut to the 32 bits of the target */
-    struct object v = object_make_unsigned_long_long(&catalina, 0x100000001ULL);
+    struct object v = object_make_unsigned_long_long(&catalina, (1ULL << 32) + 1ULL);
     assert(integer128_equal(v.value.host_integer128, integer128_from_unsigned(1)));
     object_destroy(&v);
 

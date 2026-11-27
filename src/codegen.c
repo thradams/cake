@@ -6877,10 +6877,22 @@ static void d_print_type_core(struct codegen_ctx* ctx,
             {
                 if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
                     ss_fprintf(&local, "volatile ");
+
                 enum type_specifier_flags enum_type_specifier_flags =
                     get_enum_type_specifier_flags(p_type->enum_specifier);
 
-                print_type_specifier_flags(&local, &first, enum_type_specifier_flags, 0);
+                if (enum_type_specifier_flags & TYPE_SPECIFIER_BOOL)
+                {
+                    /* enum e : _Bool: C89 has no _Bool, use the lowered bool type of the target */
+                    print_type_specifier_flags(&local,
+                                               &first,
+                                               object_type_to_type_specifier(ctx->options.platform.bool_type),
+                                               0);
+                }
+                else
+                {
+                    print_type_specifier_flags(&local, &first, enum_type_specifier_flags, 0);
+                }
             }
             else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
