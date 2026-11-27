@@ -843,7 +843,7 @@ static void flow_object_init(struct flow_ctx* ctx, struct object* p_object, cons
     if (type_is_pointer(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_PTR;
-        value.value.p = (void*)(uintptr_t)integer128_to_ull(p_object->value.host_integer128);
+        value.value.p = (void*)integer128_to_ull(p_object->value.host_integer128);
     }
     else if (p_object->state == CONSTANT_VALUE_STATE_CONSTANT || p_object->state == CONSTANT_VALUE_EQUAL)
     {
@@ -2276,6 +2276,7 @@ const char* _Nonnull flow_get_only_member_name(const char* member_designator)
     }
     return dot;
 }
+
 static bool flow_branch_is_ancestor_or_self(const struct flow_branch* _Nullable ancestor, const struct flow_branch* _Nullable m)
 {
     if (ancestor == NULL)
@@ -2288,6 +2289,7 @@ static bool flow_branch_is_ancestor_or_self(const struct flow_branch* _Nullable 
     }
     return false;
 }
+
 static bool flow_object_has_initialized_state(struct flow_ctx* ctx, const struct object* obj)
 {
     const struct flow_key_alternatives* e = flow_branch_search_up(ctx->p_current_flow_branch, obj);
@@ -2304,6 +2306,7 @@ static bool flow_object_has_initialized_state(struct flow_ctx* ctx, const struct
     }
     return false;
 }
+
 static bool flow_union_is_initialized(struct flow_ctx* ctx, const struct object* p_union)
 {
     if (!type_is_union(&p_union->type))
@@ -2588,10 +2591,10 @@ static const struct flow_branch* flow_origin_more_specific_keep_sides(struct flo
     table is full.
 */
 static struct flow_reported_finding* flow_finding_find_add(struct flow_ctx* ctx,
-                                                                const struct object* _Nullable p_object,
-                                                                int line,
-                                                                int diagnostic_id,
-                                                                bool* is_new)
+                                                           const struct object* _Nullable p_object,
+                                                           int line,
+                                                           int diagnostic_id,
+                                                           bool* is_new)
 {
     const int max = FLOW_MAX_REPORTED_FINDINGS;
 
@@ -3325,7 +3328,7 @@ static bool flow_dest_pointee_is_const(const struct type* p_type)
 
 static bool flow_dest_pointee_is_ctor(const struct type* p_type)
 {
-    return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_CTOR;
+    return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_OUT;
 }
 
 /*
@@ -5290,7 +5293,7 @@ static struct flow_branch* flow_visit_function_arguments(struct flow_ctx* ctx,
             {
                 variadic_type = type_dup(&p_arg_expr->object.type);
                 variadic_type.type_qualifier_flags &= ~(TYPE_QUALIFIER_CAKE_OWNER | TYPE_QUALIFIER_CAKE_DTOR |
-                                                        TYPE_QUALIFIER_CAKE_CTOR | TYPE_QUALIFIER_CAKE_UNINIT);
+                                                        TYPE_QUALIFIER_CAKE_OUT | TYPE_QUALIFIER_CAKE_UNINIT);
             }
 
             struct object param_object = { 0 };

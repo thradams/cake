@@ -3,14 +3,7 @@
  *  https://github.com/thradams/cake
 */
 
-
-
-/*
-  For performance reasons we will separate expression from preprocessor from compiler.
-*/
-
 #pragma safety enable
-
 
 #include "cake_compat.h"
 #include <stdlib.h>

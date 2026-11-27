@@ -5457,9 +5457,6 @@ static void codegen_emit_loop_exit_test(struct codegen_ctx* ctx, struct osstream
 
 static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct osstream* oss, struct iteration_statement* p_iteration_statement)
 {
-    if (p_iteration_statement->secondary_block == NULL)
-        return;
-
     struct break_reference old = ctx->break_reference;
     ctx->break_reference.p_iteration_statement = p_iteration_statement;
     ctx->break_reference.p_selection_statement = NULL;
@@ -5469,6 +5466,9 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
 
     try
     {
+        if (p_iteration_statement->secondary_block == NULL)
+           throw;
+
         print_identation(ctx, oss);
         if (p_iteration_statement->first_token->type == TK_KEYWORD_WHILE)
         {

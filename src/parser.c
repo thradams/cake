@@ -9132,7 +9132,7 @@ struct type_qualifier* _Owner type_qualifier(struct parser_ctx* ctx)
         switch (ctx->current->type)
         {
         case TK_KEYWORD_CAKE_OUT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_CTOR;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OUT;
             break;
 
         case TK_KEYWORD_CAKE_DTOR:
@@ -10348,7 +10348,7 @@ struct parameter_declaration* _Owner parameter_declaration(struct parser_ctx* ct
         {
             if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CTOR)
             {
-                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_CTOR;
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_OUT;
             }
             else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DTOR)
             {

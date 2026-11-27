@@ -97,6 +97,7 @@ struct hash_item_set
     struct struct_entry* _Owner p_struct_entry;
     char* _Owner text;
 };
+
 void hash_item_set_destroy(_Dtor struct hash_item_set* p);
 
 int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * item);

@@ -24,7 +24,7 @@
      TYPE_QUALIFIER_CAKE_NULLABLE   | \
      TYPE_QUALIFIER_CAKE_NONNULL | \
      TYPE_QUALIFIER_CAKE_DTOR  | \
-     TYPE_QUALIFIER_CAKE_CTOR  | \
+     TYPE_QUALIFIER_CAKE_OUT  | \
      TYPE_QUALIFIER_CAKE_UNINIT | \
      TYPE_QUALIFIER_CAKE_CLEAR)
 
@@ -1011,7 +1011,7 @@ bool type_is_view(const struct type* p_type)
 
 bool type_is_out(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OUT;
 }
 
 bool type_is_const(const struct type* p_type)
@@ -1292,7 +1292,7 @@ bool type_is_pointer_to_out(const struct type* p_type)
 
     if (p_type->category == TYPE_CATEGORY_POINTER)
     {
-        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
+        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OUT;
     }
     return false;
 }
@@ -4409,7 +4409,7 @@ static bool type_is_same_impl(const struct type* a,
             enum type_qualifier_flags bq = pb->type_qualifier_flags;
 
             unsigned int all = (TYPE_QUALIFIER_CAKE_OWNER | TYPE_QUALIFIER_CAKE_VIEW |
-             TYPE_QUALIFIER_CAKE_NULLABLE | TYPE_QUALIFIER_CAKE_DTOR | TYPE_QUALIFIER_CAKE_CTOR |
+             TYPE_QUALIFIER_CAKE_NULLABLE | TYPE_QUALIFIER_CAKE_DTOR | TYPE_QUALIFIER_CAKE_OUT |
              TYPE_QUALIFIER_CAKE_UNINIT | TYPE_QUALIFIER_CAKE_CLEAR | TYPE_QUALIFIER_CAKE_NONNULL);
 
             aq = aq & ~all;
@@ -4666,7 +4666,7 @@ bool type_extensions_are_compatible(const struct type* src, const struct type* d
                 if (a_opt && !b_opt) /* read only: may add _Nullable */
                     return false;
             }
-            else if (pb->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR)
+            else if (pb->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OUT)
             {
                 if (b_opt && !a_opt) /* write only: may remove _Nullable */
                     return false;

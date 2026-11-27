@@ -390,8 +390,8 @@ struct declaration_specifiers
     struct typeof_specifier* typeof_specifier;
     struct atomic_type_specifier* atomic_type_specifier;
 
-    struct token* _Nonnull first_token; /*not _Owner*/
-    struct token* _Nonnull last_token; /*not _Owner*/
+    struct token* _Nonnull first_token;
+    struct token* _Nonnull last_token;
 
     struct declaration_specifier* _Owner head;
     struct declaration_specifier* tail;
@@ -969,7 +969,7 @@ struct declarator
 {
     /*
       declarator:
-        pointer _Nullable direct-declarator
+        pointer opt direct-declarator
     */
 
     /*
@@ -1023,14 +1023,9 @@ struct declarator
 
     struct object object;
 
-    /*user by flow analysis*/
-    struct flow1_object* p_flow_object;
 
     struct expression* _Owner p_expression_true;
     struct expression* _Owner p_expression_false;
-
-    /*Used to check contracts*/
-    struct expression* p_alias_of_expression;
 
     /*
       used in code generation to indicate when the declarator was renamed
@@ -1462,8 +1457,6 @@ struct defer_list_item
     struct defer_list_item* _Owner next;
 };
 
-
-
 void defer_list_add(struct defer_list* list, struct defer_list_item* _Owner p_item);
 void defer_list_destroy(_Dtor struct defer_list* p);
 
@@ -1508,10 +1501,7 @@ void asm_statement_delete(_Dtor struct asm_statement* _Owner _Nullable p);
 
 struct case_label_list
 {
-    /*
-       it is not the owner. The owner is the label statement
-    */
-    struct label* head;
+    struct label* head; /* not owner */
     struct label* tail;
 };
 
@@ -1531,8 +1521,7 @@ struct selection_statement
         "if" ( expression ) secondary-block "else" secondary-block
         "switch" ( expression ) secondary-block
     */
-
-    //TODO rename
+    
     /*
         C2Y
          selection-statement:

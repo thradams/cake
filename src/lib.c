@@ -1685,10 +1685,7 @@ int json_write_file(const char *path, const struct json_value *root)
  *  https://github.com/thradams/cake
 */
 
-
-
 #pragma safety enable
-
 
 
 #include <assert.h>
@@ -1760,7 +1757,7 @@ void c_clrscr();
 void c_gotoxy(int x, int y);
 
 
-#line 20 "token.c"
+#line 17 "token.c"
 
 #line 1 "fs.h"
 /*
@@ -1933,7 +1930,7 @@ bool path_equal(const char* a, const char* b);
 /* file is inside dir (dir without a trailing separator) */
 bool path_is_under(const char* file, const char* dir);
 
-#line 21 "token.c"
+#line 18 "token.c"
 
 #line 1 "osstream.h"
 /*
@@ -1964,7 +1961,7 @@ void ss_swap(struct osstream* a, struct osstream* b);
 
 const char* _Nonnull empty_if_null(const char* _Nullable s);
 
-#line 22 "token.c"
+#line 19 "token.c"
 
 #line 1 "tokenizer.h"
 /*
@@ -2074,6 +2071,7 @@ struct hash_item_set
     struct struct_entry* _Owner p_struct_entry;
     char* _Owner text;
 };
+
 void hash_item_set_destroy(_Dtor struct hash_item_set* p);
 
 int hashmap_set(struct hash_map* map, const char* key, struct hash_item_set * item);
@@ -3662,7 +3660,7 @@ void print_path(const char* path, bool fullpath);
 int preprocessor_copy_included_headers(const struct preprocessor_ctx* ctx, const char* dest_dir);
 
 
-#line 23 "token.c"
+#line 20 "token.c"
 
 
 #ifdef _WIN32
@@ -5467,7 +5465,7 @@ static void assert_func(int condition, const char* func, const char* file, int l
 #define assert(expression) assert_func(expression, __func__, __FILE__, __LINE__, #expression)
 
 
-#line 1786 "token.c"
+#line 1783 "token.c"
 
 void token_list_remove_get_test()
 {
@@ -24779,7 +24777,7 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_CAKE_NULLABLE = 1 << 6,
 
     TYPE_QUALIFIER_CAKE_DTOR = 1 << 7,
-    TYPE_QUALIFIER_CAKE_CTOR = 1 << 8,
+    TYPE_QUALIFIER_CAKE_OUT = 1 << 8,
     TYPE_QUALIFIER_CAKE_UNINIT = 1 << 12,
     TYPE_QUALIFIER_CAKE_CLEAR = 1 << 13,
 
@@ -26164,8 +26162,8 @@ struct declaration_specifiers
     struct typeof_specifier* typeof_specifier;
     struct atomic_type_specifier* atomic_type_specifier;
 
-    struct token* _Nonnull first_token; /*not _Owner*/
-    struct token* _Nonnull last_token; /*not _Owner*/
+    struct token* _Nonnull first_token;
+    struct token* _Nonnull last_token;
 
     struct declaration_specifier* _Owner head;
     struct declaration_specifier* tail;
@@ -26743,7 +26741,7 @@ struct declarator
 {
     /*
       declarator:
-        pointer _Nullable direct-declarator
+        pointer opt direct-declarator
     */
 
     /*
@@ -26797,14 +26795,9 @@ struct declarator
 
     struct object object;
 
-    /*user by flow analysis*/
-    struct flow1_object* p_flow_object;
 
     struct expression* _Owner p_expression_true;
     struct expression* _Owner p_expression_false;
-
-    /*Used to check contracts*/
-    struct expression* p_alias_of_expression;
 
     /*
       used in code generation to indicate when the declarator was renamed
@@ -27236,8 +27229,6 @@ struct defer_list_item
     struct defer_list_item* _Owner next;
 };
 
-
-
 void defer_list_add(struct defer_list* list, struct defer_list_item* _Owner p_item);
 void defer_list_destroy(_Dtor struct defer_list* p);
 
@@ -27282,10 +27273,7 @@ void asm_statement_delete(_Dtor struct asm_statement* _Owner _Nullable p);
 
 struct case_label_list
 {
-    /*
-       it is not the owner. The owner is the label statement
-    */
-    struct label* head;
+    struct label* head; /* not owner */
     struct label* tail;
 };
 
@@ -27305,8 +27293,7 @@ struct selection_statement
         "if" ( expression ) secondary-block "else" secondary-block
         "switch" ( expression ) secondary-block
     */
-
-    //TODO rename
+    
     /*
         C2Y
          selection-statement:
@@ -42066,14 +42053,7 @@ void flow_expression_to_string(const struct expression* p_expression, struct oss
  *  https://github.com/thradams/cake
 */
 
-
-
-/*
-  For performance reasons we will separate expression from preprocessor from compiler.
-*/
-
 #pragma safety enable
-
 
 
 #include <stdlib.h>
@@ -52940,7 +52920,7 @@ struct type_qualifier* _Owner type_qualifier(struct parser_ctx* ctx)
         switch (ctx->current->type)
         {
         case TK_KEYWORD_CAKE_OUT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_CTOR;
+            p_type_qualifier->flags = TYPE_QUALIFIER_CAKE_OUT;
             break;
 
         case TK_KEYWORD_CAKE_DTOR:
@@ -54156,7 +54136,7 @@ struct parameter_declaration* _Owner parameter_declaration(struct parser_ctx* ct
         {
             if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_CTOR)
             {
-                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_CTOR;
+                p_declaration_specifiers->type_qualifier_flags |= TYPE_QUALIFIER_CAKE_OUT;
             }
             else if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DTOR)
             {
@@ -69618,9 +69598,6 @@ static void codegen_emit_loop_exit_test(struct codegen_ctx* ctx, struct osstream
 
 static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct osstream* oss, struct iteration_statement* p_iteration_statement)
 {
-    if (p_iteration_statement->secondary_block == NULL)
-        return;
-
     struct break_reference old = ctx->break_reference;
     ctx->break_reference.p_iteration_statement = p_iteration_statement;
     ctx->break_reference.p_selection_statement = NULL;
@@ -69630,6 +69607,9 @@ static void codegen_visit_iteration_statement(struct codegen_ctx* ctx, struct os
 
     try
     {
+        if (p_iteration_statement->secondary_block == NULL)
+           throw;
+
         print_identation(ctx, oss);
         if (p_iteration_statement->first_token->type == TK_KEYWORD_WHILE)
         {
@@ -76706,7 +76686,7 @@ static void flow_object_init(struct flow_ctx* ctx, struct object* p_object, cons
     if (type_is_pointer(&p_object->type))
     {
         value.value_kind = FLOW_VALUE_KIND_PTR;
-        value.value.p = (void*)(uintptr_t)integer128_to_ull(p_object->value.host_integer128);
+        value.value.p = (void*)integer128_to_ull(p_object->value.host_integer128);
     }
     else if (p_object->state == CONSTANT_VALUE_STATE_CONSTANT || p_object->state == CONSTANT_VALUE_EQUAL)
     {
@@ -79188,7 +79168,7 @@ static bool flow_dest_pointee_is_const(const struct type* p_type)
 
 static bool flow_dest_pointee_is_ctor(const struct type* p_type)
 {
-    return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_CTOR;
+    return flow_dest_pointee_qualifiers(p_type) & TYPE_QUALIFIER_CAKE_OUT;
 }
 
 /*
@@ -81153,7 +81133,7 @@ static struct flow_branch* flow_visit_function_arguments(struct flow_ctx* ctx,
             {
                 variadic_type = type_dup(&p_arg_expr->object.type);
                 variadic_type.type_qualifier_flags &= ~(TYPE_QUALIFIER_CAKE_OWNER | TYPE_QUALIFIER_CAKE_DTOR |
-                                                        TYPE_QUALIFIER_CAKE_CTOR | TYPE_QUALIFIER_CAKE_UNINIT);
+                                                        TYPE_QUALIFIER_CAKE_OUT | TYPE_QUALIFIER_CAKE_UNINIT);
             }
 
             struct object param_object = { 0 };
@@ -93820,7 +93800,7 @@ void target_self_test()
      TYPE_QUALIFIER_CAKE_NULLABLE   | \
      TYPE_QUALIFIER_CAKE_NONNULL | \
      TYPE_QUALIFIER_CAKE_DTOR  | \
-     TYPE_QUALIFIER_CAKE_CTOR  | \
+     TYPE_QUALIFIER_CAKE_OUT  | \
      TYPE_QUALIFIER_CAKE_UNINIT | \
      TYPE_QUALIFIER_CAKE_CLEAR)
 
@@ -94807,7 +94787,7 @@ bool type_is_view(const struct type* p_type)
 
 bool type_is_out(const struct type* p_type)
 {
-    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OUT;
 }
 
 bool type_is_const(const struct type* p_type)
@@ -95088,7 +95068,7 @@ bool type_is_pointer_to_out(const struct type* p_type)
 
     if (p_type->category == TYPE_CATEGORY_POINTER)
     {
-        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR;
+        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OUT;
     }
     return false;
 }
@@ -98205,7 +98185,7 @@ static bool type_is_same_impl(const struct type* a,
             enum type_qualifier_flags bq = pb->type_qualifier_flags;
 
             unsigned int all = (TYPE_QUALIFIER_CAKE_OWNER | TYPE_QUALIFIER_CAKE_VIEW |
-             TYPE_QUALIFIER_CAKE_NULLABLE | TYPE_QUALIFIER_CAKE_DTOR | TYPE_QUALIFIER_CAKE_CTOR |
+             TYPE_QUALIFIER_CAKE_NULLABLE | TYPE_QUALIFIER_CAKE_DTOR | TYPE_QUALIFIER_CAKE_OUT |
              TYPE_QUALIFIER_CAKE_UNINIT | TYPE_QUALIFIER_CAKE_CLEAR | TYPE_QUALIFIER_CAKE_NONNULL);
 
             aq = aq & ~all;
@@ -98462,7 +98442,7 @@ bool type_extensions_are_compatible(const struct type* src, const struct type* d
                 if (a_opt && !b_opt) /* read only: may add _Nullable */
                     return false;
             }
-            else if (pb->type_qualifier_flags & TYPE_QUALIFIER_CAKE_CTOR)
+            else if (pb->type_qualifier_flags & TYPE_QUALIFIER_CAKE_OUT)
             {
                 if (b_opt && !a_opt) /* write only: may remove _Nullable */
                     return false;
